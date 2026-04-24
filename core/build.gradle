@@ -1,0 +1,39 @@
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+eclipse.project.name = appName + '-core'
+
+dependencies {
+  // 基础音频解码支持
+  implementation "org.jflac:jflac-codec:1.5.2"
+  implementation "javazoom:jlayer:1.0.1"
+
+  // beatoraja 核心 JSON 工具
+  implementation "com.fasterxml.jackson.core:jackson-databind:2.21.2"
+
+
+
+  // 常用工具类
+  implementation "org.apache.commons:commons-lang3:3.20.0"
+  implementation "commons-io:commons-io:2.21.0"
+  implementation "commons-dbutils:commons-dbutils:1.8.1"
+  implementation "org.apache.commons:commons-compress:1.28.0"
+
+  implementation "org.xerial:sqlite-jdbc:3.53.0.0"
+  implementation "commons-dbutils:commons-dbutils:1.8.1"
+  implementation 'org.luaj:luaj-jse:3.0.1'
+
+  api "com.badlogicgames.gdx-controllers:gdx-controllers-core:$gdxControllersVersion"
+  api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
+  api "com.badlogicgames.gdx:gdx:$gdxVersion"
+  implementation "com.badlogicgames.gdx-video:gdx-video:$gdxVideoVersion"
+
+  // JCodec 纯 Java 软解码：用于 .mpg/.avi 等旧格式的优雅降级，无 FFmpeg/JNI 冲突
+  implementation "org.jcodec:jcodec:$jcodecVersion"
+
+  if(enableGraalNative == 'true') {
+    implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
+  }
+}
+
+jar {
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
