@@ -1,0 +1,1170 @@
+package bms.player.beatoraja;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.logging.Logger;
+
+import com.badlogic.gdx.*;
+import com.badlogic.gdx.files.FileHandle;
+import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.g2d.*;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
+import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.utils.*;
+import java.lang.StringBuilder;
+
+import bms.player.beatoraja.AudioConfig.DriverType;
+import bms.player.beatoraja.MainState.MainStateType;
+import bms.player.beatoraja.MessageRenderer.Message;
+import bms.player.beatoraja.audio.*;
+import bms.player.beatoraja.config.KeyConfiguration;
+import bms.player.beatoraja.config.SkinConfiguration;
+import bms.player.beatoraja.decide.MusicDecide;
+import bms.player.beatoraja.external.*;
+import bms.player.beatoraja.input.BMSPlayerInputProcessor;
+import bms.player.beatoraja.input.KeyCommand;
+import bms.player.beatoraja.ir.*;
+import bms.player.beatoraja.play.BMSPlayer;
+import bms.player.beatoraja.play.TargetProperty;
+import bms.player.beatoraja.result.CourseResult;
+import bms.player.beatoraja.result.MusicResult;
+import bms.player.beatoraja.select.MusicSelector;
+import bms.player.beatoraja.select.bar.TableBar;
+import bms.player.beatoraja.skin.SkinLoader;
+import bms.player.beatoraja.skin.SkinObject.SkinOffset;
+import bms.player.beatoraja.skin.SkinProperty;
+import bms.player.beatoraja.song.*;
+import bms.player.beatoraja.stream.StreamController;
+import bms.tool.mdprocessor.MusicDownloadProcessor;
+
+/**
+ * アプリケーションのルートクラス (Android 适配修复完整版)
+ *
+ * @author exch / Modified for Android
+ */
+public class MainController {
+
+    private static final String VERSION = "beatoraja 0.8.8 (Android)";
+
+    public static final boolean debug = false;
+    public static final int debugTextXpos = 10;
+
+    private final long boottime = System.currentTimeMillis();
+    private final Calendar cl = Calendar.getInstance();
+    private long mouseMovedTime;
+
+    private BMSPlayer bmsplayer;
+    private MusicDecide decide;
+    private MusicSelector selector;
+    private MusicResult result;
+    private CourseResult gresult;
+    private KeyConfiguration keyconfig;
+    private SkinConfiguration skinconfig;
+
+    private AudioDriver audio;
+    private PlayerResource resource;
+    private BitmapFont systemfont;
+    private BitmapFont systemfont18;
+    /** systemfont 用的 FreeTypeFontGenerator，保留引用用于 Android resume() 时重建字体纹理 */
+    private FreeTypeFontGenerator systemfontGenerator;
+    /** systemfont 对应的字体文件 FileHandle，resume 时重新创建 generator 用 */
+    private FileHandle systemfontFileHandle;
+    private MessageRenderer messageRenderer;
+    private MainState current;
+    private TimerManager timer;
+    private Config config;
+    private PlayerConfig player;
+    private BMSPlayerMode auto;
+    private boolean songUpdated;
+    private SongInformationAccessor infodb;
+    private IRStatus[] ir;
+    private RivalDataAccessor rivals = new RivalDataAccessor();
+    private RankingDataCache ircache = new RankingDataCache();
+    private SpriteBatch sprite;
+    private Path bmsfile;
+    private BMSPlayerInputProcessor input;
+    private boolean showfps;
+    private PlayDataAccessor playdata;
+    private SystemSoundManager sound;
+    private Thread screenshot;
+    private MusicDownloadProcessor download;
+    private StreamController streamController;
+
+    public static final int offsetCount = SkinProperty.OFFSET_MAX + 1;
+    private final SkinOffset[] offset = new SkinOffset[offsetCount];
+
+    protected TextureRegion black;
+    protected TextureRegion white;
+    private Texture touchPointerTexture;
+    private long lastTouchActivity = 0;
+    private boolean wasTouching = false;
+    private FloatingMenu floatingMenu;
+
+    /** GL 线程优先级是否已设置（仅设置一次） */
+    private boolean glThreadPrioritySet = false;
+    /** 缓存平台类型，避免每帧调用 Gdx.app.getType() */
+    private final boolean isAndroid = com.badlogic.gdx.Gdx.app != null ? com.badlogic.gdx.Gdx.app.getType() == Application.ApplicationType.Android : false;
+
+    private final Array<MainStateListener> stateListener = new Array<MainStateListener>();
+
+    public MainController(Path f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
+        Config.updateConfigPath();
+        PlayerConfig.updateConfigPath();
+        this.auto = auto;
+        this.songUpdated = songUpdated;
+
+        for(int i = 0;i < offset.length;i++) {
+            offset[i] = new SkinOffset();
+        }
+
+        // 若 config 为 null（Android 启动时），从磁盘读取已保存的配置
+        if (config == null) {
+            config = Config.read();
+            com.badlogic.gdx.Gdx.app.log("MainController", "Config loaded from disk: " + config.getPlayername());
+        }
+        this.config = config;
+
+        if(player == null) {
+            player = PlayerConfig.readPlayerConfig(config.getPlayerpath(), config.getPlayername());
+            com.badlogic.gdx.Gdx.app.log("MainController", "PlayerConfig loaded from disk for: " + config.getPlayername());
+        }
+        this.player = player;
+        this.bmsfile = f;
+
+        if (config.isEnableIpfs()) {
+            Path ipfspath = Paths.get("ipfs").toAbsolutePath();
+            if (!ipfspath.toFile().exists()) ipfspath.toFile().mkdirs();
+            List<String> roots = new ArrayList<>(Arrays.asList(getConfig().getBmsroot()));
+            if (ipfspath.toFile().exists() && !roots.contains(ipfspath.toString())) {
+                roots.add(ipfspath.toString());
+                getConfig().setBmsroot(roots.toArray(new String[roots.size()]));
+            }
+        }
+
+        try {
+            if(config.isUseSongInfo()) {
+                infodb = new SongInformationAccessor(config.getSonginfopath());
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
+        playdata = new PlayDataAccessor(config);
+
+        Array<IRStatus> irarray = new Array<IRStatus>();
+        for(IRConfig irconfig : player.getIrconfig()) {
+            final IRConnection ir = IRConnectionManager.getIRConnection(irconfig.getIrname());
+            if(ir != null) {
+                if(irconfig.getUserid().length() > 0 && irconfig.getPassword().length() > 0) {
+                    IRResponse<IRPlayerData> response = ir.login(new IRAccount(irconfig.getUserid(), irconfig.getPassword(), ""));
+                    if(response.isSucceeded()) {
+                        irarray.add(new IRStatus(irconfig, ir, response.getData()));
+                    } else {
+                        Logger.getGlobal().warning("IRへのログイン失敗 : " + response.getMessage());
+                    }
+                }
+            }
+        }
+        ir = irarray.toArray(IRStatus.class);
+
+        rivals.update(this);
+
+        // Android 屏蔽 PortAudio 驱动，因为它依赖桌面端 LWJGL
+        timer = new TimerManager();
+        sound = new SystemSoundManager(this);
+
+        // Android 平台：如果 maxFramePerSecond 是默认值，自动根据屏幕刷新率设置
+        if (isAndroid) {
+            // 强制关闭无限帧率模式，确保绝对时间对齐帧率控制始终生效
+            config.setAndroidUnlimitedFPS(false);
+
+            // 默认值 240/300 表示未手动设置，自动检测
+            if (config.getMaxFramePerSecond() == 240 || config.getMaxFramePerSecond() == 300) {
+                int refreshRate = Gdx.graphics.getDisplayMode().refreshRate;
+                Gdx.app.log("beatoraja", "Detected screen refresh rate: " + refreshRate + "Hz");
+
+                // 如果 LibGDX 报告的刷新率偏低但实际上屏幕支持更高，使用 120fps
+                if (refreshRate < 120) {
+                    Gdx.app.log("beatoraja", "Refresh rate reported by LibGDX is " + refreshRate
+                            + "Hz, but checking if we can go higher...");
+                    try {
+                        // 尝试通过原生 API 获取更高刷新率
+                        java.lang.reflect.Method getDisplayMethod = getClass().getMethod("getClass");
+                    } catch (Exception e) {
+                        // 忽略，保持使用检测到的值
+                    }
+                }
+
+                if (refreshRate > 0) {
+                    // 对齐到标准刷新率，让上限匹配屏幕支持的最高刷新率
+                    // 直接使用检测到的刷新率，不做 144fps 上限限制（适应 165Hz/240Hz 等高刷屏）
+                    int autoMaxFPS;
+                    if (refreshRate <= 60) {
+                        autoMaxFPS = refreshRate;      // 60Hz 及以下 -> 精确匹配
+                    } else if (refreshRate <= 120) {
+                        autoMaxFPS = refreshRate <= 90 ? 90 : (int) refreshRate;  // 90Hz/120Hz -> 使用实际值
+                    } else {
+                        // 144Hz 及更高：允许超过 144fps 上限，直接使用检测值+1 防止卡顿
+                        // +1 是因为帧率控制有微小误差，精确匹配可能导致偶尔掉帧
+                        autoMaxFPS = (int) refreshRate + 1;
+                    }
+                    // 如果报告的刷新率在 100-120 之间，直接使用 120fps
+                    if (refreshRate > 100 && refreshRate <= 120) {
+                        autoMaxFPS = 120;
+                        Gdx.app.log("beatoraja", "Adjusted to 120fps for high refresh rate screen");
+                    }
+                    config.setMaxFramePerSecond(autoMaxFPS);
+                    Gdx.app.log("beatoraja", "Set max FPS to: " + autoMaxFPS);
+                    // Android 高刷新率屏幕：自动关闭 Vsync 让我们的帧率限制生效
+                    if (autoMaxFPS > 60) {
+                        config.setVsync(false);
+                        Gdx.app.log("beatoraja", "VSync disabled for high refresh rate");
+                    }
+                } else {
+                    // 如果无法获取刷新率，设置 120fps 默认
+                    config.setMaxFramePerSecond(120);
+                    config.setVsync(false);
+                    Gdx.app.log("beatoraja", "Could not detect refresh rate, setting max FPS to 120");
+                }
+            } else {
+                // 如果用户已经设置了自定义帧率，确保 Vsync 已关闭
+                if (config.getMaxFramePerSecond() > 60) {
+                    config.setVsync(false);
+                    Gdx.app.log("beatoraja", "VSync disabled for custom FPS setting: " + config.getMaxFramePerSecond());
+                }
+            }
+        }
+    }
+
+    public SkinOffset getOffset(int index) { return offset[index]; }
+    public SongDatabaseAccessor getSongDatabase() { return MainLoader.getScoreDatabaseAccessor(); }
+    public SongInformationAccessor getInfoDatabase() { return infodb; }
+    public PlayDataAccessor getPlayDataAccessor() { return playdata; }
+    public RivalDataAccessor getRivalDataAccessor() { return rivals; }
+    public RankingDataCache getRankingDataCache() { return ircache; }
+    public SpriteBatch getSpriteBatch() { return sprite; }
+    public PlayerResource getPlayerResource() { return resource; }
+    public Config getConfig() { return config; }
+    public PlayerConfig getPlayerConfig() { return player; }
+    public BitmapFont getSystemFont18() { return systemfont18; }
+
+    public void changeState(MainStateType state) {
+        MainState newState = null;
+        switch (state) {
+            case MUSICSELECT:
+                newState = selector;
+                break;
+            case DECIDE: newState = decide; break;
+            case PLAY:
+                if (bmsplayer != null) { bmsplayer.dispose(); }
+                bmsplayer = new BMSPlayer(this, resource);
+                newState = bmsplayer;
+                break;
+            case RESULT: newState = result; break;
+            case COURSERESULT: newState = gresult; break;
+            case CONFIG: newState = keyconfig; break;
+            case SKINCONFIG: newState = skinconfig; break;
+        }
+
+        if (newState != null && current != newState) {
+            if(current != null) {
+                current.shutdown();
+                current.setSkin(null);
+            }
+            newState.create();
+            if(newState.getSkin() != null) { newState.getSkin().prepare(newState); }
+            current = newState;
+            timer.setMainState(newState);
+            current.prepare();
+            updateMainStateListener(0);
+        }
+        // 浮动菜单：在 PLAY / DECIDE 状态隐藏
+        if (floatingMenu != null) {
+            floatingMenu.setVisible(state != MainStateType.PLAY && state != MainStateType.DECIDE);
+        }
+        // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
+        if (current != null && current.getStage() != null) {
+            if (floatingMenu != null) {
+                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, current.getStage(), input.getKeyBoardInputProcesseor()));
+            } else {
+                Gdx.input.setInputProcessor(new InputMultiplexer(current.getStage(), input.getKeyBoardInputProcesseor()));
+            }
+        } else if (input != null) {
+            if (floatingMenu != null) {
+                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, input.getKeyBoardInputProcesseor()));
+            } else {
+                Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
+            }
+        }
+        
+        // 在PLAY界面，将PlayTouchKeyMapper添加到InputMultiplexer
+        if (isAndroid && current instanceof BMSPlayer) {
+            try {
+                BMSPlayer player = (BMSPlayer) current;
+                java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
+                field.setAccessible(true);
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                    (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
+                if (touchKeyMapper != null) {
+                    // 将触摸按键映射添加到InputMultiplexer的最高优先级
+                    if (floatingMenu != null && current.getStage() != null) {
+                        Gdx.input.setInputProcessor(new InputMultiplexer(
+                            floatingMenu, 
+                            touchKeyMapper,  // 在Stage之前处理触摸
+                            current.getStage(), 
+                            input.getKeyBoardInputProcesseor()
+                        ));
+                    } else if (current.getStage() != null) {
+                        Gdx.input.setInputProcessor(new InputMultiplexer(
+                            touchKeyMapper,
+                            current.getStage(), 
+                            input.getKeyBoardInputProcesseor()
+                        ));
+                    } else {
+                        Gdx.input.setInputProcessor(new InputMultiplexer(
+                            touchKeyMapper,
+                            input.getKeyBoardInputProcesseor()
+                        ));
+                    }
+                    Gdx.app.log("MainController", "PlayTouchKeyMapper registered as InputProcessor");
+                }
+            } catch (Exception e) {
+                Gdx.app.log("MainController", "Failed to register PlayTouchKeyMapper: " + e.getMessage());
+            }
+        }
+    }
+
+    public MainState getCurrentState() { return current; }
+    public void setPlayMode(BMSPlayerMode auto) { this.auto = auto; }
+
+    public void create() {
+        final long t = System.currentTimeMillis();
+
+        // ── OpenGL ES 性能优化（针对低端Android设备如小米2s）──
+        // 禁用2D游戏不需要的GL特性以减少GPU驱动开销
+        Gdx.gl.glDisable(GL20.GL_DEPTH_TEST);      // 2D精灵不需要深度测试
+        Gdx.gl.glDisable(GL20.GL_STENCIL_TEST);    // 不需要模板缓冲
+        Gdx.gl.glDisable(GL20.GL_DITHER);          // 禁用抖动减少带宽
+
+        // 启用2D游戏需要的优化
+        Gdx.gl.glEnable(GL20.GL_BLEND);            // Alpha混合需要
+        Gdx.gl.glEnable(GL20.GL_TEXTURE_2D);       // 启用纹理映射
+
+        // 混合模式优化：默认使用预乘Alpha以提高性能
+        Gdx.gl.glBlendFunc(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // Mipmap生成优化提示（OpenGL ES兼容）
+        Gdx.gl.glHint(GL20.GL_GENERATE_MIPMAP_HINT, GL20.GL_FASTEST);
+
+        // 优化：增大 SpriteBatch 缓冲区到 4096，大幅减少 GL drawArrays 调用次数
+        // 高BPM谱面会有数百音符同时渲染，默认1000会频繁flush导致性能问题
+        sprite = new SpriteBatch(4096);
+        SkinLoader.initPixmapResourcePool(config.getSkinPixmapGen());
+
+        try {
+            FileHandle fontFile = Gdx.app.getType() == Application.ApplicationType.Android
+                ? Gdx.files.absolute(config.getSystemfontpath())
+                : Gdx.files.internal(config.getSystemfontpath());
+            if (!fontFile.exists()) fontFile = Gdx.files.internal(config.getSystemfontpath());
+
+            // 保留 generator 和 fontFile 引用，供 Android resume() 时重建字体纹理使用。
+            // 不在此处调用 generator.dispose()，等 MainController.dispose() 时统一释放。
+            systemfontFileHandle = fontFile;
+            systemfontGenerator = new FreeTypeFontGenerator(fontFile);
+            FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+            parameter.size = 24;
+            systemfont = systemfontGenerator.generateFont(parameter);
+            // Pre-generate 18pt version for LaneRenderer and PracticeConfiguration
+            parameter.size = 18;
+            systemfont18 = systemfontGenerator.generateFont(parameter);
+        } catch (GdxRuntimeException e) {
+            Logger.getGlobal().severe("System Font読み込み失敗: " + e.getMessage());
+        }
+        messageRenderer = new MessageRenderer(config.getMessagefontpath());
+
+        input = new BMSPlayerInputProcessor(config, player);
+        input.setMainController(this);
+
+        // Android 默认使用 GdxSoundDriver (OpenAL)
+        audio = new GdxSoundDriver(config);
+
+        resource = new PlayerResource(audio, config, player);
+        selector = new MusicSelector(this, songUpdated);
+        if(player.getRequestEnable()) {
+            streamController = new StreamController(selector, (player.getRequestNotify() ? messageRenderer : null));
+            streamController.run();
+        }
+        decide = new MusicDecide(this);
+        result = new MusicResult(this);
+        gresult = new CourseResult(this);
+        keyconfig = new KeyConfiguration(this);
+        skinconfig = new SkinConfiguration(this, player);
+
+        // 初始化浮动快捷键菜单（必须在 changeState 之前，确保 InputMultiplexer 包含它）
+        if (isAndroid) {
+            floatingMenu = new FloatingMenu();
+            floatingMenu.setKeyboardInput(input.getKeyBoardInputProcesseor());
+        }
+
+        if (bmsfile != null) {
+            if(resource.setBMSFile(Gdx.files.absolute(bmsfile.toString()), auto)) {
+                changeState(MainStateType.PLAY);
+            } else {
+                // 如果指定文件加载失败，跳转到选曲界面而不是直接退出
+                Gdx.app.error("MainController", "Failed to load BMS file: " + bmsfile + ", redirecting to Selector.");
+                changeState(MainStateType.MUSICSELECT);
+            }
+        } else {
+            changeState(MainStateType.MUSICSELECT);
+        }
+
+        Logger.getGlobal().info("初期化時間(ms) : " + (System.currentTimeMillis() - t));
+
+        Thread polling = new Thread(() -> {
+            long time = 0;
+            final boolean isAndroidPlatform = Gdx.app.getType() == Application.ApplicationType.Android;
+            for (;;) {
+                final long now = System.nanoTime() / 1000000;
+                if (time != now) {
+                    time = now;
+                    input.poll();
+                } else {
+                    try {
+                        // Android 上用 1ms sleep 减少后台线程 CPU 消耗，留更多算力给 GL 线程
+                        if (isAndroidPlatform) {
+                            Thread.sleep(1);
+                        } else {
+                            Thread.sleep(0, 500000);
+                        }
+                    } catch (InterruptedException e) {}
+                }
+            }
+        });
+        polling.start();
+
+        Array<String> targetlist = new Array<String>(player.getTargetlist());
+        for(int i = 0;i < rivals.getRivalCount();i++) {
+            targetlist.add("RIVAL_" + (i + 1));
+        }
+        TargetProperty.setTargets(targetlist.toArray(String.class), this);
+
+        Pixmap plainPixmap = new Pixmap(2,1, Pixmap.Format.RGBA8888);
+        plainPixmap.drawPixel(0,0, Color.toIntBits(255,0,0,0));
+        plainPixmap.drawPixel(1,0, Color.toIntBits(255,255,255,255));
+        Texture plainTexture = new Texture(plainPixmap);
+        black = new TextureRegion(plainTexture,0,0,1,1);
+        white = new TextureRegion(plainTexture,1,0,1,1);
+        plainPixmap.dispose();
+
+        // 创建触摸指针纹理
+        if (isAndroid) {
+            int pointerSize = 64;
+            Pixmap pointerPixmap = new Pixmap(pointerSize, pointerSize, Pixmap.Format.RGBA8888);
+            // 透明背景
+            pointerPixmap.setColor(0, 0, 0, 0);
+            pointerPixmap.fill();
+            // 白色外圈
+            pointerPixmap.setColor(1, 1, 1, 0.8f);
+            pointerPixmap.drawCircle(pointerSize / 2, pointerSize / 2, pointerSize / 2 - 2);
+            // 绿色内圈
+            pointerPixmap.setColor(0, 1, 0, 0.6f);
+            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, pointerSize / 4);
+            // 中心点
+            pointerPixmap.setColor(1, 1, 1, 1);
+            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
+            touchPointerTexture = new Texture(pointerPixmap);
+            pointerPixmap.dispose();
+        }
+
+        Gdx.gl.glClearColor(0, 0, 0, 1);
+
+        if (config.isEnableIpfs()) {
+            download = new MusicDownloadProcessor(config.getIpfsUrl(), (md5) -> {
+                SongData[] s = getSongDatabase().getSongDatas(md5);
+                String[] result = new String[s.length];
+                for(int i = 0;i < result.length;i++) { result[i] = s[i].getPath(); }
+                return result;
+            });
+            download.start(null);
+        }
+
+        if(ir.length > 0) {
+            messageRenderer.addMessage(ir.length + " IR Connection Succeed" ,5000, Color.GREEN, 1);
+        }
+    }
+
+    private long prevtime;
+    private final StringBuilder message = new StringBuilder();
+    /**
+     * 绝对帧时间基准（纳秒）。用于精确帧率控制：
+     * 每帧等待至此时间点，然后将其增加一个帧周期，
+     * 从而避免逐帧累积误差导致的帧率漂移（例如 120fps 实际跑到 123fps）。
+     */
+    private long nextFrameTimeNanos = 0;
+
+    // ─── 等比视口参数 ───
+    // Android 端屏幕宽高比通常不是 16:9（如 2400x1080 = 20:9），
+    // 直接全屏渲染会拉伸画面。以下字段存储每帧计算的等比视口位置，
+    // 供输入坐标转换使用。
+    private int viewportX = 0;
+    private int viewportY = 0;
+    private int viewportW = 0;
+    private int viewportH = 0;
+    private int lastGameW = 0;
+    private int lastGameH = 0;
+
+    // ─── 性能优化：预分配复用对象，避免每帧 GC ───
+    /** 预分配的投影矩阵，每帧复用而非 new Matrix4() */
+    private final Matrix4 projMatrix = new Matrix4();
+    /** 预分配的坐标文字 StringBuilder，避免每帧 String.format() */
+    private final StringBuilder coordTextBuilder = new StringBuilder(16);
+
+    /**
+     * 将屏幕坐标 (Gdx.input.getX/getY) 转换为游戏逻辑坐标（皮肤坐标系）。
+     * 在等比视口模式下，屏幕坐标需要扣除 pillarbox/letterbox 偏移并缩放。
+     */
+    public int screenToGameX(int screenX) {
+        if (viewportW <= 0 || lastGameW <= 0) return screenX;
+        return Math.round((screenX - viewportX) * (float) lastGameW / viewportW);
+    }
+
+    public int screenToGameY(int screenY) {
+        if (viewportH <= 0 || lastGameH <= 0) return screenY;
+        return Math.round((screenY - viewportY) * (float) lastGameH / viewportH);
+    }
+
+    public void render() {
+        // ── Android 渲染线程优先级提升（仅首次）──
+        // 将 GL 线程优先级设为 THREAD_PRIORITY_DISPLAY (-4)，
+        // 确保渲染线程在无触控时不会被系统调度器降低优先级。
+        // 因为 core 模块无 Android SDK 依赖，使用反射调用 android.os.Process。
+        if (!glThreadPrioritySet && isAndroid) {
+            try {
+                Class<?> processClass = Class.forName("android.os.Process");
+                java.lang.reflect.Method setThreadPriority = processClass.getMethod("setThreadPriority", int.class);
+                java.lang.reflect.Method myTid = processClass.getMethod("myTid");
+                int THREAD_PRIORITY_DISPLAY = -4;
+                setThreadPriority.invoke(null, THREAD_PRIORITY_DISPLAY);
+                int tid = (Integer) myTid.invoke(null);
+                Gdx.app.log("beatoraja", "GL thread priority set to THREAD_PRIORITY_DISPLAY (" +
+                        THREAD_PRIORITY_DISPLAY + ") for tid=" + tid);
+            } catch (Throwable t) {
+                Gdx.app.error("beatoraja", "Failed to set GL thread priority", t);
+            }
+            glThreadPrioritySet = true;
+        }
+
+        // 记录帧开始时间（用于帧率限制）
+        final long frameStart = System.nanoTime();
+        timer.update();
+
+        // ─── 等比视口计算 ───
+        // 皮肤坐标决定游戏期望的宽高比；屏幕可能更宽（20:9 手机）或更高。
+        // pillarbox/letterbox 黑边保证画面不拉伸。
+        int gameW, gameH;
+        if (current.getSkin() != null) {
+            gameW = (int) current.getSkin().getWidth();
+            gameH = (int) current.getSkin().getHeight();
+        } else {
+            gameW = config.getResolution().width;
+            gameH = config.getResolution().height;
+        }
+        lastGameW = gameW;
+        lastGameH = gameH;
+
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        float targetAspect = (float) gameW / gameH;
+        float screenAspect = (float) screenW / screenH;
+
+        if (screenAspect > targetAspect) {
+            // 屏幕比游戏更宽 → pillarbox（左右黑边）
+            viewportH = screenH;
+            viewportW = Math.round(screenH * targetAspect);
+            viewportX = (screenW - viewportW) / 2;
+            viewportY = 0;
+        } else {
+            // 屏幕比游戏更高 → letterbox（上下黑边）
+            viewportW = screenW;
+            viewportH = Math.round(screenW / targetAspect);
+            viewportX = 0;
+            viewportY = (screenH - viewportH) / 2;
+        }
+
+        // 先清全屏（黑边区域用 glClearColor 填充）
+        Gdx.gl.glViewport(0, 0, screenW, screenH);
+        Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        // 每帧重新设置混合模式（防止被sprite batch修改）
+        Gdx.gl.glBlendFunc(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
+
+        // 设置等比视口
+        Gdx.gl.glViewport(viewportX, viewportY, viewportW, viewportH);
+
+        if (current.getSkin() != null) {
+            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, current.getSkin().getWidth(), current.getSkin().getHeight()));
+        } else {
+            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, config.getResolution().width, config.getResolution().height));
+        }
+
+        current.render();
+        sprite.begin();
+        if (current.getSkin() != null) {
+            current.getSkin().updateCustomObjects(current);
+            current.getSkin().drawAllObjects(sprite, current);
+        }
+        sprite.end();
+
+        final Stage stage = current.getStage();
+        if (stage != null) {
+            stage.getViewport().apply();
+            stage.act(Math.min(Gdx.graphics.getDeltaTime(), 1 / 30f));
+            stage.draw();
+        }
+
+        // ── FPS 显示 + 消息渲染合并为一个 begin/end 对（减少 DrawCall）──
+        sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, config.getResolution().width, config.getResolution().height));
+        sprite.begin();
+        if (showfps && systemfont != null) {
+            systemfont.setColor(Color.CYAN);
+            message.setLength(0);
+            systemfont.draw(sprite, message.append("FPS ").append(Gdx.graphics.getFramesPerSecond()), debugTextXpos, config.getResolution().height - 2);
+        }
+        messageRenderer.render(current, sprite, 100, config.getResolution().height - 2);
+        sprite.end();
+
+        // 绘制触摸指针（仅 Android，PLAY 和 DECIDE 界面不显示，浮动菜单消费触摸时不显示）
+        if (Gdx.app.getType() == Application.ApplicationType.Android && touchPointerTexture != null
+            && !(current instanceof BMSPlayer)
+            && !(current instanceof MusicDecide)
+            && (floatingMenu == null || !floatingMenu.isConsumingTouch())) {
+            // 更新触摸活动时间
+            boolean isTouched = Gdx.input.isTouched();
+            final long nowMs = System.currentTimeMillis();
+            if (isTouched) {
+                lastTouchActivity = nowMs;
+                wasTouching = true;
+            }
+
+            // 获取游戏坐标
+            int gameX = input.getMouseX();
+            int gameY = input.getMouseY();
+
+            // 仅在触摸时或触摸后500ms内显示
+            if (wasTouching && (isTouched || (nowMs - lastTouchActivity < 500))) {
+                int skinW = current.getSkin() != null ? (int) current.getSkin().getWidth() : config.getResolution().width;
+                int skinH = current.getSkin() != null ? (int) current.getSkin().getHeight() : config.getResolution().height;
+
+                // 计算淡出透明度
+                float alpha = 1.0f;
+                if (!isTouched) {
+                    alpha = 1.0f - (nowMs - lastTouchActivity) / 500.0f;
+                    alpha = Math.max(0, alpha);
+                }
+
+                // 触摸指针 + 坐标文字合并为一个 begin/end 对
+                sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, skinW, skinH));
+                sprite.begin();
+                sprite.setColor(1, 1, 1, alpha);
+                float size = 64;
+                sprite.draw(touchPointerTexture, gameX - size/2, gameY - size/2, size, size);
+
+                // 同时显示坐标文字（PLAY 和 DECIDE 界面不显示）
+                if (systemfont18 != null && alpha > 0.2f
+                    && !(current instanceof BMSPlayer)
+                    && !(current instanceof MusicDecide)) {
+                    systemfont18.setColor(1, 1, 1, alpha);
+                    coordTextBuilder.setLength(0);
+                    coordTextBuilder.append('(').append(gameX).append(", ").append(gameY).append(')');
+                    systemfont18.draw(sprite, coordTextBuilder, gameX + 40, gameY - 10);
+                }
+                sprite.end();
+            } else if (wasTouching) {
+                wasTouching = false;
+            }
+        }
+        
+        // 在PLAY界面，检查PlayTouchKeyMapper是否正在消费触摸
+        boolean playTouchKeyConsuming = false;
+        if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
+            try {
+                BMSPlayer player = (BMSPlayer) current;
+                java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
+                field.setAccessible(true);
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                    (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
+                if (touchKeyMapper != null && touchKeyMapper.isConsumingTouch()) {
+                    playTouchKeyConsuming = true;
+                }
+            } catch (Exception e) {
+                // 忽略
+            }
+        }
+
+        // 绘制浮动快捷键菜单（在触摸指针之后，始终位于最顶层）
+        if (floatingMenu != null) {
+            floatingMenu.setViewport(viewportX, viewportY, viewportW, viewportH, lastGameW, lastGameH);
+            floatingMenu.render(sprite, systemfont);
+        }
+        
+        // 绘制Play界面触摸按键（仅Android，在BMSPlayer界面）
+        if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
+            try {
+                BMSPlayer player = (BMSPlayer) current;
+                // 使用反射获取touchKeyMapper
+                java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
+                field.setAccessible(true);
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                    (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
+                if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
+                    // 在皮肤绘制之后渲染，确保在最上层
+                    sprite.begin();
+                    touchKeyMapper.render(sprite, systemfont);
+                    sprite.end();
+                }
+            } catch (Exception e) {
+                // 静默失败，不影响游戏
+            }
+        }
+
+        if(download != null && download.isDownload()){
+            downloadIpfsMessageRenderer(download.getMessage());
+        }
+
+        final long time = System.nanoTime() / 1_000_000;
+        if(time > prevtime) {
+            prevtime = time;
+
+            // 根据当前界面设置手势模式
+            if (input != null && input.getKeyBoardInputProcesseor() != null) {
+                if (current instanceof MusicSelector) {
+                    input.getKeyBoardInputProcesseor().setGestureMode(1); // select界面
+                } else if (current instanceof MusicResult || current instanceof CourseResult) {
+                    input.getKeyBoardInputProcesseor().setGestureMode(2); // result界面
+                } else if (current instanceof MusicDecide) {
+                    input.getKeyBoardInputProcesseor().setGestureMode(3); // decide界面
+                } else {
+                    input.getKeyBoardInputProcesseor().setGestureMode(0); // 默认模式
+                }
+            }
+
+            current.input();
+
+            // 当浮动菜单或PlayTouchKeyMapper正在消费触摸时，跳过皮肤鼠标事件处理
+            boolean menuConsuming = (floatingMenu != null && floatingMenu.isConsumingTouch()) || playTouchKeyConsuming;
+
+            if (input.isMousePressed() && !menuConsuming) {
+                input.setMousePressed();
+                current.getSkin().mousePressed(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
+            }
+            if (input.isMouseDragged() && !menuConsuming) {
+                input.setMouseDragged();
+                current.getSkin().mouseDragged(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
+            }
+
+            if(input.isMouseMoved()) {
+                input.setMouseMoved(false);
+                mouseMovedTime = time;
+            }
+
+            // ================= 这里是补齐的下半部分代码 =================
+
+            // FPS表示切替
+            if (input.isActivated(KeyCommand.SHOW_FPS)) {
+                showfps = !showfps;
+            }
+
+            // fullscrees - windowed
+            if (input.isActivated(KeyCommand.SWITCH_SCREEN_MODE)) {
+                boolean fullscreen = Gdx.graphics.isFullscreen();
+                Graphics.DisplayMode currentMode = Gdx.graphics.getDisplayMode();
+                if (fullscreen) {
+                    Gdx.graphics.setWindowedMode(currentMode.width, currentMode.height);
+                } else {
+                    Gdx.graphics.setFullscreenMode(currentMode);
+                }
+                config.setDisplaymode(fullscreen ? Config.DisplayMode.WINDOW : Config.DisplayMode.FULLSCREEN);
+            }
+
+            // screen shot
+            if (input.isActivated(KeyCommand.SAVE_SCREENSHOT)) {
+                if (screenshot == null || !screenshot.isAlive()) {
+                    final byte[] pixels = ScreenUtils.getFrameBufferPixels(0, 0, Gdx.graphics.getBackBufferWidth(),Gdx.graphics.getBackBufferHeight(), true);
+                    screenshot = new Thread(() -> {
+                        // 全ピクセルのアルファ値を255にする(=透明色を無くす)
+                        for(int i = 3;i < pixels.length;i+=4) {
+                            pixels[i] = (byte) 0xff;
+                        }
+                        new ScreenShotFileExporter().send(current, pixels);
+                    });
+                    screenshot.start();
+                }
+            }
+
+            // 注意：POST_TWITTER 的逻辑已被彻底移除以兼容 Android
+
+            if (download != null && download.getDownloadpath() != null) {
+                this.updateSong(download.getDownloadpath());
+                download.setDownloadpath(null);
+            }
+            if (updateSong != null && !updateSong.isAlive()) {
+                selector.getBarManager().updateBar();
+                updateSong = null;
+            }
+        }
+
+        // -----------------------------------------------------------------------
+        // 精确帧率控制（绝对时间对齐方式，消除累积漂移）
+        //
+        // 传统"每帧结束后等待剩余时间"方式会导致误差累积：
+        //   假设每帧目标 8333µs，但实际渲染花了 8340µs，下一帧仍会等待完整 8333µs，
+        //   最终导致实际帧率低于目标（或因 sleep 精度问题高于目标）。
+        //
+        // 绝对时间对齐：维护 nextFrameTimeNanos，每帧结束后等待至该绝对时刻，
+        //   然后将其推进一个帧周期。这样误差不会跨帧累积。
+        // -----------------------------------------------------------------------
+        int maxFPS = config.getMaxFramePerSecond();
+
+        // 判断是否需要执行帧率控制
+        boolean doFrameLimit;
+        if (isAndroid) {
+            // Android：只要 maxFPS 有效且未开启无限帧率模式，就执行帧率控制
+            // 注意：maxFPS = 1000 表示"自动检测"模式（Config默认值），实际使用时会被替换
+            doFrameLimit = !config.isAndroidUnlimitedFPS() && maxFPS > 0 && maxFPS < 1000;
+        } else {
+            // 非 Android：VSync 关闭且 maxFPS 有效时执行
+            doFrameLimit = !config.isVsync() && maxFPS > 0;
+        }
+
+        if (doFrameLimit) {
+            final long frameIntervalNanos = 1_000_000_000L / maxFPS;
+            final long now = System.nanoTime();
+
+            // 初始化或重置：若 nextFrameTimeNanos 距现在已超过 3 个帧周期，
+            // 说明是首次运行或长时间卡顿后恢复，重新对齐到当前时间
+            if (nextFrameTimeNanos == 0 || now - nextFrameTimeNanos > frameIntervalNanos * 3) {
+                nextFrameTimeNanos = now + frameIntervalNanos;
+            } else {
+                nextFrameTimeNanos += frameIntervalNanos;
+            }
+
+            long remaining = nextFrameTimeNanos - System.nanoTime();
+
+            // 第一阶段：较长等待用 sleep 节省 CPU（保留 1ms 缓冲给后两阶段）
+            if (remaining > 2_000_000) {
+                try {
+                    Thread.sleep((remaining - 1_000_000) / 1_000_000);
+                } catch (InterruptedException e) {
+                    // Ignore
+                }
+            }
+
+            // 第二阶段：剩余 1ms 内用 yield 提高响应性（Android 放宽到 0.5ms 减少 CPU 自旋）
+            while (nextFrameTimeNanos - System.nanoTime() > (isAndroid ? 500_000 : 200_000)) {
+                Thread.yield();
+            }
+
+            // 第三阶段：最后 0.2ms 用忙等保证精度
+            // Android 优化：完全去掉 busy-wait，避免占用 GPU 驱动线程需要的 CPU 时间
+            if (!isAndroid) {
+                //noinspection StatementWithEmptyBody
+                while (System.nanoTime() < nextFrameTimeNanos) {
+                    // busy-wait for precision
+                }
+            }
+        }
+    }
+
+    public void dispose() {
+        saveConfig();
+
+        if (bmsplayer != null) {
+            bmsplayer.dispose();
+        }
+        if (selector != null) {
+            selector.dispose();
+        }
+        if (streamController != null) {
+            streamController.dispose();
+        }
+        if (decide != null) {
+            decide.dispose();
+        }
+        if (result != null) {
+            result.dispose();
+        }
+        if (gresult != null) {
+            gresult.dispose();
+        }
+        if (keyconfig != null) {
+            keyconfig.dispose();
+        }
+        if (skinconfig != null) {
+            skinconfig.dispose();
+        }
+        resource.dispose();
+        SkinLoader.getResource().dispose();
+        ShaderManager.dispose();
+        if (download != null) {
+            download.dispose();
+        }
+        if (systemfont != null) {
+            systemfont.dispose();
+        }
+        if (systemfont18 != null) {
+            systemfont18.dispose();
+        }
+        if (systemfontGenerator != null) {
+            systemfontGenerator.dispose();
+        }
+        if (touchPointerTexture != null) {
+            touchPointerTexture.dispose();
+        }
+        if (floatingMenu != null) {
+            floatingMenu.dispose();
+        }
+
+        Logger.getGlobal().info("全リソース破棄完了");
+    }
+
+    public void pause() { current.pause(); }
+    public void resize(int width, int height) { current.resize(width, height); }
+
+    public void resume() {
+        // ---------------------------------------------------------------------------
+        // Android OpenGL 上下文重建后，所有 GPU 纹理均已失效，必须重新上传。
+        if (isAndroid) {
+            Gdx.app.log("MainController", "resume(): rebuilding font textures after GL context restore");
+
+            // 步骤1：清除所有 SkinTextFont 的 generator 缓存
+            bms.player.beatoraja.skin.SkinTextFont.invalidateGeneratorCache();
+
+            // 步骤2：重建 systemfont / systemfont18
+            if (systemfontFileHandle != null) {
+                try {
+                    // dispose 旧的失效字体和生成器
+                    if (systemfontGenerator != null) {
+                        try { systemfontGenerator.dispose(); } catch (Throwable ignore) {}
+                        systemfontGenerator = null;
+                    }
+                    if (systemfont != null) {
+                        try { systemfont.dispose(); } catch (Throwable ignore) {}
+                        systemfont = null;
+                    }
+                    if (systemfont18 != null) {
+                        try { systemfont18.dispose(); } catch (Throwable ignore) {}
+                        systemfont18 = null;
+                    }
+                    // 重新创建
+                    systemfontGenerator = new FreeTypeFontGenerator(systemfontFileHandle);
+                    FreeTypeFontParameter parameter = new FreeTypeFontParameter();
+                    parameter.size = 24;
+                    systemfont = systemfontGenerator.generateFont(parameter);
+                    parameter.size = 18;
+                    systemfont18 = systemfontGenerator.generateFont(parameter);
+                    Gdx.app.log("MainController", "resume(): systemfont rebuilt successfully");
+                } catch (Throwable e) {
+                    Gdx.app.error("MainController", "resume(): failed to rebuild systemfont", e);
+                }
+            }
+
+            // 步骤3：重建触摸指针纹理
+            if (touchPointerTexture != null) {
+                try { touchPointerTexture.dispose(); } catch (Throwable ignore) {}
+            }
+            int pointerSize = 64;
+            com.badlogic.gdx.graphics.Pixmap pointerPixmap = new com.badlogic.gdx.graphics.Pixmap(pointerSize, pointerSize, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
+            pointerPixmap.setColor(0, 0, 0, 0);
+            pointerPixmap.fill();
+            pointerPixmap.setColor(1, 1, 1, 0.8f);
+            pointerPixmap.drawCircle(pointerSize / 2, pointerSize / 2, pointerSize / 2 - 2);
+            pointerPixmap.setColor(0, 1, 0, 0.6f);
+            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, pointerSize / 4);
+            pointerPixmap.setColor(1, 1, 1, 1);
+            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
+            touchPointerTexture = new com.badlogic.gdx.graphics.Texture(pointerPixmap);
+            pointerPixmap.dispose();
+            Gdx.app.log("MainController", "resume(): touch pointer texture rebuilt");
+
+            // 重建浮动菜单纹理
+            if (floatingMenu != null) {
+                floatingMenu.rebuildTextures();
+                Gdx.app.log("MainController", "resume(): floating menu textures rebuilt");
+            }
+        }
+
+        current.resume();
+    }
+
+    public void saveConfig(){
+        Config.write(config);
+        PlayerConfig.write(config.getPlayerpath(), player);
+        Logger.getGlobal().info("設定情報を保存");
+    }
+
+    public void exit() { Gdx.app.exit(); }
+
+    public BMSPlayerInputProcessor getInputProcessor() { return input; }
+    public AudioDriver getAudioProcessor() { return audio; }
+    public IRStatus[] getIRStatus() { return ir; }
+    public SystemSoundManager getSoundManager() { return sound; }
+    public MusicDownloadProcessor getMusicDownloadProcessor(){ return download; }
+    public MessageRenderer getMessageRenderer() { return messageRenderer; }
+    public FloatingMenu getFloatingMenu() { return floatingMenu; }
+
+    public void updateMainStateListener(int status) {
+        for(MainStateListener listener : stateListener) {
+            listener.update(current, status);
+        }
+    }
+
+    public long getPlayTime() { return System.currentTimeMillis() - boottime; }
+    public Calendar getCurrnetTime() {
+        cl.setTimeInMillis(System.currentTimeMillis());
+        return cl;
+    }
+
+    public TimerManager getTimer() { return timer; }
+    public long getStartTime() { return timer.getStartTime(); }
+    public long getStartMicroTime() { return timer.getStartMicroTime(); }
+    public long getNowTime() { return timer.getNowTime(); }
+    public long getNowTime(int id) { return timer.getNowTime(id); }
+    public long getNowMicroTime() { return timer.getNowMicroTime(); }
+    public long getNowMicroTime(int id) { return timer.getNowMicroTime(id); }
+    public long getTimer(int id) { return getMicroTimer(id) / 1000; }
+    public long getMicroTimer(int id) { return timer.getMicroTimer(id); }
+    public boolean isTimerOn(int id) { return getMicroTimer(id) != Long.MIN_VALUE; }
+    public void setTimerOn(int id) { timer.setTimerOn(id); }
+    public void setTimerOff(int id) { setMicroTimer(id, Long.MIN_VALUE); }
+    public void setMicroTimer(int id, long microtime) { timer.setMicroTimer(id, microtime); }
+    public void switchTimer(int id, boolean on) { timer.switchTimer(id, on); }
+
+    private UpdateThread updateSong;
+
+    public void updateSong(String path) {
+        if (updateSong == null || !updateSong.isAlive()) {
+            updateSong = new SongUpdateThread(path);
+            updateSong.start();
+        } else {
+            Logger.getGlobal().warning("楽曲更新中のため、更新要求は取り消されました");
+        }
+    }
+
+    public void updateTable(TableBar reader) {
+        if (updateSong == null || !updateSong.isAlive()) {
+            updateSong = new TableUpdateThread(reader);
+            updateSong.start();
+        } else {
+            Logger.getGlobal().warning("楽曲更新中のため、更新要求は取り消されました");
+        }
+    }
+
+    private UpdateThread downloadIpfs;
+
+    public void downloadIpfsMessageRenderer(String message) {
+        if (downloadIpfs == null || !downloadIpfs.isAlive()) {
+            downloadIpfs = new DownloadMessageThread(message);
+            downloadIpfs.start();
+        }
+    }
+
+    public static String getVersion() { return VERSION; }
+
+    abstract class UpdateThread extends Thread {
+        protected String messageStr;
+        public UpdateThread(String message) { this.messageStr = message; }
+    }
+
+    class SongUpdateThread extends UpdateThread {
+        private final String path;
+        public SongUpdateThread(String path) {
+            super("updating folder : " + (path == null ? "ALL" : path));
+            this.path = path;
+        }
+        public void run() {
+            long threadStartTime = System.currentTimeMillis();
+            Logger.getGlobal().info("================================================================================");
+            Logger.getGlobal().info("[SongUpdateThread] Starting async scan task");
+            Logger.getGlobal().info("[SongUpdateThread] Update path: " + (path == null ? "ALL (bmsroot)" : path));
+            Logger.getGlobal().info("[SongUpdateThread] bmsroot: " + java.util.Arrays.toString(config.getBmsroot()));
+            Logger.getGlobal().info("================================================================================");
+
+            Message messageObj = messageRenderer.addMessage(this.messageStr, Color.CYAN, 1);
+
+            try {
+                // 执行扫描 - 这是阻塞调用，会等待扫描完成
+                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase());
+
+                long elapsed = System.currentTimeMillis() - threadStartTime;
+                Logger.getGlobal().info("================================================================================");
+                Logger.getGlobal().info("[SongUpdateThread] Scan task COMPLETED in " + elapsed + "ms");
+                Logger.getGlobal().info("[SongUpdateThread] Now triggering UI refresh...");
+                Logger.getGlobal().info("================================================================================");
+
+                // 扫描完成后，在 GL 线程中刷新 UI
+                Gdx.app.postRunnable(() -> {
+                    Logger.getGlobal().info("[SongUpdateThread] Executing UI refresh on GL thread");
+                    if (getSongDatabase() != null) {
+                        // 通知选曲界面更新 - 使用 current 而不是 main
+                        if (current instanceof MusicSelector) {
+                            MusicSelector selector = (MusicSelector) current;
+                            if (selector.getBarManager() != null) {
+                                selector.getBarManager().updateBar();
+                                Logger.getGlobal().info("[SongUpdateThread] BarManager.updateBar() called");
+                            }
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                Logger.getGlobal().severe("[SongUpdateThread] FATAL ERROR during scan: " + e.getMessage());
+                e.printStackTrace();
+            } finally {
+                messageObj.stop();
+            }
+        }
+    }
+
+    class TableUpdateThread extends UpdateThread {
+        private final TableBar accessor;
+        public TableUpdateThread(TableBar bar) {
+            super("updating table : " + bar.getAccessor().name);
+            accessor = bar;
+        }
+        public void run() {
+            Message messageObj = messageRenderer.addMessage(this.messageStr, Color.CYAN, 1);
+            TableData td = accessor.getAccessor().read();
+            if (td != null) {
+                accessor.getAccessor().write(td);
+                accessor.setTableData(td);
+            }
+            messageObj.stop();
+        }
+    }
+
+    class DownloadMessageThread extends UpdateThread {
+        public DownloadMessageThread(String message) { super(message); }
+        public void run() {
+            Message messageObj = messageRenderer.addMessage(this.messageStr, Color.LIME, 1);
+            while (download != null && download.isDownload() && download.getMessage() != null) {
+                messageObj.setText(download.getMessage());
+                try { sleep(100); } catch (InterruptedException e) { e.printStackTrace(); }
+            }
+            messageObj.stop();
+        }
+    }
+
+    public static class IRStatus {
+        public final IRConfig config;
+        public final IRConnection connection;
+        public final IRPlayerData player;
+
+        public IRStatus(IRConfig config, IRConnection connection, IRPlayerData player) {
+            this.config = config;
+            this.connection = connection;
+            this.player = player;
+        }
+    }
+}

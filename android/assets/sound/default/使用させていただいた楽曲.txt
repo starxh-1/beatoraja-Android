@@ -1,0 +1,29 @@
+clear
+	Impressive_days(https://dova-s.jp/bgm/play12728.html)
+fail
+	Phantom_Apartment_2(https://dova-s.jp/bgm/play12442.html)
+f-close
+	システム音_2(https://dova-s.jp/se/play1003.html)
+f-close2
+	システム決定音_4(https://dova-s.jp/se/play806.html)
+f-open
+	システム決定音_8(https://dova-s.jp/se/play1023.html)
+o-change
+	システム決定音_9_3(https://dova-s.jp/se/play1026.html)
+o-close
+	STAR_2_(https://dova-s.jp/se/play1320.html)
+o-open
+	システム決定音_7(https://dova-s.jp/se/play961.html)
+playready
+	おしゃれなテロップ表示音(https://dova-s.jp/se/play974.html)
+playstop
+	力をためる(https://dova-s.jp/se/play245.html)
+scratch
+	セレクト音_3_3(https://dova-s.jp/se/play672.html)
+scratch2
+	セレクト音_4_3(https://dova-s.jp/se/play843.html)
+screenshot
+	フィルムカメラのシャッター音(https://dova-s.jp/se/play1190.html)
+
+
+dova-syndrome(https://dova-s.jp/)

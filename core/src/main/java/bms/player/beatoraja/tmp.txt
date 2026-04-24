@@ -1,0 +1,81 @@
+	public static PlayerConfig readPlayerConfig(String playerpath, String playerid) {
+		PlayerConfig player = new PlayerConfig();
+		try {
+			// 处理 Android 平台的文件读取
+			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+				String filePath = playerpath + "/" + playerid + "/" + configpath.getFileName().toString();
+				String filePathOld = playerpath + "/" + playerid + "/" + configpath_old.getFileName().toString();
+				com.badlogic.gdx.files.FileHandle fh = com.badlogic.gdx.Gdx.files.local(filePath);
+				if (fh.exists()) {
+					try (Reader reader = new InputStreamReader(fh.read(), StandardCharsets.UTF_8)) {
+						Json json = new Json();
+						json.setIgnoreUnknownFields(true);
+						player = json.fromJson(PlayerConfig.class, reader);
+						com.badlogic.gdx.Gdx.app.log("PlayerConfig", "Successfully loaded from: " + fh.path());
+					} catch (SerializationException e) {
+						com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to deserialize PlayerConfig from: " + filePath, e);
+						// 尝试备份
+						try {
+							com.badlogic.gdx.files.FileHandle backup = com.badlogic.gdx.Gdx.files.local(playerpath + "/" + playerid + "/config_backup.json");
+							backup.write(fh.readBytes(), false);
+						} catch (Throwable e1) {
+							com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to backup broken config", e1);
+						}
+					}
+				} else {
+					// 尝试旧配置文件路径
+					com.badlogic.gdx.files.FileHandle fhOld = com.badlogic.gdx.Gdx.files.local(filePathOld);
+					if (fhOld.exists()) {
+						com.badlogic.gdx.Gdx.app.log("PlayerConfig", "Loading from old config path: " + filePathOld);
+						try (Reader reader = new InputStreamReader(fhOld.read(), StandardCharsets.UTF_8)) {
+							Json json = new Json();
+							json.setIgnoreUnknownFields(true);
+							player = json.fromJson(PlayerConfig.class, reader);
+							com.badlogic.gdx.Gdx.app.log("PlayerConfig", "Successfully loaded from old config path");
+						} catch (Throwable e) {
+							com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to load old config", e);
+						}
+					} else {
+						com.badlogic.gdx.Gdx.app.log("PlayerConfig", "Config file not found, will use defaults: " + filePath);
+					}
+				}
+			} else {
+				// 其他平台保持原逻辑
+				final Path path = Paths.get(playerpath, playerid, configpath.getFileName().toString());
+				final Path path_old = Paths.get(playerpath, playerid, configpath_old.getFileName().toString());
+
+				if (Files.exists(path)) {
+					try (Reader reader = new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8)) {
+						Json json = new Json();
+						json.setIgnoreUnknownFields(true);
+						player = json.fromJson(PlayerConfig.class, reader);
+					} catch (SerializationException e) {
+						Logger.getGlobal().warning("PlayerConfigの読み込み失敗 - Path : " + path.toString() + " , Log : " + e.getMessage());
+						com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to deserialize PlayerConfig", e);
+						try {
+							Files.copy(path, Paths.get(playerpath + "/" + playerid + "/config_backup.json"));
+						} catch (IOException e1) {
+							com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to backup config", e1);
+						}
+					} catch(Throwable e) {
+						com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Unexpected error loading config", e);
+					}
+				} else if(Files.exists(path_old)) {
+					// 旧コンフィグ読み込み。そのうち削除
+					try (FileReader reader = new FileReader(path_old.toFile())) {
+						Json json = new Json();
+						json.setIgnoreUnknownFields(true);
+						player = json.fromJson(PlayerConfig.class, reader);
+					} catch(Throwable e) {
+						com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Unexpected error loading old config", e);
+					}
+				}
+			}
+		} catch (Throwable t) {
+			com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Unexpected error during config load", t);
+		}
+
+		player.setId(playerid);
+		player.validate();
+		return player;
+	}
