@@ -420,12 +420,13 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 					break;
 				}
 			}
-		} else {
-			// 释放按键（pressed=false）时，确保 pendingPressDeadline 被重置
-			pendingPressDeadline[keycode] = 0;
 		}
-
-		if (pressed) {
+		// release（pressed=false）时无条件清 keystate，防止粘滞
+		if (!pressed) {
+			keystate[keycode] = false;
+			keytime[keycode] = Long.MIN_VALUE;
+			pendingPressDeadline[keycode] = 0;
+		} else {
 			pendingPressDeadline[keycode] = Long.MAX_VALUE;
 		}
 	}

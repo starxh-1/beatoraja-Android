@@ -516,6 +516,14 @@ public abstract class SkinObject extends DisposableObject {
 			return;
 		}
 
+		// 可见性裁剪：跳过视口外的元素
+		Rectangle vp = Skin.SkinObjectRenderer.getCurrentViewport();
+		if (vp != null && (region.x + region.width < vp.x || region.x > vp.x + vp.width ||
+				region.y + region.height < vp.y || region.y > vp.y + vp.height)) {
+			draw = false;
+			return;
+		}
+
 		prepareColor();
 		prepareAngle();
 	}

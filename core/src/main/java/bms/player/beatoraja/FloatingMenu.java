@@ -345,7 +345,10 @@ public class FloatingMenu implements InputProcessor {
         }
 
         Gdx.app.log("FloatingMenu", "touchUp: not consuming, returning false");
-        return false;
+        // 防止触摸穿透到下层（KeyBoardInputProcesseor）触发重复的 ESC/ENTER 模拟
+        // 收起状态点击图标展开时，touchDown 已消费事件，touchUp 也应消费
+        consumingTouch = false;
+        return true;
     }
 
     @Override

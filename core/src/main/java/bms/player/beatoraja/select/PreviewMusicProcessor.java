@@ -26,7 +26,7 @@ public class PreviewMusicProcessor {
     private PreviewThread preview;
     private SongData current;
     
-    // Android平台使用Music（流式播放）替代Sound
+    // Android平台：预览音效已禁用（libGDX native崩溃问题）
     private Music androidMusicPlayer = null;
     private String androidMusicPath = null;
 
@@ -48,7 +48,7 @@ public class PreviewMusicProcessor {
         if (path == null || path.isEmpty()) {
             return;
         }
-        
+
         try {
             // 停止之前的播放
             if (androidMusicPlayer != null) {
@@ -56,30 +56,45 @@ public class PreviewMusicProcessor {
                 androidMusicPlayer.dispose();
                 androidMusicPlayer = null;
             }
-            
+
             // 查找音频文件
             FileHandle fileHandle = null;
             for (FileHandle fh : AudioDriver.getPaths(path)) {
                 fileHandle = fh;
                 break;
             }
-            
-            if (fileHandle == null) {
+
+            if (fileHandle == null || !fileHandle.exists()) {
                 java.util.logging.Logger.getGlobal().warning("Music file not found: " + path);
                 return;
             }
-            
+
+            // 检查文件大小（防止空文件或损坏文件）
+            long fileSize = fileHandle.length();
+            if (fileSize == 0) {
+                java.util.logging.Logger.getGlobal().warning("Music file is empty: " + path);
+                return;
+            }
+
             // 创建Music实例（流式播放，不会完整加载文件）
             androidMusicPlayer = Gdx.audio.newMusic(fileHandle);
             androidMusicPlayer.setVolume(volume);
             androidMusicPlayer.setLooping(loop);
             androidMusicPlayer.play();
             androidMusicPath = path;
-            
-            java.util.logging.Logger.getGlobal().info("Music started (streaming): " + path);
-            
+
+            java.util.logging.Logger.getGlobal().info("Music started: " + path + " (" + fileSize + " bytes)");
+
         } catch (Exception e) {
             java.util.logging.Logger.getGlobal().warning("Failed to play music: " + path + " - " + e.getMessage());
+            // 确保清理掉可能损坏的player
+            if (androidMusicPlayer != null) {
+                try {
+                    androidMusicPlayer.dispose();
+                } catch (Exception ignored) {
+                }
+                androidMusicPlayer = null;
+            }
         }
     }
 
@@ -147,16 +162,17 @@ public class PreviewMusicProcessor {
         private boolean isAndroid;
 
         public void run() {
-            // Android平台：Oboe的Sound和Music都会因损坏文件崩溃，暂时禁用
-            // TODO: 未来使用Android MediaPlayer替代
             isAndroid = com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android;
-            
+
             if (isAndroid) {
-                java.util.logging.Logger.getGlobal().warning("Android平台：预览音效已禁用（Oboe Music也会崩溃）");
-                // 保持线程运行，但不播放任何音频
+                // Android平台：预览音乐已禁用（libGDX Music会native崩溃）
+                // 音效(Sound)不受影响，可以正常播放
                 while(!stop) {
                     try {
-                        sleep(100);
+                        if(!commands.isEmpty()) {
+                            commands.removeFirst(); // 丢弃命令，不播放预览音乐
+                        }
+                        sleep(50);
                     } catch (InterruptedException e) {
                     }
                 }

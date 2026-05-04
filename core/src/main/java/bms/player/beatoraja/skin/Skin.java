@@ -18,6 +18,7 @@ import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.glutils.ShaderProgram;
 import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.IntArray;
 import com.badlogic.gdx.utils.IntIntMap;
@@ -489,6 +490,9 @@ public class Skin {
 		/** 可视区域裁剪矩形，用于跳过长视口外的元素绘制 */
 		private final Rectangle viewport = new Rectangle();
 
+		/** ThreadLocal 存储当前 viewport，供 SkinObject.prepare() 读取用于裁剪 */
+		private static final ThreadLocal<Rectangle> currentViewport = ThreadLocal.withInitial(() -> new Rectangle());
+
 		public SkinObjectRenderer(SpriteBatch sprite, boolean useNearestFilter) {
 			this.sprite = sprite;
 			this.useNearestFilter = useNearestFilter;
@@ -508,6 +512,11 @@ public class Skin {
 
 		public void setViewport(float x, float y, float width, float height) {
 			viewport.set(x, y, width, height);
+			currentViewport.get().set(viewport);
+		}
+
+		public static Rectangle getCurrentViewport() {
+			return currentViewport.get();
 		}
 
 		public void draw(BitmapFont font, String s, float x, float y, Color c) {
@@ -561,12 +570,11 @@ public class Skin {
 		}
 
 		private void setFilter(Texture image) {
-			// 优化：仅在需要过滤且尚未设置时才调用 setFilter
+			// 优化：仅在需要 Linear 过滤且尚未设置时才调用 setFilter
 			// 跳过冗余的 bind() + glTexParameteri() GL 调用
 			if(type == TYPE_LINEAR || type == TYPE_FFMPEG || type == TYPE_DISTANCE_FIELD) {
-				TextureFilter desiredFilter = useNearestFilter ? TextureFilter.Nearest : TextureFilter.Linear;
-				if (image.getMinFilter() != desiredFilter || image.getMagFilter() != desiredFilter) {
-					image.setFilter(desiredFilter, desiredFilter);
+				if (image.getMinFilter() != TextureFilter.Linear || image.getMagFilter() != TextureFilter.Linear) {
+					image.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 				}
 			}
 		}

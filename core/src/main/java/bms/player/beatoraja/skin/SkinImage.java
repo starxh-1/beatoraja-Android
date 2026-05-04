@@ -27,7 +27,10 @@ public class SkinImage extends SkinObject {
 	private final IntegerProperty ref;
 
 	private TextureRegion currentImage;
-	
+
+	/** 静态图片缓存：无需每帧计算 */
+	private TextureRegion cachedImage;
+
 	private final Array<SkinSource> removedSources = new Array<SkinSource>();
 	
 	public SkinImage(int imageid) {
@@ -116,6 +119,17 @@ public class SkinImage extends SkinObject {
 		return super.validate();
 	}
 
+	@Override
+	public void load() {
+		super.load();
+		// 静态图片（无动画计时器、无引用属性、SkinSourceReference除外）在加载时缓存
+		// SkinSourceReference 需要 state 才能解析图片，不能缓存
+		if (getDestinationTimer() == null && ref == null && cachedImage == null &&
+		    image != null && image.length > 0 && !(image[0] instanceof SkinSourceReference)) {
+			cachedImage = getImage(0, 0, null);
+		}
+	}
+
 	public void prepare(long time, MainState state) {
         prepare(time, state, 0, 0);
 	}
@@ -124,7 +138,7 @@ public class SkinImage extends SkinObject {
         prepare(time, state, ref != null ? ref.get(state) : 0, offsetX, offsetY);
 	}
 	
-	public void prepare(long time, MainState state, int value, float offsetX, float offsetY) {		
+	public void prepare(long time, MainState state, int value, float offsetX, float offsetY) {
         if(image == null || value < 0) {
             draw = false;
             return;
@@ -133,10 +147,15 @@ public class SkinImage extends SkinObject {
         if(value >= image.length) {
             value = 0;
         }
-        currentImage = getImage(value, time, state);
+        // 静态图片（无动画计时器、无引用属性）使用缓存，每帧跳过 getImage() 调用
+        if (getDestinationTimer() == null && ref == null && cachedImage != null) {
+            currentImage = cachedImage;
+        } else {
+            currentImage = getImage(value, time, state);
+        }
         if(currentImage == null) {
             draw = false;
-            return;        	
+            return;
         }
 	}
 

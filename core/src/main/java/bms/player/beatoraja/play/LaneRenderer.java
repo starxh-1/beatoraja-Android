@@ -66,6 +66,8 @@ public class LaneRenderer {
 	private String[] cachedBpmText;
 	private String[] cachedStopText;
 
+	private static final Rectangle DEFAULT_VIEWPORT = new Rectangle(0, 0, Float.MAX_VALUE, Float.MAX_VALUE);
+
 	public LaneRenderer(BMSPlayer main, BMSModel model) {
 
 		this.main = main;
@@ -245,6 +247,11 @@ public class LaneRenderer {
 	}
 
 	public void drawLane(SkinObjectRenderer sprite, long time, SkinLane[] lanes, SkinOffset[] offsets) {
+		drawLane(sprite, time, lanes, offsets, null);
+	}
+
+	public void drawLane(SkinObjectRenderer sprite, long time, SkinLane[] lanes, SkinOffset[] offsets, Rectangle viewport) {
+		Rectangle visibleViewport = viewport != null ? viewport : DEFAULT_VIEWPORT;
 		float offsetX = 0;
 		float offsetY = 0;
 		float offsetW = 0;
@@ -524,6 +531,11 @@ public class LaneRenderer {
 							dstx -= (dstw - lanes[lane].region.width) / 2;
 							dsty -= (dsth - scale) / 2;
 						}
+					}
+					// 可见性裁剪：跳过视口外的音符
+					if (dsty + dsth < visibleViewport.y || dsty > visibleViewport.y + visibleViewport.height ||
+						dstx + dstw < visibleViewport.x || dstx > visibleViewport.x + visibleViewport.width) {
+						continue;
 					}
 					if (note instanceof NormalNote) {
 						// draw normal note

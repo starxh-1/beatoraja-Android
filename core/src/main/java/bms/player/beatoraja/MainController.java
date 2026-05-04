@@ -423,6 +423,19 @@ public class MainController {
 
         Logger.getGlobal().info("初期化時間(ms) : " + (System.currentTimeMillis() - t));
 
+        // ── JIT预热：提前编译渲染热点代码 ──
+        try {
+            Logger.getGlobal().info("Starting JIT warmup...");
+            // 1. 执行几帧空渲染，触发SpriteBatch热点JIT编译
+            for (int i = 0; i < 3; i++) {
+                sprite.begin();
+                sprite.end();
+            }
+            Logger.getGlobal().info("JIT warmup completed");
+        } catch (Exception e) {
+            Logger.getGlobal().warning("JIT warmup failed: " + e.getMessage());
+        }
+
         Thread polling = new Thread(() -> {
             long time = 0;
             final boolean isAndroidPlatform = Gdx.app.getType() == Application.ApplicationType.Android;

@@ -73,7 +73,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             // This avoids SQLDroid issue where getParameterMetaData is not implemented
             String sql = "SELECT * FROM song WHERE " + key + " = '" + value.replace("'", "''") + "'";
             c = db.rawQuery(sql, null);
-            if (c.getCount() == 0) { c.close(); return list.toArray(new SongData[0]); }
             while (c.moveToNext()) {
                 SongData sd = cursorToSongData(c);
                 list.add(sd);
@@ -109,7 +108,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         Cursor c = null;
         try {
             c = db.rawQuery(sql, null);
-            if (c.getCount() == 0) { c.close(); return list.toArray(new SongData[0]); }
             while (c.moveToNext()) {
                 list.add(cursorToSongData(c));
             }
@@ -136,7 +134,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
             // beatoraja score.db: 表名 "score"，列：sha256, clear, combo, minbp
             Cursor c = scoreDb.rawQuery("SELECT sha256, clear, combo, minbp FROM score", null);
-            if (c.getCount() == 0) { c.close(); return map; }
             while (c.moveToNext()) {
                 String sha = c.getString(0);
                 int clear  = c.getInt(1);
@@ -188,7 +185,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             try {
                 c = db.rawQuery(baseSelect + " WHERE " + sql, null);
-                if (c.getCount() == 0) { c.close(); return list.toArray(new SongData[0]); }
                 while (c.moveToNext()) {
                     try {
                         SongData sd = cursorToSongData(c);
@@ -206,7 +202,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 // 则查询所有歌曲，然后在 Java 层根据 SQL 进行过滤
                 list.clear();
                 c = db.rawQuery(baseSelect, null);
-                if (c.getCount() == 0) { c.close(); return list.toArray(new SongData[0]); }
                 while (c.moveToNext()) {
                     try {
                         SongData sd = cursorToSongData(c);
@@ -243,7 +238,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
             Cursor c = scoreDb.rawQuery("SELECT sha256, playcount, clear, score, exscore, maxcombo, minbp, "
                     + "perfect, great, good, bad, poor, totalnotes, fast, slow, date FROM score", null);
-            if (c.getCount() == 0) { c.close(); return map; }
             while (c.moveToNext()) {
                 ScoreData sd = new ScoreData();
                 sd.sha256 = getStringSafe(c, "sha256");
@@ -425,10 +419,9 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
         Cursor c = null;
+        String sql = "SELECT * FROM song WHERE title LIKE ? OR artist LIKE ? OR genre LIKE ?";
         try {
-            String sql = "SELECT * FROM song WHERE rtrim(title||' '||subtitle||' '||artist||' '||subartist||' '||genre) LIKE ? GROUP BY sha256 LIMIT 50";
-            c = db.rawQuery(sql, new String[]{"%" + text + "%"});
-            if (c.getCount() == 0) { c.close(); return list.toArray(new SongData[0]); }
+            c = db.rawQuery(sql, new String[]{"%" + text + "%", "%" + text + "%", "%" + text + "%"});
             while (c.moveToNext()) list.add(cursorToSongData(c));
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatasByText failed", t);
@@ -446,7 +439,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             // This avoids SQLDroid issue where getParameterMetaData is not implemented
             String sql = "SELECT * FROM folder WHERE " + key + " = '" + value.replace("'", "''") + "'";
             c = db.rawQuery(sql, null);
-            if (c.getCount() == 0) { c.close(); return list.toArray(new FolderData[0]); }
             while (c.moveToNext()) {
                 FolderData fd = new FolderData();
                 fd.setTitle(getStringSafe(c, "title"));
@@ -527,10 +519,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 + "playcount INTEGER, "
                 + "charthash TEXT"
                 + ", PRIMARY KEY (sha256))");
-        // 创建索引以加速查询
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_path ON song(path)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_folder ON song(folder)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_date ON song(date)");
         System.out.println("Table Created: song (updateSongDatas force check)");
         Log.i(TAG, "Table Created: song (updateSongDatas force check)");
 
@@ -611,22 +599,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             Log.i(TAG, "================================================================================");
             Log.i(TAG, "Step 2: Starting folder scan with " + paths.length + " root path(s)");
             Log.i(TAG, "================================================================================");
-            
+
             for (String pathToScan : paths) {
                 if (pathToScan == null || pathToScan.trim().isEmpty()) {
                     Log.w(TAG, "Skipping null or empty path");
                     continue;
                 }
-                
+
                 // 【诊断点 1】打印真实路径并检查目录状态
                 String trimmedPath = pathToScan.trim();
                 FileHandle scanDir = Gdx.files.absolute(trimmedPath);
-                
+
                 Log.i(TAG, "================================================================================");
                 Log.i(TAG, "[ScannerDebug] Preparing to scan directory:");
                 Log.i(TAG, "[ScannerDebug]   Absolute path: " + scanDir.path());
                 Log.i(TAG, "[ScannerDebug]   exists: " + scanDir.exists());
-                
+
                 // 额外检查：尝试获取底层 File 对象进行更详细的检查
                 try {
                     java.io.File realFile = scanDir.file();
@@ -641,10 +629,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 } catch (Exception e) {
                     Log.e(TAG, "[ScannerDebug]   Failed to get underlying File object: " + e.getMessage());
                 }
-                
+
                 Log.i(TAG, "[ScannerDebug]   forceRefresh: " + forceRefresh);
                 Log.i(TAG, "================================================================================");
-                
+
                 if (scanDir.exists()) {
                     Log.i(TAG, "Starting recursive scan of: " + scanDir.path());
                     long folderScanStart = System.currentTimeMillis();
@@ -662,7 +650,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     Log.e(TAG, "================================================================================");
                 }
             }
-            
+
             Log.i(TAG, "================================================================================");
             Log.i(TAG, "All paths scanned. Transaction committing...");
             Log.i(TAG, "================================================================================");
@@ -735,7 +723,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 Log.e(TAG, "================================================================================", listException);
                 return false;
             }
-            
+
             if (children == null) {
                 Log.w(TAG, "[ScanFolder] list() returned NULL (directory may be empty or inaccessible): " + folder.path());
                 return false;
@@ -905,12 +893,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             long decodeStart = System.currentTimeMillis();
             BMSModel model = decoder.decode(file);
             long decodeElapsed = System.currentTimeMillis() - decodeStart;
-            
+
             if (model == null) {
                 Log.w(TAG, "[ProcessBmsFile] Failed to parse BMS file (decode returned null): " + file.path());
                 return;
             }
-            
+
             Log.d(TAG, "[ProcessBmsFile] Decoded successfully in " + decodeElapsed + "ms: " + pathName);
 
             SongData songData = new SongData(model, false);
@@ -1048,12 +1036,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static class DBHelper extends SQLiteOpenHelper {
         private final String path;
         private static final int DATABASE_VERSION = 2; // Incremented to trigger migration for playcount column
-        
+
         DBHelper(Context ctx, String path) {
             super(ctx, path, null, DATABASE_VERSION);
             this.path = path;
         }
-        
+
         @Override
         public void onCreate(SQLiteDatabase db) {
             Log.i(TAG, "DBHelper onCreate: Creating all core tables...");
@@ -1091,10 +1079,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     + "playcount INTEGER, "
                     + "charthash TEXT"
                     + ", PRIMARY KEY (sha256))");
-            // 创建索引以加速查询
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_path ON song(path)");
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_folder ON song(folder)");
-            db.execSQL("CREATE INDEX IF NOT EXISTS idx_song_date ON song(date)");
             System.out.println("Table Created: song");
             Log.i(TAG, "Table Created: song");
 
@@ -1185,7 +1169,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         @Override
         public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
             Log.i(TAG, "Upgrading database from version " + oldVersion + " to " + newVersion);
-            
+
             // Migrate from version 1 to version 2: Add playcount column to song table
             if (oldVersion < 2) {
                 try {
@@ -1200,7 +1184,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                         }
                     }
                     cursor.close();
-                    
+
                     if (!hasPlaycount) {
                         Log.i(TAG, "Adding playcount column to song table");
                         db.execSQL("ALTER TABLE song ADD COLUMN playcount INTEGER DEFAULT 0");

@@ -39,11 +39,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     public AndroidAudio createAudio(Context context, AndroidApplicationConfiguration config) {
-        // 先检测 AAudio 服务是否可用，避免 OboeAudio 内部打印 "Service media.aaudio didn't start" 警告后仍尝试初始化
-        if (!isAAudioServiceAvailable()) {
-            Log.w(TAG, "AAudio service not available, using default AndroidAudio");
-            return super.createAudio(context, config);
-        }
         try {
             OboeAudio audio = new OboeAudio(context.getAssets());
             Log.i(TAG, "OboeAudio initialized successfully (low-latency audio)");
@@ -51,31 +46,6 @@ public class AndroidLauncher extends AndroidApplication {
         } catch (Throwable t) {
             Log.w(TAG, "OboeAudio initialization failed, falling back to default AndroidAudio: " + t.getMessage());
             return super.createAudio(context, config);
-        }
-    }
-
-    /**
-     * 检测 AAudio 服务是否可用
-     * 通过尝试获取 AudioManager 并检查 audio 相位来判断
-     */
-    private boolean isAAudioServiceAvailable() {
-        try {
-            android.media.AudioManager audioManager = (android.media.AudioManager) getSystemService(Context.AUDIO_SERVICE);
-            if (audioManager == null) {
-                Log.w(TAG, "AudioManager not available");
-                return false;
-            }
-            // 调用 getProperty 内部会尝试连接 AAudio 服务，如果服务未启动则返回 null 或异常
-            String sampleRate = audioManager.getProperty(android.media.AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
-            if (sampleRate == null || sampleRate.isEmpty()) {
-                Log.w(TAG, "AAudio service check failed: sampleRate is null/empty");
-                return false;
-            }
-            Log.i(TAG, "AAudio service available, sampleRate: " + sampleRate);
-            return true;
-        } catch (Throwable t) {
-            Log.w(TAG, "AAudio service check failed: " + t.getMessage());
-            return false;
         }
     }
 
@@ -245,9 +215,6 @@ public class AndroidLauncher extends AndroidApplication {
 
         // 从 assets 复制默认 BMS 谱面到 BMS 目录（仅首次运行）
         copyBmsAssets(defaultBmsRoot);
-
-        // 每次安装时复制 assets/inochi_ogg/*.ogg 文件到 BMS 目录（覆盖更新）
-        copyInochiOggAssetsToBms(defaultBmsRoot);
 
         // ===================================================================
         // 阶段 4: 初始化配置文件路径
@@ -615,72 +582,6 @@ public class AndroidLauncher extends AndroidApplication {
     }
 
     /**
-     * 每次安装时从 APK assets/inochi_ogg 目录复制所有文件到 BMS 目录（覆盖更新）
-     * 用于将 inochi 曲目的所有资源文件（.ogg、.bms、.png等）提供给 BMS 谱面使用
-     * @param bmsRoot BMS 根目录路径
-     */
-    private void copyInochiOggAssetsToBms(String bmsRoot) {
-        File bmsDir = new File(bmsRoot);
-        if (!bmsDir.exists()) {
-            bmsDir.mkdirs();
-        }
-
-        // 目标目录
-        File targetDir = new File(bmsDir, "inochi_ogg");
-        if (!targetDir.exists()) {
-            targetDir.mkdirs();
-        }
-
-        try {
-            AssetManager assetManager = getAssets();
-            String[] files = assetManager.list("inochi_ogg");
-
-            if (files == null || files.length == 0) {
-                Log.w(TAG, "No files found in assets/inochi_ogg");
-                return;
-            }
-
-            int copied = 0;
-            for (String fileName : files) {
-                File targetFile = new File(targetDir, fileName);
-                try (InputStream in = assetManager.open("inochi_ogg/" + fileName);
-                     OutputStream out = new FileOutputStream(targetFile)) {
-                    byte[] buffer = new byte[8192];
-                    int read;
-                    while ((read = in.read(buffer)) != -1) {
-                        out.write(buffer, 0, read);
-                    }
-                    Log.d(TAG, "Copied: inochi_ogg/" + fileName + " -> " + targetFile.getAbsolutePath());
-                    copied++;
-                } catch (IOException e) {
-                    Log.e(TAG, "Failed to copy: inochi_ogg/" + fileName, e);
-                }
-            }
-
-            Log.i(TAG, "inochi_ogg assets copy completed: " + copied + " files to " + targetDir.getAbsolutePath());
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to copy inochi_ogg assets", e);
-        }
-    }
-
-    /**
-     * 复制单个文件
-     */
-    private void copyFile(File source, File target) {
-        try (InputStream in = new FileInputStream(source);
-             OutputStream out = new FileOutputStream(target)) {
-            byte[] buffer = new byte[8192];
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                out.write(buffer, 0, read);
-            }
-            Log.d(TAG, "Copied: " + source.getAbsolutePath() + " -> " + target.getAbsolutePath());
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to copy file: " + source.getAbsolutePath(), e);
-        }
-    }
-
-    /**
      * 在主线程（单线程阶段）预热 SQLite 共享连接池。
      * DatabaseUtils 现已对每个数据库 URL 复用单一长生命周期连接，
      * 此方法提前创建共享连接并设置 WAL + busy_timeout，
@@ -821,19 +722,6 @@ public class AndroidLauncher extends AndroidApplication {
                 if (Build.VERSION.SDK_INT >= 30) {
                     window.setPreferMinimalPostProcessing(true);
                     Log.i(TAG, "PreferMinimalPostProcessing enabled for lower latency");
-                }
-
-                // API 31+ 使用 setPreferredFrameRate (反射) 持续告知系统期望帧率
-                // 这是防止华为等设备启动后降频到60Hz的关键
-                if (Build.VERSION.SDK_INT >= 31) {
-                    try {
-                        java.lang.reflect.Method setPreferredFrameRateMethod =
-                            android.view.Window.class.getMethod("setPreferredFrameRate", float.class);
-                        setPreferredFrameRateMethod.invoke(window, highestRefreshRate);
-                        Log.i(TAG, "setPreferredFrameRate(" + highestRefreshRate + ") called via reflection for continuous enforcement");
-                    } catch (Exception e) {
-                        Log.w(TAG, "setPreferredFrameRate via reflection failed: " + e.getMessage());
-                    }
                 }
             }
         } catch (Throwable t) {

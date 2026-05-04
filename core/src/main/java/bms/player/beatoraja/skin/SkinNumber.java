@@ -50,6 +50,8 @@ public final class SkinNumber extends SkinObject {
 
 	private TextureRegion[] currentImages;
 	private TextureRegion[] imageSet;
+	/** 静态数字图片缓存：无需每帧获取 */
+	private TextureRegion[] cachedImages;
 
 	private float shift;
 
@@ -121,6 +123,15 @@ public final class SkinNumber extends SkinObject {
 		this.offsets = offsets;
 	}
 
+	@Override
+	public void load() {
+		super.load();
+		// 静态数字（无动画计时器）在加载时缓存图片集
+		if (getDestinationTimer() == null && cachedImages == null && image != null) {
+			cachedImages = image.getImages(0, null);
+		}
+	}
+
 	public void prepare(long time, MainState state) {
 		prepare(time, state, 0, 0);
 	}
@@ -146,7 +157,13 @@ public final class SkinNumber extends SkinObject {
 			length = 0;
 			return;
 		}
-		TextureRegion[] image = images.getImages(time, state);
+		TextureRegion[] image;
+		// 静态数字（无动画计时器）使用缓存，每帧跳过 getImages() 调用
+		if (getDestinationTimer() == null && cachedImages != null) {
+			image = cachedImages;
+		} else {
+			image = images.getImages(time, state);
+		}
 		if(image == null) {
 			length = 0;
 			draw = false;
