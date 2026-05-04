@@ -216,6 +216,9 @@ public class AndroidLauncher extends AndroidApplication {
         // 从 assets 复制默认 BMS 谱面到 BMS 目录（仅首次运行）
         copyBmsAssets(defaultBmsRoot);
 
+        // 复制 inochi_ogg 目录到 BMS 目录（inochi 系列 BMS 谱面，包含 .bms 和 .ogg 资源）
+        copyInochiOggAssets(defaultBmsRoot);
+
         // ===================================================================
         // 阶段 4: 初始化配置文件路径
         // ===================================================================
@@ -578,6 +581,43 @@ public class AndroidLauncher extends AndroidApplication {
             Log.i(TAG, "BMS assets copy completed");
         } catch (IOException e) {
             Log.e(TAG, "Failed to copy BMS assets", e);
+        }
+    }
+
+    /**
+     * 从 assets/inochi_ogg 目录复制 inochi 系列谱面到 BMS 根目录
+     * inochi_ogg 目录包含 .bms 谱面文件和对应的 .ogg 音频文件
+     * @param bmsRoot BMS 根目录路径
+     */
+    private void copyInochiOggAssets(String bmsRoot) {
+        File targetDir = new File(bmsRoot);
+
+        // 检查 inochi_ogg 特有的文件是否存在（如 inochibass.ogg）
+        File sampleFile = new File(new File(bmsRoot), "inochi_ogg/inochibass.ogg");
+        if (sampleFile.exists()) {
+            Log.i(TAG, "inochi_ogg assets already exist, skipping copy");
+            return;
+        }
+
+        Log.i(TAG, "Copying inochi_ogg assets to: " + bmsRoot);
+
+        try {
+            AssetManager assetManager = getAssets();
+            String[] inochiAssets = assetManager.list("inochi_ogg");
+
+            if (inochiAssets == null || inochiAssets.length == 0) {
+                Log.w(TAG, "No assets found in assets/inochi_ogg directory");
+                return;
+            }
+
+            Log.i(TAG, "Found " + inochiAssets.length + " items in assets/inochi_ogg");
+
+            // 递归复制 inochi_ogg 目录到 BMS 目录
+            copyAssetsToFilesDir("inochi_ogg", new File(targetDir, "inochi_ogg"));
+
+            Log.i(TAG, "inochi_ogg assets copy completed");
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to copy inochi_ogg assets", e);
         }
     }
 
