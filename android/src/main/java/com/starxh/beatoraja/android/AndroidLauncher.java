@@ -170,7 +170,7 @@ public class AndroidLauncher extends AndroidApplication {
         // 预创建目录
         String[] dirs = {
             "player", "skin", "font", "table", "glsl", "favorite", "course", "random", "folder",
-            "skin/default/keyconfig", "player/player1"
+            "skin/default/keyconfig"
         };
         for (String d : dirs) {
             File dir = new File(filesDir, d);
@@ -227,9 +227,89 @@ public class AndroidLauncher extends AndroidApplication {
         Log.i(TAG, "Step 4: Config paths updated");
 
         // ===================================================================
+        // 阶段 4.5: 读取配置中的 player name 和 bmsroot，手动解析（避免在 LibGDX 初始化前调用 Gdx.files）
+        // ===================================================================
+        String playerName = "player1";
+        String[] bmsrootFromConfig = new String[0];
+        try {
+            File configFile = new File(filesDir, "config_sys.json");
+            if (configFile.exists()) {
+                String content = new String(java.nio.file.Files.readAllBytes(configFile.toPath()), "UTF-8");
+
+                // 解析 playername
+                int nameIndex = content.indexOf("\"playername\"");
+                if (nameIndex >= 0) {
+                    int colonIndex = content.indexOf(":", nameIndex);
+                    if (colonIndex >= 0) {
+                        int start = colonIndex + 1;
+                        while (start < content.length() && (content.charAt(start) == ' ' || content.charAt(start) == '"')) start++;
+                        int end = start;
+                        while (end < content.length() && content.charAt(end) != '"' && content.charAt(end) != ',' && content.charAt(end) != '}') end++;
+                        if (end > start) {
+                            playerName = content.substring(start, end).trim();
+                        }
+                    }
+                }
+
+                // 解析 bmsroot 数组
+                int bmsrootIndex = content.indexOf("\"bmsroot\"");
+                if (bmsrootIndex >= 0) {
+                    int bracketStart = content.indexOf("[", bmsrootIndex);
+                    int bracketEnd = content.indexOf("]", bracketStart);
+                    if (bracketStart >= 0 && bracketEnd >= 0) {
+                        String arrayContent = content.substring(bracketStart + 1, bracketEnd);
+                        java.util.List<String> paths = new java.util.ArrayList<>();
+                        int pos = 0;
+                        while (pos < arrayContent.length()) {
+                            while (pos < arrayContent.length() && (arrayContent.charAt(pos) == ' ' || arrayContent.charAt(pos) == ',' || arrayContent.charAt(pos) == '\n' || arrayContent.charAt(pos) == '\r')) pos++;
+                            if (pos >= arrayContent.length()) break;
+                            if (arrayContent.charAt(pos) == '"') {
+                                pos++;
+                                int start = pos;
+                                while (pos < arrayContent.length() && arrayContent.charAt(pos) != '"') pos++;
+                                if (pos < arrayContent.length()) {
+                                    paths.add(arrayContent.substring(start, pos).trim());
+                                    pos++;
+                                }
+                            } else {
+                                while (pos < arrayContent.length() && arrayContent.charAt(pos) != ',' && arrayContent.charAt(pos) != ']') pos++;
+                            }
+                        }
+                        if (!paths.isEmpty()) {
+                            bmsrootFromConfig = paths.toArray(new String[0]);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to read config: " + e.getMessage());
+        }
+        Log.i(TAG, "Step 4.5: Player name = " + playerName + ", bmsroot count = " + bmsrootFromConfig.length);
+
+        // 使用配置的 bmsroot（如果有），否则使用默认路径
+        String[] allBmsRoots;
+        if (bmsrootFromConfig.length > 0) {
+            allBmsRoots = bmsrootFromConfig;
+        } else {
+            allBmsRoots = new String[]{defaultBmsRoot};
+        }
+        String bmsRootsLog = "BMS roots: ";
+        for (String r : allBmsRoots) bmsRootsLog += r + ", ";
+        Log.i(TAG, bmsRootsLog);
+
+        String playerDirPath = filesDir.getAbsolutePath() + "/player/" + playerName;
+        File playerDir = new File(playerDirPath);
+        if (!playerDir.exists()) {
+            boolean created = playerDir.mkdirs();
+            Log.i(TAG, "Created player directory: " + created + " - " + playerDirPath);
+        } else {
+            Log.i(TAG, "Player directory already exists: " + playerDirPath);
+        }
+
+        // ===================================================================
         // 阶段 5: 预初始化 WAL 模式（防止后续多线程死锁）
         // ===================================================================
-        preInitWal(filesDir);
+        preInitWal(filesDir, playerDirPath);
         Log.i(TAG, "Step 5: WAL mode pre-initialized");
 
         // ===================================================================
@@ -238,9 +318,9 @@ public class AndroidLauncher extends AndroidApplication {
         try {
             String defaultDbPath = filesDir.getAbsolutePath() + "/songdata.db";
             bms.player.beatoraja.song.AndroidSQLiteSongDatabaseAccessor androidAccessor =
-                    new bms.player.beatoraja.song.AndroidSQLiteSongDatabaseAccessor(this, defaultDbPath, new String[]{defaultBmsRoot});
+                    new bms.player.beatoraja.song.AndroidSQLiteSongDatabaseAccessor(this, defaultDbPath, allBmsRoots);
             bms.player.beatoraja.MainLoader.setSongDatabaseAccessor(androidAccessor);
-            Log.i(TAG, "Step 6: Database initialized with bmsroot: " + defaultBmsRoot);
+            Log.i(TAG, "Step 6: Database initialized with bmsroot count: " + allBmsRoots.length);
         } catch (Throwable t) {
             Log.e(TAG, "Step 6: FATAL - Failed to initialize database", t);
             // 数据库初始化失败，不能继续
@@ -590,13 +670,15 @@ public class AndroidLauncher extends AndroidApplication {
      * @param bmsRoot BMS 根目录路径
      */
     private void copyInochiOggAssets(String bmsRoot) {
-        File targetDir = new File(bmsRoot);
+        File inochiDir = new File(new File(bmsRoot), "inochi_ogg");
 
-        // 检查 inochi_ogg 特有的文件是否存在（如 inochibass.ogg）
-        File sampleFile = new File(new File(bmsRoot), "inochi_ogg/inochibass.ogg");
-        if (sampleFile.exists()) {
-            Log.i(TAG, "inochi_ogg assets already exist, skipping copy");
-            return;
+        // 检查 inochi_ogg 目录是否存在且有内容
+        if (inochiDir.exists() && inochiDir.isDirectory()) {
+            String[] files = inochiDir.list();
+            if (files != null && files.length > 0) {
+                Log.i(TAG, "inochi_ogg directory already exists with " + files.length + " files, skipping copy");
+                return;
+            }
         }
 
         Log.i(TAG, "Copying inochi_ogg assets to: " + bmsRoot);
@@ -613,7 +695,7 @@ public class AndroidLauncher extends AndroidApplication {
             Log.i(TAG, "Found " + inochiAssets.length + " items in assets/inochi_ogg");
 
             // 递归复制 inochi_ogg 目录到 BMS 目录
-            copyAssetsToFilesDir("inochi_ogg", new File(targetDir, "inochi_ogg"));
+            copyAssetsToFilesDir("inochi_ogg", inochiDir);
 
             Log.i(TAG, "inochi_ogg assets copy completed");
         } catch (IOException e) {
@@ -627,7 +709,7 @@ public class AndroidLauncher extends AndroidApplication {
      * 此方法提前创建共享连接并设置 WAL + busy_timeout，
      * 避免后续游戏线程首次访问时产生延迟。
      */
-    private void preInitWal(File filesDir) {
+    private void preInitWal(File filesDir, String playerDirPath) {
         String[] dbNames = {"score.db", "songdata.db"};
         for (String dbName : dbNames) {
             File dbFile = new File(filesDir, dbName);
@@ -640,6 +722,17 @@ public class AndroidLauncher extends AndroidApplication {
             } catch (Throwable t) {
                 Log.w(TAG, "WAL pre-init skipped for " + path + ": " + t.getMessage());
             }
+        }
+        // 预初始化玩家分数数据库
+        File playerScoreDb = new File(playerDirPath, "score.db");
+        String playerScorePath = playerScoreDb.getAbsolutePath();
+        try {
+            javax.sql.DataSource ds = bms.player.beatoraja.DatabaseUtils.getDataSource(playerScorePath);
+            java.sql.Connection c = ds.getConnection();
+            c.close();
+            Log.i(TAG, "WAL pre-initialized for player score: " + playerScorePath);
+        } catch (Throwable t) {
+            Log.w(TAG, "WAL pre-init skipped for player score " + playerScorePath + ": " + t.getMessage());
         }
     }
 

@@ -1,5 +1,7 @@
 <resources>
-    <style name="GdxTheme" parent="android:Theme.Material.Light.NoActionBar.Fullscreen">
+    <style name="GdxTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:colorBackground">@color/background</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowSoftInputMode">adjustResize|stateAlwaysHidden</item>
     </style>
 </resources>
