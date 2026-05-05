@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.io.Serializable;
 
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.math.MathUtils;
@@ -18,7 +19,7 @@ import com.badlogic.gdx.utils.JsonWriter.OutputType;
  *
  * @author exch
  */
-public class Config implements Validatable {
+public class Config implements Validatable, Serializable {
 
 	/**
 	 * 旧コンフィグパス。そのうち削除
@@ -728,4 +729,109 @@ public class Config implements Validatable {
 	public enum SongPreview {
 		NONE,ONCE,LOOP;
 	}
+
+    public Config copy() {
+        Config c = new Config();
+        // Copy all fields
+        c.playername = this.playername;
+        c.displaymode = this.displaymode;
+        c.vsync = this.vsync;
+        c.resolution = this.resolution;
+        c.useResolution = this.useResolution;
+        c.windowWidth = this.windowWidth;
+        c.windowHeight = this.windowHeight;
+        c.folderlamp = this.folderlamp;
+        c.audio = this.audio != null ? this.audio.copy() : null;
+        c.maxFramePerSecond = this.maxFramePerSecond;
+        c.prepareFramePerSecond = this.prepareFramePerSecond;
+        c.maxSearchBarCount = this.maxSearchBarCount;
+        c.showNoSongExistingBar = this.showNoSongExistingBar;
+        c.scrolldurationlow = this.scrolldurationlow;
+        c.scrolldurationhigh = this.scrolldurationhigh;
+        c.analogScroll = this.analogScroll;
+        c.analogTicksPerScroll = this.analogTicksPerScroll;
+        c.songPreview = this.songPreview;
+        c.cacheSkinImage = this.cacheSkinImage;
+        c.useSongInfo = this.useSongInfo;
+        c.songpath = this.songpath;
+        c.songinfopath = this.songinfopath;
+        c.tablepath = this.tablepath;
+        c.playerpath = this.playerpath;
+        c.skinpath = this.skinpath;
+        c.bgmpath = this.bgmpath;
+        c.soundpath = this.soundpath;
+        c.systemfontpath = this.systemfontpath;
+        c.messagefontpath = this.messagefontpath;
+        c.bmsroot = this.bmsroot != null ? this.bmsroot.clone() : null;
+        c.tableURL = this.tableURL != null ? this.tableURL.clone() : null;
+        c.bga = this.bga;
+        c.bgaExpand = this.bgaExpand;
+        c.frameskip = this.frameskip;
+        c.updatesong = this.updatesong;
+        c.skinPixmapGen = this.skinPixmapGen;
+        c.stagefilePixmapGen = this.stagefilePixmapGen;
+        c.bannerPixmapGen = this.bannerPixmapGen;
+        c.songResourceGen = this.songResourceGen;
+        c.enableIpfs = this.enableIpfs;
+        c.ipfsurl = this.ipfsurl;
+        c.irSendCount = this.irSendCount;
+        c.useDiscordRPC = this.useDiscordRPC;
+        c.setClipboardScreenshot = this.setClipboardScreenshot;
+        c.androidUnlimitedFPS = this.androidUnlimitedFPS;
+        c.androidStableFPS = this.androidStableFPS;
+        c.showTouchKey = this.showTouchKey;
+        return c;
+    }
+
+    public Config copy(Config changes) {
+        Config c = new Config();
+        c.playername = changes.playername != null ? changes.playername : this.playername;
+        c.displaymode = changes.displaymode != null ? changes.displaymode : this.displaymode;
+        c.vsync = changes.vsync;
+        c.resolution = changes.resolution != null ? changes.resolution : this.resolution;
+        c.useResolution = changes.useResolution;
+        c.windowWidth = changes.windowWidth;
+        c.windowHeight = changes.windowHeight;
+        c.folderlamp = changes.folderlamp;
+        c.audio = changes.audio != null ? changes.audio.copy() : this.audio;
+        c.maxFramePerSecond = changes.maxFramePerSecond;
+        c.prepareFramePerSecond = changes.prepareFramePerSecond;
+        c.maxSearchBarCount = changes.maxSearchBarCount;
+        c.showNoSongExistingBar = changes.showNoSongExistingBar;
+        c.scrolldurationlow = changes.scrolldurationlow;
+        c.scrolldurationhigh = changes.scrolldurationhigh;
+        c.analogScroll = changes.analogScroll;
+        c.analogTicksPerScroll = changes.analogTicksPerScroll;
+        c.songPreview = changes.songPreview != null ? changes.songPreview : this.songPreview;
+        c.cacheSkinImage = changes.cacheSkinImage;
+        c.useSongInfo = changes.useSongInfo;
+        c.songpath = changes.songpath != null ? changes.songpath : this.songpath;
+        c.songinfopath = changes.songinfopath != null ? changes.songinfopath : this.songinfopath;
+        c.tablepath = changes.tablepath != null ? changes.tablepath : this.tablepath;
+        c.playerpath = changes.playerpath != null ? changes.playerpath : this.playerpath;
+        c.skinpath = changes.skinpath != null ? changes.skinpath : this.skinpath;
+        c.bgmpath = changes.bgmpath != null ? changes.bgmpath : this.bgmpath;
+        c.soundpath = changes.soundpath != null ? changes.soundpath : this.soundpath;
+        c.systemfontpath = changes.systemfontpath != null ? changes.systemfontpath : this.systemfontpath;
+        c.messagefontpath = changes.messagefontpath != null ? changes.messagefontpath : this.messagefontpath;
+        c.bmsroot = changes.bmsroot != null ? changes.bmsroot : this.bmsroot;
+        c.tableURL = changes.tableURL != null ? changes.tableURL : this.tableURL;
+        c.bga = changes.bga;
+        c.bgaExpand = changes.bgaExpand;
+        c.frameskip = changes.frameskip;
+        c.updatesong = changes.updatesong;
+        c.skinPixmapGen = changes.skinPixmapGen;
+        c.stagefilePixmapGen = changes.stagefilePixmapGen;
+        c.bannerPixmapGen = changes.bannerPixmapGen;
+        c.songResourceGen = changes.songResourceGen;
+        c.enableIpfs = changes.enableIpfs;
+        c.ipfsurl = changes.ipfsurl != null ? changes.ipfsurl : this.ipfsurl;
+        c.irSendCount = changes.irSendCount;
+        c.useDiscordRPC = changes.useDiscordRPC;
+        c.setClipboardScreenshot = changes.setClipboardScreenshot;
+        c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
+        c.androidStableFPS = changes.androidStableFPS;
+        c.showTouchKey = changes.showTouchKey;
+        return c;
+    }
 }

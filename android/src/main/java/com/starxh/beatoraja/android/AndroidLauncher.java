@@ -247,6 +247,8 @@ public class AndroidLauncher extends AndroidApplication {
                         while (end < content.length() && content.charAt(end) != '"' && content.charAt(end) != ',' && content.charAt(end) != '}') end++;
                         if (end > start) {
                             playerName = content.substring(start, end).trim();
+                            // Handle JSON escaped slashes
+                            playerName = playerName.replace("\\/", "/");
                         }
                     }
                 }
@@ -268,7 +270,14 @@ public class AndroidLauncher extends AndroidApplication {
                                 int start = pos;
                                 while (pos < arrayContent.length() && arrayContent.charAt(pos) != '"') pos++;
                                 if (pos < arrayContent.length()) {
-                                    paths.add(arrayContent.substring(start, pos).trim());
+                                    String path = arrayContent.substring(start, pos).trim();
+                                    // Handle JSON escaped slashes
+                                    path = path.replace("\\/", "/");
+                                    // Collapse any duplicate slashes
+                                    while (path.contains("//")) {
+                                        path = path.replace("//", "/");
+                                    }
+                                    paths.add(path);
                                     pos++;
                                 }
                             } else {
@@ -293,9 +302,11 @@ public class AndroidLauncher extends AndroidApplication {
         } else {
             allBmsRoots = new String[]{defaultBmsRoot};
         }
-        String bmsRootsLog = "BMS roots: ";
-        for (String r : allBmsRoots) bmsRootsLog += r + ", ";
-        Log.i(TAG, bmsRootsLog);
+        StringBuilder bmsRootsLog = new StringBuilder("BMS roots: ");
+        for (String r : allBmsRoots) {
+            bmsRootsLog.append(r).append(", ");
+        }
+        Log.i(TAG, bmsRootsLog.toString());
 
         String playerDirPath = filesDir.getAbsolutePath() + "/player/" + playerName;
         File playerDir = new File(playerDirPath);
@@ -609,7 +620,7 @@ public class AndroidLauncher extends AndroidApplication {
     private void copyFileAsset(String assetPath, File targetFile) {
         if (targetFile.exists()) {
             Log.d(TAG, "Already exists: " + targetFile.getAbsolutePath());
-            return; // 简单去重
+            return;
         }
 
         try (InputStream in = getAssets().open(assetPath);
@@ -672,17 +683,7 @@ public class AndroidLauncher extends AndroidApplication {
     private void copyInochiOggAssets(String bmsRoot) {
         File inochiDir = new File(new File(bmsRoot), "inochi_ogg");
 
-        // 检查 inochi_ogg 目录是否存在且有内容
-        if (inochiDir.exists() && inochiDir.isDirectory()) {
-            String[] files = inochiDir.list();
-            if (files != null && files.length > 0) {
-                Log.i(TAG, "inochi_ogg directory already exists with " + files.length + " files, skipping copy");
-                return;
-            }
-        }
-
         Log.i(TAG, "Copying inochi_ogg assets to: " + bmsRoot);
-
         try {
             AssetManager assetManager = getAssets();
             String[] inochiAssets = assetManager.list("inochi_ogg");

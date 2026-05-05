@@ -23,19 +23,28 @@
       android:theme="@style/GdxTheme"
       tools:ignore="UnusedAttribute">
     <activity
-        android:name="com.starxh.beatoraja.android.AndroidLauncher"
+        android:name="com.starxh.beatoraja.android.compose.SettingsActivity"
         android:label="@string/app_name"
-        android:screenOrientation="sensorLandscape"
-        android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
         android:exported="true"
-        android:showWhenLocked="false"
-        android:turnScreenOn="true"
-        android:useEmbeddedDex="false">
+        android:screenOrientation="fullSensor"
+        android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
+        android:theme="@style/GdxTheme">
         <intent-filter>
         <action android:name="android.intent.action.MAIN"/>
         <category android:name="android.intent.category.LAUNCHER"/>
       </intent-filter>
     </activity>
+
+    <!-- 游戏主界面 -->
+    <activity
+        android:name="com.starxh.beatoraja.android.AndroidLauncher"
+        android:label="@string/app_name"
+        android:screenOrientation="sensorLandscape"
+        android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|screenLayout"
+        android:exported="false"
+        android:showWhenLocked="false"
+        android:turnScreenOn="true"
+        android:useEmbeddedDex="false"/>
 
       <!-- 游戏性能优化标签 -->
       <meta-data

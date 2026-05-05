@@ -3,13 +3,16 @@ buildscript {
     mavenCentral()
     google()
   }
+  dependencies {
+    classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+  }
 }
 apply plugin: 'com.android.application'
-
+apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
   namespace = "com.starxh.beatoraja"
-  compileSdk = 35
+  compileSdk = 36
   sourceSets {
     main {
       manifest.srcFile 'AndroidManifest.xml'
@@ -33,13 +36,9 @@ android {
   defaultConfig {
     applicationId 'com.starxh.beatoraja'
     minSdkVersion 26
-    targetSdkVersion 35
+    targetSdkVersion 36
     versionCode 1
     versionName "1.0"
-
-    ndk {
-      abiFilters 'arm64-v8a', 'armeabi-v7a'
-    }
 
     resConfigs "en", "zh"
   }
@@ -47,6 +46,12 @@ android {
     sourceCompatibility "17"
     targetCompatibility "17"
     coreLibraryDesugaringEnabled = true
+  }
+  kotlinOptions {
+    jvmTarget = '17'
+  }
+  composeOptions {
+    kotlinCompilerExtensionVersion = "1.5.10"
   }
   buildTypes {
     release {
@@ -65,10 +70,12 @@ repositories {
 configurations { natives }
 
 dependencies {
+  implementation 'androidx.core:core-ktx:1.18.0'
   coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
   implementation "com.badlogicgames.gdx-controllers:gdx-controllers-android:$gdxControllersVersion"
   implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
   implementation 'org.sqldroid:sqldroid:1.0.3'
+  implementation 'com.fasterxml.jackson.core:jackson-databind:2.21.2'
   implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
   implementation (project(':core')) {
     exclude group: 'org.xerial', module: 'sqlite-jdbc'
@@ -78,6 +85,27 @@ dependencies {
   // JCodec Android 扩展：为 .mpg/.avi 提供纯 Java 软解码降级支持
   implementation "org.jcodec:jcodec:$jcodecVersion"
   implementation "org.jcodec:jcodec-android:$jcodecVersion"
+
+  // Compose BOM
+  def composeBom = platform('androidx.compose:compose-bom:2023.06.01')
+  implementation composeBom
+  androidTestImplementation composeBom
+
+  // Compose UI
+  implementation 'androidx.compose.ui:ui'
+  implementation 'androidx.compose.ui:ui-graphics'
+  implementation 'androidx.compose.ui:ui-tooling-preview'
+  implementation 'androidx.compose.material3:material3'
+  implementation 'androidx.compose.material:material-icons-extended'
+  implementation 'androidx.activity:activity-compose:1.8.2'
+  implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
+  implementation 'androidx.navigation:navigation-compose:2.7.7'
+  implementation 'androidx.core:core-ktx:1.12.0'
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0'
+
+  // Debug
+  debugImplementation 'androidx.compose.ui:ui-tooling'
+  debugImplementation 'androidx.compose.ui:ui-test-manifest'
 
 
   natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"

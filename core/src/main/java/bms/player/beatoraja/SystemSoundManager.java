@@ -169,12 +169,6 @@ public class SystemSoundManager {
 	}
 
 	public void play(SoundType sound, boolean loop) {
-		// Android平台：由于Oboe Sound同步解码会阻塞整个进程，暂时禁用所有音效
-		// TODO: 未来使用Android MediaPlayer或LibGDX Music（流式播放）替代
-		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-			return; // 直接跳过，不播放任何音效
-		}
-		
 		final String path = soundmap.get(sound);
 		if (path != null) {
 			main.getAudioProcessor().play(path, main.getConfig().getAudioConfig().getSystemvolume(), loop);

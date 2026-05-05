@@ -388,8 +388,13 @@ public class MainController {
         input = new BMSPlayerInputProcessor(config, player);
         input.setMainController(this);
 
-        // Android 默认使用 GdxSoundDriver (OpenAL)
-        audio = new GdxSoundDriver(config);
+        // Android uses the audio driver created by AndroidLauncher.createAudio() (OboeAudio)
+        // Only create GdxSoundDriver if no audio driver exists (desktop fallback)
+        if (Gdx.audio != null && Gdx.audio instanceof AudioDriver) {
+            audio = (AudioDriver) Gdx.audio;
+        } else {
+            audio = new GdxSoundDriver(config);
+        }
 
         resource = new PlayerResource(audio, config, player);
         selector = new MusicSelector(this, songUpdated);

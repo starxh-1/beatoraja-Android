@@ -24,7 +24,7 @@ public class MusicDecide extends MainState {
 	}
 
 	public void create() {
-		// 选曲界面关闭持续渲染，降低功耗
+		// Reducing Power Consumption
 		Gdx.graphics.setContinuousRendering(false);
 
 		cancel = false;

@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.Spinner;
@@ -31,6 +32,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -52,6 +54,10 @@ public class SettingsActivity extends Activity {
     private int irSendCount = 5;
     private List<String> tableUrls = new ArrayList<>();
     private List<String> availablePlayers = new ArrayList<>();
+    private int selectedGaugeAutoShift = 0;
+    private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
+    private int selectedGreenNumber = 0;
+    private int selectedHispeedFix = 3;
 
     // UI containers
     private LinearLayout bmsPathContainer;
@@ -92,11 +98,11 @@ public class SettingsActivity extends Activity {
                 // 解析 audio.systemvolume
                 selectedVolume = findJsonFloatValueAsInt(json, "audio", "systemvolume", 100);
 
-                // 解析 audio.keyvolume (config 1.0 = slider 50 = display 100%)
-                selectedKeyVolume = (int) (findJsonFloatValue(json, "audio", "keyvolume", 1.0f) * 50);
+                // 解析 audio.keyvolume
+                selectedKeyVolume = (int) (findJsonFloatValue(json, "audio", "keyvolume", 1.0f) * 100);
 
                 // 解析 audio.bgvolume
-                selectedBgmVolume = (int) (findJsonFloatValue(json, "audio", "bgvolume", 1.0f) * 50);
+                selectedBgmVolume = (int) (findJsonFloatValue(json, "audio", "bgvolume", 1.0f) * 100);
 
                 // 解析 playername
                 selectedPlayerName = findJsonStringValue(json, "playername", "player1");
@@ -119,6 +125,14 @@ public class SettingsActivity extends Activity {
 
                 // IR enable: default OFF, only enable if irconfig has content
                 irEnable = false;
+
+                // 解析 playerconfig - gaugeAutoShift, autosavereplay, greenNumber, hispeedFix
+                selectedGaugeAutoShift = findJsonIntValue(json, "gaugeautoshift", 0);
+                selectedHispeedFix = findJsonIntValue(json, "hispeedfix", 3);
+                selectedGreenNumber = findJsonIntValue(json, "greennumber", 0);
+
+                // autosavereplay array (4 elements)
+                selectedAutoSaveReplay = findJsonIntArray(json, "autosavereplay", 4);
             } else {
                 // 默认值
                 bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
@@ -200,6 +214,12 @@ public class SettingsActivity extends Activity {
                     }
                     if (pos < arrayContent.length()) {
                         String val = arrayContent.substring(start, pos);
+                        // Normalize escaped slashes: \/ -> /, \\ -> /
+                        val = val.replace("\\/", "/").replace("\\", "/");
+                        // Collapse any duplicate slashes
+                        while (val.contains("//")) {
+                            val = val.replace("//", "/");
+                        }
                         Log.d("SettingsActivity", "Extracted string: [" + val + "]");
                         result.add(val);
                         pos++; // 跳过结束的引号
@@ -290,6 +310,36 @@ public class SettingsActivity extends Activity {
         return defaultValue;
     }
 
+    private int[] findJsonIntArray(String json, String key, int size) {
+        int[] result = new int[size];
+        try {
+            int keyStart = json.indexOf("\"" + key + "\"");
+            if (keyStart < 0) return result;
+
+            int bracketStart = json.indexOf("[", keyStart);
+            int bracketEnd = json.indexOf("]", bracketStart);
+            if (bracketStart < 0 || bracketEnd < 0) return result;
+
+            String arrayContent = json.substring(bracketStart + 1, bracketEnd);
+            int pos = 0;
+            int index = 0;
+            while (pos < arrayContent.length() && index < size) {
+                while (pos < arrayContent.length() && (arrayContent.charAt(pos) == ' ' || arrayContent.charAt(pos) == ',' || arrayContent.charAt(pos) == '\n' || arrayContent.charAt(pos) == '\r')) pos++;
+                if (pos >= arrayContent.length()) break;
+                int start = pos;
+                while (pos < arrayContent.length() && arrayContent.charAt(pos) >= '0' && arrayContent.charAt(pos) <= '9') pos++;
+                if (pos > start) {
+                    result[index++] = Integer.parseInt(arrayContent.substring(start, pos));
+                } else {
+                    while (pos < arrayContent.length() && arrayContent.charAt(pos) != ',' && arrayContent.charAt(pos) != ']') pos++;
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return result;
+    }
+
     private int findJsonFloatValueAsInt(String json, String section, String key, int defaultValue) {
         try {
             int sectionStart = json.indexOf("\"" + section + "\"");
@@ -370,7 +420,7 @@ public class SettingsActivity extends Activity {
 
         // Key Volume
         TextView keyVolumePercent = findViewById(R.id.keyVolumePercent);
-        keyVolumePercent.setText(selectedKeyVolume * 2 + "%");
+        keyVolumePercent.setText(selectedKeyVolume + "%");
 
         android.widget.SeekBar keyVolumeSeekBar = findViewById(R.id.keyVolumeSeekBar);
         keyVolumeSeekBar.setProgress(selectedKeyVolume);
@@ -379,7 +429,7 @@ public class SettingsActivity extends Activity {
             public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     selectedKeyVolume = progress;
-                    keyVolumePercent.setText(progress * 2 + "%");
+                    keyVolumePercent.setText(progress + "%");
                 }
             }
             @Override
@@ -390,7 +440,7 @@ public class SettingsActivity extends Activity {
 
         // BGM Volume
         TextView bgmVolumePercent = findViewById(R.id.bgmVolumePercent);
-        bgmVolumePercent.setText(selectedBgmVolume * 2 + "%");
+        bgmVolumePercent.setText(selectedBgmVolume + "%");
 
         android.widget.SeekBar bgmVolumeSeekBar = findViewById(R.id.bgmVolumeSeekBar);
         bgmVolumeSeekBar.setProgress(selectedBgmVolume);
@@ -399,7 +449,7 @@ public class SettingsActivity extends Activity {
             public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     selectedBgmVolume = progress;
-                    bgmVolumePercent.setText(progress * 2 + "%");
+                    bgmVolumePercent.setText(progress + "%");
                 }
             }
             @Override
@@ -507,6 +557,43 @@ public class SettingsActivity extends Activity {
         refreshBmsPathList();
         refreshTableUrlList();
 
+        // Play Options - Gauge Auto Shift
+        Spinner gaugeAutoShiftSpinner = findViewById(R.id.gaugeAutoShiftSpinner);
+        List<String> gaugeAutoShiftOptions = Arrays.asList("None", "Continue", "Survival→Groove", "Best Clear", "Select→Under");
+        ArrayAdapter<String> gasAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, gaugeAutoShiftOptions);
+        gasAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        gaugeAutoShiftSpinner.setAdapter(gasAdapter);
+        gaugeAutoShiftSpinner.setSelection(Math.min(selectedGaugeAutoShift, gaugeAutoShiftOptions.size() - 1));
+
+        // Play Options - Auto Save Replay
+        Spinner autoSaveReplay1 = findViewById(R.id.autoSaveReplay1);
+        Spinner autoSaveReplay2 = findViewById(R.id.autoSaveReplay2);
+        Spinner autoSaveReplay3 = findViewById(R.id.autoSaveReplay3);
+        Spinner autoSaveReplay4 = findViewById(R.id.autoSaveReplay4);
+        List<String> autoSaveOptions = Arrays.asList("Nothing", "Score Update", "Score>=", "Miss Update", "Miss<=", "Combo Update", "Combo>=", "Clear Update", "Clear>=", "Best Clear");
+        ArrayAdapter<String> asrAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, autoSaveOptions);
+        asrAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        autoSaveReplay1.setAdapter(asrAdapter);
+        autoSaveReplay2.setAdapter(asrAdapter);
+        autoSaveReplay3.setAdapter(asrAdapter);
+        autoSaveReplay4.setAdapter(asrAdapter);
+        autoSaveReplay1.setSelection(Math.min(selectedAutoSaveReplay[0], autoSaveOptions.size() - 1));
+        autoSaveReplay2.setSelection(Math.min(selectedAutoSaveReplay[1], autoSaveOptions.size() - 1));
+        autoSaveReplay3.setSelection(Math.min(selectedAutoSaveReplay[2], autoSaveOptions.size() - 1));
+        autoSaveReplay4.setSelection(Math.min(selectedAutoSaveReplay[3], autoSaveOptions.size() - 1));
+
+        // Play Options - Green Number
+        EditText greenNumberInput = findViewById(R.id.greenNumberInput);
+        greenNumberInput.setText(String.valueOf(selectedGreenNumber));
+
+        // Play Options - HI-SPEED Fix
+        Spinner hispeedFixSpinner = findViewById(R.id.hispeedFixSpinner);
+        List<String> hispeedFixOptions = Arrays.asList("OFF", "Start BPM", "Max BPM", "Main BPM", "Min BPM");
+        ArrayAdapter<String> hsfAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, hispeedFixOptions);
+        hsfAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        hispeedFixSpinner.setAdapter(hsfAdapter);
+        hispeedFixSpinner.setSelection(Math.min(selectedHispeedFix, hispeedFixOptions.size() - 1));
+
         // Buttons
         Button saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> {
@@ -515,6 +602,21 @@ public class SettingsActivity extends Activity {
             if (selected != null) {
                 irSendCount = Integer.parseInt(selected);
             }
+            // Gauge Auto Shift
+            selectedGaugeAutoShift = gaugeAutoShiftSpinner.getSelectedItemPosition();
+            // Auto Save Replay
+            selectedAutoSaveReplay[0] = autoSaveReplay1.getSelectedItemPosition();
+            selectedAutoSaveReplay[1] = autoSaveReplay2.getSelectedItemPosition();
+            selectedAutoSaveReplay[2] = autoSaveReplay3.getSelectedItemPosition();
+            selectedAutoSaveReplay[3] = autoSaveReplay4.getSelectedItemPosition();
+            // Green Number
+            try {
+                selectedGreenNumber = Integer.parseInt(greenNumberInput.getText().toString());
+            } catch (Exception e) {
+                selectedGreenNumber = 0;
+            }
+            // HI-SPEED Fix
+            selectedHispeedFix = hispeedFixSpinner.getSelectedItemPosition();
             saveConfigToJson();
             Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
             launchGame();
@@ -876,8 +978,8 @@ public class SettingsActivity extends Activity {
             org.json.JSONObject audio = existingConfig.optJSONObject("audio");
             if (audio == null) audio = new org.json.JSONObject();
             audio.put("systemvolume", String.format("%.2f", selectedVolume / 100f));
-            audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 50f));
-            audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 50f));
+            audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
+            audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
             existingConfig.put("audio", audio);
 
             // bmsroot array
@@ -889,6 +991,16 @@ public class SettingsActivity extends Activity {
 
             // irSendCount
             existingConfig.put("irSendCount", irSendCount);
+
+            // Play Options
+            existingConfig.put("gaugeautoshift", selectedGaugeAutoShift);
+            org.json.JSONArray autoSaveReplayArray = new org.json.JSONArray();
+            for (int i = 0; i < 4; i++) {
+                autoSaveReplayArray.put(selectedAutoSaveReplay[i]);
+            }
+            existingConfig.put("autosavereplay", autoSaveReplayArray);
+            existingConfig.put("greennumber", selectedGreenNumber);
+            existingConfig.put("hispeedfix", selectedHispeedFix);
 
             // irconfig - keep existing if present, or empty array
             if (!existingConfig.has("irconfig")) {
@@ -1284,6 +1396,82 @@ public class SettingsActivity extends Activity {
             }
         }
         fileOrDirectory.delete();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Save config when leaving activity without playing
+        readAllOptionsFromUI();
+        saveConfigToJson();
+    }
+
+    @Override
+    public void onBackPressed() {
+        readAllOptionsFromUI();
+        saveConfigToJson();
+        super.onBackPressed();
+    }
+
+    /**
+     * Read all UI options and save to config
+     */
+    private void readAllOptionsFromUI() {
+        // Volume
+        selectedVolume = ((android.widget.SeekBar) findViewById(R.id.systemVolumeSeekBar)).getProgress();
+        selectedKeyVolume = ((android.widget.SeekBar) findViewById(R.id.keyVolumeSeekBar)).getProgress();
+        selectedBgmVolume = ((android.widget.SeekBar) findViewById(R.id.bgmVolumeSeekBar)).getProgress();
+
+        // Player
+        selectedPlayerName = (String) ((Spinner) findViewById(R.id.playerSpinner)).getSelectedItem();
+
+        // BMS Paths
+        bmsPaths.clear();
+        for (int i = 0; i < bmsPathContainer.getChildCount(); i++) {
+            View row = bmsPathContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                View editText = ((LinearLayout) row).getChildAt(0);
+                if (editText instanceof EditText) {
+                    String path = ((EditText) editText).getText().toString().trim();
+                    if (!path.isEmpty()) {
+                        bmsPaths.add(path);
+                    }
+                }
+            }
+        }
+
+        // IR
+        irEnable = ((android.widget.Switch) findViewById(R.id.irEnableSwitch)).isChecked();
+        String irSendCountStr = (String) ((Spinner) findViewById(R.id.irSendCountSpinner)).getSelectedItem();
+        if (irSendCountStr != null) {
+            try {
+                irSendCount = Integer.parseInt(irSendCountStr);
+            } catch (Exception e) {}
+        }
+
+        // Table URLs
+        tableUrls.clear();
+        for (int i = 0; i < tableUrlContainer.getChildCount(); i++) {
+            View row = tableUrlContainer.getChildAt(i);
+            if (row instanceof LinearLayout) {
+                View editText = ((LinearLayout) row).getChildAt(0);
+                if (editText instanceof EditText) {
+                    String url = ((EditText) editText).getText().toString().trim();
+                    tableUrls.add(url);
+                }
+            }
+        }
+
+        // Play Options
+        selectedGaugeAutoShift = ((Spinner) findViewById(R.id.gaugeAutoShiftSpinner)).getSelectedItemPosition();
+        selectedAutoSaveReplay[0] = ((Spinner) findViewById(R.id.autoSaveReplay1)).getSelectedItemPosition();
+        selectedAutoSaveReplay[1] = ((Spinner) findViewById(R.id.autoSaveReplay2)).getSelectedItemPosition();
+        selectedAutoSaveReplay[2] = ((Spinner) findViewById(R.id.autoSaveReplay3)).getSelectedItemPosition();
+        selectedAutoSaveReplay[3] = ((Spinner) findViewById(R.id.autoSaveReplay4)).getSelectedItemPosition();
+        try {
+            selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString());
+        } catch (Exception e) {}
+        selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
     }
 
     private void launchGame() {

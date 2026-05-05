@@ -2,12 +2,14 @@ package bms.player.beatoraja;
 
 import com.badlogic.gdx.math.MathUtils;
 
+import java.io.Serializable;
+
 /**
  * オーディオコンフィグ
- * 
+ *
  * @author exch
  */
-public class AudioConfig implements Validatable {
+public class AudioConfig implements Validatable, Serializable {
 
 	/**
 	 * オーディオドライバー
@@ -177,6 +179,40 @@ public class AudioConfig implements Validatable {
 		return true;
 	}
 	
+	public AudioConfig copy() {
+        AudioConfig c = new AudioConfig();
+        c.driver = this.driver;
+        c.driverName = this.driverName;
+        c.deviceBufferSize = this.deviceBufferSize;
+        c.deviceSimultaneousSources = this.deviceSimultaneousSources;
+        c.sampleRate = this.sampleRate;
+        c.freqOption = this.freqOption;
+        c.fastForward = this.fastForward;
+        c.systemvolume = this.systemvolume;
+        c.keyvolume = this.keyvolume;
+        c.bgvolume = this.bgvolume;
+        c.isLoopResultSound = this.isLoopResultSound;
+        c.isLoopCourseResultSound = this.isLoopCourseResultSound;
+        return c;
+    }
+
+    public AudioConfig copyWith(AudioConfig changes) {
+        AudioConfig c = new AudioConfig();
+        c.driver = changes.driver != null ? changes.driver : this.driver;
+        c.driverName = changes.driverName != null ? changes.driverName : this.driverName;
+        c.deviceBufferSize = changes.deviceBufferSize;
+        c.deviceSimultaneousSources = changes.deviceSimultaneousSources;
+        c.sampleRate = changes.sampleRate;
+        c.freqOption = changes.freqOption != null ? changes.freqOption : this.freqOption;
+        c.fastForward = changes.fastForward != null ? changes.fastForward : this.fastForward;
+        c.systemvolume = changes.systemvolume;
+        c.keyvolume = changes.keyvolume;
+        c.bgvolume = changes.bgvolume;
+        c.isLoopResultSound = changes.isLoopResultSound;
+        c.isLoopCourseResultSound = changes.isLoopCourseResultSound;
+        return c;
+    }
+
 	public enum DriverType {
 
 		/**
@@ -192,9 +228,9 @@ public class AudioConfig implements Validatable {
 		 */
 //		AudioDevice,
 	}
-	
+
 	public enum FrequencyType {
-		
+
 		/**
 		 * オーディオ再生速度変化の処理:なし
 		 */
