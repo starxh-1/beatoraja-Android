@@ -117,8 +117,8 @@ public class SettingsActivity extends Activity {
                     tableUrls.add("");
                 }
 
-                // IR enable: 检查是否有 irconfig
-                irEnable = findJsonArrayExists(json, "irconfig");
+                // IR enable: default OFF, only enable if irconfig has content
+                irEnable = false;
             } else {
                 // 默认值
                 bmsPaths.add("/storage/emulated/0/Download/oraja_bms");

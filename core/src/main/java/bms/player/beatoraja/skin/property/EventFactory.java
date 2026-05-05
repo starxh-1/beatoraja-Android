@@ -343,17 +343,13 @@ public class EventFactory {
 					final SongData song = ((SongBar) current).getSongData();
 					if (song != null) {
 						boolean songMissing = !((SongBar) current).existsSong();
-						// Show dialog only once
-						boolean[] dialogShown = { false };
-						String songMsg = songMissing ? "This song needs to be downloaded." : null;
+						String songMsg = songMissing ? "Open song download page?" : null;
 						if (song.getUrl() != null && song.getUrl().length() > 0) {
 							browse(song.getUrl(), songMsg);
-							dialogShown[0] = true;
 						}
 						if (song.getAppendurl() != null && song.getAppendurl().length() > 0
 								&& !song.getAppendurl().equals(song.getUrl())) {
-							// Second URL: no dialog, just open directly
-							browse(song.getAppendurl(), null);
+							browse(song.getAppendurl(), "Open chart download page?");
 						}
 					}
 				}
