@@ -801,8 +801,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             FileHandle parentHandle = folder.parent();
             String parentCrc = "";
             if (parentHandle != null && parentHandle.path() != null) {
-                parentCrc = bms.player.beatoraja.song.SongUtils.crc32(
-                    parentHandle.path(), bmsroot, getBmsRootPath());
+                String parentPath = parentHandle.path().replace('\\', '/');
+                // Normalize BMS root path for comparison
+                String bmsRootNormalized = getBmsRootPath();
+                // If the parent path IS the BMS root itself, use e2977170 directly
+                if (parentPath.equals(bmsRootNormalized)) {
+                    parentCrc = "e2977170";
+                } else {
+                    parentCrc = bms.player.beatoraja.song.SongUtils.crc32(
+                        parentPath, bmsroot, bmsRootNormalized);
+                }
             }
             long lastModified = folder.lastModified() / 1000;
             long currentTime = System.currentTimeMillis() / 1000;
