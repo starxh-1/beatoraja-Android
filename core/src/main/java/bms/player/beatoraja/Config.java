@@ -87,7 +87,7 @@ public class Config implements Validatable, Serializable {
 	/**
 	 * Android 专用设置：Play 界面是否显示触摸按键
 	 */
-	private boolean showTouchKey = true;
+	private boolean showTouchKey = false;
 
 	/**
 	 * 获取是否启用 Android 无限制帧率
