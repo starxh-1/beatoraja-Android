@@ -63,6 +63,21 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         }
     }
 
+    /**
+     * 获取第一个 BMS 根目录路径，用于 CRC 计算。
+     * 返回规范化的路径（无尾部斜杠），如果 bmsroot 为空则返回空字符串。
+     */
+    private String getBmsRootPath() {
+        if (bmsroot != null && bmsroot.length > 0) {
+            String root = bmsroot[0];
+            if (root.endsWith("/")) {
+                root = root.substring(0, root.length() - 1);
+            }
+            return root;
+        }
+        return "";
+    }
+
     @Override
     public SongData[] getSongDatas(String key, String value) {
         SQLiteDatabase db = helper.getReadableDatabase();
@@ -453,6 +468,11 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     @Override
+    public String[] getBmsRoot() {
+        return bmsroot;
+    }
+
+    @Override
     public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info) {
         if (updatepath != null) {
             updateSongDatas(new String[]{updatepath}, updateAll);
@@ -782,7 +802,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             String parentCrc = "";
             if (parentHandle != null && parentHandle.path() != null) {
                 parentCrc = bms.player.beatoraja.song.SongUtils.crc32(
-                    parentHandle.path(), bmsroot, new java.io.File(".").getAbsolutePath());
+                    parentHandle.path(), bmsroot, getBmsRootPath());
             }
             long lastModified = folder.lastModified() / 1000;
             long currentTime = System.currentTimeMillis() / 1000;
@@ -907,10 +927,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             // Get parent folder path CRC with null checks
             if (file.parent() != null) {
                 String parentPath = file.parent().path();
-                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, new java.io.File(".").getAbsolutePath()));
+                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, getBmsRootPath()));
                 if (file.parent().parent() != null) {
                     String grandParentPath = file.parent().parent().path();
-                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, new java.io.File(".").getAbsolutePath()));
+                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, getBmsRootPath()));
                 } else {
                     songData.setParent("");
                 }

@@ -34,6 +34,7 @@ import bms.model.*;
 public class SQLiteSongDatabaseAccessor extends SQLiteDatabaseAccessor implements SongDatabaseAccessor {
 
 	private final Path root;
+	private final String[] bmsroot;
 
 	private final ResultSetHandler<List<SongData>> songhandler = new AndroidBeanListHandler<>(SongData.class);
 	private final ResultSetHandler<List<FolderData>> folderhandler = new AndroidBeanListHandler<>(FolderData.class);
@@ -89,7 +90,13 @@ public class SQLiteSongDatabaseAccessor extends SQLiteDatabaseAccessor implement
 
 		qr = new QueryRunner(DatabaseUtils.getDataSource(filepath));
 		root = Paths.get(".");
+		this.bmsroot = bmsroot;
 		createTable();
+	}
+
+	@Override
+	public String[] getBmsRoot() {
+		return bmsroot;
 	}
 
 	public void addPlugin(SongDatabaseAccessorPlugin plugin) {

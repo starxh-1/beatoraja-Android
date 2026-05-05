@@ -82,14 +82,20 @@ public class FolderBar extends DirectoryBar {
             childrenLoadState = ChildrenLoadState.LOADED;
             Gdx.app.log("FolderBar", "Loaded " + cachedChildren.length + " song(s) for folder: " + (folder != null ? folder.getTitle() : "[root]"));
         } else {
-            final String rootpath = Paths.get(".").toAbsolutePath().toString();
+            // Get BMS root path for consistent CRC calculation
+            String[] bmsroot = songdb.getBmsRoot();
+            String rootpath = (bmsroot != null && bmsroot.length > 0) ? bmsroot[0] : "";
+            if (rootpath.endsWith("/")) {
+                rootpath = rootpath.substring(0, rootpath.length() - 1);
+            }
+            final String bmspathForCrc = rootpath;
             cachedChildren = Stream.of(songdb.getFolderDatas("parent", crc)).map(folder -> {
                 String path = folder.getPath();
                 if (path.endsWith(String.valueOf(File.separatorChar))) {
                     path = path.substring(0, path.length() - 1);
                 }
 
-                String ccrc = SongUtils.crc32(path, new String[0], rootpath);
+                String ccrc = SongUtils.crc32(path, new String[0], bmspathForCrc);
                 return new FolderBar(selector, folder, ccrc);
             }).toArray(Bar[]::new);
 

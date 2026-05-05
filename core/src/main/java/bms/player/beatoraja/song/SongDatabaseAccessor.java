@@ -67,4 +67,9 @@ public interface SongDatabaseAccessor {
 	 */
 	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info);
 
+	/**
+	 * Get the BMS root directories used by this accessor.
+	 * @return Array of BMS root paths
+	 */
+	public String[] getBmsRoot();
 }
