@@ -802,10 +802,22 @@ public class EventFactory {
 		}
 	
 		private static void browse(String url) {
+			if (url == null || url.isEmpty()) {
+				return;
+			}
 			try {
-				Class<?> desktopClass = Class.forName("java.awt.Desktop");
-				Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-				desktopClass.getMethod("browse", URI.class).invoke(desktop, new URI(url));
+				com.badlogic.gdx.Application app = com.badlogic.gdx.Gdx.app;
+				if (app != null && app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+					// Android: use reflection to get AndroidLauncher instance
+					Object launcher = app;
+					java.lang.reflect.Method method = launcher.getClass().getMethod("openUrl", String.class);
+					method.invoke(launcher, url);
+				} else {
+					// Desktop: use AWT Desktop
+					Class<?> desktopClass = Class.forName("java.awt.Desktop");
+					Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
+					desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));
+				}
 			} catch (Throwable e) {
 				e.printStackTrace();
 			}

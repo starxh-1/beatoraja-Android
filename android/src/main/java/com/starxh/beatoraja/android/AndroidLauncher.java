@@ -1098,4 +1098,18 @@ public class AndroidLauncher extends AndroidApplication {
         }
         super.onDestroy();
     }
+
+    /**
+     * Open a URL in the browser from the game
+     */
+    public void openUrl(String url) {
+        try {
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            intent.setData(android.net.Uri.parse(url));
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open URL: " + url, e);
+        }
+    }
 }
