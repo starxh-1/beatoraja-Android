@@ -1116,14 +1116,20 @@ public class AndroidLauncher extends AndroidApplication {
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
 
             if (message != null && !message.isEmpty()) {
-                new android.app.AlertDialog.Builder(this)
-                    .setTitle("Download")
-                    .setMessage(message)
-                    .setPositiveButton("Open", (dialog, which) -> {
-                        startActivity(intent);
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .show();
+                runOnUiThread(() -> {
+                    try {
+                        new android.app.AlertDialog.Builder(this)
+                            .setTitle("Download")
+                            .setMessage(message)
+                            .setPositiveButton("Open", (dialog, which) -> {
+                                startActivity(intent);
+                            })
+                            .setNegativeButton("Cancel", null)
+                            .show();
+                    } catch (Exception e) {
+                        Log.e(TAG, "Failed to show dialog", e);
+                    }
+                });
             } else {
                 startActivity(intent);
             }
