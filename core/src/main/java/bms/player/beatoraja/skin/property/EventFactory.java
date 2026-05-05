@@ -342,15 +342,17 @@ public class EventFactory {
 				if (current instanceof SongBar) {
 					final SongData song = ((SongBar) current).getSongData();
 					if (song != null) {
+						boolean songMissing = !((SongBar) current).existsSong();
+						String downloadMsg = songMissing ? "This song needs to be downloaded." : null;
 						if (song.getUrl() != null && song.getUrl().length() > 0) {
-							browse(song.getUrl());
+							browse(song.getUrl(), downloadMsg);
 						}
 						if (song.getAppendurl() != null && song.getAppendurl().length() > 0
 								&& !song.getAppendurl().equals(song.getUrl())) {
-							browse(song.getAppendurl());
+							browse(song.getAppendurl(), downloadMsg);
 						}
 					}
-				}				
+				}
 			}
 		}), 
 
@@ -802,18 +804,20 @@ public class EventFactory {
 		}
 	
 		private static void browse(String url) {
+			browse(url, null);
+		}
+
+		private static void browse(String url, String message) {
 			if (url == null || url.isEmpty()) {
 				return;
 			}
 			try {
 				com.badlogic.gdx.Application app = com.badlogic.gdx.Gdx.app;
 				if (app != null && app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-					// Android: use reflection to get AndroidLauncher instance
 					Object launcher = app;
-					java.lang.reflect.Method method = launcher.getClass().getMethod("openUrl", String.class);
-					method.invoke(launcher, url);
+					java.lang.reflect.Method method = launcher.getClass().getMethod("openUrl", String.class, String.class);
+					method.invoke(launcher, url, message);
 				} else {
-					// Desktop: use AWT Desktop
 					Class<?> desktopClass = Class.forName("java.awt.Desktop");
 					Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
 					desktopClass.getMethod("browse", java.net.URI.class).invoke(desktop, new java.net.URI(url));

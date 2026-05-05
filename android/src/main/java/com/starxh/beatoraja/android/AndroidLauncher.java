@@ -1103,11 +1103,30 @@ public class AndroidLauncher extends AndroidApplication {
      * Open a URL in the browser from the game
      */
     public void openUrl(String url) {
+        openUrl(url, null);
+    }
+
+    /**
+     * Open a URL in the browser from the game with optional message
+     */
+    public void openUrl(String url, String message) {
         try {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
             intent.setData(android.net.Uri.parse(url));
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
+
+            if (message != null && !message.isEmpty()) {
+                new android.app.AlertDialog.Builder(this)
+                    .setTitle("Download")
+                    .setMessage(message)
+                    .setPositiveButton("Open", (dialog, which) -> {
+                        startActivity(intent);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            } else {
+                startActivity(intent);
+            }
         } catch (Exception e) {
             Log.e(TAG, "Failed to open URL: " + url, e);
         }
