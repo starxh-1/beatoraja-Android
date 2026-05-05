@@ -92,11 +92,11 @@ public class SettingsActivity extends Activity {
                 // 解析 audio.systemvolume
                 selectedVolume = findJsonFloatValueAsInt(json, "audio", "systemvolume", 100);
 
-                // 解析 audio.keyvolume
-                selectedKeyVolume = findJsonFloatValueAsInt(json, "audio", "keyvolume", 100);
+                // 解析 audio.keyvolume (config 1.0 = slider 50 = display 100%)
+                selectedKeyVolume = (int) (findJsonFloatValue(json, "audio", "keyvolume", 1.0f) * 50);
 
                 // 解析 audio.bgvolume
-                selectedBgmVolume = findJsonFloatValueAsInt(json, "audio", "bgvolume", 100);
+                selectedBgmVolume = (int) (findJsonFloatValue(json, "audio", "bgvolume", 1.0f) * 50);
 
                 // 解析 playername
                 selectedPlayerName = findJsonStringValue(json, "playername", "player1");
@@ -319,6 +319,34 @@ public class SettingsActivity extends Activity {
         return defaultValue;
     }
 
+    private float findJsonFloatValue(String json, String section, String key, float defaultValue) {
+        try {
+            int sectionStart = json.indexOf("\"" + section + "\"");
+            if (sectionStart < 0) return defaultValue;
+
+            int keyStart = json.indexOf("\"" + key + "\"", sectionStart);
+            if (keyStart < 0) return defaultValue;
+
+            int colonPos = json.indexOf(":", keyStart);
+            if (colonPos < 0) return defaultValue;
+
+            int start = colonPos + 1;
+            while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) {
+                start++;
+            }
+            int end = start;
+            while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '.')) {
+                end++;
+            }
+            if (end > start) {
+                return Float.parseFloat(json.substring(start, end));
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return defaultValue;
+    }
+
     private void initViews() {
         // Volume
         TextView volumePercent = findViewById(R.id.volumePercent);
@@ -342,7 +370,7 @@ public class SettingsActivity extends Activity {
 
         // Key Volume
         TextView keyVolumePercent = findViewById(R.id.keyVolumePercent);
-        keyVolumePercent.setText(selectedKeyVolume + "%");
+        keyVolumePercent.setText(selectedKeyVolume * 2 + "%");
 
         android.widget.SeekBar keyVolumeSeekBar = findViewById(R.id.keyVolumeSeekBar);
         keyVolumeSeekBar.setProgress(selectedKeyVolume);
@@ -351,7 +379,7 @@ public class SettingsActivity extends Activity {
             public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     selectedKeyVolume = progress;
-                    keyVolumePercent.setText(progress + "%");
+                    keyVolumePercent.setText(progress * 2 + "%");
                 }
             }
             @Override
@@ -362,7 +390,7 @@ public class SettingsActivity extends Activity {
 
         // BGM Volume
         TextView bgmVolumePercent = findViewById(R.id.bgmVolumePercent);
-        bgmVolumePercent.setText(selectedBgmVolume + "%");
+        bgmVolumePercent.setText(selectedBgmVolume * 2 + "%");
 
         android.widget.SeekBar bgmVolumeSeekBar = findViewById(R.id.bgmVolumeSeekBar);
         bgmVolumeSeekBar.setProgress(selectedBgmVolume);
@@ -371,7 +399,7 @@ public class SettingsActivity extends Activity {
             public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
                     selectedBgmVolume = progress;
-                    bgmVolumePercent.setText(progress + "%");
+                    bgmVolumePercent.setText(progress * 2 + "%");
                 }
             }
             @Override
@@ -828,60 +856,60 @@ public class SettingsActivity extends Activity {
             File filesDir = getExternalFilesDir(null);
             File configFile = new File(filesDir, "config_sys.json");
 
-            // 构建 JSON 字符串
-            StringBuilder json = new StringBuilder();
-            json.append("{");
-
-            // playername
-            json.append("\"playername\":\"").append(escapeJson(selectedPlayerName)).append("\",");
-
-            // audio
-            json.append("\"audio\":{");
-            json.append("\"systemvolume\":").append(String.format("%.2f", selectedVolume / 100f));
-            json.append(",\"keyvolume\":").append(String.format("%.2f", selectedKeyVolume / 100f));
-            json.append(",\"bgvolume\":").append(String.format("%.2f", selectedBgmVolume / 100f));
-            json.append("}");
-
-            // bmsroot 数组
-            json.append(",\"bmsroot\":[");
-            for (int i = 0; i < bmsPaths.size(); i++) {
-                if (i > 0) json.append(",");
-                json.append("\"").append(escapeJson(bmsPaths.get(i))).append("\"");
+            // Read existing config as JSONObject
+            org.json.JSONObject existingConfig = new org.json.JSONObject();
+            if (configFile.exists()) {
+                StringBuilder content = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        content.append(line);
+                    }
+                }
+                existingConfig = new org.json.JSONObject(content.toString());
             }
-            json.append("]");
+
+            // Update only the fields that UI controls
+            existingConfig.put("playername", selectedPlayerName);
+
+            // audio object
+            org.json.JSONObject audio = existingConfig.optJSONObject("audio");
+            if (audio == null) audio = new org.json.JSONObject();
+            audio.put("systemvolume", String.format("%.2f", selectedVolume / 100f));
+            audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 50f));
+            audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 50f));
+            existingConfig.put("audio", audio);
+
+            // bmsroot array
+            org.json.JSONArray bmsrootArray = new org.json.JSONArray();
+            for (String path : bmsPaths) {
+                bmsrootArray.put(path);
+            }
+            existingConfig.put("bmsroot", bmsrootArray);
 
             // irSendCount
-            json.append(",\"irSendCount\":").append(irSendCount);
+            existingConfig.put("irSendCount", irSendCount);
 
-            // irconfig 数组
-            json.append(",\"irconfig\":[]");
-
-            // tableURL 数组
-            json.append(",\"tableURL\":[");
-            for (int i = 0; i < tableUrls.size(); i++) {
-                if (i > 0) json.append(",");
-                json.append("\"").append(escapeJson(tableUrls.get(i))).append("\"");
+            // irconfig - keep existing if present, or empty array
+            if (!existingConfig.has("irconfig")) {
+                existingConfig.put("irconfig", new org.json.JSONArray());
             }
-            json.append("]");
 
-            json.append("}");
+            // tableURL array
+            org.json.JSONArray tableArray = new org.json.JSONArray();
+            for (String url : tableUrls) {
+                tableArray.put(url);
+            }
+            existingConfig.put("tableURL", tableArray);
 
             try (FileWriter writer = new FileWriter(configFile)) {
-                writer.write(json.toString());
-                Log.d("SettingsActivity", "Config saved: " + json.toString());
+                writer.write(existingConfig.toString(2));
+                Log.d("SettingsActivity", "Config saved: " + existingConfig.toString());
             }
         } catch (Exception e) {
+            Log.e("SettingsActivity", "Failed to save config", e);
             e.printStackTrace();
         }
-    }
-
-    private String escapeJson(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
     }
 
     @Override
