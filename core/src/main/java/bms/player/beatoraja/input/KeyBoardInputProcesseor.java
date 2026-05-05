@@ -334,7 +334,7 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 			if (gestureMode == 1) {
 				// Select界面：检测从左向右滑动（左滑手势）- 映射为左方向键
 				// 水平移动距离大于50像素，且水平移动大于垂直移动
-				if (deltaX > 50 && Math.abs(deltaX) > Math.abs(deltaY) && touchDuration < 500) {
+				if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) && touchDuration < 500) {
 					// 从左向右滑动，模拟左方向键按下
 					simulateKeyPress(Keys.LEFT);
 					Gdx.app.log("Gesture", "Select mode: Left-to-right swipe detected -> LEFT key");
