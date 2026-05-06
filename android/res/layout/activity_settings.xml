@@ -215,6 +215,22 @@
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <Button
+                android:id="@+id/importPlayerBtn"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Import Score.db"
+                android:textSize="12sp"
+                android:backgroundTint="#FF9800"
+                android:textColor="#FFFFFF"/>
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

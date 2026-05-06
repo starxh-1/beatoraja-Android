@@ -44,6 +44,7 @@ public class SettingsActivity extends Activity {
     private static final int REQUEST_CODE_PICK_FOLDER = 1234;
     private static final int REQUEST_CODE_PICK_FOLDER_LEGACY = 1235;
     private static final int REQUEST_CODE_EXPORT_SCORE = 1236;
+    private static final int REQUEST_CODE_IMPORT_PLAYER = 1237;
 
     private int selectedVolume = 100;
     private int selectedKeyVolume = 100;
@@ -497,6 +498,12 @@ public class SettingsActivity extends Activity {
         Button exportScoreBtn = findViewById(R.id.exportScoreBtn);
         exportScoreBtn.setOnClickListener(v -> {
             exportScoreDatabase();
+        });
+
+        // Import Player Button
+        Button importPlayerBtn = findViewById(R.id.importPlayerBtn);
+        importPlayerBtn.setOnClickListener(v -> {
+            importPlayerConfig();
         });
 
         // BMS Path Container
@@ -1060,6 +1067,14 @@ public class SettingsActivity extends Activity {
                         exportScoreToUri(targetUri);
                     }
                 }
+            } else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) {
+                // 导入玩家配置
+                if (resultCode == RESULT_OK && data != null) {
+                    Uri sourceUri = data.getData();
+                    if (sourceUri != null) {
+                        importPlayerFromUri(sourceUri);
+                    }
+                }
             }
         }
     }
@@ -1113,6 +1128,113 @@ public class SettingsActivity extends Activity {
                 });
             }
         }).start();
+    }
+
+    /**
+     * 打开文件选择器导入玩家配置
+     */
+    private void importPlayerConfig() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json", "text/plain", "*/*"});
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_CODE_IMPORT_PLAYER);
+    }
+
+    /**
+     * 从 URI 导入玩家配置
+     */
+    private void importPlayerFromUri(Uri sourceUri) {
+        new Thread(() -> {
+            try {
+                // 读取 JSON 文件内容
+                StringBuilder jsonContent = new StringBuilder();
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(getContentResolver().openInputStream(sourceUri), "UTF-8"))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        jsonContent.append(line);
+                    }
+                }
+
+                // 解析 JSON (简单解析 player id)
+                String json = jsonContent.toString();
+                String playerId = extractPlayerIdFromJson(json);
+                if (playerId == null || playerId.isEmpty()) {
+                    playerId = "imported_player";
+                }
+
+                // 检查是否已存在同名玩家
+                File playerDir = new File(getExternalFilesDir(null), "player/" + playerId);
+                String resolvedPlayerId = playerId;
+                if (playerDir.exists()) {
+                    resolvedPlayerId = playerId + "_" + System.currentTimeMillis();
+                }
+                final String finalResolvedPlayerId = resolvedPlayerId;
+
+                // 创建玩家目录
+                File newPlayerDir = new File(getExternalFilesDir(null), "player/" + finalResolvedPlayerId);
+                if (!newPlayerDir.exists()) {
+                    newPlayerDir.mkdirs();
+                }
+
+                // 创建 replay 目录
+                File replayDir = new File(newPlayerDir, "replay");
+                if (!replayDir.exists()) {
+                    replayDir.mkdirs();
+                }
+
+                // 复制配置文件
+                File configFile = new File(newPlayerDir, "config_player.json");
+                try (java.io.InputStream in = getContentResolver().openInputStream(sourceUri);
+                     java.io.OutputStream out = new java.io.FileOutputStream(configFile)) {
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                    }
+                }
+
+                // 更新玩家列表
+                runOnUiThread(() -> {
+                    availablePlayers.add(finalResolvedPlayerId);
+                    ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
+                    int newIndex = availablePlayers.indexOf(finalResolvedPlayerId);
+                    if (newIndex >= 0) {
+                        playerSpinner.setSelection(newIndex);
+                    }
+                    selectedPlayerName = finalResolvedPlayerId;
+                    Toast.makeText(this, "Player '" + finalResolvedPlayerId + "' imported successfully", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "Failed to import player config", e);
+                runOnUiThread(() -> {
+                    Toast.makeText(this, "Import failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+            }
+        }).start();
+    }
+
+    /**
+     * 从 JSON 字符串提取 player id
+     */
+    private String extractPlayerIdFromJson(String json) {
+        // 简单解析: "id":"xxx"
+        int idIndex = json.indexOf("\"id\"");
+        if (idIndex >= 0) {
+            int colonIndex = json.indexOf(":", idIndex);
+            if (colonIndex >= 0) {
+                int start = colonIndex + 1;
+                while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) start++;
+                int end = start;
+                while (end < json.length() && json.charAt(end) != '"' && json.charAt(end) != ',' && json.charAt(end) != '}') end++;
+                if (end > start) {
+                    return json.substring(start, end).trim();
+                }
+            }
+        }
+        return null;
     }
 
     /**
