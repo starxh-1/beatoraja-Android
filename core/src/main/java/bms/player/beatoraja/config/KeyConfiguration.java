@@ -391,6 +391,7 @@ public class KeyConfiguration extends MainState {
 		for (int i = scrollpos; i < currentKeys.length; i++) {
 			int y = 576 - (i - scrollpos) * 24;
 			if (i == cursorpos) {
+				shape.setProjectionMatrix(sprite.getProjectionMatrix());
 				shape.begin(ShapeType.Filled);
 				shape.setColor(keyinput ? Color.RED : Color.BLUE);
 				shape.rect(200 * scaleX, y * scaleY, 80 * scaleX, 24 * scaleY);
