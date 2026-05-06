@@ -258,9 +258,9 @@ public class MainController {
             updateMainStateListener(0);
         }
 
-        // Android RESULT界面触摸转ESCAPE
+        // Android RESULT界面触摸转ESCAPE - 覆盖其他处理器
         if (isAndroid && (state == MainStateType.RESULT || state == MainStateType.COURSERESULT)) {
-            Gdx.input.setInputProcessor(new com.badlogic.gdx.InputProcessor() {
+            final com.badlogic.gdx.InputProcessor escapeMapper = new com.badlogic.gdx.InputProcessor() {
                 private long lastTouchTime = 0;
                 @Override
                 public boolean touchDown(int screenX, int screenY, int pointer, int button) {
@@ -279,24 +279,26 @@ public class MainController {
                 @Override public boolean keyTyped(char character) { return false; }
                 @Override public boolean mouseMoved(int screenX, int screenY) { return false; }
                 @Override public boolean scrolled(float amountX, float amountY) { return false; }
-            });
-        }
-        // 浮动菜单：在 PLAY / DECIDE 状态隐藏
-        if (floatingMenu != null) {
-            floatingMenu.setVisible(state != MainStateType.PLAY && state != MainStateType.DECIDE);
-        }
-        // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
-        if (current != null && current.getStage() != null) {
+            };
+            Gdx.input.setInputProcessor(escapeMapper);
+        } else {
+            // 浮动菜单：在 PLAY / DECIDE 状态隐藏
             if (floatingMenu != null) {
-                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, current.getStage(), input.getKeyBoardInputProcesseor()));
-            } else {
-                Gdx.input.setInputProcessor(new InputMultiplexer(current.getStage(), input.getKeyBoardInputProcesseor()));
+                floatingMenu.setVisible(state != MainStateType.PLAY && state != MainStateType.DECIDE);
             }
-        } else if (input != null) {
-            if (floatingMenu != null) {
-                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, input.getKeyBoardInputProcesseor()));
-            } else {
-                Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
+            // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
+            if (current != null && current.getStage() != null) {
+                if (floatingMenu != null) {
+                    Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, current.getStage(), input.getKeyBoardInputProcesseor()));
+                } else {
+                    Gdx.input.setInputProcessor(new InputMultiplexer(current.getStage(), input.getKeyBoardInputProcesseor()));
+                }
+            } else if (input != null) {
+                if (floatingMenu != null) {
+                    Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, input.getKeyBoardInputProcesseor()));
+                } else {
+                    Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
+                }
             }
         }
 
