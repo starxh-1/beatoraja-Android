@@ -242,11 +242,14 @@ public class MainController {
                 current.shutdown();
                 current.setSkin(null);
             }
-            // MusicSelector只在首次创建时初始化，后续切换跳过create()
+            // MusicSelector只在首次创建时初始化，后续切换跳过create()但需要加载skin
             if (state == MainStateType.MUSICSELECT) {
                 if (!selectorInitialized) {
                     newState.create();
                     selectorInitialized = true;
+                } else if (newState.getSkin() == null) {
+                    // 跳过create时需要手动加载skin
+                    newState.loadSkin(bms.player.beatoraja.skin.SkinType.MUSIC_SELECT);
                 }
             } else {
                 newState.create();
