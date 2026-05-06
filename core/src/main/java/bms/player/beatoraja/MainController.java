@@ -92,6 +92,8 @@ public class MainController {
     private Thread screenshot;
     private MusicDownloadProcessor download;
     private StreamController streamController;
+    /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
+    private boolean selectorInitialized = false;
 
     public static final int offsetCount = SkinProperty.OFFSET_MAX + 1;
     private final SkinOffset[] offset = new SkinOffset[offsetCount];
@@ -240,12 +242,44 @@ public class MainController {
                 current.shutdown();
                 current.setSkin(null);
             }
-            newState.create();
+            // MusicSelector只在首次创建时初始化，后续切换跳过create()
+            if (state == MainStateType.MUSICSELECT) {
+                if (!selectorInitialized) {
+                    newState.create();
+                    selectorInitialized = true;
+                }
+            } else {
+                newState.create();
+            }
             if(newState.getSkin() != null) { newState.getSkin().prepare(newState); }
             current = newState;
             timer.setMainState(newState);
             current.prepare();
             updateMainStateListener(0);
+        }
+
+        // Android RESULT界面触摸转ESCAPE
+        if (isAndroid && (state == MainStateType.RESULT || state == MainStateType.COURSERESULT)) {
+            Gdx.input.setInputProcessor(new com.badlogic.gdx.InputProcessor() {
+                private long lastTouchTime = 0;
+                @Override
+                public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+                    long now = System.nanoTime() / 1000;
+                    if (now - lastTouchTime > 200000) {
+                        lastTouchTime = now;
+                        input.getKeyBoardInputProcesseor().simulateKeyPress(com.badlogic.gdx.Input.Keys.ESCAPE);
+                    }
+                    return true;
+                }
+                @Override public boolean touchUp(int screenX, int screenY, int pointer, int button) { return true; }
+                @Override public boolean touchDragged(int screenX, int screenY, int pointer) { return true; }
+                @Override public boolean touchCancelled(int screenX, int screenY, int pointer, int button) { return true; }
+                @Override public boolean keyDown(int keycode) { return false; }
+                @Override public boolean keyUp(int keycode) { return false; }
+                @Override public boolean keyTyped(char character) { return false; }
+                @Override public boolean mouseMoved(int screenX, int screenY) { return false; }
+                @Override public boolean scrolled(float amountX, float amountY) { return false; }
+            });
         }
         // 浮动菜单：在 PLAY / DECIDE 状态隐藏
         if (floatingMenu != null) {
