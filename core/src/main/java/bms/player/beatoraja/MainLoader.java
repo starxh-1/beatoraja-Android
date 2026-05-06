@@ -6,7 +6,6 @@ import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-import bms.player.beatoraja.song.SQLiteSongDatabaseAccessor;
 import bms.player.beatoraja.song.SongDatabaseAccessor;
 
 /**
@@ -24,23 +23,16 @@ public class MainLoader {
 
     public static SongDatabaseAccessor getScoreDatabaseAccessor() {
         if(songdb == null) {
-            try {
-                Config config = Config.read();
-                String songPath = config.getSongpath();
-                // Android 路径修正
-                if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-                    if (!songPath.startsWith("/")) {
-                        songPath = com.badlogic.gdx.Gdx.files.getLocalStoragePath() + songPath;
-                    }
+            Config config = Config.read();
+            String songPath = config.getSongpath();
+            // Android 路径修正
+            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+                if (!songPath.startsWith("/")) {
+                    songPath = com.badlogic.gdx.Gdx.files.getLocalStoragePath() + songPath;
                 }
-                // If Android has provided a custom accessor (via MainLoader.setSongDatabaseAccessor), use it
-                if (songdb == null) {
-                    // fallback to default JDBC-based accessor
-                    songdb = new SQLiteSongDatabaseAccessor(songPath, config.getBmsroot());
-                }
-            } catch (ClassNotFoundException e) {
-                e.printStackTrace();
             }
+            // Android provides SongDatabaseAccessor via setSongDatabaseAccessor() before this is called
+            // If for some reason it's null, log error (should not happen on Android)
         }
         return songdb;
     }
