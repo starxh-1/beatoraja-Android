@@ -391,6 +391,10 @@ public class BMSPlayer extends MainState {
 	}
 
 	public void create() {
+		// 主动触发GC，减少游戏过程中的GC停顿
+		System.gc();
+		System.gc();
+
 		// 游戏界面开启持续渲染，确保流畅帧率
 		Gdx.graphics.setContinuousRendering(true);
 

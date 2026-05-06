@@ -139,7 +139,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-        if (!enabled || pointer >= pointerMap.length) return false;
+        if (!enabled) return false;
+        if (pointer >= pointerMap.length) return false;
 
         Vector2 coords = stage.screenToStageCoordinates(new Vector2(screenX, screenY));
         for (int i = 0; i < keyButtons.length; i++) {
@@ -149,25 +150,28 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
                 return true;
             }
         }
-        return false;
+        // 消费事件但不映射到任何按键 - 防止触摸传播到Stage/FloatingMenu
+        return true;
     }
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        if (!enabled) return false;
         if (pointer < pointerMap.length && pointerMap[pointer] != -1) {
             int keyIdx = pointerMap[pointer];
             pointerMap[pointer] = -1;
             syncKeyState(keyIdx);
             return true;
         }
-        return false;
+        // 消费事件
+        return true;
     }
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
-        // 核心修正：禁用滑动切换按键。
-        // 按下时是什么键，抬起前就一直锁定该键，滑动到其他地方不触发新键，也不取消当前键。
-        return pointer < pointerMap.length && pointerMap[pointer] != -1;
+        if (!enabled) return false;
+        // 消费所有触摸拖拽事件，防止传播到Stage
+        return pointer < pointerMap.length;
     }
 
     @Override public boolean touchCancelled(int screenX, int screenY, int pointer, int button) { return touchUp(screenX, screenY, pointer, button); }
