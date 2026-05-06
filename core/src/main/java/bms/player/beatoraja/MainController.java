@@ -172,69 +172,35 @@ public class MainController {
 
         rivals.update(this);
 
-        // Android 屏蔽 PortAudio 驱动，因为它依赖桌面端 LWJGL
+        // Android 屏蔽 PortAudio 驱动
         timer = new TimerManager();
         sound = new SystemSoundManager(this);
 
-        // Android 平台：如果 maxFramePerSecond 是默认值，自动根据屏幕刷新率设置
+        // Android 平台：根据屏幕刷新率设置帧率上限
         if (isAndroid) {
             // 强制关闭无限帧率模式，确保绝对时间对齐帧率控制始终生效
             config.setAndroidUnlimitedFPS(false);
 
-            // 默认值 240/300 表示未手动设置，自动检测
-            if (config.getMaxFramePerSecond() == 240 || config.getMaxFramePerSecond() == 300) {
-                int refreshRate = Gdx.graphics.getDisplayMode().refreshRate;
-                Gdx.app.log("beatoraja", "Detected screen refresh rate: " + refreshRate + "Hz");
+            int detectedRefreshRate = Gdx.graphics.getDisplayMode().refreshRate;
+            Gdx.app.log("beatoraja", "Detected screen refresh rate: " + detectedRefreshRate + "Hz");
 
-                // 如果 LibGDX 报告的刷新率偏低但实际上屏幕支持更高，使用 120fps
-                if (refreshRate < 120) {
-                    Gdx.app.log("beatoraja", "Refresh rate reported by LibGDX is " + refreshRate
-                            + "Hz, but checking if we can go higher...");
-                    try {
-                        // 尝试通过原生 API 获取更高刷新率
-                        java.lang.reflect.Method getDisplayMethod = getClass().getMethod("getClass");
-                    } catch (Exception e) {
-                        // 忽略，保持使用检测到的值
-                    }
-                }
-
-                if (refreshRate > 0) {
-                    // 对齐到标准刷新率，让上限匹配屏幕支持的最高刷新率
-                    // 直接使用检测到的刷新率，不做 144fps 上限限制（适应 165Hz/240Hz 等高刷屏）
-                    int autoMaxFPS;
-                    if (refreshRate <= 60) {
-                        autoMaxFPS = refreshRate;      // 60Hz 及以下 -> 精确匹配
-                    } else if (refreshRate <= 120) {
-                        autoMaxFPS = refreshRate <= 90 ? 90 : (int) refreshRate;  // 90Hz/120Hz -> 使用实际值
-                    } else {
-                        // 144Hz 及更高：允许超过 144fps 上限，直接使用检测值+1 防止卡顿
-                        // +1 是因为帧率控制有微小误差，精确匹配可能导致偶尔掉帧
-                        autoMaxFPS = (int) refreshRate + 1;
-                    }
-                    // 如果报告的刷新率在 100-120 之间，直接使用 120fps
-                    if (refreshRate > 100 && refreshRate <= 120) {
-                        autoMaxFPS = 120;
-                        Gdx.app.log("beatoraja", "Adjusted to 120fps for high refresh rate screen");
-                    }
-                    config.setMaxFramePerSecond(autoMaxFPS);
-                    Gdx.app.log("beatoraja", "Set max FPS to: " + autoMaxFPS);
-                    // Android 高刷新率屏幕：自动关闭 Vsync 让我们的帧率限制生效
-                    if (autoMaxFPS > 60) {
-                        config.setVsync(false);
-                        Gdx.app.log("beatoraja", "VSync disabled for high refresh rate");
-                    }
-                } else {
-                    // 如果无法获取刷新率，设置 120fps 默认
-                    config.setMaxFramePerSecond(120);
-                    config.setVsync(false);
-                    Gdx.app.log("beatoraja", "Could not detect refresh rate, setting max FPS to 120");
-                }
+            int targetFPS;
+            if (detectedRefreshRate > 0) {
+                // 直接使用检测到的刷新率作为目标帧率
+                targetFPS = detectedRefreshRate;
+                Gdx.app.log("beatoraja", "Set max FPS to screen refresh rate: " + targetFPS);
             } else {
-                // 如果用户已经设置了自定义帧率，确保 Vsync 已关闭
-                if (config.getMaxFramePerSecond() > 60) {
-                    config.setVsync(false);
-                    Gdx.app.log("beatoraja", "VSync disabled for custom FPS setting: " + config.getMaxFramePerSecond());
-                }
+                // 无法检测时使用 120fps 默认
+                targetFPS = 120;
+                Gdx.app.log("beatoraja", "Could not detect refresh rate, setting max FPS to 120");
+            }
+
+            config.setMaxFramePerSecond(targetFPS);
+
+            // 高刷新率屏幕自动关闭 Vsync
+            if (targetFPS > 60) {
+                config.setVsync(false);
+                Gdx.app.log("beatoraja", "VSync disabled for high refresh rate");
             }
         }
     }
@@ -299,28 +265,28 @@ public class MainController {
                 Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
             }
         }
-        
+
         // 在PLAY界面，将PlayTouchKeyMapper添加到InputMultiplexer
         if (isAndroid && current instanceof BMSPlayer) {
             try {
                 BMSPlayer player = (BMSPlayer) current;
                 java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
                 field.setAccessible(true);
-                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
                     (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
                 if (touchKeyMapper != null) {
                     // 将触摸按键映射添加到InputMultiplexer的最高优先级
                     if (floatingMenu != null && current.getStage() != null) {
                         Gdx.input.setInputProcessor(new InputMultiplexer(
-                            floatingMenu, 
+                            floatingMenu,
                             touchKeyMapper,  // 在Stage之前处理触摸
-                            current.getStage(), 
+                            current.getStage(),
                             input.getKeyBoardInputProcesseor()
                         ));
                     } else if (current.getStage() != null) {
                         Gdx.input.setInputProcessor(new InputMultiplexer(
                             touchKeyMapper,
-                            current.getStage(), 
+                            current.getStage(),
                             input.getKeyBoardInputProcesseor()
                         ));
                     } else {
@@ -704,7 +670,7 @@ public class MainController {
                 wasTouching = false;
             }
         }
-        
+
         // 在PLAY界面，检查PlayTouchKeyMapper是否正在消费触摸
         boolean playTouchKeyConsuming = false;
         if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
@@ -712,7 +678,7 @@ public class MainController {
                 BMSPlayer player = (BMSPlayer) current;
                 java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
                 field.setAccessible(true);
-                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
                     (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
                 if (touchKeyMapper != null && touchKeyMapper.isConsumingTouch()) {
                     playTouchKeyConsuming = true;
@@ -727,7 +693,7 @@ public class MainController {
             floatingMenu.setViewport(viewportX, viewportY, viewportW, viewportH, lastGameW, lastGameH);
             floatingMenu.render(sprite, systemfont);
         }
-        
+
         // 绘制Play界面触摸按键（仅Android，在BMSPlayer界面）
         if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
             try {
@@ -735,7 +701,7 @@ public class MainController {
                 // 使用反射获取touchKeyMapper
                 java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
                 field.setAccessible(true);
-                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = 
+                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
                     (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
                 if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
                     // 在皮肤绘制之后渲染，确保在最上层
