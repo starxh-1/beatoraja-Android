@@ -126,14 +126,6 @@ public class SettingsActivity extends Activity {
 
                 // IR enable: default OFF, only enable if irconfig has content
                 irEnable = false;
-
-                // 解析 playerconfig - gaugeAutoShift, autosavereplay, greenNumber, hispeedFix
-                selectedGaugeAutoShift = findJsonIntValue(json, "gaugeautoshift", 0);
-                selectedHispeedFix = findJsonIntValue(json, "hispeedfix", 3);
-                selectedGreenNumber = findJsonIntValue(json, "greennumber", 0);
-
-                // autosavereplay array (4 elements)
-                selectedAutoSaveReplay = findJsonIntArray(json, "autosavereplay", 4);
             } else {
                 // 默认值
                 bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
@@ -143,6 +135,48 @@ public class SettingsActivity extends Activity {
             e.printStackTrace();
             bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
             tableUrls.add("");
+        }
+
+        // 从 config_player.json 读取 play options
+        readPlayOptionsFromPlayerConfig();
+    }
+
+    /**
+     * 从 config_player.json 读取 play options 设置
+     */
+    private void readPlayOptionsFromPlayerConfig() {
+        try {
+            File filesDir = getExternalFilesDir(null);
+            File playerConfigFile = new File(filesDir, "player/" + selectedPlayerName + "/config_player.json");
+
+            if (playerConfigFile.exists()) {
+                StringBuilder content = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new FileReader(playerConfigFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        content.append(line);
+                    }
+                }
+
+                String json = content.toString();
+
+                // 解析 gaugeAutoShift
+                selectedGaugeAutoShift = findJsonIntValue(json, "gaugeAutoShift", 0);
+
+                // 解析 autosavereplay array (4 elements)
+                selectedAutoSaveReplay = findJsonIntArray(json, "autosavereplay", 4);
+
+                // 解析 greenNumber (hispeedFix)
+                selectedGreenNumber = findJsonIntValue(json, "greenNumber", 0);
+                selectedHispeedFix = findJsonIntValue(json, "hispeedFix", 3);
+
+                Log.d("SettingsActivity", "Read play options from player config - GAS: " + selectedGaugeAutoShift);
+            } else {
+                Log.d("SettingsActivity", "Player config file not found, using defaults");
+            }
+        } catch (Exception e) {
+            Log.e("SettingsActivity", "Failed to read play options from player config", e);
+            e.printStackTrace();
         }
     }
 
@@ -476,7 +510,13 @@ public class SettingsActivity extends Activity {
         playerSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                selectedPlayerName = availablePlayers.get(position);
+                String newPlayerName = availablePlayers.get(position);
+                if (!newPlayerName.equals(selectedPlayerName)) {
+                    selectedPlayerName = newPlayerName;
+                    // Reload play options for the new player
+                    readPlayOptionsFromPlayerConfig();
+                    updatePlayOptionsUI();
+                }
             }
             @Override
             public void onNothingSelected(android.widget.AdapterView<?> parent) {}
@@ -999,16 +1039,6 @@ public class SettingsActivity extends Activity {
             // irSendCount
             existingConfig.put("irSendCount", irSendCount);
 
-            // Play Options
-            existingConfig.put("gaugeautoshift", selectedGaugeAutoShift);
-            org.json.JSONArray autoSaveReplayArray = new org.json.JSONArray();
-            for (int i = 0; i < 4; i++) {
-                autoSaveReplayArray.put(selectedAutoSaveReplay[i]);
-            }
-            existingConfig.put("autosavereplay", autoSaveReplayArray);
-            existingConfig.put("greennumber", selectedGreenNumber);
-            existingConfig.put("hispeedfix", selectedHispeedFix);
-
             // irconfig - keep existing if present, or empty array
             if (!existingConfig.has("irconfig")) {
                 existingConfig.put("irconfig", new org.json.JSONArray());
@@ -1027,6 +1057,56 @@ public class SettingsActivity extends Activity {
             }
         } catch (Exception e) {
             Log.e("SettingsActivity", "Failed to save config", e);
+            e.printStackTrace();
+        }
+
+        // 保存 play options 到 config_player.json
+        savePlayOptionsToPlayerConfig();
+    }
+
+    /**
+     * 保存 play options 到 config_player.json
+     */
+    private void savePlayOptionsToPlayerConfig() {
+        try {
+            File filesDir = getExternalFilesDir(null);
+            File playerConfigFile = new File(filesDir, "player/" + selectedPlayerName + "/config_player.json");
+
+            // Read existing player config
+            org.json.JSONObject existingConfig = new org.json.JSONObject();
+            if (playerConfigFile.exists()) {
+                StringBuilder content = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new FileReader(playerConfigFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        content.append(line);
+                    }
+                }
+                existingConfig = new org.json.JSONObject(content.toString());
+            }
+
+            // Update play options
+            existingConfig.put("gaugeAutoShift", selectedGaugeAutoShift);
+            org.json.JSONArray autoSaveReplayArray = new org.json.JSONArray();
+            for (int i = 0; i < 4; i++) {
+                autoSaveReplayArray.put(selectedAutoSaveReplay[i]);
+            }
+            existingConfig.put("autosavereplay", autoSaveReplayArray);
+            existingConfig.put("greenNumber", selectedGreenNumber);
+            existingConfig.put("hispeedFix", selectedHispeedFix);
+
+            // Ensure player directory exists
+            File playerDir = new File(filesDir, "player/" + selectedPlayerName);
+            if (!playerDir.exists()) {
+                playerDir.mkdirs();
+            }
+
+            try (FileWriter writer = new FileWriter(playerConfigFile)) {
+                writer.write(existingConfig.toString(2));
+                Log.d("SettingsActivity", "Player config saved - GAS: " + selectedGaugeAutoShift);
+            }
+        } catch (Exception e) {
+            Log.e("SettingsActivity", "Failed to save play options to player config", e);
             e.printStackTrace();
         }
     }
@@ -1594,6 +1674,47 @@ public class SettingsActivity extends Activity {
             selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString());
         } catch (Exception e) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
+    }
+
+    /**
+     * 更新 Play Options UI 以反映当前选中的玩家配置
+     */
+    private void updatePlayOptionsUI() {
+        try {
+            Spinner gasSpinner = findViewById(R.id.gaugeAutoShiftSpinner);
+            if (gasSpinner != null) {
+                gasSpinner.setSelection(Math.min(selectedGaugeAutoShift,
+                    Math.max(0, gasSpinner.getAdapter().getCount() - 1)));
+            }
+
+            Spinner hsfSpinner = findViewById(R.id.hispeedFixSpinner);
+            if (hsfSpinner != null) {
+                hsfSpinner.setSelection(Math.min(selectedHispeedFix,
+                    Math.max(0, hsfSpinner.getAdapter().getCount() - 1)));
+            }
+
+            Spinner[] replaySpinners = {
+                findViewById(R.id.autoSaveReplay1),
+                findViewById(R.id.autoSaveReplay2),
+                findViewById(R.id.autoSaveReplay3),
+                findViewById(R.id.autoSaveReplay4)
+            };
+            for (int i = 0; i < 4; i++) {
+                if (replaySpinners[i] != null) {
+                    replaySpinners[i].setSelection(Math.min(selectedAutoSaveReplay[i],
+                        Math.max(0, replaySpinners[i].getAdapter().getCount() - 1)));
+                }
+            }
+
+            EditText greenNumberInput = findViewById(R.id.greenNumberInput);
+            if (greenNumberInput != null) {
+                greenNumberInput.setText(String.valueOf(selectedGreenNumber));
+            }
+
+            Log.d("SettingsActivity", "Updated play options UI for player: " + selectedPlayerName);
+        } catch (Exception e) {
+            Log.e("SettingsActivity", "Failed to update play options UI", e);
+        }
     }
 
     private void launchGame() {
