@@ -926,6 +926,7 @@ public class MainController {
         resource.dispose();
         SkinLoader.getResource().dispose();
         ShaderManager.dispose();
+        FileCache.clear();
         if (download != null) {
             download.dispose();
         }
