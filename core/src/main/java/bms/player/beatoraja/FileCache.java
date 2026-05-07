@@ -27,16 +27,20 @@ public class FileCache {
             String parentPath = parent.path();
             Set<String> files = dirCache.get(parentPath);
             if (files == null) {
+                if (!parent.exists()) {
+                    return file.exists();
+                }
                 files = new HashSet<>();
-                if (parent.exists()) {
-                    FileHandle[] list = parent.list();
-                    if (list != null) {
-                        for (FileHandle f : list) {
-                            files.add(f.name().toLowerCase(Locale.ROOT));
-                        }
+                FileHandle[] list = parent.list();
+                if (list != null) {
+                    for (FileHandle f : list) {
+                        files.add(f.name().toLowerCase(Locale.ROOT));
                     }
                 }
                 dirCache.put(parentPath, files);
+            }
+            if (files.isEmpty()) {
+                return file.exists();
             }
             return files.contains(file.name().toLowerCase(Locale.ROOT));
         } catch (Exception e) {
