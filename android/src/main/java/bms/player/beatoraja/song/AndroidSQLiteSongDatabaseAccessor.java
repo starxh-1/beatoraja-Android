@@ -17,6 +17,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import bms.model.BMSDecoder;
 import bms.model.BMSModel;
@@ -31,6 +35,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final String TAG = "AndroidSongDB";
     private final DBHelper helper;
     private final String[] bmsroot;
+    // 多线程扫描：最少2个
+    private static final int PARALLEL_THREAD_COUNT = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+    // 小于此数量则使用串行处理（避免线程创建开销）
+    private static final int PARALLEL_THRESHOLD = 50;
 
     public AndroidSQLiteSongDatabaseAccessor(Context context, String dbPath, String[] bmsroot) {
         Log.i(TAG, "AndroidSQLiteSongDatabaseAccessor constructor, dbPath: " + dbPath);
@@ -628,7 +636,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 Log.i(TAG, "Deletion Sync: Skipped (forceRefresh is false) - maintaining existing records");
             }
 
-            // Step 2: 扫描所有传入的路径 (关键修复：使用传入的 paths 参数而不是硬编码路径)
+            // Step 2: forceRefresh 为 true 时使用多线程并行扫描（首次全量扫描场景）
+            if (forceRefresh) {
+                Log.i(TAG, "Step 2: Using parallel multi-threaded scan (forceRefresh=true)");
+                updateSongDatasParallel(paths, forceRefresh);
+                return;
+            }
+
+            // Step 2 (增量模式): 扫描所有传入的路径
             Log.i(TAG, "================================================================================");
             Log.i(TAG, "Step 2: Starting folder scan with " + paths.length + " root path(s)");
             Log.i(TAG, "================================================================================");
@@ -720,6 +735,217 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      */
     public void updateSongDatas(String[] paths) {
         updateSongDatas(paths, false);
+    }
+
+    /**
+     * 多线程版本：收集所有BMS文件路径，然后并行解码，最后批量写入数据库
+     * 适用于大量文件的场景
+     */
+    private void updateSongDatasParallel(String[] paths, boolean forceRefresh) {
+        long startTime = System.currentTimeMillis();
+        Log.i(TAG, "updateSongDatasParallel: Starting with " + paths.length + " root paths, forceRefresh=" + forceRefresh);
+
+        // 阶段1: 收集所有BMS文件路径（单线程遍历）
+        long collectStart = System.currentTimeMillis();
+        List<FileHandle> allFiles = new ArrayList<>();
+        BMSDecoder decoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
+
+        for (String pathToScan : paths) {
+            if (pathToScan == null || pathToScan.trim().isEmpty()) continue;
+            FileHandle scanDir = Gdx.files.absolute(pathToScan.trim());
+            if (scanDir.exists()) {
+                collectBmsFiles(scanDir, allFiles);
+            }
+        }
+        long collectElapsed = System.currentTimeMillis() - collectStart;
+        Log.i(TAG, "updateSongDatasParallel: Phase1 collected " + allFiles.size() + " BMS files in " + collectElapsed + "ms");
+
+        if (allFiles.isEmpty()) {
+            Log.i(TAG, "updateSongDatasParallel: No BMS files found, skipping");
+            return;
+        }
+
+        // 阶段2: 并行解码（多线程）
+        long decodeStart = System.currentTimeMillis();
+        ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
+        List<Future<DecodeResult>> futures = new ArrayList<>();
+
+        for (final FileHandle file : allFiles) {
+            futures.add(executor.submit(() -> processBmsFileParallel(file, decoder, forceRefresh)));
+        }
+
+        List<DecodeResult> results = new ArrayList<>();
+        int successCount = 0;
+        for (Future<DecodeResult> f : futures) {
+            try {
+                DecodeResult result = f.get(30, TimeUnit.SECONDS);
+                if (result != null && result.songData != null) {
+                    results.add(result);
+                    successCount++;
+                }
+            } catch (Exception e) {
+                Log.w(TAG, "updateSongDatasParallel: Decode failed", e);
+            }
+        }
+
+        executor.shutdown();
+        try {
+            executor.awaitTermination(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Log.e(TAG, "updateSongDatasParallel: Executor interrupted", e);
+        }
+        long decodeElapsed = System.currentTimeMillis() - decodeStart;
+        Log.i(TAG, "updateSongDatasParallel: Phase2 decoded " + successCount + "/" + allFiles.size() + " files in " + decodeElapsed + "ms with " + PARALLEL_THREAD_COUNT + " threads");
+
+        if (results.isEmpty()) {
+            Log.i(TAG, "updateSongDatasParallel: No valid BMS files after decoding");
+            return;
+        }
+
+        // 阶段3: 批量写入数据库（单线程事务）
+        long writeStart = System.currentTimeMillis();
+        SQLiteDatabase db = helper.getWritableDatabase();
+        db.beginTransaction();
+        try {
+            for (DecodeResult result : results) {
+                insertSongData(result.songData, db);
+            }
+            db.setTransactionSuccessful();
+        } catch (Throwable t) {
+            Log.e(TAG, "updateSongDatasParallel: Batch insert failed", t);
+        } finally {
+            db.endTransaction();
+        }
+        long writeElapsed = System.currentTimeMillis() - writeStart;
+        long totalElapsed = System.currentTimeMillis() - startTime;
+        Log.i(TAG, "updateSongDatasParallel: Phase3 wrote " + results.size() + " songs in " + writeElapsed + "ms, total: " + totalElapsed + "ms");
+    }
+
+    /**
+     * 收集目录下所有BMS文件路径（递归）
+     */
+    private void collectBmsFiles(FileHandle folder, List<FileHandle> result) {
+        try {
+            if (!folder.exists() || !folder.isDirectory()) return;
+
+            FileHandle[] children = folder.list();
+            if (children == null) return;
+
+            for (FileHandle child : children) {
+                if (child.isDirectory()) {
+                    collectBmsFiles(child, result);
+                } else {
+                    String name = child.name().toLowerCase();
+                    if (isBmsFile(name)) {
+                        result.add(child);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "collectBmsFiles: Failed to scan " + folder.path(), e);
+        }
+    }
+
+    /**
+     * 并行解码时的结果包装类
+     */
+    private static class DecodeResult {
+        SongData songData;
+        FileHandle file;
+        int lastModified;
+
+        DecodeResult(SongData songData, FileHandle file, int lastModified) {
+            this.songData = songData;
+            this.file = file;
+            this.lastModified = lastModified;
+        }
+    }
+
+    /**
+     * 并行解码单个BMS文件（不写库，只返回SongData）
+     */
+    private DecodeResult processBmsFileParallel(FileHandle file, BMSDecoder decoder, boolean forceRefresh) {
+        try {
+            if (file == null || !file.exists()) return null;
+
+            String pathName = file.path().replace('\\', '/');
+            int lastModifiedTime = (int) (file.lastModified() / 1000);
+
+            // 增量更新检查
+            if (!forceRefresh) {
+                SQLiteDatabase db = helper.getReadableDatabase();
+                Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName});
+                if (cursor.moveToFirst()) {
+                    int recordDate = cursor.getInt(0);
+                    if (recordDate == lastModifiedTime) {
+                        cursor.close();
+                        return null; // 未修改，跳过
+                    }
+                }
+                cursor.close();
+            }
+
+            BMSModel model = decoder.decode(file);
+            if (model == null) return null;
+
+            SongData songData = new SongData(model, false);
+            songData.setPath(pathName);
+            songData.setDate(lastModifiedTime);
+            songData.setAdddate((int) (System.currentTimeMillis() / 1000));
+
+            // CRC计算
+            String matchingRoot = findMatchingRoot(pathName);
+            if (file.parent() != null) {
+                String parentPath = file.parent().path().replace('\\', '/');
+                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, matchingRoot));
+                if (file.parent().parent() != null) {
+                    String grandParentPath = file.parent().parent().path().replace('\\', '/');
+                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, matchingRoot));
+                }
+            }
+
+            return new DecodeResult(songData, file, lastModifiedTime);
+        } catch (Exception e) {
+            Log.w(TAG, "processBmsFileParallel: Failed " + (file != null ? file.path() : "null"), e);
+            return null;
+        }
+    }
+
+    /**
+     * 将SongData插入数据库
+     */
+    private void insertSongData(SongData songData, SQLiteDatabase db) {
+        ContentValues cv = new ContentValues();
+        cv.put("md5", songData.getMd5());
+        cv.put("sha256", songData.getSha256());
+        cv.put("title", songData.getTitle());
+        cv.put("subtitle", songData.getSubtitle());
+        cv.put("genre", songData.getGenre());
+        cv.put("artist", songData.getArtist());
+        cv.put("subartist", songData.getSubartist());
+        cv.put("tag", songData.getTag());
+        cv.put("path", songData.getPath());
+        cv.put("folder", songData.getFolder());
+        cv.put("stagefile", songData.getStagefile());
+        cv.put("banner", songData.getBanner());
+        cv.put("backbmp", songData.getBackbmp());
+        cv.put("preview", songData.getPreview());
+        cv.put("parent", songData.getParent());
+        cv.put("level", songData.getLevel());
+        cv.put("difficulty", songData.getDifficulty());
+        cv.put("maxbpm", songData.getMaxbpm());
+        cv.put("minbpm", songData.getMinbpm());
+        cv.put("length", songData.getLength());
+        cv.put("mode", songData.getMode());
+        cv.put("judge", songData.getJudge());
+        cv.put("feature", songData.getFeature());
+        cv.put("content", songData.getContent());
+        cv.put("date", songData.getDate());
+        cv.put("favorite", songData.getFavorite());
+        cv.put("adddate", songData.getAdddate());
+        cv.put("notes", songData.getNotes());
+        cv.put("charthash", songData.getCharthash());
+        db.insertWithOnConflict("song", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
     /**
