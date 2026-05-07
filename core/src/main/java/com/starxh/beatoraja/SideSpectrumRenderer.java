@@ -47,7 +47,7 @@ public class SideSpectrumRenderer {
             if (latest != null && latest.length >= 64) {
                 System.arraycopy(latest, 0, spectrum, 0, 64);
                 for (float v : spectrum) {
-                    if (v > 0.005f) {
+                    if (v > 0.0001f) {
                         hasRealData = true;
                         break;
                     }
@@ -55,13 +55,7 @@ public class SideSpectrumRenderer {
             }
         }
 
-        // 2. 如果没真实数据，生成一段测试波浪 (双声道不同步测试)
-        if (!hasRealData) {
-            for (int i = 0; i < 32; i++) {
-                spectrum[i] = (MathUtils.sin(testTimer * 3 + i * 0.3f) + 1) * 0.2f; // 左声道波浪
-                spectrum[32 + i] = (MathUtils.cos(testTimer * 2 + i * 0.4f) + 1) * 0.2f; // 右声道波浪
-            }
-        }
+        if (!hasRealData) return;
 
         // 3. 更新下落逻辑
         for (int i = 0; i < 64; i++) {
