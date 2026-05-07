@@ -178,8 +178,15 @@ public class BMSResource {
 		final TextureRegion oldstagefile = stagefile;
 		if (pixmap != null) {
 			if(stagefilePix != pixmap) {
-				stagefile = new TextureRegion(new Texture(pixmap));
-				stagefilePix = pixmap;
+				try {
+					stagefile = new TextureRegion(new Texture(pixmap));
+					stagefilePix = pixmap;
+				} catch (Exception e) {
+					// Pixmap may have been disposed by resource pool
+					stagefile = oldstagefile;
+					stagefilePix = null;
+					return;
+				}
 			}
 		} else {
 			stagefile = null;
@@ -194,8 +201,15 @@ public class BMSResource {
 		final TextureRegion oldbanner = banner;
 		if (pixmap != null) {
 			if(bannerPix != pixmap) {
-				banner = new TextureRegion(new Texture(pixmap));
-				bannerPix = pixmap;
+				try {
+					banner = new TextureRegion(new Texture(pixmap));
+					bannerPix = pixmap;
+				} catch (Exception e) {
+					// Pixmap may have been disposed by resource pool
+					banner = oldbanner;
+					bannerPix = null;
+					return;
+				}
 			}
 		} else {
 			banner = null;

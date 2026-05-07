@@ -643,6 +643,7 @@ public class BMSPlayer extends MainState {
 				for(int i = 0; i < gaugelog.length; i++) {
 					int idx = (int) (ptime / 500);
 					if (gaugelog[i].size <= idx) {
+						gaugelog[i].ensureCapacity(idx + 1);
 						gaugelog[i].items[gaugelog[i].size++] = gauge.getValue(i);
 					}
 				}
@@ -734,6 +735,7 @@ public class BMSPlayer extends MainState {
 							for(int i = 0; i < gaugelog.length; i++) {
 								int idx = (int) (l / 500);
 								if (gaugelog[i].size <= idx) {
+									gaugelog[i].ensureCapacity(idx + 1);
 									gaugelog[i].items[gaugelog[i].size++] = 0f;
 								}
 							}
