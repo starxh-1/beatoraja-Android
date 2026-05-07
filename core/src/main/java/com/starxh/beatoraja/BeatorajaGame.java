@@ -15,6 +15,7 @@ import bms.player.beatoraja.MainController;
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class BeatorajaGame extends ApplicationAdapter {
     private MainController controller;
+    private SideSpectrumRenderer spectrumRenderer;
     private Path rootPath;
     private Config bmsConfig;
     private PlayerConfig playerConfig;
@@ -37,6 +38,7 @@ public class BeatorajaGame extends ApplicationAdapter {
         // 使用传入的参数初始化 beatoraja 核心控制器
         controller = new MainController(rootPath, bmsConfig, playerConfig, mode, useAudio);
         controller.create();
+        spectrumRenderer = new SideSpectrumRenderer();
     }
 
     @Override
@@ -45,12 +47,20 @@ public class BeatorajaGame extends ApplicationAdapter {
         if (controller != null) {
             controller.render();
         }
+
+        // 渲染侧边频谱（画在最上层）
+        if (spectrumRenderer != null) {
+            spectrumRenderer.render();
+        }
     }
 
     @Override
     public void resize(int width, int height) {
         if (controller != null) {
             controller.resize(width, height);
+        }
+        if (spectrumRenderer != null) {
+            spectrumRenderer.resize(width, height);
         }
     }
 
@@ -72,6 +82,9 @@ public class BeatorajaGame extends ApplicationAdapter {
     public void dispose() {
         if (controller != null) {
             controller.dispose();
+        }
+        if (spectrumRenderer != null) {
+            spectrumRenderer.dispose();
         }
     }
 

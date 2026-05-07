@@ -659,6 +659,9 @@ public class MainController {
         messageRenderer.render(current, sprite, 100, config.getResolution().height - 2);
         sprite.end();
 
+        // ── 音频频谱渲染（黑边区域）──
+        drawAudioSpectrum();
+
         // 绘制触摸指针（仅 Android，PLAY 和 DECIDE 界面不显示，浮动菜单消费触摸时不显示）
         if (Gdx.app.getType() == Application.ApplicationType.Android && touchPointerTexture != null
             && !(current instanceof BMSPlayer)
@@ -899,6 +902,103 @@ public class MainController {
                 }
             }
         }
+    }
+
+    /**
+     * 在屏幕黑边区域绘制音频频谱
+     */
+    private void drawAudioSpectrum() {
+        // 只在 Android 上运行
+        if (Gdx.app.getType() != Application.ApplicationType.Android) {
+            return;
+        }
+
+        float[] magnitudes = null;
+
+        // 通过反射获取 Visualizer 实例
+        try {
+            Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AudioSpectrumVisualizer");
+            java.lang.reflect.Method method = clazz.getMethod("getInstance");
+            Object visualizerObj = method.invoke(null);
+            if (visualizerObj == null) {
+                return;
+            }
+
+            java.lang.reflect.Method hasNewDataMethod = visualizerObj.getClass().getMethod("hasNewData");
+            boolean hasNewData = (Boolean) hasNewDataMethod.invoke(visualizerObj);
+            if (!hasNewData) {
+                return;
+            }
+
+            java.lang.reflect.Method getMagnitudesMethod = visualizerObj.getClass().getMethod("getSmoothedBandMagnitudes");
+            magnitudes = (float[]) getMagnitudesMethod.invoke(visualizerObj);
+        } catch (Exception e) {
+            // Visualizer 不可用，忽略
+            return;
+        }
+
+        if (magnitudes == null || magnitudes.length == 0) {
+            return;
+        }
+
+        int screenW = Gdx.graphics.getWidth();
+        int screenH = Gdx.graphics.getHeight();
+        float targetAspect = 1920f / 1080f;
+        float screenAspect = (float) screenW / screenH;
+
+        // 计算黑边区域
+        int viewportW, viewportH, viewportX, viewportY;
+        if (screenAspect > targetAspect) {
+            // 左右黑边
+            viewportH = screenH;
+            viewportW = Math.round(screenH * targetAspect);
+            viewportX = (screenW - viewportW) / 2;
+            viewportY = 0;
+        } else {
+            // 上下黑边
+            viewportW = screenW;
+            viewportH = Math.round(screenW / targetAspect);
+            viewportX = 0;
+            viewportY = (screenH - viewportH) / 2;
+        }
+
+        int borderWidth = viewportX > 0 ? viewportX : viewportY;
+        if (borderWidth <= 0) {
+            return;
+        }
+
+        // 设置屏幕坐标投影
+        sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, screenW, screenH));
+        sprite.begin();
+
+        // 绘制频谱柱
+        int bandCount = magnitudes.length;
+        int barWidth = borderWidth / bandCount - 2;
+        if (barWidth < 2) barWidth = 2;
+
+        Color barColor = new Color(0.2f, 0.8f, 1f, 0.8f); // 蓝绿色
+
+        if (viewportX > 0) {
+            // 左侧黑边：从下往上画
+            for (int i = 0; i < bandCount; i++) {
+                int x = borderWidth - (i + 1) * (barWidth + 2);
+                int barHeight = (int) (magnitudes[i] * viewportH * 0.8f);
+                int y = viewportY + (viewportH - barHeight) / 2;
+                sprite.setColor(barColor);
+                sprite.draw(white, x, y, barWidth, barHeight);
+            }
+        } else if (screenAspect < targetAspect) {
+            // 上下黑边：左边画
+            for (int i = 0; i < bandCount; i++) {
+                int x = viewportX + borderWidth - (i + 1) * (barWidth + 2);
+                int barHeight = (int) (magnitudes[i] * viewportW * 0.8f);
+                int y = borderWidth - barHeight;
+                sprite.setColor(barColor);
+                sprite.draw(white, x, y, barWidth, barHeight);
+            }
+        }
+
+        sprite.end();
     }
 
     public void dispose() {
