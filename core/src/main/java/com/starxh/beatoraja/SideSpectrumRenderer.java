@@ -55,9 +55,7 @@ public class SideSpectrumRenderer {
             }
         }
 
-        if (!hasRealData) return;
-
-        // 3. 更新下落逻辑
+        // 2. 更新下落逻辑（即使没有音频数据也继续渲染，让条形图逐渐归零）
         for (int i = 0; i < 64; i++) {
             if (spectrum[i] > topValues[i]) {
                 topValues[i] = spectrum[i];
@@ -67,8 +65,9 @@ public class SideSpectrumRenderer {
             }
         }
 
-        // 4. 渲染设置
+        // 4. 渲染设置 - 使用全屏 viewport
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
+        Gdx.gl.glViewport(0, 0, w, h);
         camera.setToOrtho(false, w, h);
         camera.update();
         shapeRenderer.setProjectionMatrix(camera.combined);
