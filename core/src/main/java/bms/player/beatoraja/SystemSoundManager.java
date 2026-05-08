@@ -150,7 +150,7 @@ public class SystemSoundManager {
 		if (paths.size > 0) {
 			Logger.getGlobal().info("Found sound path for " + type + ": " + paths.get(0));
 		} else {
-			Logger.getGlobal().warning("No sound path found for " + type + " (tried: " + defaultPath + ")");
+			Logger.getGlobal().warning("No sound path found for " + type);
 		}
 		
 		return paths.toArray(Path.class);
