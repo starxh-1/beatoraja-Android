@@ -11,6 +11,10 @@ import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.BMSPlayerMode;
 
 import bms.player.beatoraja.MainController;
+import bms.player.beatoraja.MainState;
+import bms.player.beatoraja.play.BMSPlayer;
+import bms.player.beatoraja.result.MusicResult;
+import bms.player.beatoraja.result.CourseResult;
 
 /** {@link com.badlogic.gdx.ApplicationListener} implementation shared by all platforms. */
 public class BeatorajaGame extends ApplicationAdapter {
@@ -48,9 +52,12 @@ public class BeatorajaGame extends ApplicationAdapter {
             controller.render();
         }
 
-        // 渲染侧边频谱（画在最上层）
-        if (spectrumRenderer != null) {
-            spectrumRenderer.render();
+        // 渲染侧边频谱（仅在游玩和结果界面显示，且配置中启用了频谱）
+        if (spectrumRenderer != null && controller != null && controller.getConfig().isShowAudioSpectrum()) {
+            MainState state = controller.getCurrentState();
+            if (state != null && (state instanceof BMSPlayer || state instanceof MusicResult || state instanceof CourseResult)) {
+                spectrumRenderer.render();
+            }
         }
     }
 

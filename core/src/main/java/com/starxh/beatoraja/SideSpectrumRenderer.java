@@ -80,17 +80,19 @@ public class SideSpectrumRenderer {
         // 计算黑边区域宽度，确保频谱不会进入游戏画面
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
-        float maxBarW = Math.min(w * 0.2f, blackBarW);
-        float drawH = Math.max(maxBarW, 120f);
-        float barH = (drawH - 10) / 16f;
-        Color barColor = hasRealData ? new Color(0.2f, 0.8f, 0.4f, 0.5f) : new Color(0.2f, 0.4f, 1f, 0.4f);
+        float maxBarW = Math.min(w * 0.2f, blackBarW); // 受黑边和屏幕宽度限制
 
-        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸，均居中显示
-        float baseY = (h - drawH) / 2; // 居中垂直位置
+        float totalHeight = h * 0.8f; // 频谱总高度（占屏幕比例）
+        float barH = (totalHeight - 10) / 16f; // bar 高度
+        float barThickness = barH * 0.2f; // bar 变细的厚度
+        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+
+        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸，居中显示
+        float baseY = (h - totalHeight) / 2; // 垂直居中
         for (int i = 0; i < 16; i++) {
             float y = baseY + i * barH;
-            drawHorizontalBarLeft(i, y, maxBarW, barH, barColor, blackBarW); // 左侧左声道，从右向左延伸
-            drawHorizontalBarRight(32 + i, y, maxBarW, barH, barColor, blackBarW); // 右侧右声道，从左向右延伸
+            drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW); // 左侧左声道，从右向左延伸
+            drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW); // 右侧右声道，从左向右延伸
         }
 
         shapeRenderer.end();
@@ -100,8 +102,8 @@ public class SideSpectrumRenderer {
     private void drawHorizontalBarLeft(int idx, float y, float maxBarW, float barH, Color color, float blackBarW) {
         float val = spectrum[idx];
         float top = topValues[idx];
-        float barW = val * maxBarW;
-        float topX = top * maxBarW;
+        float barW = Math.min(val * maxBarW, maxBarW); // 截断到最大宽度，防止出界
+        float topX = Math.min(top * maxBarW, maxBarW);
         float anchorX = blackBarW; // 锚点在游戏边界，条形向左延伸到黑边
 
         shapeRenderer.setColor(color);
@@ -114,8 +116,8 @@ public class SideSpectrumRenderer {
     private void drawHorizontalBarRight(int idx, float y, float maxBarW, float barH, Color color, float blackBarW) {
         float val = spectrum[idx];
         float top = topValues[idx];
-        float barW = val * maxBarW;
-        float topX = top * maxBarW;
+        float barW = Math.min(val * maxBarW, maxBarW); // 截断到最大宽度，防止出界
+        float topX = Math.min(top * maxBarW, maxBarW);
         float w = Gdx.graphics.getWidth();
         float anchorX = w - blackBarW; // 锚点在游戏边界，条形向右延伸到黑边
 

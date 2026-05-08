@@ -297,6 +297,28 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
+                android:text="Show Audio Spectrum"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Switch
+                android:id="@+id/showAudioSpectrumSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:checked="true" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:layout_marginBottom="16dp">
 
@@ -449,6 +471,7 @@
         </LinearLayout>
 
         <!-- HI-SPEED Fix -->
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -602,7 +625,7 @@
             android:layout_marginTop="24dp"
             android:gravity="end">
 
-            
+
             <Button
                 android:id="@+id/saveButton"
                 android:layout_width="wrap_content"

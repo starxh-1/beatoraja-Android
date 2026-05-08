@@ -125,6 +125,16 @@ public class Config implements Validatable, Serializable {
 		this.showTouchKey = showTouchKey;
 	}
 
+	public boolean isShowAudioSpectrum() {
+		return showAudioSpectrum;
+	}
+
+	public void setShowAudioSpectrum(boolean showAudioSpectrum) {
+		this.showAudioSpectrum = showAudioSpectrum;
+	}
+
+	private boolean showAudioSpectrum = true;
+
 	private int prepareFramePerSecond = 0;
 	/**
 	 * 検索バー同時表示上限数

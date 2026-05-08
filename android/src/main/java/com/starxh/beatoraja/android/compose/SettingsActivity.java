@@ -53,6 +53,7 @@ public class SettingsActivity extends Activity {
     private List<String> bmsPaths = new ArrayList<>();
     private boolean irEnable = false;
     private int irSendCount = 5;
+    private boolean showAudioSpectrum = true;
     private List<String> tableUrls = new ArrayList<>();
     private List<String> availablePlayers = new ArrayList<>();
     private int selectedGaugeAutoShift = 0;
@@ -117,6 +118,9 @@ public class SettingsActivity extends Activity {
 
                 // 解析 irSendCount
                 irSendCount = findJsonIntValue(json, "irSendCount", 5);
+
+                // 解析 showAudioSpectrum
+                showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
 
                 // 解析 tableURL 数组
                 tableUrls = findJsonArrayStrings(json, "tableURL");
@@ -338,6 +342,30 @@ public class SettingsActivity extends Activity {
             }
             if (end > start) {
                 return Integer.parseInt(json.substring(start, end));
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return defaultValue;
+    }
+
+    private boolean findJsonBooleanValue(String json, String key, boolean defaultValue) {
+        try {
+            int keyStart = json.indexOf("\"" + key + "\"");
+            if (keyStart < 0) return defaultValue;
+
+            int colonPos = json.indexOf(":", keyStart);
+            if (colonPos < 0) return defaultValue;
+
+            int start = colonPos + 1;
+            while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) {
+                start++;
+            }
+            String value = json.substring(start, Math.min(start + 6, json.length())).trim().toLowerCase();
+            if (value.startsWith("true")) {
+                return true;
+            } else if (value.startsWith("false")) {
+                return false;
             }
         } catch (Exception e) {
             // ignore
@@ -572,6 +600,13 @@ public class SettingsActivity extends Activity {
         irEnableSwitch.setChecked(irEnable);
         irEnableSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             irEnable = isChecked;
+        });
+
+        // Show Audio Spectrum
+        Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
+        showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
+        showAudioSpectrumSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            showAudioSpectrum = isChecked;
         });
 
         // IR Send Count
@@ -1028,6 +1063,9 @@ public class SettingsActivity extends Activity {
             audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
             existingConfig.put("audio", audio);
+
+            // showAudioSpectrum
+            existingConfig.put("showAudioSpectrum", showAudioSpectrum);
 
             // bmsroot array
             org.json.JSONArray bmsrootArray = new org.json.JSONArray();
@@ -1650,6 +1688,9 @@ public class SettingsActivity extends Activity {
                 irSendCount = Integer.parseInt(irSendCountStr);
             } catch (Exception e) {}
         }
+
+        // Audio Spectrum
+        showAudioSpectrum = ((android.widget.Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
 
         // Table URLs
         tableUrls.clear();
