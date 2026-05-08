@@ -65,7 +65,7 @@ public class SideSpectrumRenderer {
             }
         }
 
-        // 4. 渲染设置 - 使用全屏 viewport
+        // 3. 渲染设置 - 使用全屏 viewport
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
         Gdx.gl.glViewport(0, 0, w, h);
         camera.setToOrtho(false, w, h);
@@ -77,34 +77,44 @@ public class SideSpectrumRenderer {
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        float gameW = h * (1920f / 1080f);
-        float blackBarW = (w - gameW) / 2f;
-        float drawW = Math.max(blackBarW, 120f);
-
-        float barW = (drawW - 10) / 16f;
+        float maxBarW = w * 0.2f; // 最大宽度占屏幕比例
+        float drawH = Math.max(maxBarW, 120f);
+        float barH = (drawH - 10) / 16f;
         Color barColor = hasRealData ? new Color(0.2f, 0.8f, 0.4f, 0.5f) : new Color(0.2f, 0.4f, 1f, 0.4f);
 
-        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)
+        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸
         for (int i = 0; i < 16; i++) {
-            drawBar(i, i * barW, h, barW, barColor); // 左侧黑边
-            drawBar(32 + i, w - blackBarW + i * barW, h, barW, barColor); // 右侧黑边
+            drawHorizontalBarLeft(i, i * barH, maxBarW, barH, barColor); // 左侧左声道，从左向右延伸
+            drawHorizontalBarRight(32 + i, h - barH - i * barH, maxBarW, barH, barColor); // 右侧右声道，从右向左延伸
         }
 
         shapeRenderer.end();
     }
 
-    private void drawBar(int idx, float x, float h, float barW, Color color) {
+    // 左侧条形图 - 从左向右延伸
+    private void drawHorizontalBarLeft(int idx, float y, float maxBarW, float barH, Color color) {
         float val = spectrum[idx];
         float top = topValues[idx];
-        float maxBarH = h * 0.5f; // 最大高度占屏幕一半
-        float barH = val * maxBarH;
-        float topY = top * maxBarH;
-        float baseY = (h - maxBarH) / 2; // 居中垂直位置
+        float barW = val * maxBarW;
+        float topX = top * maxBarW;
 
         shapeRenderer.setColor(color);
-        shapeRenderer.rect(x, baseY, barW - 2, barH);
+        shapeRenderer.rect(0, y, barW, barH - 2);
         shapeRenderer.setColor(Color.WHITE);
-        shapeRenderer.rect(x, baseY + topY, barW - 2, 4);
+        shapeRenderer.rect(topX, y, 4, barH - 2);
+    }
+
+    // 右侧条形图 - 从右向左延伸
+    private void drawHorizontalBarRight(int idx, float y, float maxBarW, float barH, Color color) {
+        float val = spectrum[idx];
+        float top = topValues[idx];
+        float barW = val * maxBarW;
+        float topX = top * maxBarW;
+
+        shapeRenderer.setColor(color);
+        shapeRenderer.rect((float) Gdx.graphics.getWidth() - barW, y, barW, barH - 2);
+        shapeRenderer.setColor(Color.WHITE);
+        shapeRenderer.rect((float) Gdx.graphics.getWidth() - topX - 4, y, 4, barH - 2);
     }
 
     public void dispose() {
