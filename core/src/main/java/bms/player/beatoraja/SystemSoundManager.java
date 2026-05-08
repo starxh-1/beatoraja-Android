@@ -127,30 +127,22 @@ public class SystemSoundManager {
 		}
 		
 		// 修复Android上默认sound路径问题
-		// Android 上，音效文件已经被 AndroidLauncher 复制到了外部存储的根目录下
-		// 使用 beatoraja.root 系统属性获取正确的外部存储路径
-		String soundRoot;
+		// Android: 音效文件在 APK 的 assets 中，使用内部资源路径
+		// Desktop: 使用当前工作目录
 		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-			// Android: 使用 beatoraja.root 系统属性（由 AndroidLauncher 设置）
-			soundRoot = System.getProperty("beatoraja.root", "");
-			if (soundRoot.isEmpty()) {
-				// 回退方案：尝试从 Config 获取
-				soundRoot = com.badlogic.gdx.Gdx.files.getLocalStoragePath();
+			// Android: 使用内部资源路径 (assets/sound/default/)
+			String internalPath = "sound/default/" + type.path;
+			for(FileHandle fh : AudioDriver.getPaths(internalPath)) {
+				paths.add(Paths.get(fh.path()));
 			}
 		} else {
-			// Desktop: 使用当前工作目录
-			soundRoot = "";
-		}
-		
-		String defaultPath = Paths.get(soundRoot).resolve("sound").resolve("default").resolve(type.path).toString();
-		for(FileHandle fh : AudioDriver.getPaths(defaultPath)) {
-			paths.add(Paths.get(fh.path()));
-		}
-		
-		// 如果仍然没有找到，尝试在 Android 外部存储的绝对路径下查找
-		if (paths.size == 0 && com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-			String altPath = soundRoot + "/sound/default/" + type.path;
-			for(FileHandle fh : AudioDriver.getPaths(altPath)) {
+			// Desktop: 使用 beatoraja.root 系统属性或当前工作目录
+			String soundRoot = System.getProperty("beatoraja.root", "");
+			if (soundRoot.isEmpty()) {
+				soundRoot = com.badlogic.gdx.Gdx.files.getLocalStoragePath();
+			}
+			String defaultPath = Paths.get(soundRoot).resolve("sound").resolve("default").resolve(type.path).toString();
+			for(FileHandle fh : AudioDriver.getPaths(defaultPath)) {
 				paths.add(Paths.get(fh.path()));
 			}
 		}
