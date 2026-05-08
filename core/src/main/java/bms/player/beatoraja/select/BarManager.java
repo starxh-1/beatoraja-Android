@@ -394,7 +394,7 @@ public final class BarManager {
 			for (Bar b : newcurrentsongs) {
 				if (b instanceof SongBar sb) {
 					SongData sd = sb.getSongData();
-					if (sd != null && select.getScoreDataCache().existsScoreDataCache(sd, config.getLnmode())) {
+					if (sd != null) {
 						b.setScore(select.getScoreDataCache().readScoreData(sd, config.getLnmode()));
 					}
 				}

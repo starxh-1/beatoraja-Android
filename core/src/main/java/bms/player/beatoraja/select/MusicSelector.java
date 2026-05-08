@@ -254,6 +254,17 @@ public final class MusicSelector extends MainState {
 
 	public void prepare() {
 		preview.start((String)null);
+		// 更新上一首播放歌曲的分数缓存
+		if (playedsong != null) {
+			scorecache.update(playedsong, config.getLnmode());
+			playedsong = null;
+		}
+		if (playedcourse != null) {
+			for (SongData sd : playedcourse.getSong()) {
+				scorecache.update(sd, config.getLnmode());
+			}
+			playedcourse = null;
+		}
 	}
 
 	public void render() {

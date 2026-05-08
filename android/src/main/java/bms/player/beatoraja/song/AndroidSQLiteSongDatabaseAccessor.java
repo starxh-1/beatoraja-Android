@@ -272,7 +272,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SQLiteDatabase scoreDb = null;
         try {
             scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
-            Cursor c = scoreDb.rawQuery("SELECT sha256, playcount, clear, score, exscore, maxcombo, minbp, "
+            Cursor c = scoreDb.rawQuery("SELECT sha256, playcount, clear, exscore, maxcombo, minbp, "
                     + "perfect, great, good, bad, poor, totalnotes, fast, slow, date FROM score", null);
             while (c.moveToNext()) {
                 ScoreData sd = new ScoreData();

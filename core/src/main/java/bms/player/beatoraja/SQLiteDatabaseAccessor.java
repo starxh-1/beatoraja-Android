@@ -38,88 +38,109 @@ public abstract class SQLiteDatabaseAccessor {
      * @throws SQLException
      */
     public void validate(QueryRunner qr) throws SQLException {
-        // 1. 屏蔽安卓不支持的日志模式
-        try {
-            qr.update("PRAGMA journal_mode=WAL");
-        } catch (Exception e) {
-            // 安卓环境下不支持此 PRAGMA 写法，直接忽略
-        }
-
-        // 2. 暴力建表：强制创建 UI 层最依赖的五张核心表，防止空指针闪退
-        try {
-            qr.update("CREATE TABLE IF NOT EXISTS song (md5 TEXT PRIMARY KEY, sha256 TEXT, title TEXT, subtitle TEXT, genre TEXT, artist TEXT, subartist TEXT, path TEXT, folder TEXT, stagefile TEXT, banner TEXT, backbmp TEXT, parent TEXT, level INTEGER, difficulty INTEGER, maxbpm REAL, minbpm REAL, mode INTEGER, judge INTEGER, feature INTEGER, content INTEGER, date INTEGER, favorite INTEGER, notes INTEGER, adddate INTEGER, preview TEXT, length INTEGER, charthash TEXT)");
-            System.out.println("Table Created: song");
-            java.util.logging.Logger.getGlobal().info("Table Created: song");
-
-            qr.update("CREATE TABLE IF NOT EXISTS folder (path TEXT PRIMARY KEY, name TEXT, parent TEXT)");
-            System.out.println("Table Created: folder");
-            java.util.logging.Logger.getGlobal().info("Table Created: folder");
-
-            qr.update("CREATE TABLE IF NOT EXISTS information (sha256 TEXT PRIMARY KEY, mode INTEGER, level INTEGER, clear INTEGER, epclear INTEGER, bpclear INTEGER, noplay INTEGER, failed INTEGER, assist INTEGER, easy INTEGER, normal INTEGER, hard INTEGER, exhard INTEGER, fc INTEGER, perfect INTEGER)");
-            System.out.println("Table Created: information");
-            java.util.logging.Logger.getGlobal().info("Table Created: information");
-
-            qr.update("CREATE TABLE IF NOT EXISTS score (sha256 TEXT, playcount INTEGER, clear INTEGER, score INTEGER, exscore INTEGER, maxcombo INTEGER, minbp INTEGER, perfect INTEGER, great INTEGER, good INTEGER, bad INTEGER, poor INTEGER, totalnotes INTEGER, fast INTEGER, slow INTEGER, date INTEGER, log TEXT, hash TEXT)");
-            System.out.println("Table Created: score");
-            java.util.logging.Logger.getGlobal().info("Table Created: score");
-
-            qr.update("CREATE TABLE IF NOT EXISTS scorelog (sha256 TEXT, date INTEGER, clear INTEGER, score INTEGER, exscore INTEGER, maxcombo INTEGER, minbp INTEGER, perfect INTEGER, great INTEGER, good INTEGER, bad INTEGER, poor INTEGER, totalnotes INTEGER, fast INTEGER, slow INTEGER, option INTEGER, option2 INTEGER)");
-            System.out.println("Table Created: scorelog");
-            java.util.logging.Logger.getGlobal().info("Table Created: scorelog");
-        } catch (Exception e) {
-            System.err.println("Exception during table creation: " + e.getMessage());
-            e.printStackTrace();
-        }
-
-        // 3. 恢复原本的动态建表与列更新逻辑（用 try-catch 保护，防止个别 SQL 导致崩溃）
         try {
             for(Table table : tables) {
-                List<Column> pk = new ArrayList<Column>();
-                if (qr.query("SELECT * FROM sqlite_master WHERE name = ? and type='table';", new AndroidBeanListHandler<>(Map.class), table.getName())
-                    .size() == 0) {
-                    StringBuilder sql = new StringBuilder("CREATE TABLE [" + table.getName() + "] (");
-                    boolean comma = false;
-                    for (Column column : table.getColumn()) {
-                        sql.append(comma ? "," : "").append('[').append(column.getName()).append("] ").append(column.getType())
-                            .append(column.getNotnull() == 1 ? " NOT NULL" : "").append(column.getDefaultval() != null && column.getDefaultval().length() > 0 ? " DEFAULT " + column.getDefaultval() : "");
-                        comma = true;
-                        if (column.getPk() == 1) {
-                            pk.add(column);
+                // 检查表是否存在
+                boolean tableExists = qr.query("SELECT name FROM sqlite_master WHERE type='table' AND name=?;",
+                    new ResultSetHandler<Boolean>() {
+                        @Override
+                        public Boolean handle(ResultSet rs) throws SQLException {
+                            return rs.next();
+                        }
+                    }, table.getName());
+
+                if (!tableExists) {
+                    // 创建新表
+                    createTable(qr, table);
+                } else {
+                    // 表已存在，检查是否需要修复（特别是针对之前错误的 score 表）
+                    List<Column> existingColumns = qr.query("PRAGMA table_info('" + table.getName() + "');", columnhandler);
+                    boolean hasPk = false;
+                    boolean needsRecreate = false;
+
+                    // 特殊逻辑：如果是 score 表且缺少关键列 mode，或者完全没有主键，则需要重建
+                    if (table.getName().equals("score")) {
+                        boolean hasMode = false;
+                        for (Column c : existingColumns) {
+                            if (c.getName().equalsIgnoreCase("mode")) hasMode = true;
+                            if (c.getPk() == 1) hasPk = true;
+                        }
+                        if (!hasMode || !hasPk) {
+                            needsRecreate = true;
                         }
                     }
 
-                    if (pk.size() > 0) {
-                        sql.append(",PRIMARY KEY(");
-                        comma = false;
-                        for (Column column : pk) {
-                            sql.append(comma ? "," : "").append(column.getName());
-                            comma = true;
+                    if (needsRecreate) {
+                        java.util.logging.Logger.getGlobal().info("Fixing broken table schema for: " + table.getName());
+                        qr.update("ALTER TABLE [" + table.getName() + "] RENAME TO [" + table.getName() + "_old]");
+                        createTable(qr, table);
+                        try {
+                            // 尝试迁移数据（忽略不匹配的列）
+                            StringBuilder cols = new StringBuilder();
+                            boolean first = true;
+                            for (Column c : table.getColumn()) {
+                                for (Column existing : existingColumns) {
+                                    if (existing.getName().equalsIgnoreCase(c.getName())) {
+                                        if (!first) cols.append(",");
+                                        cols.append("[").append(c.getName()).append("]");
+                                        first = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (cols.length() > 0) {
+                                qr.update("INSERT OR IGNORE INTO [" + table.getName() + "] (" + cols + ") SELECT " + cols + " FROM [" + table.getName() + "_old]");
+                            }
+                            qr.update("DROP TABLE [" + table.getName() + "_old]");
+                        } catch (Exception e) {
+                            java.util.logging.Logger.getGlobal().warning("Failed to migrate data for " + table.getName() + ": " + e.getMessage());
                         }
-                        sql.append(")");
-                    }
-                    sql.append(");");
-                    qr.update(sql.toString());
-                }
-
-                List<Column> adds = new ArrayList<Column>(Arrays.asList(table.getColumn()));
-                for (Column songcolumn : qr.query("PRAGMA table_info('" + table.getName() + "');",
-                    columnhandler)) {
-                    final String name = (String) songcolumn.getName();
-                    for (int i = 0; i < adds.size(); i++) {
-                        if (adds.get(i).getName().equals(name)) {
-                            adds.remove(i);
-                            break;
+                    } else {
+                        // 检查并添加缺失的列
+                        List<Column> adds = new ArrayList<>(Arrays.asList(table.getColumn()));
+                        for (Column existing : existingColumns) {
+                            adds.removeIf(a -> a.getName().equalsIgnoreCase(existing.getName()));
+                        }
+                        for (Column add : adds) {
+                            qr.update("ALTER TABLE [" + table.getName() + "] ADD COLUMN [" + add.getName() + "] " + add.getType()
+                                + (add.getNotnull() == 1 ? " NOT NULL" : "")
+                                + (add.getDefaultval() != null && !add.getDefaultval().isEmpty() ? " DEFAULT " + add.getDefaultval() : ""));
                         }
                     }
-                }
-                for (Column add : adds) {
-                    qr.update("ALTER TABLE " + table.getName() + " ADD COLUMN [" + add.getName() + "] " + add.getType()
-                        + (add.getNotnull() == 1 ? " NOT NULL" : "") + (add.getDefaultval() != null && add.getDefaultval().length() > 0 ? " DEFAULT " + add.getDefaultval() : ""));
                 }
             }
         } catch (Exception e) {
+            java.util.logging.Logger.getGlobal().severe("Database validation failed: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private void createTable(QueryRunner qr, Table table) throws SQLException {
+        StringBuilder sql = new StringBuilder("CREATE TABLE [" + table.getName() + "] (");
+        List<Column> pk = new ArrayList<>();
+        boolean comma = false;
+        for (Column column : table.getColumn()) {
+            sql.append(comma ? "," : "").append('[').append(column.getName()).append("] ").append(column.getType())
+                .append(column.getNotnull() == 1 ? " NOT NULL" : "")
+                .append(column.getDefaultval() != null && !column.getDefaultval().isEmpty() ? " DEFAULT " + column.getDefaultval() : "");
+            comma = true;
+            if (column.getPk() == 1) {
+                pk.add(column);
+            }
+        }
+
+        if (!pk.isEmpty()) {
+            sql.append(",PRIMARY KEY(");
+            comma = false;
+            for (Column column : pk) {
+                sql.append(comma ? "," : "").append("[").append(column.getName()).append("]");
+                comma = true;
+            }
+            sql.append(")");
+        }
+        sql.append(");");
+        qr.update(sql.toString());
+        java.util.logging.Logger.getGlobal().info("Table Created: " + table.getName());
     }
 
     protected void insert(QueryRunner qr, String tablename,
