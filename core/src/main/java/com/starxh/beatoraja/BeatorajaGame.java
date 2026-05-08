@@ -53,10 +53,13 @@ public class BeatorajaGame extends ApplicationAdapter {
         }
 
         // 渲染侧边频谱（仅在游玩和结果界面显示，且配置中启用了频谱）
-        if (spectrumRenderer != null && controller != null && controller.getConfig().isShowAudioSpectrum()) {
+        if (spectrumRenderer != null && controller != null) {
             MainState state = controller.getCurrentState();
             if (state != null && (state instanceof BMSPlayer || state instanceof MusicResult || state instanceof CourseResult)) {
-                spectrumRenderer.render();
+                Config cfg = controller.getConfig();
+                if (cfg != null && cfg.isShowAudioSpectrum()) {
+                    spectrumRenderer.render();
+                }
             }
         }
     }

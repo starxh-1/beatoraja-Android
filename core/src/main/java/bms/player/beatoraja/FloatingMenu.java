@@ -42,9 +42,14 @@ public class FloatingMenu implements InputProcessor {
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
 
+    // ─── 分页 ───
+    private static final int ITEMS_PER_PAGE = 10;
+    private int currentPage = 0;
+
     // ─── 纹理 ───
     private Texture iconTexture;
     private Texture whitePixel;
+    private BitmapFont font; // 用于 hitTestPanel 计算文字宽度
 
     // ─── 按钮定义 ───
     private static class MenuItem {
@@ -57,6 +62,7 @@ public class FloatingMenu implements InputProcessor {
 
     private final MenuItem[] items = {
         new MenuItem("Touch Key: ON",  -100, true), // 特殊 keycode 用于标识切换触摸按键
+        new MenuItem("Audio Spectrum: ON", -101, true), // 特殊 keycode 用于标识切换频谱显示
         new MenuItem("F1 Show FPS",      Keys.F1),
         new MenuItem("F2 Update Song",     Keys.F2),
         new MenuItem("F12 Skin Select",    Keys.F12),
@@ -80,7 +86,7 @@ public class FloatingMenu implements InputProcessor {
     private int pressedIndex = -1;
     /** 每个按钮点击后的临时高亮计时器 */
     private final float[] flashTimers = new float[items.length];
-    private static final float FLASH_DURATION = 0.15f; // 亮起持续 0.15 秒
+    private static final float FLASH_DURATION = 0f; // 亮起常驻
 
     // ─── 引用 ───
     private KeyBoardInputProcesseor kbInput;
@@ -99,6 +105,7 @@ public class FloatingMenu implements InputProcessor {
             Config config = ((MainController) mc).getConfig();
             if (config != null) {
                 items[0].label = "Touch Key: " + (config.isShowTouchKey() ? "ON" : "OFF");
+                items[1].label = "Audio Spectrum: " + (config.isShowAudioSpectrum() ? "ON" : "OFF");
             }
         }
     }
@@ -185,6 +192,7 @@ public class FloatingMenu implements InputProcessor {
      * @param font   systemfont（24pt），用于按钮文字
      */
     public void render(SpriteBatch sprite, BitmapFont font) {
+        this.font = font; // 保存 font 供 hitTestPanel 使用
         if (!visible) return;
 
         // 更新闪烁计时器
@@ -213,9 +221,17 @@ public class FloatingMenu implements InputProcessor {
 
     private void drawPanel(SpriteBatch sprite, BitmapFont font) {
         int cols = 2;
-        int rows = (items.length + cols - 1) / cols;
+        // 临时计算用于确定实际显示的行数
+        int tempRows = (ITEMS_PER_PAGE + cols - 1) / cols;
         float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
-        float panelH = rows * BTN_H + (rows - 1) * BTN_GAP + PANEL_PAD * 2;
+
+        // 计算当前页显示的按钮
+        int startIdx = currentPage * ITEMS_PER_PAGE;
+        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, items.length);
+        int itemCount = endIdx - startIdx;
+        int actualRows = (itemCount + cols - 1) / cols;
+
+        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40; // 底部留40像素给翻页按钮
 
         // 面板位于图标左下方
         float panelX = iconX + ICON_SIZE - panelW;
@@ -233,13 +249,14 @@ public class FloatingMenu implements InputProcessor {
         sprite.draw(whitePixel, panelX, panelY, border, panelH);                         // left
         sprite.draw(whitePixel, panelX + panelW - border, panelY, border, panelH);       // right
 
-        // 按钮
+        // 按钮（从顶部开始布局，底部预留40像素给翻页按钮）
         GlyphLayout layout = new GlyphLayout();
-        for (int i = 0; i < items.length; i++) {
-            int col = i % cols;
-            int row = i / cols;
+        for (int i = startIdx; i < endIdx; i++) {
+            int localIdx = i - startIdx;
+            int col = localIdx % cols;
+            int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + panelH - PANEL_PAD - BTN_H - row * (BTN_H + BTN_GAP);
+            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP); // 从顶部开始
 
             // 按钮背景颜色计算：按下或正在闪烁时变亮
             if (i == pressedIndex || flashTimers[i] > 0) {
@@ -257,6 +274,31 @@ public class FloatingMenu implements InputProcessor {
             float tx = bx + (BTN_W - layout.width) / 2;
             float ty = by + (BTN_H + layout.height) / 2;
             font.draw(sprite, items[i].label, tx, ty);
+        }
+
+        // 绘制分页指示器和翻页按钮
+        int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        if (totalPages > 1) {
+            // 绘制在面板最底部
+            float bottomY = panelY + PANEL_PAD;
+            String pageText = (currentPage + 1) + "/" + totalPages;
+            font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
+            layout.setText(font, pageText);
+            float px = panelX + PANEL_PAD;
+            float py = bottomY + layout.height;
+            font.draw(sprite, pageText, px, py);
+
+            // 绘制左右翻页箭头
+            if (currentPage > 0) {
+                font.setColor(0.5f, 0.8f, 1f, 0.9f);
+                font.draw(sprite, "<", panelX + PANEL_PAD, py);
+            }
+            if (currentPage < totalPages - 1) {
+                String rightArrow = ">";
+                layout.setText(font, rightArrow);
+                float arrowX = panelX + panelW - PANEL_PAD - layout.width;
+                font.draw(sprite, rightArrow, arrowX, py);
+            }
         }
     }
 
@@ -283,6 +325,20 @@ public class FloatingMenu implements InputProcessor {
             if (hit >= 0) {
                 pressedIndex = hit;
                 pressButton(hit); // 按下时立即触发
+                consumingTouch = true;
+                return true;
+            }
+            // 处理翻页
+            if (hit == -3) {
+                // 上一页
+                if (currentPage > 0) currentPage--;
+                consumingTouch = true;
+                return true;
+            }
+            if (hit == -4) {
+                // 下一页
+                int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+                if (currentPage < totalPages - 1) currentPage++;
                 consumingTouch = true;
                 return true;
             }
@@ -438,12 +494,19 @@ public class FloatingMenu implements InputProcessor {
             && ty >= iconY && ty <= iconY + ICON_SIZE;
     }
 
-    /** 检测触摸点是否在面板区域内，返回按钮索引（>=0）或 -1（在面板空白处）或 -2（不在面板内） */
+    /** 检测触摸点是否在面板区域内，返回按钮索引（>=0）或 -1（在面板空白处）或 -2（不在面板内）或 -3/-4（翻页） */
     private int hitTestPanel(float tx, float ty) {
+        if (font == null) return -2;
         int cols = 2;
-        int rows = (items.length + cols - 1) / cols;
+
+        // 计算当前页显示的按钮
+        int startIdx = currentPage * ITEMS_PER_PAGE;
+        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, items.length);
+        int itemCount = endIdx - startIdx;
+        int actualRows = (itemCount + cols - 1) / cols;
+
         float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
-        float panelH = rows * BTN_H + (rows - 1) * BTN_GAP + PANEL_PAD * 2;
+        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40;
         float panelX = iconX + ICON_SIZE - panelW;
         float panelY = iconY - panelH - 4;
 
@@ -451,15 +514,41 @@ public class FloatingMenu implements InputProcessor {
             return -2;  // 不在面板区域内
         }
 
-        for (int i = 0; i < items.length; i++) {
-            int col = i % cols;
-            int row = i / cols;
+        for (int i = startIdx; i < endIdx; i++) {
+            int localIdx = i - startIdx;
+            int col = localIdx % cols;
+            int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + panelH - PANEL_PAD - BTN_H - row * (BTN_H + BTN_GAP);
+            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP); // 从顶部开始
             if (tx >= bx && tx <= bx + BTN_W && ty >= by && ty <= by + BTN_H) {
                 return i;
             }
         }
+
+        // 检查是否点击了翻页箭头（最底部）
+        int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        float bottomY = panelY + PANEL_PAD;
+        GlyphLayout layout = new GlyphLayout();
+
+        // 翻页按钮位置（底部）
+        float pageTextY = bottomY + layout.height;
+
+        // 检查左箭头
+        if (currentPage > 0) {
+            if (tx >= panelX + PANEL_PAD - 20 && tx <= panelX + PANEL_PAD + 20 && ty >= bottomY && ty <= bottomY + 30) {
+                return -3;  // 上一页
+            }
+        }
+        // 检查右箭头
+        if (currentPage < totalPages - 1) {
+            String rightArrow = ">";
+            layout.setText(font, rightArrow);
+            float arrowX = panelX + panelW - PANEL_PAD - layout.width;
+            if (tx >= arrowX - 20 && tx <= arrowX + layout.width + 20 && ty >= bottomY && ty <= bottomY + 30) {
+                return -4;  // 下一页
+            }
+        }
+
         return -1;  // 在面板空白处
     }
 
@@ -470,7 +559,7 @@ public class FloatingMenu implements InputProcessor {
     private void pressButton(int index) {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
-        if (item.keycode == -100) return; // Toggle 类型在 touchUp 处理
+        if (item.keycode == -100 || item.keycode == -101) return; // Toggle 类型在 touchUp 处理
 
         if (kbInput != null) {
             // 使用 setSimulatedKeyState 实现真正的长按（直到调用 false）
@@ -499,22 +588,32 @@ public class FloatingMenu implements InputProcessor {
         if (mainController instanceof MainController) {
             Config config = ((MainController) mainController).getConfig();
             if (config != null) {
-                boolean newState = !config.isShowTouchKey();
-                config.setShowTouchKey(newState);
-                item.label = "Touch Key: " + (newState ? "ON" : "OFF");
-                Config.write(config);
-                MainState current = ((MainController) mainController).getCurrentState();
-                if (current instanceof bms.player.beatoraja.play.BMSPlayer) {
-                    try {
-                        java.lang.reflect.Field field = bms.player.beatoraja.play.BMSPlayer.class.getDeclaredField("touchKeyMapper");
-                        field.setAccessible(true);
-                        Object mapper = field.get(current);
-                        if (mapper != null) {
-                            ((bms.player.beatoraja.play.PlayTouchKeyMapper) mapper).setEnabled(newState);
+                if (item.keycode == -100) {
+                    // Touch Key toggle
+                    boolean newState = !config.isShowTouchKey();
+                    config.setShowTouchKey(newState);
+                    item.label = "Touch Key: " + (newState ? "ON" : "OFF");
+                    Config.write(config);
+                    MainState current = ((MainController) mainController).getCurrentState();
+                    if (current instanceof bms.player.beatoraja.play.BMSPlayer) {
+                        try {
+                            java.lang.reflect.Field field = bms.player.beatoraja.play.BMSPlayer.class.getDeclaredField("touchKeyMapper");
+                            field.setAccessible(true);
+                            Object mapper = field.get(current);
+                            if (mapper != null) {
+                                ((bms.player.beatoraja.play.PlayTouchKeyMapper) mapper).setEnabled(newState);
+                            }
+                        } catch (Exception e) {
+                            Gdx.app.log("FloatingMenu", "Failed to update touchKeyMapper state: " + e.getMessage());
                         }
-                    } catch (Exception e) {
-                        Gdx.app.log("FloatingMenu", "Failed to update touchKeyMapper state: " + e.getMessage());
                     }
+                } else if (item.keycode == -101) {
+                    // Audio Spectrum toggle
+                    boolean newState = !config.isShowAudioSpectrum();
+                    config.setShowAudioSpectrum(newState);
+                    item.label = "Audio Spectrum: " + (newState ? "ON" : "OFF");
+                    Config.write(config);
+                    Gdx.app.log("FloatingMenu", "Audio Spectrum toggled to: " + newState);
                 }
             }
         }
