@@ -221,9 +221,9 @@ public final class MusicSelector extends MainState {
 			}
 
 			boolean shouldScan = main.getPlayerResource().getConfig().isUpdatesong() || dbEmpty;
-			Logger.getGlobal().info("Android版本：异步触发歌曲扫描 (updatesong=" 
-				+ main.getPlayerResource().getConfig().isUpdatesong() 
-				+ ", dbEmpty=" + dbEmpty 
+			Logger.getGlobal().info("Android版本：异步触发歌曲扫描 (updatesong="
+				+ main.getPlayerResource().getConfig().isUpdatesong()
+				+ ", dbEmpty=" + dbEmpty
 				+ ", shouldScan=" + shouldScan + ")");
 			Logger.getGlobal().info("Android版本：bmsroot=" + java.util.Arrays.toString(main.getConfig().getBmsroot()));
 
@@ -254,16 +254,20 @@ public final class MusicSelector extends MainState {
 
 	public void prepare() {
 		preview.start((String)null);
-		// Use the freshly committed ScoreData from resource instead of re-reading
-		// from the database via scorecache.update() (which would lose exscore on
-		// older score.db schemas).
+
+		// 关键修复：返回选曲界面时强制更新分数缓存
+		// 统一调用 scorecache.update() 重新从数据库读取最新状态，确保 EX Score 不为 0
 		if (playedsong != null) {
-			ScoreData sd = resource.getScoreData();
+			scorecache.clear();
+			ScoreData sd = main.getPlayDataAccessor().readScoreData(playedsong.getSha256(), playedsong.hasUndefinedLongNote(), config.getLnmode());
+			Logger.getGlobal().info("prepare: playedsong=" + playedsong.getTitle() + ", sd=" + (sd != null ? "notNull" : "null") + (sd != null ? ", exscore=" + sd.getExscore() : ""));
 			if (sd != null) {
 				for (Bar b : manager.currentsongs) {
 					if (b instanceof SongBar sb && sb.getSongData() != null
 							&& sb.getSongData().getSha256().equals(playedsong.getSha256())) {
 						sb.setScore(sd);
+						getScoreDataProperty().update(sd);
+						Logger.getGlobal().info("prepare: setScore to SongBar done, exscore=" + sd.getExscore() + ", property exscore=" + getScoreDataProperty().getNowEXScore());
 						break;
 					}
 				}
@@ -271,8 +275,9 @@ public final class MusicSelector extends MainState {
 			playedsong = null;
 		}
 		if (playedcourse != null) {
+			scorecache.clear();
 			for (SongData song : playedcourse.getSong()) {
-				scorecache.update(song, config.getLnmode());
+				main.getPlayDataAccessor().readScoreData(song.getSha256(), song.hasUndefinedLongNote(), config.getLnmode());
 			}
 			playedcourse = null;
 		}
