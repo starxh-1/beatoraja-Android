@@ -14,8 +14,8 @@ public class SideSpectrumRenderer {
 
     private float[] spectrum = new float[64]; // 32 Left + 32 Right
     private float[] topValues = new float[64];
-    private static final float FALLING_SPEED = 0.015f;
-    private static final int BANDS_PER_CHANNEL = 32;
+    private static final float FALLING_SPEED = 0.02f;
+    private static final int BANDS_PER_CHANNEL = 64;
     private float testTimer = 0;
 
     public SideSpectrumRenderer() {
@@ -83,13 +83,13 @@ public class SideSpectrumRenderer {
         float maxBarW = Math.min(w * 0.09f, blackBarW); // 受黑边和屏幕宽度限制
 
         float totalHeight = h * 0.8f; // 频谱总高度（占屏幕比例）
-        float barH = (totalHeight - 0) / 16f; // 频谱总高度
-        float barThickness = barH * 0.3f; // bar 厚度
+        float barH = totalHeight / 32f; // 32条频谱
+        float barThickness = barH * 0.7f; // bar 厚度
         Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
 
-        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸，居中显示
+        // 绘制 - 左边显示左声道(0-31频段)，右边显示右声道(32-63频段)，条形横向延伸，居中显示
         float baseY = (h - totalHeight) / 2; // 垂直居中
-        for (int i = 0; i < 16; i++) {
+        for (int i = 1; i < 32; i++) {
             float y = baseY + i * barH;
             drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW); // 左侧左声道，从右向左延伸
             drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW); // 右侧右声道，从左向右延伸

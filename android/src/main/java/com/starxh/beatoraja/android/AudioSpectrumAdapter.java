@@ -20,9 +20,23 @@ public class AudioSpectrumAdapter implements AudioSpectrumProvider {
     @Override
     public float[] getSpectrumMagnitudes() {
         if (oboeAudio != null) {
-            return oboeAudio.getSpectrumMagnitudes();
+            float[] raw = oboeAudio.getSpectrumMagnitudes();
+            if (raw != null && raw.length == 32) {
+                // OboeAudio 提供 32 bands (16左+16右)，插值为 64 bands (32左+32右)
+                float[] expanded = new float[64];
+                for (int i = 0; i < 16; i++) {
+                    expanded[i] = raw[i];
+                    expanded[i + 16] = (raw[i] + raw[i + 1]) / 2f; // 插值中间值
+                }
+                for (int i = 0; i < 16; i++) {
+                    expanded[32 + i] = raw[16 + i];
+                    expanded[48 + i] = (raw[16 + i] + raw[16 + Math.min(i + 1, 15)]) / 2f;
+                }
+                return expanded;
+            }
+            return raw;
         }
-        return new float[64]; // 返回 64 位长度以保持一致
+        return new float[64];
     }
 
     @Override
