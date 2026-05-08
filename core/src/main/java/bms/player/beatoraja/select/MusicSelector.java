@@ -254,30 +254,25 @@ public final class MusicSelector extends MainState {
 
 	public void prepare() {
 		preview.start((String)null);
-		// 更新上一首播放歌曲的分数缓存
+		// Use the freshly committed ScoreData from resource instead of re-reading
+		// from the database via scorecache.update() (which would lose exscore on
+		// older score.db schemas).
 		if (playedsong != null) {
-			scorecache.update(playedsong, config.getLnmode());
-			// Also update the SongBar's score field directly so the UI shows the new score immediately
-			for (Bar b : manager.currentsongs) {
-				if (b instanceof SongBar sb && sb.getSongData() != null
-						&& sb.getSongData().getSha256().equals(playedsong.getSha256())) {
-					sb.setScore(scorecache.readScoreData(playedsong, config.getLnmode()));
-					break;
+			ScoreData sd = resource.getScoreData();
+			if (sd != null) {
+				for (Bar b : manager.currentsongs) {
+					if (b instanceof SongBar sb && sb.getSongData() != null
+							&& sb.getSongData().getSha256().equals(playedsong.getSha256())) {
+						sb.setScore(sd);
+						break;
+					}
 				}
 			}
 			playedsong = null;
 		}
 		if (playedcourse != null) {
-			for (SongData sd : playedcourse.getSong()) {
-				scorecache.update(sd, config.getLnmode());
-				// Update course song bars too
-				for (Bar b : manager.currentsongs) {
-					if (b instanceof SongBar sb && sb.getSongData() != null
-							&& sb.getSongData().getSha256().equals(sd.getSha256())) {
-						sb.setScore(scorecache.readScoreData(sd, config.getLnmode()));
-						break;
-					}
-				}
+			for (SongData song : playedcourse.getSong()) {
+				scorecache.update(song, config.getLnmode());
 			}
 			playedcourse = null;
 		}

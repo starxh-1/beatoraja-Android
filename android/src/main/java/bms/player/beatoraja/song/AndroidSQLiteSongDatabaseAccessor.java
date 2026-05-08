@@ -286,8 +286,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 return map;
             }
 
-            // Build query dynamically based on available columns
-            StringBuilder sql = new StringBuilder("SELECT sha256, playcount, clear, ");
+            // Build query dynamically based on available columns.
+            // For missing columns, use "0 AS colname" so SQLite always returns a valid column.
+            StringBuilder sql = new StringBuilder("SELECT ");
+            // sha256, playcount, clear - always include as-is (required)
+            sql.append("sha256, playcount, clear, ");
+            // exscore: try exscore, then score, then 0
             if (columns.contains("exscore")) {
                 sql.append("exscore, ");
             } else if (columns.contains("score")) {
@@ -295,7 +299,18 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             } else {
                 sql.append("0 AS exscore, ");
             }
-            sql.append("maxcombo, minbp, perfect, great, good, bad, poor, totalnotes, fast, slow, date FROM score");
+            // All other columns: include if present, otherwise 0
+            sql.append(columns.contains("maxcombo") ? "maxcombo, " : "0 AS maxcombo, ");
+            sql.append(columns.contains("minbp") ? "minbp, " : "0 AS minbp, ");
+            sql.append(columns.contains("perfect") ? "perfect, " : "0 AS perfect, ");
+            sql.append(columns.contains("great") ? "great, " : "0 AS great, ");
+            sql.append(columns.contains("good") ? "good, " : "0 AS good, ");
+            sql.append(columns.contains("bad") ? "bad, " : "0 AS bad, ");
+            sql.append(columns.contains("poor") ? "poor, " : "0 AS poor, ");
+            sql.append(columns.contains("totalnotes") ? "totalnotes, " : "0 AS totalnotes, ");
+            sql.append(columns.contains("fast") ? "fast, " : "0 AS fast, ");
+            sql.append(columns.contains("slow") ? "slow, " : "0 AS slow, ");
+            sql.append(columns.contains("date") ? "date FROM score" : "0 AS date FROM score");
 
             Cursor c = scoreDb.rawQuery(sql.toString(), null);
             while (c.moveToNext()) {
