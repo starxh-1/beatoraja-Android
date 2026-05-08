@@ -109,6 +109,9 @@ public class AndroidLauncher extends AndroidApplication {
         String root = filesDir.getAbsolutePath();
         System.setProperty("beatoraja.root", root);
 
+        // 复制 skin 资源到外部存储（如果不存在）
+        ensureSkinAssets(filesDir);
+
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
 
@@ -180,6 +183,67 @@ public class AndroidLauncher extends AndroidApplication {
     }
 
     private boolean pendingInitialization = false;
+
+    /**
+     * 将 assets/skin/ 目录复制到外部存储（如果目标不存在）
+     */
+    private void ensureSkinAssets(File filesDir) {
+        File skinDir = new File(filesDir, "skin");
+        if (skinDir.exists()) return; // 已存在，无需复制
+
+        Log.i(TAG, "Copying skin assets to: " + skinDir.getAbsolutePath());
+        skinDir.mkdirs();
+
+        AssetManager am = getAssets();
+        copyAssetFolder(am, "skin", skinDir);
+    }
+
+    /**
+     * 递归复制 assets 目录到目标文件夹
+     */
+    private void copyAssetFolder(AssetManager am, String srcPath, File destDir) {
+        try {
+            String[] assets = am.list(srcPath);
+            if (assets == null || assets.length == 0) {
+                // 可能是文件而非目录，创建文件
+                File destFile = new File(destDir, new java.io.File(srcPath).getName());
+                copyAssetFile(am, srcPath, destFile);
+                return;
+            }
+            for (String asset : assets) {
+                String src = srcPath + "/" + asset;
+                File destSub = new File(destDir, asset);
+                if (!destSub.exists()) {
+                    if (asset.contains(".") && !asset.endsWith("/")) {
+                        // 文件
+                        copyAssetFile(am, src, destSub);
+                    } else {
+                        // 目录
+                        destSub.mkdirs();
+                        copyAssetFolder(am, src, destSub);
+                    }
+                }
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to copy asset folder: " + srcPath + " - " + e.getMessage());
+        }
+    }
+
+    /**
+     * 复制单个 asset 文件
+     */
+    private void copyAssetFile(AssetManager am, String srcPath, File destFile) {
+        try (java.io.InputStream is = am.open(srcPath);
+             java.io.FileOutputStream fos = new java.io.FileOutputStream(destFile)) {
+            byte[] buf = new byte[8192];
+            int len;
+            while ((len = is.read(buf)) > 0) {
+                fos.write(buf, 0, len);
+            }
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to copy asset file: " + srcPath + " - " + e.getMessage());
+        }
+    }
 
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {

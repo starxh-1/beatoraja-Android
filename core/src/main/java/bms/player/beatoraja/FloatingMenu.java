@@ -41,6 +41,8 @@ public class FloatingMenu implements InputProcessor {
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
+    private boolean selectMode = false; // 是否为 Select 界面
+    private boolean keyConfigMode = false; // 是否为 KeyConfig 界面
 
     // ─── 分页 ───
     private static final int ITEMS_PER_PAGE = 10;
@@ -56,26 +58,33 @@ public class FloatingMenu implements InputProcessor {
         String label;
         final int keycode;
         final boolean isToggle;
-        MenuItem(String label, int keycode) { this(label, keycode, false); }
-        MenuItem(String label, int keycode, boolean isToggle) { this.label = label; this.keycode = keycode; this.isToggle = isToggle; }
+        final boolean showOnSelect; // 是否在 Select 界面显示
+        final boolean showOnKeyConfig; // 是否在 KeyConfig 界面显示
+        MenuItem(String label, int keycode) { this(label, keycode, false, true, true); }
+        MenuItem(String label, int keycode, boolean isToggle) { this(label, keycode, isToggle, true, true); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect) { this(label, keycode, isToggle, showOnSelect, true); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig) {
+            this.label = label; this.keycode = keycode; this.isToggle = isToggle;
+            this.showOnSelect = showOnSelect; this.showOnKeyConfig = showOnKeyConfig;
+        }
     }
 
     private final MenuItem[] items = {
-        new MenuItem("Touch Key: ON",  -100, true), // 特殊 keycode 用于标识切换触摸按键
-        new MenuItem("Audio Spectrum: ON", -101, true), // 特殊 keycode 用于标识切换频谱显示
-        new MenuItem("F1 Show FPS",      Keys.F1),
-        new MenuItem("F2 Update Song",     Keys.F2),
-        new MenuItem("F12 Skin Select",    Keys.F12),
-        new MenuItem("NUM 6 Key Config",    Keys.NUM_6),
-        new MenuItem("Backspace",     Keys.BACKSPACE),
-        new MenuItem("ESC",         Keys.ESCAPE),
-        new MenuItem("Enter",       Keys.ENTER),
-        new MenuItem("^ UP",        Keys.UP),
-        new MenuItem("v DOWN",      Keys.DOWN),
-        new MenuItem("< LEFT",      Keys.LEFT),
-        new MenuItem("> RIGHT",     Keys.RIGHT),
-        new MenuItem("NUM 8 Controller Reset",    Keys.NUM_8),
-        new MenuItem("NUM 2 Controller Reset",    Keys.NUM_2),
+        new MenuItem("Touch Key: ON",  -100, true, true, false), // isToggle=true, 在 Select 隐藏，在 KeyConfig 显示
+        new MenuItem("Audio Spectrum: ON", -101, true, true, false), // isToggle=true
+        new MenuItem("F1 Show FPS",      Keys.F1, false, true, false),
+        new MenuItem("F2 Update Song",   Keys.F2, false, true, false),
+        new MenuItem("F12 Skin Select",   Keys.F12, false, true, false),
+        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, false),
+        new MenuItem("Backspace",        Keys.BACKSPACE, false, true, false),
+        new MenuItem("ESC",              Keys.ESCAPE, false, true, true),
+        new MenuItem("Enter",            Keys.ENTER, false, true, true),
+        new MenuItem("^ UP",        Keys.UP, false, true, true),
+        new MenuItem("v DOWN",      Keys.DOWN, false, true, true),
+        new MenuItem("< LEFT",      Keys.LEFT, false, true, true),
+        new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true),
+        new MenuItem("NUM 8 Controller Reset", Keys.NUM_8, false, false, true),
+        new MenuItem("NUM 2 Controller Reset", Keys.NUM_2, false, false, true),
     };
 
     // ─── 触摸与反馈状态 ───
@@ -138,6 +147,25 @@ public class FloatingMenu implements InputProcessor {
     }
 
     public boolean isVisible() { return visible; }
+
+    /** 设置是否为 Select 界面（影响按钮过滤） */
+    public void setSelectMode(boolean selectMode) {
+        this.selectMode = selectMode;
+        currentPage = 0; // 切换模式时重置页码
+    }
+
+    /** 设置是否为 KeyConfig 界面（影响按钮过滤） */
+    public void setKeyConfigMode(boolean keyConfigMode) {
+        this.keyConfigMode = keyConfigMode;
+        currentPage = 0;
+    }
+
+    /** 判断按钮是否在当前界面显示 */
+    private boolean isItemVisible(MenuItem item) {
+        if (selectMode && !item.showOnSelect) return false;
+        if (keyConfigMode && !item.showOnKeyConfig) return false;
+        return true;
+    }
 
     // ─────────────────── 纹理创建 ───────────────────
 
@@ -221,17 +249,22 @@ public class FloatingMenu implements InputProcessor {
 
     private void drawPanel(SpriteBatch sprite, BitmapFont font) {
         int cols = 2;
-        // 临时计算用于确定实际显示的行数
-        int tempRows = (ITEMS_PER_PAGE + cols - 1) / cols;
+
+        // 过滤出当前界面显示的按钮
+        int visibleCount = 0;
+        for (MenuItem item : items) {
+            if (isItemVisible(item)) visibleCount++;
+        }
+
         float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
 
         // 计算当前页显示的按钮
         int startIdx = currentPage * ITEMS_PER_PAGE;
-        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, items.length);
+        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
         int itemCount = endIdx - startIdx;
         int actualRows = (itemCount + cols - 1) / cols;
 
-        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40; // 底部留40像素给翻页按钮
+        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40;
 
         // 面板位于图标左下方
         float panelX = iconX + ICON_SIZE - panelW;
@@ -244,42 +277,50 @@ public class FloatingMenu implements InputProcessor {
         // 面板边框
         sprite.setColor(0.4f, 0.6f, 1f, 0.6f);
         float border = 2;
-        sprite.draw(whitePixel, panelX, panelY, panelW, border);                         // bottom
-        sprite.draw(whitePixel, panelX, panelY + panelH - border, panelW, border);       // top
-        sprite.draw(whitePixel, panelX, panelY, border, panelH);                         // left
-        sprite.draw(whitePixel, panelX + panelW - border, panelY, border, panelH);       // right
+        sprite.draw(whitePixel, panelX, panelY, panelW, border);
+        sprite.draw(whitePixel, panelX, panelY + panelH - border, panelW, border);
+        sprite.draw(whitePixel, panelX, panelY, border, panelH);
+        sprite.draw(whitePixel, panelX + panelW - border, panelY, border, panelH);
+
+        // 收集可见按钮索引
+        int[] visibleIndices = new int[visibleCount];
+        int idx = 0;
+        for (int i = 0; i < items.length; i++) {
+            if (isItemVisible(items[i])) {
+                visibleIndices[idx++] = i;
+            }
+        }
 
         // 按钮（从顶部开始布局，底部预留40像素给翻页按钮）
         GlyphLayout layout = new GlyphLayout();
-        for (int i = startIdx; i < endIdx; i++) {
-            int localIdx = i - startIdx;
+        for (int j = startIdx; j < endIdx; j++) {
+            int itemIdx = visibleIndices[j];
+            MenuItem item = items[itemIdx];
+            int localIdx = j - startIdx;
             int col = localIdx % cols;
             int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP); // 从顶部开始
+            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP);
 
             // 按钮背景颜色计算：按下或正在闪烁时变亮
-            if (i == pressedIndex || flashTimers[i] > 0) {
-                // 亮蓝色反馈
+            if (j == pressedIndex || flashTimers[j] > 0) {
                 sprite.setColor(0.4f, 0.6f, 1.0f, 0.9f);
             } else {
-                // 默认深色
                 sprite.setColor(0.25f, 0.3f, 0.4f, 0.8f);
             }
             sprite.draw(whitePixel, bx, by, BTN_W, BTN_H);
 
             // 文字居中
             font.setColor(1, 1, 1, 0.95f);
-            layout.setText(font, items[i].label);
+            layout.setText(font, item.label);
             float tx = bx + (BTN_W - layout.width) / 2;
             float ty = by + (BTN_H + layout.height) / 2;
-            font.draw(sprite, items[i].label, tx, ty);
+            font.draw(sprite, item.label, tx, ty);
         }
 
         // 绘制分页指示器和翻页按钮
-        int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
         if (totalPages > 1) {
-            // 绘制在面板最底部
             float bottomY = panelY + PANEL_PAD;
             String pageText = (currentPage + 1) + "/" + totalPages;
             font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
@@ -288,7 +329,6 @@ public class FloatingMenu implements InputProcessor {
             float py = bottomY + layout.height;
             font.draw(sprite, pageText, px, py);
 
-            // 绘制左右翻页箭头
             if (currentPage > 0) {
                 font.setColor(0.5f, 0.8f, 1f, 0.9f);
                 font.draw(sprite, "<", panelX + PANEL_PAD, py);
@@ -337,7 +377,11 @@ public class FloatingMenu implements InputProcessor {
             }
             if (hit == -4) {
                 // 下一页
-                int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+                int visibleCount = 0;
+                for (MenuItem item : items) {
+                    if (selectMode ? item.showOnSelect : true) visibleCount++;
+                }
+                int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
                 if (currentPage < totalPages - 1) currentPage++;
                 consumingTouch = true;
                 return true;
@@ -499,9 +543,15 @@ public class FloatingMenu implements InputProcessor {
         if (font == null) return -2;
         int cols = 2;
 
+        // 计算可见按钮数量
+        int visibleCount = 0;
+        for (MenuItem item : items) {
+            if (isItemVisible(item)) visibleCount++;
+        }
+
         // 计算当前页显示的按钮
         int startIdx = currentPage * ITEMS_PER_PAGE;
-        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, items.length);
+        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
         int itemCount = endIdx - startIdx;
         int actualRows = (itemCount + cols - 1) / cols;
 
@@ -514,19 +564,29 @@ public class FloatingMenu implements InputProcessor {
             return -2;  // 不在面板区域内
         }
 
-        for (int i = startIdx; i < endIdx; i++) {
-            int localIdx = i - startIdx;
+        // 收集可见按钮索引
+        int[] visibleIndices = new int[visibleCount];
+        int idx = 0;
+        for (int i = 0; i < items.length; i++) {
+            if (isItemVisible(items[i])) {
+                visibleIndices[idx++] = i;
+            }
+        }
+
+        for (int j = startIdx; j < endIdx; j++) {
+            int itemIdx = visibleIndices[j];
+            int localIdx = j - startIdx;
             int col = localIdx % cols;
             int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP); // 从顶部开始
+            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP);
             if (tx >= bx && tx <= bx + BTN_W && ty >= by && ty <= by + BTN_H) {
-                return i;
+                return itemIdx; // 返回实际按钮索引
             }
         }
 
         // 检查是否点击了翻页箭头（最底部）
-        int totalPages = (items.length + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
         float bottomY = panelY + PANEL_PAD;
         GlyphLayout layout = new GlyphLayout();
 

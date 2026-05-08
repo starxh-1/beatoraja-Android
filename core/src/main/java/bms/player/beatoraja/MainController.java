@@ -288,6 +288,8 @@ public class MainController {
             // 浮动菜单：在 PLAY / DECIDE 状态隐藏
             if (floatingMenu != null) {
                 floatingMenu.setVisible(state != MainStateType.PLAY && state != MainStateType.DECIDE);
+                floatingMenu.setSelectMode(state == MainStateType.MUSICSELECT);
+                floatingMenu.setKeyConfigMode(state == MainStateType.CONFIG);
             }
             // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
             if (current != null && current.getStage() != null) {
