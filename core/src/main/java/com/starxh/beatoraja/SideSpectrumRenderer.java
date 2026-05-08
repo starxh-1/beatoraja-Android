@@ -80,11 +80,11 @@ public class SideSpectrumRenderer {
         // 计算黑边区域宽度，确保频谱不会进入游戏画面
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
-        float maxBarW = Math.min(w * 0.2f, blackBarW); // 受黑边和屏幕宽度限制
+        float maxBarW = Math.min(w * 0.09f, blackBarW); // 受黑边和屏幕宽度限制
 
         float totalHeight = h * 0.8f; // 频谱总高度（占屏幕比例）
-        float barH = (totalHeight - 10) / 16f; // bar 高度
-        float barThickness = barH * 0.2f; // bar 变细的厚度
+        float barH = (totalHeight - 0) / 16f; // 频谱总高度
+        float barThickness = barH * 0.3f; // bar 厚度
         Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
 
         // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸，居中显示
