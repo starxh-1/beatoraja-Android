@@ -257,11 +257,27 @@ public final class MusicSelector extends MainState {
 		// 更新上一首播放歌曲的分数缓存
 		if (playedsong != null) {
 			scorecache.update(playedsong, config.getLnmode());
+			// Also update the SongBar's score field directly so the UI shows the new score immediately
+			for (Bar b : manager.currentsongs) {
+				if (b instanceof SongBar sb && sb.getSongData() != null
+						&& sb.getSongData().getSha256().equals(playedsong.getSha256())) {
+					sb.setScore(scorecache.readScoreData(playedsong, config.getLnmode()));
+					break;
+				}
+			}
 			playedsong = null;
 		}
 		if (playedcourse != null) {
 			for (SongData sd : playedcourse.getSong()) {
 				scorecache.update(sd, config.getLnmode());
+				// Update course song bars too
+				for (Bar b : manager.currentsongs) {
+					if (b instanceof SongBar sb && sb.getSongData() != null
+							&& sb.getSongData().getSha256().equals(sd.getSha256())) {
+						sb.setScore(scorecache.readScoreData(sd, config.getLnmode()));
+						break;
+					}
+				}
 			}
 			playedcourse = null;
 		}

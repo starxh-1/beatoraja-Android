@@ -272,8 +272,32 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SQLiteDatabase scoreDb = null;
         try {
             scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
-            Cursor c = scoreDb.rawQuery("SELECT sha256, playcount, clear, exscore, maxcombo, minbp, "
-                    + "perfect, great, good, bad, poor, totalnotes, fast, slow, date FROM score", null);
+
+            // Detect available columns by querying the table schema
+            java.util.Set<String> columns = new java.util.HashSet<>();
+            Cursor cols = scoreDb.rawQuery("PRAGMA table_info(score)", null);
+            while (cols.moveToNext()) {
+                columns.add(cols.getString(cols.getColumnIndex("name")));
+            }
+            cols.close();
+
+            if (columns.isEmpty()) {
+                Log.w(TAG, "score table has no columns in: " + scorePath);
+                return map;
+            }
+
+            // Build query dynamically based on available columns
+            StringBuilder sql = new StringBuilder("SELECT sha256, playcount, clear, ");
+            if (columns.contains("exscore")) {
+                sql.append("exscore, ");
+            } else if (columns.contains("score")) {
+                sql.append("score AS exscore, ");
+            } else {
+                sql.append("0 AS exscore, ");
+            }
+            sql.append("maxcombo, minbp, perfect, great, good, bad, poor, totalnotes, fast, slow, date FROM score");
+
+            Cursor c = scoreDb.rawQuery(sql.toString(), null);
             while (c.moveToNext()) {
                 ScoreData sd = new ScoreData();
                 sd.sha256 = getStringSafe(c, "sha256");
