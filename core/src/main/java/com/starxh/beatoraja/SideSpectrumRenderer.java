@@ -77,44 +77,52 @@ public class SideSpectrumRenderer {
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        float maxBarW = w * 0.2f; // 最大宽度占屏幕比例
+        // 计算黑边区域宽度，确保频谱不会进入游戏画面
+        float gameW = h * (1920f / 1080f);
+        float blackBarW = (w - gameW) / 2f;
+        float maxBarW = Math.min(w * 0.2f, blackBarW);
         float drawH = Math.max(maxBarW, 120f);
         float barH = (drawH - 10) / 16f;
         Color barColor = hasRealData ? new Color(0.2f, 0.8f, 0.4f, 0.5f) : new Color(0.2f, 0.4f, 1f, 0.4f);
 
-        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸
+        // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)，条形横向延伸，均居中显示
+        float baseY = (h - drawH) / 2; // 居中垂直位置
         for (int i = 0; i < 16; i++) {
-            drawHorizontalBarLeft(i, i * barH, maxBarW, barH, barColor); // 左侧左声道，从左向右延伸
-            drawHorizontalBarRight(32 + i, h - barH - i * barH, maxBarW, barH, barColor); // 右侧右声道，从右向左延伸
+            float y = baseY + i * barH;
+            drawHorizontalBarLeft(i, y, maxBarW, barH, barColor, blackBarW); // 左侧左声道，从右向左延伸
+            drawHorizontalBarRight(32 + i, y, maxBarW, barH, barColor, blackBarW); // 右侧右声道，从左向右延伸
         }
 
         shapeRenderer.end();
     }
 
-    // 左侧条形图 - 从左向右延伸
-    private void drawHorizontalBarLeft(int idx, float y, float maxBarW, float barH, Color color) {
+    // 左侧条形图 - 从右向左延伸，限制在黑边区域内
+    private void drawHorizontalBarLeft(int idx, float y, float maxBarW, float barH, Color color, float blackBarW) {
         float val = spectrum[idx];
         float top = topValues[idx];
         float barW = val * maxBarW;
         float topX = top * maxBarW;
+        float anchorX = blackBarW; // 锚点在游戏边界，条形向左延伸到黑边
 
         shapeRenderer.setColor(color);
-        shapeRenderer.rect(0, y, barW, barH - 2);
+        shapeRenderer.rect(anchorX - barW, y, barW, barH - 2);
         shapeRenderer.setColor(Color.WHITE);
-        shapeRenderer.rect(topX, y, 4, barH - 2);
+        shapeRenderer.rect(anchorX - topX - 4, y, 4, barH - 2);
     }
 
-    // 右侧条形图 - 从右向左延伸
-    private void drawHorizontalBarRight(int idx, float y, float maxBarW, float barH, Color color) {
+    // 右侧条形图 - 从左向右延伸，限制在黑边区域内
+    private void drawHorizontalBarRight(int idx, float y, float maxBarW, float barH, Color color, float blackBarW) {
         float val = spectrum[idx];
         float top = topValues[idx];
         float barW = val * maxBarW;
         float topX = top * maxBarW;
+        float w = Gdx.graphics.getWidth();
+        float anchorX = w - blackBarW; // 锚点在游戏边界，条形向右延伸到黑边
 
         shapeRenderer.setColor(color);
-        shapeRenderer.rect((float) Gdx.graphics.getWidth() - barW, y, barW, barH - 2);
+        shapeRenderer.rect(anchorX, y, barW, barH - 2);
         shapeRenderer.setColor(Color.WHITE);
-        shapeRenderer.rect((float) Gdx.graphics.getWidth() - topX - 4, y, 4, barH - 2);
+        shapeRenderer.rect(anchorX + topX, y, 4, barH - 2);
     }
 
     public void dispose() {
