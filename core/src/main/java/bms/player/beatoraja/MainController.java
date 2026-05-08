@@ -559,6 +559,11 @@ public class MainController {
         return Math.round((screenY - viewportY) * (float) lastGameH / viewportH);
     }
 
+    public int getViewportX() { return viewportX; }
+    public int getViewportY() { return viewportY; }
+    public int getViewportW() { return viewportW; }
+    public int getViewportH() { return viewportH; }
+
     public void render() {
         // ── Android 渲染线程优先级提升（仅首次）──
         // 将 GL 线程优先级设为 THREAD_PRIORITY_DISPLAY (-4)，

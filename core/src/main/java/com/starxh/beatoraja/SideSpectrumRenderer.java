@@ -87,7 +87,7 @@ public class SideSpectrumRenderer {
         // 绘制 - 左边显示左声道(0-15频段)，右边显示右声道(32-47频段)
         for (int i = 0; i < 16; i++) {
             drawBar(i, i * barW, h, barW, barColor); // 左侧黑边
-            drawBar(32 + i, w - drawW + i * barW, h, barW, barColor); // 右侧黑边
+            drawBar(32 + i, w - blackBarW + i * barW, h, barW, barColor); // 右侧黑边
         }
 
         shapeRenderer.end();

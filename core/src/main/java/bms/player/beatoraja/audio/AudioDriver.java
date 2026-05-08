@@ -150,30 +150,37 @@ public interface AudioDriver extends Disposable {
 		final String name = (index < 0) ? path : path.substring(0, index);
 		final String ext = (index < 0) ? "" : path.substring(index);
 
-		// 优先尝试原始路径
-		FileHandle fh = Gdx.files.absolute(path);
-		if (!FileCache.exists(fh)) {
-			fh = Gdx.files.internal(path);
-		}
+		// 在 Android 上，如果路径是相对路径，优先尝试 internal
+		boolean isRelative = !path.startsWith("/") && !path.contains(":");
 
-		if (FileCache.exists(fh)) {
-			result.add(fh);
-		}
-
-		// 尝试其他扩展名
-		for (String _ext : exts) {
-			if (!_ext.equalsIgnoreCase(ext)) {
-				String newPath = name + _ext;
-				FileHandle fh2 = Gdx.files.absolute(newPath);
-				if (!FileCache.exists(fh2)) {
-					fh2 = Gdx.files.internal(newPath);
-				}
-				if(FileCache.exists(fh2)) {
-					result.add(fh2);
+		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && isRelative) {
+			tryGetPath(path, true, result);
+			for (String _ext : exts) {
+				if (!_ext.equalsIgnoreCase(ext)) {
+					tryGetPath(name + _ext, true, result);
 				}
 			}
 		}
 
+		// 尝试绝对路径
+		tryGetPath(path, false, result);
+		for (String _ext : exts) {
+			if (!_ext.equalsIgnoreCase(ext)) {
+				tryGetPath(name + _ext, false, result);
+			}
+		}
+
 		return result.toArray(new FileHandle[result.size()]);
+	}
+
+	private static void tryGetPath(String path, boolean internal, List<FileHandle> result) {
+		FileHandle fh = internal ? Gdx.files.internal(path) : Gdx.files.absolute(path);
+		if (FileCache.exists(fh)) {
+			// 避免重复添加
+			for (FileHandle existing : result) {
+				if (existing.path().equals(fh.path()) && existing.type() == fh.type()) return;
+			}
+			result.add(fh);
+		}
 	}
 }

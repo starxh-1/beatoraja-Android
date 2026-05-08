@@ -24,11 +24,14 @@ public class FileCache {
             FileHandle parent = file.parent();
             if (parent == null || parent.path().isEmpty()) return file.exists();
 
-            String parentPath = parent.path();
-            Set<String> files = dirCache.get(parentPath);
+            // 缓存键包含文件类型，防止 internal 和 absolute 路径冲突
+            String cacheKey = file.type() + ":" + parent.path();
+            Set<String> files = dirCache.get(cacheKey);
             if (files == null) {
                 if (!parent.exists()) {
-                    return file.exists();
+                    // 如果父目录都不存在，缓存一个空集合并返回 false
+                    dirCache.put(cacheKey, new HashSet<>());
+                    return false;
                 }
                 files = new HashSet<>();
                 FileHandle[] list = parent.list();
@@ -37,7 +40,7 @@ public class FileCache {
                         files.add(f.name().toLowerCase(Locale.ROOT));
                     }
                 }
-                dirCache.put(parentPath, files);
+                dirCache.put(cacheKey, files);
             }
             if (files.isEmpty()) {
                 return file.exists();
