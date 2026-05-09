@@ -186,6 +186,13 @@ local property = {
 			on = {name = "On", op = 966},
 		}
 	},
+	inGameSpectrum = {
+		name = "In-Game Spectrum",
+		item = {
+			off = {name = "Off", op = 982},
+			on = {name = "On", op = 983},
+		}
+	},
 	total = {
 		name = "Display #TOTAL",
 		item = {
@@ -214,6 +221,7 @@ local property_order = {
 	"laneCentering",
 	"absolutePositioning",
 	"hideFrames",
+	"inGameSpectrum",
 	"total"
 }
 -- 全itemに、そのオプションが選択中か返すisSelected()をセットする
@@ -335,7 +343,8 @@ local offset_source = {
 	{key = "lowerlanearea_darkness", name = "LowerLaneArea darkness(0~255)", id = 51, a = true},
 	{key = "scoregraph", name = "ScoreGraph offset", id = 52, x = true, w = true, a = true},
 	{key = "scoregraph_darkness", name = "ScoreGraph darkness(0~255)", id = 53, a = true},
-	{key = "playinfo", name = "PlayInfo offset", id = 54, x = true, y = true, --[[w = true,]] a = true}
+	{key = "playinfo", name = "PlayInfo offset", id = 54, x = true, y = true, --[[w = true,]] a = true},
+	{key = "spectrum", name = "Spectrum offset", id = 60, x = true, y = true, w = true, h = true}
 }
 
 local header = {
@@ -608,6 +617,7 @@ local function main(keysNumber)
 		{id = "src_frame_lane", path = "parts/frame_lane.png"},
 		{id = "src_frame_bga", path = "parts/frame_bga.png"},
 		{id = "src_frame_bpm", path = "parts/frame_bpm.png"},
+		{id = "src_frame_spectrum", path = "parts/frame_spectrum.png"},
 
 		{id = "src_titlegradation_header", path = "parts/titlegradation_header.png"},
 		{id = "src_titlegradation_standby", path = "parts/titlegradation_standby.png"},
@@ -895,7 +905,7 @@ local function main(keysNumber)
 			{id = "judge_n_pr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
 			{id = "judge_n_ms", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
 		})
-		
+
 		f_w = f_w * geo.judge.scale
 		n_w = n_w * geo.judge.scale
 		offset_x = offset_x * geo.judge.scale
@@ -1256,7 +1266,7 @@ local function main(keysNumber)
 			-- frame
 			if property.hideFrames.item.off.isSelected() and property.fullscreenBga.item.off.isSelected() then
 				append_all(skin.destination, frame_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, bga_a, geo.bga.frame_w, geo.bga.frame_h, {}))
-				
+
 				-- フレームの内側の黒いボーダー
 				append_all(skin.destination, border_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, {r = 0, g = 0, b = 0}, bga_a, 3, 3))
 			end
@@ -1391,6 +1401,25 @@ local function main(keysNumber)
 			}},
 			{id = "text_image_max", filter = 1, dst = {
 				{x = bpm_center_x + 144 - text_img_w * imgRate * sideTextRate / 2, y = text_y + 2, w = text_img_w * imgRate * sideTextRate, h = text_img_h * imgRate * sideTextRate}
+			}},
+		})
+	end
+	-- spectrum (frame only, bars rendered by Java)
+	if property.hideFrames.item.off.isSelected() and property.inGameSpectrum.item.on.isSelected() then
+		table.insert(skin.image,
+			{id = "frame_spectrum", src = "src_frame_spectrum", x = 0, y = 0, w = -1, h = -1}
+		)
+		-- spectrum offset 默认值（如果玩家没有配置过）
+		local spec_x = offset.spectrum.x
+		local spec_y = offset.spectrum.y
+		local spec_w = offset.spectrum.w > 0 and offset.spectrum.w or 320
+		local spec_h = offset.spectrum.h > 0 and offset.spectrum.h or 80
+		-- 如果 offset 为 0，使用默认值让 frame 显示在中间偏下
+		if spec_x == 0 then spec_x = 680 end
+		if spec_y == 0 then spec_y = 10 end
+		append_all(skin.destination, {
+			{id = "frame_spectrum", dst = {
+				{x = spec_x, y = spec_y, w = spec_w, h = spec_h}
 			}},
 		})
 	end
@@ -1955,7 +1984,7 @@ local function main(keysNumber)
 				{id = "graphinfo_text_score", src = "src_scoregraph_info", x = 0, y = 0, w = text_img_w, h = text_img_h},
 				{id = "graphinfo_text_mybest", src = "src_scoregraph_info", x = 0, y = text_img_h, w = text_img_w, h = text_img_h},
 			})
-			
+
 			local target_text_size = 23
 			table.insert(skin.text, {id = "graphinfo_text_target", font = "genshin_monospace_bold_bitmap", size = target_text_size, align = 1, overflow = 1, ref = 3})
 
@@ -2306,7 +2335,7 @@ local function main(keysNumber)
 					x = geo.lane.x + geo.lane.w + lane_side_margin
 				else
 					x = geo.lane.x - (total_w + lane_side_margin)
-				end	
+				end
 				if position.typeB.isSelected() then
 					y = judge_y
 				elseif position.typeC.isSelected() then

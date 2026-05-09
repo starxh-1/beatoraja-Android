@@ -66,6 +66,28 @@ public class BeatorajaGame extends ApplicationAdapter {
     }
 
     private void configureSpectrumRenderer(Config cfg) {
+        // 检查当前 skin 的 In-Game Spectrum 选项是否开启
+        boolean inGameSpectrumOption = true;
+        if (controller != null) {
+            MainState state = controller.getCurrentState();
+            if (state != null) {
+                bms.player.beatoraja.skin.Skin skin = state.getSkin();
+                if (skin != null && skin.header != null) {
+                    bms.player.beatoraja.skin.SkinHeader.CustomOption[] options = skin.header.getCustomOptions();
+                    if (options != null) {
+                        for (bms.player.beatoraja.skin.SkinHeader.CustomOption opt : options) {
+                            if ("In-Game Spectrum".equals(opt.name)) {
+                                int selectedOp = opt.getSelectedOption();
+                                // op 982 = OFF, op 983 = ON
+                                inGameSpectrumOption = (selectedOp == 983);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // 检查当前 skin 是否有 spectrum offset (id=60)
         boolean skinHasSpectrum = false;
         float specX = 0, specY = 0, specW = 0, specH = 0;
@@ -87,7 +109,6 @@ public class BeatorajaGame extends ApplicationAdapter {
                                         bms.player.beatoraja.skin.SkinObject.SkinObjectDestination dest = dests[0];
                                         frameW = dest.region.width;
                                         frameH = dest.region.height;
-                                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Found frame_spectrum with offset 60: w=" + frameW + " h=" + frameH);
                                     }
                                     break;
                                 }
@@ -97,12 +118,11 @@ public class BeatorajaGame extends ApplicationAdapter {
                     }
 
                     bms.player.beatoraja.skin.SkinHeader.CustomOffset[] offsets = skin.header.getCustomOffsets();
-                    com.badlogic.gdx.Gdx.app.log("Spectrum", "CustomOffsets count: " + (offsets != null ? offsets.length : 0));
                     if (offsets != null) {
                         for (bms.player.beatoraja.skin.SkinHeader.CustomOffset off : offsets) {
-                            com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking CustomOffset: name=" + off.name + " id=" + off.id);
                             if ("spectrum".equalsIgnoreCase(off.name) || off.name.toLowerCase().contains("spectrum")) {
                                 skinHasSpectrum = true;
+                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking CustomOffset: name=" + off.name + " id=" + off.id);
                                 com.badlogic.gdx.Gdx.app.log("Spectrum", "Found spectrum CustomOffset!");
                                 bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
                                 com.badlogic.gdx.Gdx.app.log("Spectrum", "vals = " + vals);
@@ -133,8 +153,8 @@ public class BeatorajaGame extends ApplicationAdapter {
             }
         }
 
-        // 如果 skin 没有 spectrum offset，则在游戏框外（黑边区域）渲染
-        if (!skinHasSpectrum) {
+        // 如果 skin 没有 spectrum offset 或者 In-Game Spectrum 选项关闭，则在游戏框外（黑边区域）渲染
+        if (!skinHasSpectrum || !inGameSpectrumOption) {
             spectrumRenderer.setRenderInGameArea(false);
             spectrumRenderer.setGameArea(0, 0, 0, 0);
             return;
