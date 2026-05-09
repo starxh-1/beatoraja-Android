@@ -3,8 +3,10 @@ package com.starxh.beatoraja;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.ScreenUtils;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import bms.player.beatoraja.Config;
 import bms.player.beatoraja.PlayerConfig;
@@ -97,30 +99,27 @@ public class BeatorajaGame extends ApplicationAdapter {
             if (state != null) {
                 bms.player.beatoraja.skin.Skin skin = state.getSkin();
                 if (skin != null && skin.header != null) {
-                    // 从 skin 的 destination 信息获取 frame_spectrum 的实际尺寸
-                    float frameW = 0, frameH = 0;
-                    com.badlogic.gdx.Gdx.app.log("Spectrum", "Total skin objects: " + skin.getAllSkinObjects().length);
-                    for (bms.player.beatoraja.skin.SkinObject obj : skin.getAllSkinObjects()) {
-                        int[] offsetIds = obj.getOffsetID();
-                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Object offsetIds length: " + (offsetIds != null ? offsetIds.length : 0));
-                        if (offsetIds != null && offsetIds.length > 0) {
-                            for (int oid : offsetIds) {
-                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking offset id: " + oid);
-                                if (oid == 60) {
-                                    bms.player.beatoraja.skin.SkinObject.SkinObjectDestination[] dests = obj.getAllDestination();
-                                    if (dests != null && dests.length > 0) {
-                                        bms.player.beatoraja.skin.SkinObject.SkinObjectDestination dest = dests[0];
-                                        frameW = dest.region.width;
-                                        frameH = dest.region.height;
-                                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Found frame_spectrum! frameW=" + frameW + " frameH=" + frameH);
-                                    }
-                                    break;
+                    // 读取 skin 目录下的 spectrumconfig.json 作为默认值
+                    float configX = 0, configY = 0, configW = 0, configH = 0;
+                    try {
+                        java.nio.file.Path skinPath = skin.header.getPath();
+                        if (skinPath != null) {
+                            java.nio.file.Path configPath = skinPath.getParent().resolve("spectrumconfig.json");
+                            if (java.nio.file.Files.exists(configPath)) {
+                                String json = new String(java.nio.file.Files.readAllBytes(configPath));
+                                Json jsonReader = new Json();
+                                java.util.Map<String, Object> config = jsonReader.fromJson(java.util.Map.class, json);
+                                if (config != null) {
+                                    if (config.get("x") != null) configX = ((Number) config.get("x")).floatValue();
+                                    if (config.get("y") != null) configY = ((Number) config.get("y")).floatValue();
+                                    if (config.get("w") != null) configW = ((Number) config.get("w")).floatValue();
+                                    if (config.get("h") != null) configH = ((Number) config.get("h")).floatValue();
                                 }
                             }
-                            // 只有找到60才break，否则继续检查下一个对象
                         }
+                    } catch (Exception e) {
+                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Failed to read spectrumconfig.json: " + e.getMessage());
                     }
-                    com.badlogic.gdx.Gdx.app.log("Spectrum", "Final frameW=" + frameW + " frameH=" + frameH);
 
                     bms.player.beatoraja.skin.SkinHeader.CustomOffset[] offsets = skin.header.getCustomOffsets();
                     if (offsets != null) {
@@ -129,22 +128,25 @@ public class BeatorajaGame extends ApplicationAdapter {
                                 skinHasSpectrum = true;
                                 bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
                                 if (vals != null) {
-                                    // 只有玩家明确设置过（非0）才用玩家配置，否则用skin自身的值
+                                    // 玩家配置优先，其次json配置，最后hardcoded
                                     if (vals.x != 0) specX = vals.x;
+                                    else if (configX != 0) specX = configX;
                                     if (vals.y != 0) specY = vals.y;
+                                    else if (configY != 0) specY = configY;
                                     if (vals.w != 0) specW = vals.w;
-                                    else if (frameW > 0) specW = frameW;
+                                    else if (configW != 0) specW = configW;
                                     if (vals.h != 0) specH = vals.h;
-                                    else if (frameH > 0) specH = frameH;
+                                    else if (configH != 0) specH = configH;
                                 } else {
-                                    // offset 为 null，使用 frame_spectrum 的实际尺寸
-                                    if (frameW > 0) specW = frameW;
-                                    if (frameH > 0) specH = frameH;
+                                    // 使用json配置
+                                    if (configX != 0) specX = configX;
+                                    if (configY != 0) specY = configY;
+                                    if (configW != 0) specW = configW;
+                                    if (configH != 0) specH = configH;
                                 }
-                                // x/y 为 0 时使用默认值，与 Lua skin 保持一致
+                                // 仍然为0则用hardcoded
                                 if (specX == 0) specX = 680;
                                 if (specY == 0) specY = 10;
-                                // w/h 为 0 时使用默认值
                                 if (specW == 0) specW = 320;
                                 if (specH == 0) specH = 80;
                                 break;
