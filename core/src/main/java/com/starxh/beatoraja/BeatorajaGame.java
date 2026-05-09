@@ -166,8 +166,8 @@ public class BeatorajaGame extends ApplicationAdapter {
         // skin 有 spectrum offset，在游戏内区域渲染
         spectrumRenderer.setRenderInGameArea(true);
         spectrumRenderer.setRenderMono(true);
-        com.badlogic.gdx.Gdx.app.log("Spectrum", "Skin has spectrum offset, inGameArea=true");
-        com.badlogic.gdx.Gdx.app.log("Spectrum", "Final setGameArea: x=" + specX + " y=" + specY + " w=" + specW + " h=" + specH);
+        //        com.badlogic.gdx.Gdx.app.log("Spectrum", "Skin has spectrum offset, inGameArea=true");
+        //        com.badlogic.gdx.Gdx.app.log("Spectrum", "Final setGameArea: x=" + specX + " y=" + specY + " w=" + specW + " h=" + specH);
         spectrumRenderer.setGameArea(specX, specY, specW, specH);
     }
 
