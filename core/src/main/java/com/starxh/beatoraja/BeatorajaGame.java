@@ -78,33 +78,34 @@ public class BeatorajaGame extends ApplicationAdapter {
                     // 从 skin 的 destination 信息获取 frame_spectrum 的实际尺寸
                     float frameW = 0, frameH = 0;
                     for (bms.player.beatoraja.skin.SkinObject obj : skin.getAllSkinObjects()) {
-                        bms.player.beatoraja.skin.SkinObject.SkinObjectDestination[] dests = obj.getAllDestination();
-                        if (dests != null && dests.length > 0) {
-                            int[] offsetIds = obj.getOffsetID();
-                            boolean hasOffset60 = false;
-                            if (offsetIds != null) {
-                                for (int oid : offsetIds) {
-                                    if (oid == 60) {
-                                        hasOffset60 = true;
-                                        break;
+                        int[] offsetIds = obj.getOffsetID();
+                        if (offsetIds != null && offsetIds.length > 0) {
+                            for (int oid : offsetIds) {
+                                if (oid == 60) {
+                                    bms.player.beatoraja.skin.SkinObject.SkinObjectDestination[] dests = obj.getAllDestination();
+                                    if (dests != null && dests.length > 0) {
+                                        bms.player.beatoraja.skin.SkinObject.SkinObjectDestination dest = dests[0];
+                                        frameW = dest.region.width;
+                                        frameH = dest.region.height;
+                                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Found frame_spectrum with offset 60: w=" + frameW + " h=" + frameH);
                                     }
+                                    break;
                                 }
                             }
-                            if (hasOffset60) {
-                                bms.player.beatoraja.skin.SkinObject.SkinObjectDestination dest = dests[0];
-                                frameW = dest.region.width;
-                                frameH = dest.region.height;
-                                break;
-                            }
+                            break;
                         }
                     }
 
                     bms.player.beatoraja.skin.SkinHeader.CustomOffset[] offsets = skin.header.getCustomOffsets();
+                    com.badlogic.gdx.Gdx.app.log("Spectrum", "CustomOffsets count: " + (offsets != null ? offsets.length : 0));
                     if (offsets != null) {
                         for (bms.player.beatoraja.skin.SkinHeader.CustomOffset off : offsets) {
-                            if ("spectrum".equals(off.name)) {
+                            com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking CustomOffset: name=" + off.name + " id=" + off.id);
+                            if ("spectrum".equalsIgnoreCase(off.name) || off.name.toLowerCase().contains("spectrum")) {
                                 skinHasSpectrum = true;
+                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Found spectrum CustomOffset!");
                                 bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
+                                com.badlogic.gdx.Gdx.app.log("Spectrum", "vals = " + vals);
                                 if (vals != null) {
                                     // 只有玩家明确设置过（非0）才用玩家配置，否则用skin自身的值
                                     if (vals.x != 0) specX = vals.x;
