@@ -99,23 +99,28 @@ public class BeatorajaGame extends ApplicationAdapter {
                 if (skin != null && skin.header != null) {
                     // 从 skin 的 destination 信息获取 frame_spectrum 的实际尺寸
                     float frameW = 0, frameH = 0;
+                    com.badlogic.gdx.Gdx.app.log("Spectrum", "Total skin objects: " + skin.getAllSkinObjects().length);
                     for (bms.player.beatoraja.skin.SkinObject obj : skin.getAllSkinObjects()) {
                         int[] offsetIds = obj.getOffsetID();
+                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Object offsetIds length: " + (offsetIds != null ? offsetIds.length : 0));
                         if (offsetIds != null && offsetIds.length > 0) {
                             for (int oid : offsetIds) {
+                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking offset id: " + oid);
                                 if (oid == 60) {
                                     bms.player.beatoraja.skin.SkinObject.SkinObjectDestination[] dests = obj.getAllDestination();
                                     if (dests != null && dests.length > 0) {
                                         bms.player.beatoraja.skin.SkinObject.SkinObjectDestination dest = dests[0];
                                         frameW = dest.region.width;
                                         frameH = dest.region.height;
+                                        com.badlogic.gdx.Gdx.app.log("Spectrum", "Found frame_spectrum! frameW=" + frameW + " frameH=" + frameH);
                                     }
                                     break;
                                 }
                             }
-                            break;
+                            // 只有找到60才break，否则继续检查下一个对象
                         }
                     }
+                    com.badlogic.gdx.Gdx.app.log("Spectrum", "Final frameW=" + frameW + " frameH=" + frameH);
 
                     bms.player.beatoraja.skin.SkinHeader.CustomOffset[] offsets = skin.header.getCustomOffsets();
                     if (offsets != null) {
