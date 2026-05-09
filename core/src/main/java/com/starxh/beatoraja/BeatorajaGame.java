@@ -122,10 +122,7 @@ public class BeatorajaGame extends ApplicationAdapter {
                         for (bms.player.beatoraja.skin.SkinHeader.CustomOffset off : offsets) {
                             if ("spectrum".equalsIgnoreCase(off.name) || off.name.toLowerCase().contains("spectrum")) {
                                 skinHasSpectrum = true;
-                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking CustomOffset: name=" + off.name + " id=" + off.id);
-                                com.badlogic.gdx.Gdx.app.log("Spectrum", "Found spectrum CustomOffset!");
                                 bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
-                                com.badlogic.gdx.Gdx.app.log("Spectrum", "vals = " + vals + ", vals.x=" + vals.x + ", vals.y=" + vals.y + ", vals.w=" + vals.w + ", vals.h=" + vals.h);
                                 if (vals != null) {
                                     // 只有玩家明确设置过（非0）才用玩家配置，否则用skin自身的值
                                     if (vals.x != 0) specX = vals.x;
