@@ -55,7 +55,7 @@ public class BeatorajaGame extends ApplicationAdapter {
         // 渲染频谱（仅在游玩和结果界面显示，且配置中启用了频谱）
         if (spectrumRenderer != null && controller != null) {
             MainState state = controller.getCurrentState();
-            if (state != null && (state instanceof BMSPlayer || state instanceof MusicResult || state instanceof CourseResult)) {
+            if (state != null && (state instanceof BMSPlayer)) {
                 Config cfg = controller.getConfig();
                 if (cfg != null && cfg.isShowAudioSpectrum()) {
                     configureSpectrumRenderer(cfg);
@@ -125,7 +125,7 @@ public class BeatorajaGame extends ApplicationAdapter {
                                 com.badlogic.gdx.Gdx.app.log("Spectrum", "Checking CustomOffset: name=" + off.name + " id=" + off.id);
                                 com.badlogic.gdx.Gdx.app.log("Spectrum", "Found spectrum CustomOffset!");
                                 bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
-                                com.badlogic.gdx.Gdx.app.log("Spectrum", "vals = " + vals);
+                                com.badlogic.gdx.Gdx.app.log("Spectrum", "vals = " + vals + ", vals.x=" + vals.x + ", vals.y=" + vals.y + ", vals.w=" + vals.w + ", vals.h=" + vals.h);
                                 if (vals != null) {
                                     // 只有玩家明确设置过（非0）才用玩家配置，否则用skin自身的值
                                     if (vals.x != 0) specX = vals.x;
