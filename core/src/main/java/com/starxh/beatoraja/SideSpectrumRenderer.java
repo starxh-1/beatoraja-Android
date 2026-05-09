@@ -110,12 +110,20 @@ public class SideSpectrumRenderer {
 
             // 计算spectrum区域在屏幕上的像素位置和大小
             float specScreenX = gameLeft + (gameAreaX / 1920f) * gameWidth;
-            float specScreenY = (gameAreaY / 1080f) * gameHeight;
             float specScreenW = (gameAreaW / 1920f) * gameWidth;
             float specScreenH = (gameAreaH / 1080f) * gameHeight;
 
+            // beatoraja的1080坐标系：y从顶部向下增加，y=0是顶部
+            // libGDX的ortho y从底部向上增加
+            // beatoraja y=10表示距顶部10像素，所以screen_y_bottom = 1080 - 10 - 80 = 990 (距底部990像素，即距顶部90像素)
+            // 但用户说应该在底部，所以直接用specY作为距底部距离
+            float specScreenY_bottom = gameAreaY;
+
+            Gdx.app.log("Spectrum", "DEBUG: w=" + w + " h=" + h + " gameAreaX=" + gameAreaX + " gameAreaY=" + gameAreaY + " gameAreaW=" + gameAreaW + " gameAreaH=" + gameAreaH);
+            Gdx.app.log("Spectrum", "DEBUG: specScreenX=" + specScreenX + " specScreenY_bottom=" + specScreenY_bottom + " specScreenW=" + specScreenW + " specScreenH=" + specScreenH);
+
             // 设置viewport和camera只覆盖spectrum区域
-            Gdx.gl.glViewport((int) specScreenX, (int) (h - specScreenY - specScreenH), (int) specScreenW, (int) specScreenH);
+            Gdx.gl.glViewport((int) specScreenX, (int) specScreenY_bottom, (int) specScreenW, (int) specScreenH);
             camera.setToOrtho(false, (int) specScreenW, (int) specScreenH);
             camera.update();
             shapeRenderer.setProjectionMatrix(camera.combined);
