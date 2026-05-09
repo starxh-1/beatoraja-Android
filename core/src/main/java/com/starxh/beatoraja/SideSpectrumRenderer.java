@@ -5,7 +5,6 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.MathUtils;
 
 public class SideSpectrumRenderer {
     private ShapeRenderer shapeRenderer;
@@ -17,6 +16,12 @@ public class SideSpectrumRenderer {
     private static final float FALLING_SPEED = 0.02f;
     private static final int BANDS_PER_CHANNEL = 64;
     private float testTimer = 0;
+
+    // 游戏内区域渲染
+    private boolean renderInGameArea = false;
+    private boolean renderMono = false;
+    private float gameAreaX = 0, gameAreaY = 0, gameAreaW = 320, gameAreaH = 80;
+    private boolean hasValidGameArea = false;
 
     public SideSpectrumRenderer() {
         shapeRenderer = new ShapeRenderer();
@@ -33,6 +38,31 @@ public class SideSpectrumRenderer {
     public void resize(int width, int height) {
         camera.setToOrtho(false, width, height);
         camera.update();
+    }
+
+    /**
+     * 设置是否在游戏内区域渲染频谱
+     */
+    public void setRenderInGameArea(boolean inGameArea) {
+        this.renderInGameArea = inGameArea;
+    }
+
+    /**
+     * 设置游戏内区域的坐标（逻辑分辨率1920x1080下的坐标）
+     */
+    public void setGameArea(float x, float y, float w, float h) {
+        this.gameAreaX = x;
+        this.gameAreaY = y;
+        this.gameAreaW = w;
+        this.gameAreaH = h;
+        this.hasValidGameArea = (w > 0 && h > 0);
+    }
+
+    /**
+     * 设置是否将左右声道合成为单声道渲染
+     */
+    public void setRenderMono(boolean mono) {
+        this.renderMono = mono;
     }
 
     public void render() {
@@ -65,37 +95,93 @@ public class SideSpectrumRenderer {
             }
         }
 
-        // 3. 渲染设置 - 使用全屏 viewport
+        // 3. 渲染设置
         Gdx.gl.glDisable(GL20.GL_SCISSOR_TEST);
-        Gdx.gl.glViewport(0, 0, w, h);
-        camera.setToOrtho(false, w, h);
-        camera.update();
-        shapeRenderer.setProjectionMatrix(camera.combined);
-
         Gdx.gl.glEnable(GL20.GL_BLEND);
         Gdx.gl.glBlendFunc(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
-        // 计算黑边区域宽度，确保频谱不会进入游戏画面
-        float gameW = h * (1920f / 1080f);
-        float blackBarW = (w - gameW) / 2f;
-        float maxBarW = Math.min(w * 0.09f, blackBarW); // 受黑边和屏幕宽度限制
+        if (renderInGameArea && hasValidGameArea) {
+            // 计算游戏区域在屏幕上的位置（1920x1080坐标映射到实际屏幕）
+            float gameHeight = h;
+            float gameWidth = gameHeight * (1920f / 1080f);
+            float gameLeft = (w - gameWidth) / 2f;
 
-        float totalHeight = h * 0.8f; // 频谱总高度（占屏幕比例）
-        float barH = totalHeight / 32f; // 32条频谱
-        float barThickness = barH * 0.7f; // bar 厚度
-        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+            // 计算spectrum区域在屏幕上的像素位置和大小
+            float specScreenX = gameLeft + (gameAreaX / 1920f) * gameWidth;
+            float specScreenY = (gameAreaY / 1080f) * gameHeight;
+            float specScreenW = (gameAreaW / 1920f) * gameWidth;
+            float specScreenH = (gameAreaH / 1080f) * gameHeight;
 
-        // 绘制 - 左边显示左声道(0-31频段)，右边显示右声道(32-63频段)，条形横向延伸，居中显示
-        float baseY = (h - totalHeight) / 2; // 垂直居中
-        for (int i = 1; i < 32; i++) {
-            float y = baseY + i * barH;
-            drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW); // 左侧左声道，从右向左延伸
-            drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW); // 右侧右声道，从左向右延伸
+            // 设置viewport和camera只覆盖spectrum区域
+            Gdx.gl.glViewport((int) specScreenX, (int) (h - specScreenY - specScreenH), (int) specScreenW, (int) specScreenH);
+            camera.setToOrtho(false, (int) specScreenW, (int) specScreenH);
+            camera.update();
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            renderInGameArea(spectrum, topValues, hasRealData, specScreenW, specScreenH);
+        } else {
+            // 黑边区域渲染模式 - 使用屏幕坐标
+            Gdx.gl.glViewport(0, 0, w, h);
+            camera.setToOrtho(false, w, h);
+            camera.update();
+            shapeRenderer.setProjectionMatrix(camera.combined);
+            renderInBlackBars(spectrum, topValues, w, h, hasRealData);
         }
 
         shapeRenderer.end();
+    }
+
+    // 游戏内区域渲染 - 横向32band频谱
+    private void renderInGameArea(float[] spectrum, float[] topValues, boolean hasRealData, float screenW, float screenH) {
+        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+
+        // 32个频段，水平排列，填充整个区域
+        float barW = screenW / 32f;
+        float barThickness = barW * 0.8f;
+        float baseY = 0;
+
+        for (int i = 0; i < 32; i++) {
+            float x = i * barW;
+            // 合并左右声道取平均
+            float monoVal = (spectrum[i] + spectrum[32 + i]) / 2f;
+            float monoTop = (topValues[i] + topValues[32 + i]) / 2f;
+
+            // 频谱值映射到高度
+            float barHeight = monoVal * screenH * 0.9f;
+            float topHeight = monoTop * screenH * 0.9f;
+            barHeight = Math.min(barHeight, screenH - 2);
+            topHeight = Math.min(topHeight, screenH - 2);
+
+            // 底部填充
+            shapeRenderer.setColor(barColor);
+            shapeRenderer.rect(x + (barW - barThickness) / 2, baseY, barThickness, barHeight);
+
+            // 顶部高亮
+            if (topHeight > 2) {
+                shapeRenderer.setColor(Color.WHITE);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, baseY + topHeight - 2, barThickness, 2);
+            }
+        }
+    }
+
+    // 黑边区域渲染
+    private void renderInBlackBars(float[] spectrum, float[] topValues, int w, int h, boolean hasRealData) {
+        float gameW = h * (1920f / 1080f);
+        float blackBarW = (w - gameW) / 2f;
+        float maxBarW = Math.min(w * 0.09f, blackBarW);
+
+        float totalHeight = h * 0.8f;
+        float barH = totalHeight / 32f;
+        float barThickness = barH * 0.7f;
+        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+
+        float baseY = (h - totalHeight) / 2;
+        for (int i = 1; i < 32; i++) {
+            float y = baseY + i * barH;
+            drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW);
+            drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW);
+        }
     }
 
     // 左侧条形图 - 从右向左延伸，限制在黑边区域内
