@@ -40,6 +40,7 @@ Everything else is essentially the same as beatoraja.
 
 - BGA playback for `.mpg`, `.wmv` and other formats (only mp4 is supported).
 - Internet Ranking (still evaluating if allowed).
+- For Touchscreen only skin (Still need to learn lua or javascript)
 
 ## 5. Known Bugs
 
