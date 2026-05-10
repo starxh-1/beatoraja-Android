@@ -395,8 +395,23 @@ public class AndroidLauncher extends AndroidApplication {
 
     /**
      * Open a URL in external browser (called from skin events)
+     * If message is provided, show a confirmation dialog first
      */
-    public void openUrl(String url, String params) {
+    public void openUrl(String url, String message) {
+        runOnUiThread(() -> {
+            if (message != null && !message.isEmpty()) {
+                new android.app.AlertDialog.Builder(this)
+                    .setMessage(message)
+                    .setPositiveButton("OK", (dialog, which) -> openUrlDirect(url))
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            } else {
+                openUrlDirect(url);
+            }
+        });
+    }
+
+    private void openUrlDirect(String url) {
         try {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
