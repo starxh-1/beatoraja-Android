@@ -54,14 +54,14 @@ Everything else is essentially the same as beatoraja.
 
 # Special Thanks
 
-beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
-libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
-GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
-KissFFT by Mark Borgerding (https://github.com/MarkBorgerding/kissfft)
+- beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
+- libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
+- GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
+- KissFFT by Mark Borgerding (https://github.com/MarkBorgerding/kissfft)
 
-MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
-and some AIs whatever free or paid which I can't remember anymore
+- MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
+  and some AIs whatever free or paid which I can't remember anymore
 
-Anonymous test human guys
+- Anonymous test human guys
 
-I love keysounded VSRG, yeah.
+- I love keysounded VSRG, yeah.

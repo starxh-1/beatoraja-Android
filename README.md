@@ -43,15 +43,16 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 
 - **cim 读取和解析**：或许有办法，但我不懂这个。。
 
-# Special Thanks:
-beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
-libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
-GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
-KissFFT by Mark Borgerding (https://github.com/MarkBorgerding/kissfft)
+# Special Thanks
 
-MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan, 
-and some AIs whatever free or paid which I can't remember anymore
+- beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
+- libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
+- GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
+- KissFFT by Mark Borgerding (https://github.com/MarkBorgerding/kissfft)
 
-Anonymous test human guys
+- MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
+  and some AIs whatever free or paid which I can't remember anymore
 
-I love keysounded VSRG, yeah. ~~所以管他呢就算AI写屎山我也要弄出来我就要玩反正修啥bug不是修~~
+- Anonymous test human guys
+
+- I love keysounded VSRG, yeah. ~~所以管他呢就算AI写屎山我也要弄出来我就要玩反正修啥bug不是修~~
