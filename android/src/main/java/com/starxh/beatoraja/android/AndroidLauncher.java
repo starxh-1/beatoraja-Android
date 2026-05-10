@@ -393,6 +393,19 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
+    /**
+     * Open a URL in external browser (called from skin events)
+     */
+    public void openUrl(String url, String params) {
+        try {
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open URL: " + url, e);
+        }
+    }
+
     @Override
     protected void onDestroy() {
         stopKeepAlive();
