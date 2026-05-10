@@ -315,6 +315,8 @@ public class FloatingMenu implements InputProcessor {
         sprite.setProjectionMatrix(new Matrix4().setToOrtho2D(0, 0, logicW, logicH));
 
         sprite.begin();
+        // 确保使用正常的混合模式，防止皮肤（如 Note 爆发效果）残留的加算模式导致菜单发光
+        sprite.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Play 模式超时隐藏：图标不绘制，但仍响应触摸
         boolean showIcon = !(isPlayMode && playIconHidden);

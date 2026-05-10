@@ -335,6 +335,9 @@ public class Skin {
 				}
 			}
 		}
+		if (renderer != null) {
+			renderer.reset();
+		}
 	}
 
 	public void mousePressed(MainState state, int button, int x, int y) {
@@ -658,6 +661,18 @@ public class Skin {
 
 		public int getBlend() {
 			return blend;
+		}
+
+		/** 重置渲染器状态，防止 blend 和 shader 泄漏到皮肤外的后续绘制 */
+		public void reset() {
+			if (activeBlend != 0) {
+				sprite.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
+				activeBlend = 0;
+			}
+			if (current != 0) {
+				sprite.setShader(null);
+				current = 0;
+			}
 		}
 
 		public void setBlend(int blend) {
