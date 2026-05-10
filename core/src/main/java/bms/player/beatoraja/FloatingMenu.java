@@ -37,15 +37,28 @@ public class FloatingMenu implements InputProcessor {
     private static final float BTN_W = 209;              // 缩小 30%
     private static final float BTN_H = 80;               // 缩小 30%
     private static final float BTN_GAP = 10;             // 缩小 30%
-    private static final float PANEL_PAD = 16;           // 缩小 30%
+    private static final float PANEL_PAD = 24;           // 缩小 30%
+    /** 频谱调整页开始的按钮索引（第12项，0-based） */
+    private static final int SPECTRUM_START = 12;
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
     private boolean selectMode = false; // 是否为 Select 界面
     private boolean keyConfigMode = false; // 是否为 KeyConfig 界面
+    private boolean isPlayMode = false; // 是否为 Play 界面
+
+    // ─── 频谱编辑模式 ───
+    private int editingField = -1; // -1=none, 0=X, 1=Y, 2=W, 3=H
+    private int editValue = 0; // 当前编辑值
+    private int adjustDelta = 1; // 调整粒度：X/Y用1pixel，W/H用10
+    /** 长按调整定时器（纳秒） */
+    private long adjustStartTime = 0;
+    private static final long ADJUST_INITIAL_DELAY = 300000000L; // 300ms开始
+    private static final long ADJUST_ACCEL_INTERVAL = 300000000L; // 每300ms加速
+    private int adjustDirection = 0; // -1=递减, +1=递增
 
     // ─── 分页 ───
-    private static final int ITEMS_PER_PAGE = 10;
+    private static final int ITEMS_PER_PAGE = 12;  // 每页12个：2列×6行普通，或3列×4行频谱调整页
     private int currentPage = 0;
 
     // ─── 纹理 ───
@@ -60,31 +73,51 @@ public class FloatingMenu implements InputProcessor {
         final boolean isToggle;
         final boolean showOnSelect; // 是否在 Select 界面显示
         final boolean showOnKeyConfig; // 是否在 KeyConfig 界面显示
-        MenuItem(String label, int keycode) { this(label, keycode, false, true, true); }
-        MenuItem(String label, int keycode, boolean isToggle) { this(label, keycode, isToggle, true, true); }
-        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect) { this(label, keycode, isToggle, showOnSelect, true); }
-        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig) {
+        final boolean showOnPlay; // 是否在 Play 界面显示
+        MenuItem(String label, int keycode) { this(label, keycode, false, true, true, true); }
+        MenuItem(String label, int keycode, boolean isToggle) { this(label, keycode, isToggle, true, true, true); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect) { this(label, keycode, isToggle, showOnSelect, true, true); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig) { this(label, keycode, isToggle, showOnSelect, showOnKeyConfig, true); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig, boolean showOnPlay) {
             this.label = label; this.keycode = keycode; this.isToggle = isToggle;
-            this.showOnSelect = showOnSelect; this.showOnKeyConfig = showOnKeyConfig;
+            this.showOnSelect = showOnSelect; this.showOnKeyConfig = showOnKeyConfig; this.showOnPlay = showOnPlay;
         }
     }
 
+    // 频谱调整：-111~114=X/Y/W/H选择器, -121~122=X+/- -123~124=Y+/- -125~126=W+/- -127~128=H+/-
+    // 结构：6个通用 + 13个频谱调整（独占1页）+ 2个Controller Reset
     private final MenuItem[] items = {
-        new MenuItem("Touch Key: ON",  -100, true, true, false), // isToggle=true, 在 Select 隐藏，在 KeyConfig 显示
-        new MenuItem("Audio Spectrum: ON", -101, true, true, false), // isToggle=true
-        new MenuItem("F1 Show FPS",      Keys.F1, false, true, false),
-        new MenuItem("F2 Update Song",   Keys.F2, false, true, false),
-        new MenuItem("F12 Skin Select",   Keys.F12, false, true, false),
-        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, false),
-        new MenuItem("Backspace",        Keys.BACKSPACE, false, true, false),
-        new MenuItem("ESC",              Keys.ESCAPE, false, true, true),
-        new MenuItem("Enter",            Keys.ENTER, false, true, true),
-        new MenuItem("^ UP",        Keys.UP, false, true, true),
-        new MenuItem("v DOWN",      Keys.DOWN, false, true, true),
-        new MenuItem("< LEFT",      Keys.LEFT, false, true, true),
-        new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true),
-        new MenuItem("NUM 8 Controller Reset", Keys.NUM_8, false, false, true),
-        new MenuItem("NUM 2 Controller Reset", Keys.NUM_2, false, false, true),
+        // ── 通用按钮（第1页，8项）───────────────────────
+        new MenuItem("Touch Key: ON",  -100, true,  true, false, false),
+        new MenuItem("Spectrum In Game: ON", -101, true,  true, true, true),
+        new MenuItem("F1 Show FPS",      Keys.F1, false, true, true, false),
+        new MenuItem("F2 Update Song",   Keys.F2, false, true, true, false),
+        new MenuItem("F12 Skin Select",   Keys.F12, false, true, true, false),
+        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, true, false),
+        new MenuItem("Backspace",        Keys.BACKSPACE, false, true, true, false),
+        new MenuItem("Enter",            Keys.ENTER, false, true, true, false),
+        new MenuItem("^ UP",        Keys.UP, false, true, true, false),
+        new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
+        new MenuItem("< LEFT",      Keys.LEFT, false, true, true, false),
+        new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true, false),
+        // ── 频谱调整（第2页，13项，独立使用3列布局）─────
+        // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
+        new MenuItem("Spectrum Adjust", -110, false, true, false, true),  // 标题（不计入13个）
+        new MenuItem("X: 0", -111, false, true, false, true),
+        new MenuItem("[-]", -121, false, true, false, true),
+        new MenuItem("[+]", -122, false, true, false, true),
+        new MenuItem("Y: 0", -112, false, true, false, true),
+        new MenuItem("[-]", -123, false, true, false, true),
+        new MenuItem("[+]", -124, false, true, false, true),
+        new MenuItem("W: 0", -113, false, true, false, true),
+        new MenuItem("[-]", -125, false, true, false, true),
+        new MenuItem("[+]", -126, false, true, false, true),
+        new MenuItem("H: 0", -114, false, true, false, true),
+        new MenuItem("[-]", -127, false, true, false, true),
+        new MenuItem("[+]", -128, false, true, false, true),
+        // ── Controller Reset（第3页，仅KeyConfig模式）──
+        new MenuItem("NUM 8 Controller Reset", Keys.NUM_8, false, false, true, false),
+        new MenuItem("NUM 2 Controller Reset", Keys.NUM_2, false, false, true, false),
     };
 
     // ─── 触摸与反馈状态 ───
@@ -96,6 +129,8 @@ public class FloatingMenu implements InputProcessor {
     /** 每个按钮点击后的临时高亮计时器 */
     private final float[] flashTimers = new float[items.length];
     private static final float FLASH_DURATION = 0f; // 亮起常驻
+    /** 标记是否刚通过图标点击展开了菜单，用于在 touchUp 时忽略图标区域的抬起事件 */
+    private boolean justExpandedByIcon = false;
 
     // ─── 引用 ───
     private KeyBoardInputProcesseor kbInput;
@@ -114,7 +149,7 @@ public class FloatingMenu implements InputProcessor {
             Config config = ((MainController) mc).getConfig();
             if (config != null) {
                 items[0].label = "Touch Key: " + (config.isShowTouchKey() ? "ON" : "OFF");
-                items[1].label = "Audio Spectrum: " + (config.isShowAudioSpectrum() ? "ON" : "OFF");
+                items[1].label = "Spectrum In Game: " + (config.isSpectrumInGameArea() ? "ON" : "OFF");
             }
         }
     }
@@ -160,10 +195,17 @@ public class FloatingMenu implements InputProcessor {
         currentPage = 0;
     }
 
+    /** 设置是否为 Play 界面 */
+    public void setPlayMode(boolean playMode) {
+        this.isPlayMode = playMode;
+        currentPage = 0;
+    }
+
     /** 判断按钮是否在当前界面显示 */
     private boolean isItemVisible(MenuItem item) {
         if (selectMode && !item.showOnSelect) return false;
         if (keyConfigMode && !item.showOnKeyConfig) return false;
+        if (isPlayMode && !item.showOnPlay) return false;
         return true;
     }
 
@@ -229,6 +271,21 @@ public class FloatingMenu implements InputProcessor {
             if (flashTimers[i] > 0) flashTimers[i] -= delta;
         }
 
+        // 长按调整：300ms后开始，每300ms加速（1→2→5→10→20...）
+        if (adjustStartTime > 0 && adjustDirection != 0) {
+            long elapsed = System.nanoTime() - adjustStartTime;
+            if (elapsed >= ADJUST_INITIAL_DELAY) {
+                // 计算加速倍数：每300ms加速一次
+                long accels = (elapsed - ADJUST_INITIAL_DELAY) / ADJUST_ACCEL_INTERVAL;
+                int multiplier = 1;
+                for (long i = 0; i < accels && multiplier < 100; i++) {
+                    multiplier = Math.min(multiplier * 2, 100);
+                }
+                editValue += adjustDirection * adjustDelta * multiplier;
+                updateFieldLabel(editingField, editValue);
+            }
+        }
+
         // ─── 设置投影矩阵到逻辑坐标 ───
         sprite.setProjectionMatrix(new Matrix4().setToOrtho2D(0, 0, logicW, logicH));
 
@@ -248,23 +305,28 @@ public class FloatingMenu implements InputProcessor {
     }
 
     private void drawPanel(SpriteBatch sprite, BitmapFont font) {
-        int cols = 2;
-
         // 过滤出当前界面显示的按钮
         int visibleCount = 0;
         for (MenuItem item : items) {
             if (isItemVisible(item)) visibleCount++;
         }
 
-        float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
+        // 计算分页栏高度
+        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        float pageBarHeight = (totalPages > 1) ? 36 : 0;
 
         // 计算当前页显示的按钮
         int startIdx = currentPage * ITEMS_PER_PAGE;
         int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
         int itemCount = endIdx - startIdx;
+
+        // 频谱调整页使用3列布局（4行），普通页使用2列布局（6行）
+        boolean isSpectrumPage = (SPECTRUM_START >= startIdx && SPECTRUM_START < endIdx);
+        int cols = isSpectrumPage ? 3 : 2;
         int actualRows = (itemCount + cols - 1) / cols;
 
-        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40;
+        float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
+        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
 
         // 面板位于图标左下方
         float panelX = iconX + ICON_SIZE - panelW;
@@ -291,8 +353,39 @@ public class FloatingMenu implements InputProcessor {
             }
         }
 
-        // 按钮（从顶部开始布局，底部预留40像素给翻页按钮）
+        // GlyphLayout 在翻页和按钮中都要用，提前声明
         GlyphLayout layout = new GlyphLayout();
+
+        // 绘制分页指示器和翻页按钮（面板顶部）
+        if (totalPages > 1) {
+            float pageY = panelY + panelH - PANEL_PAD - pageBarHeight;
+            // 分页栏背景
+            sprite.setColor(0.15f, 0.15f, 0.2f, 0.5f);
+            sprite.draw(whitePixel, panelX + border, pageY, panelW - border * 2, pageBarHeight);
+
+            // 左右翻页箭头
+            sprite.setColor(0.4f, 0.6f, 1f, 0.9f);
+            if (currentPage > 0) {
+                font.setColor(0.5f, 0.8f, 1f, 0.9f);
+                font.draw(sprite, "<", panelX + PANEL_PAD, pageY + pageBarHeight - 8);
+            }
+            if (currentPage < totalPages - 1) {
+                font.setColor(0.5f, 0.8f, 1f, 0.9f);
+                String rightArrow = ">";
+                layout.setText(font, rightArrow);
+                float arrowX = panelX + panelW - PANEL_PAD - layout.width;
+                font.draw(sprite, rightArrow, arrowX, pageY + pageBarHeight - 8);
+            }
+            // 页码居中
+            String pageText = (currentPage + 1) + "/" + totalPages;
+            font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
+            layout.setText(font, pageText);
+            float pageTextX = panelX + (panelW - layout.width) / 2;
+            font.draw(sprite, pageText, pageTextX, pageY + pageBarHeight - 8);
+        }
+
+        // 按钮（从顶部开始布局，pageBarHeight 已包含在 panelH 中）
+        float contentTop = panelY + panelH - PANEL_PAD;
         for (int j = startIdx; j < endIdx; j++) {
             int itemIdx = visibleIndices[j];
             MenuItem item = items[itemIdx];
@@ -300,7 +393,7 @@ public class FloatingMenu implements InputProcessor {
             int col = localIdx % cols;
             int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP);
+            float by = contentTop - PANEL_PAD - pageBarHeight - (row + 1) * BTN_H - row * BTN_GAP;
 
             // 按钮背景颜色计算：按下或正在闪烁时变亮
             if (j == pressedIndex || flashTimers[j] > 0) {
@@ -316,29 +409,6 @@ public class FloatingMenu implements InputProcessor {
             float tx = bx + (BTN_W - layout.width) / 2;
             float ty = by + (BTN_H + layout.height) / 2;
             font.draw(sprite, item.label, tx, ty);
-        }
-
-        // 绘制分页指示器和翻页按钮
-        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-        if (totalPages > 1) {
-            float bottomY = panelY + PANEL_PAD;
-            String pageText = (currentPage + 1) + "/" + totalPages;
-            font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
-            layout.setText(font, pageText);
-            float px = panelX + PANEL_PAD;
-            float py = bottomY + layout.height;
-            font.draw(sprite, pageText, px, py);
-
-            if (currentPage > 0) {
-                font.setColor(0.5f, 0.8f, 1f, 0.9f);
-                font.draw(sprite, "<", panelX + PANEL_PAD, py);
-            }
-            if (currentPage < totalPages - 1) {
-                String rightArrow = ">";
-                layout.setText(font, rightArrow);
-                float arrowX = panelX + panelW - PANEL_PAD - layout.width;
-                font.draw(sprite, rightArrow, arrowX, py);
-            }
         }
     }
 
@@ -398,6 +468,7 @@ public class FloatingMenu implements InputProcessor {
             // 收起状态：检查是否点击了图标
             if (hitTestIcon(tx, ty)) {
                 expanded = true;
+                justExpandedByIcon = true;
                 consumingTouch = true;
                 return true;  // 消耗事件
             }
@@ -419,25 +490,14 @@ public class FloatingMenu implements InputProcessor {
 
         // 如果我们正在消费这个触摸事件，就一直消费到结束
         if (consumingTouch) {
-            // 检查是否抬起了手指在按钮上
-            if (expanded) {
-                if (pressedIndex >= 0) {
-                    releaseButton(pressedIndex);
-                    flashTimers[pressedIndex] = FLASH_DURATION;
-                }
-
-                // 如果手指在图标位置抬起，视为单纯的展开/收起操作
-                if (hitTestIcon(tx, ty)) {
-                    expanded = !expanded;  // 切换展开状态
-                    Gdx.app.log("FloatingMenu", "touchUp: hit icon, toggled expanded to " + expanded);
-                }
-
-                float dragDist = (float) Math.hypot(screenX - lastTouchX, screenY - lastTouchY);
-                if (dragDist < 30) {
-                    // 点击逻辑已在 press/release 中处理
-                }
+            // 检查是否抬起了手指在按钮上（仅在面板展开时触发按钮行为）
+            if (expanded && pressedIndex >= 0) {
+                releaseButton(pressedIndex);
+                flashTimers[pressedIndex] = FLASH_DURATION;
             }
 
+            // 清除展开标记（仅用于本次触摸序列）
+            justExpandedByIcon = false;
             pressedIndex = -1; // 抬起手指，清除按下状态
             consumingTouch = false;
             Gdx.app.log("FloatingMenu", "touchUp: consumingTouch ended");
@@ -448,7 +508,7 @@ public class FloatingMenu implements InputProcessor {
         // 防止触摸穿透到下层（KeyBoardInputProcesseor）触发重复的 ESC/ENTER 模拟
         // 收起状态点击图标展开时，touchDown 已消费事件，touchUp 也应消费
         consumingTouch = false;
-        return true;
+        return false;
     }
 
     @Override
@@ -487,7 +547,19 @@ public class FloatingMenu implements InputProcessor {
     public boolean scrolled(float amountX, float amountY) { return false; }
 
     @Override
-    public boolean keyDown(int keycode) { return false; }
+    public boolean keyDown(int keycode) {
+        // ESC取消编辑，ENTER确认
+        if (editingField >= 0) {
+            if (keycode == Keys.ESCAPE) {
+                cancelEdit();
+                return true;
+            } else if (keycode == Keys.ENTER) {
+                commitAdjust();
+                return true;
+            }
+        }
+        return false;
+    }
 
     @Override
     public boolean keyUp(int keycode) { return false; }
@@ -541,7 +613,6 @@ public class FloatingMenu implements InputProcessor {
     /** 检测触摸点是否在面板区域内，返回按钮索引（>=0）或 -1（在面板空白处）或 -2（不在面板内）或 -3/-4（翻页） */
     private int hitTestPanel(float tx, float ty) {
         if (font == null) return -2;
-        int cols = 2;
 
         // 计算可见按钮数量
         int visibleCount = 0;
@@ -553,15 +624,41 @@ public class FloatingMenu implements InputProcessor {
         int startIdx = currentPage * ITEMS_PER_PAGE;
         int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
         int itemCount = endIdx - startIdx;
+
+        // 频谱调整页使用3列布局（4行），普通页使用2列布局（6行）
+        boolean isSpectrumPage = (SPECTRUM_START >= startIdx && SPECTRUM_START < endIdx);
+        int cols = isSpectrumPage ? 3 : 2;
         int actualRows = (itemCount + cols - 1) / cols;
 
         float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
-        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + 40;
+        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        float pageBarHeight = (totalPages > 1) ? 36 : 0;
+        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
         float panelX = iconX + ICON_SIZE - panelW;
         float panelY = iconY - panelH - 4;
 
         if (tx < panelX || tx > panelX + panelW || ty < panelY || ty > panelY + panelH) {
             return -2;  // 不在面板区域内
+        }
+
+        // 检查是否点击了翻页箭头（顶部）
+        if (totalPages > 1) {
+            float pageY = panelY + panelH - PANEL_PAD - pageBarHeight;
+            if (ty >= pageY && ty <= pageY + pageBarHeight) {
+                // 检查左箭头
+                if (currentPage > 0 && tx >= panelX + PANEL_PAD - 20 && tx <= panelX + PANEL_PAD + 30) {
+                    return -3;  // 上一页
+                }
+                // 检查右箭头
+                if (currentPage < totalPages - 1) {
+                    GlyphLayout layout = new GlyphLayout();
+                    layout.setText(font, ">");
+                    float arrowX = panelX + panelW - PANEL_PAD - layout.width;
+                    if (tx >= arrowX - 20 && tx <= arrowX + layout.width + 20) {
+                        return -4;  // 下一页
+                    }
+                }
+            }
         }
 
         // 收集可见按钮索引
@@ -573,39 +670,17 @@ public class FloatingMenu implements InputProcessor {
             }
         }
 
+        // 检查按钮
+        float contentTop = panelY + panelH - PANEL_PAD;
         for (int j = startIdx; j < endIdx; j++) {
             int itemIdx = visibleIndices[j];
             int localIdx = j - startIdx;
             int col = localIdx % cols;
             int row = localIdx / cols;
             float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = panelY + PANEL_PAD + row * (BTN_H + BTN_GAP);
+            float by = contentTop - PANEL_PAD - pageBarHeight - (row + 1) * BTN_H - row * BTN_GAP;
             if (tx >= bx && tx <= bx + BTN_W && ty >= by && ty <= by + BTN_H) {
                 return itemIdx; // 返回实际按钮索引
-            }
-        }
-
-        // 检查是否点击了翻页箭头（最底部）
-        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-        float bottomY = panelY + PANEL_PAD;
-        GlyphLayout layout = new GlyphLayout();
-
-        // 翻页按钮位置（底部）
-        float pageTextY = bottomY + layout.height;
-
-        // 检查左箭头
-        if (currentPage > 0) {
-            if (tx >= panelX + PANEL_PAD - 20 && tx <= panelX + PANEL_PAD + 20 && ty >= bottomY && ty <= bottomY + 30) {
-                return -3;  // 上一页
-            }
-        }
-        // 检查右箭头
-        if (currentPage < totalPages - 1) {
-            String rightArrow = ">";
-            layout.setText(font, rightArrow);
-            float arrowX = panelX + panelW - PANEL_PAD - layout.width;
-            if (tx >= arrowX - 20 && tx <= arrowX + layout.width + 20 && ty >= bottomY && ty <= bottomY + 30) {
-                return -4;  // 下一页
             }
         }
 
@@ -620,6 +695,28 @@ public class FloatingMenu implements InputProcessor {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
         if (item.keycode == -100 || item.keycode == -101) return; // Toggle 类型在 touchUp 处理
+
+        // 频谱调整 +/- 按钮：启动长按定时
+        if (item.keycode >= -128 && item.keycode <= -121) {
+            int fieldIdx = getFieldIndexFromAdjustButton(item.keycode);
+            if (fieldIdx >= 0) {
+                editingField = fieldIdx;
+                editValue = getFieldValue(fieldIdx);
+                adjustDelta = (fieldIdx >= 2) ? 10 : 1; // X/Y=1pixel, W/H=10
+                adjustDirection = (item.keycode % 2 != 0) ? -1 : +1; // 奇数=-, 偶数=+ (负奇数%2!=0也成立)
+                adjustStartTime = System.nanoTime();
+                return;
+            }
+        }
+
+        // 频谱调整项 X/Y/W/H 选择器
+        if (item.keycode >= -114 && item.keycode <= -111) {
+            int fieldIndex = -(item.keycode + 111); // -111→0, -112→1, -113→2, -114→3
+            editingField = fieldIndex;
+            editValue = getFieldValue(fieldIndex);
+            updateFieldLabel(fieldIndex, editValue);
+            return;
+        }
 
         if (kbInput != null) {
             // 使用 setSimulatedKeyState 实现真正的长按（直到调用 false）
@@ -637,6 +734,22 @@ public class FloatingMenu implements InputProcessor {
             return;
         }
 
+        // 频谱调整 +/- 按钮：停止长按定时
+        if (item.keycode >= -128 && item.keycode <= -121) {
+            adjustStartTime = 0;
+            adjustDirection = 0;
+            commitAdjust();
+            return;
+        }
+
+        // 频谱调整项 X/Y/W/H 选择器
+        if (item.keycode >= -114 && item.keycode <= -111) {
+            int fieldIndex = -(item.keycode + 111);
+            editingField = fieldIndex;
+            editValue = getFieldValue(fieldIndex);
+            return;
+        }
+
         if (kbInput != null) {
             kbInput.setSimulatedKeyState(item.keycode, false);
             Gdx.app.log("FloatingMenu", "releaseButton: " + item.label);
@@ -647,7 +760,7 @@ public class FloatingMenu implements InputProcessor {
         Object mainController = kbInput.getMainController();
         if (mainController instanceof MainController) {
             Config config = ((MainController) mainController).getConfig();
-            if (config != null) {
+    if (config != null) {
                 if (item.keycode == -100) {
                     // Touch Key toggle
                     boolean newState = !config.isShowTouchKey();
@@ -668,12 +781,12 @@ public class FloatingMenu implements InputProcessor {
                         }
                     }
                 } else if (item.keycode == -101) {
-                    // Audio Spectrum toggle
-                    boolean newState = !config.isShowAudioSpectrum();
-                    config.setShowAudioSpectrum(newState);
-                    item.label = "Audio Spectrum: " + (newState ? "ON" : "OFF");
+                    // Spectrum In Game toggle
+                    boolean newState = !config.isSpectrumInGameArea();
+                    config.setSpectrumInGameArea(newState);
+                    item.label = "Spectrum In Game: " + (newState ? "ON" : "OFF");
                     Config.write(config);
-                    Gdx.app.log("FloatingMenu", "Audio Spectrum toggled to: " + newState);
+                    Gdx.app.log("FloatingMenu", "Spectrum In Game toggled to: " + newState);
                 }
             }
         }
@@ -695,6 +808,108 @@ public class FloatingMenu implements InputProcessor {
         if (vpH <= 0 || logicH <= 0) return screenY;
         // 屏幕 Y 从上往下，逻辑 Y 从下往上
         return logicH - (screenY - vpY) * (float) logicH / vpH;
+    }
+
+    // ─────────────────── 频谱编辑模式 ───────────────────
+
+    /** 从 +/- 按钮获取对应的 field 索引 */
+    private int getFieldIndexFromAdjustButton(int keycode) {
+        // -121,-122=X+-, -123,-124=Y+-, -125,-126=W+-, -127,-128=H+-
+        if (keycode == -121 || keycode == -122) return 0;
+        if (keycode == -123 || keycode == -124) return 1;
+        if (keycode == -125 || keycode == -126) return 2;
+        if (keycode == -127 || keycode == -128) return 3;
+        return -1;
+    }
+
+    /** 获取指定 field 的当前值 */
+    private int getFieldValue(int field) {
+        Object mc = kbInput != null ? kbInput.getMainController() : null;
+        if (mc instanceof MainController) {
+            PlayerConfig pc = ((MainController) mc).getPlayerConfig();
+            if (pc != null) {
+                switch (field) {
+                    case 0: return pc.getSpectrumOffsetX();
+                    case 1: return pc.getSpectrumOffsetY();
+                    case 2: return pc.getSpectrumOffsetW();
+                    case 3: return pc.getSpectrumOffsetH();
+                }
+            }
+        }
+        return 0;
+    }
+
+    /** 更新指定 field 的标签显示 */
+    private void updateFieldLabel(int field, int value) {
+        String prefix;
+        switch (field) {
+            case 0: prefix = "X:"; break;
+            case 1: prefix = "Y:"; break;
+            case 2: prefix = "W:"; break;
+            case 3: prefix = "H:"; break;
+            default: return;
+        }
+        // items 排列（新结构）：标题(9) X(10) X-(11) X+(12) Y(13) Y-(14) Y+(15) W(16) W-(17) W+(18) H(19) H-(20) H+(21)
+        items[10 + field * 3].label = prefix + " " + value;
+    }
+
+    /** 提交调整值到 PlayerConfig 并保存 */
+    private void commitAdjust() {
+        if (editingField < 0) return;
+        Object mc = kbInput != null ? kbInput.getMainController() : null;
+        if (mc instanceof MainController) {
+            MainController main = (MainController) mc;
+            PlayerConfig pc = main.getPlayerConfig();
+            if (pc != null) {
+                switch (editingField) {
+                    case 0: pc.setSpectrumOffsetX(editValue); break;
+                    case 1: pc.setSpectrumOffsetY(editValue); break;
+                    case 2: pc.setSpectrumOffsetW(editValue); break;
+                    case 3: pc.setSpectrumOffsetH(editValue); break;
+                }
+                PlayerConfig.write(main.getConfig().getPlayerpath(), pc);
+                // 通知 BeatorajaGame 更新频谱配置
+                Object game = main.getBeatorajaGame();
+                if (game != null && game instanceof com.starxh.beatoraja.BeatorajaGame) {
+                    ((com.starxh.beatoraja.BeatorajaGame) game).updateSpectrumConfig();
+                }
+                Gdx.app.log("FloatingMenu", "Spectrum " + editingField + " = " + editValue);
+            }
+        }
+        editingField = -1;
+        adjustStartTime = 0;
+        adjustDirection = 0;
+    }
+
+    /** 取消编辑，恢复原值 */
+    private void cancelEdit() {
+        if (editingField >= 0) {
+            updateFieldLabel(editingField, getFieldValue(editingField));
+        }
+        editingField = -1;
+        adjustStartTime = 0;
+        adjustDirection = 0;
+    }
+
+    private void exitEdit() {
+        editingField = -1;
+        adjustStartTime = 0;
+        adjustDirection = 0;
+    }
+
+    private void refreshSpectrumLabels() {
+        for (int i = 0; i < 4; i++) {
+            int value = getFieldValue(i);
+            String prefix;
+            switch (i) {
+                case 0: prefix = "X:"; break;
+                case 1: prefix = "Y:"; break;
+                case 2: prefix = "W:"; break;
+                case 3: prefix = "H:"; break;
+                default: prefix = "?"; break;
+            }
+            items[10 + i * 3].label = prefix + " " + value;
+        }
     }
 
     // ─────────────────── 资源释放 ───────────────────
