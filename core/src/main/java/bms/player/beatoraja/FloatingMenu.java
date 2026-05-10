@@ -56,6 +56,7 @@ public class FloatingMenu implements InputProcessor {
     private static final long ADJUST_INITIAL_DELAY = 300000000L; // 300ms开始
     private static final long ADJUST_ACCEL_INTERVAL = 300000000L; // 每300ms加速
     private int adjustDirection = 0; // -1=递减, +1=递增
+    private boolean shortPressCommitted = false; // 短按已在render中触发，release时不再重复提交
 
     // ─── 分页 ───
     private static final int ITEMS_PER_PAGE = 12;  // 每页12个：2列×6行普通，或3列×4行频谱调整页
@@ -283,6 +284,11 @@ public class FloatingMenu implements InputProcessor {
                 }
                 editValue += adjustDirection * adjustDelta * multiplier;
                 updateFieldLabel(editingField, editValue);
+            } else if (elapsed >= 0 && !shortPressCommitted) {
+                // 短按：不足300ms就松开，执行1次调整
+                editValue += adjustDirection * adjustDelta;
+                updateFieldLabel(editingField, editValue);
+                shortPressCommitted = true;
             }
         }
 
@@ -705,6 +711,7 @@ public class FloatingMenu implements InputProcessor {
                 adjustDelta = (fieldIdx >= 2) ? 10 : 1; // X/Y=1pixel, W/H=10
                 adjustDirection = (item.keycode % 2 != 0) ? -1 : +1; // 奇数=-, 偶数=+ (负奇数%2!=0也成立)
                 adjustStartTime = System.nanoTime();
+                shortPressCommitted = false;
                 return;
             }
         }
@@ -738,7 +745,10 @@ public class FloatingMenu implements InputProcessor {
         if (item.keycode >= -128 && item.keycode <= -121) {
             adjustStartTime = 0;
             adjustDirection = 0;
-            commitAdjust();
+            if (!shortPressCommitted) {
+                commitAdjust();
+            }
+            shortPressCommitted = false;
             return;
         }
 
