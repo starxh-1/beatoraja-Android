@@ -771,6 +771,12 @@ public final class PlayerConfig {
 	private int spectrumOffsetW = 0;
 	private int spectrumOffsetH = 0;
 
+	// -- TouchKey offset
+	private int touchKeyOffsetX = 0;
+	private int touchKeyOffsetY = 0;
+	private int touchKeyOffsetW = 0;
+	private int touchKeyOffsetH = 0;
+
 	// --Stream
 	public boolean getRequestEnable() {
         return enableRequest;
@@ -1203,4 +1209,13 @@ public final class PlayerConfig {
 	public void setSpectrumOffsetW(int v) { this.spectrumOffsetW = v; }
 	public int getSpectrumOffsetH() { return spectrumOffsetH; }
 	public void setSpectrumOffsetH(int v) { this.spectrumOffsetH = v; }
+
+	public int getTouchKeyOffsetX() { return touchKeyOffsetX; }
+	public void setTouchKeyOffsetX(int v) { this.touchKeyOffsetX = v; }
+	public int getTouchKeyOffsetY() { return touchKeyOffsetY; }
+	public void setTouchKeyOffsetY(int v) { this.touchKeyOffsetY = v; }
+	public int getTouchKeyOffsetW() { return touchKeyOffsetW; }
+	public void setTouchKeyOffsetW(int v) { this.touchKeyOffsetW = v; }
+	public int getTouchKeyOffsetH() { return touchKeyOffsetH; }
+	public void setTouchKeyOffsetH(int v) { this.touchKeyOffsetH = v; }
 }

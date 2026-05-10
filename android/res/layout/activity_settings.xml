@@ -101,45 +101,46 @@
                 android:id="@+id/keyVolumePercent"
                 android:layout_width="60dp"
                 android:layout_height="wrap_content"
-                android:text="50%"
+                android:gravity="end|center_vertical"
+                android:text="100%"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:gravity="end|center_vertical"/>
+                android:textSize="14sp" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:text="100%">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:gravity="center_vertical"
                 android:text="BGM Volume"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:textSize="16sp" />
 
             <SeekBar
                 android:id="@+id/bgmVolumeSeekBar"
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
-                                android:max="100"
+                android:max="100"
                 android:progress="100"
                 android:progressTint="#4FC3F7"
-                android:thumbTint="#4FC3F7"/>
+                android:thumbTint="#4FC3F7" />
 
             <TextView
                 android:id="@+id/bgmVolumePercent"
                 android:layout_width="60dp"
                 android:layout_height="wrap_content"
-                android:text="50%"
+                android:gravity="end|center_vertical"
+                android:text="100%"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
-                android:gravity="end|center_vertical"/>
+                android:textSize="14sp" />
         </LinearLayout>
 
         <View
@@ -314,6 +315,52 @@
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:checked="true" />
+        </LinearLayout>
+
+        <!-- BGA Display -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="BGA Display"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/bgaDisplaySpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
+        </LinearLayout>
+
+        <!-- BGA Expand -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="BGA Expand"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/bgaExpandSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
         </LinearLayout>
 
         <LinearLayout
@@ -500,64 +547,6 @@
             android:background="#333333"
             android:layout_marginVertical="16dp"/>
 
-        <!-- IR Section -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Internet Ranking"
-            android:textSize="20sp"
-            android:textColor="#4FC3F7"
-            android:layout_marginBottom="16dp"/>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Enable IR"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
-
-            <Switch
-                android:id="@+id/irEnableSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:checked="false"/>
-        </LinearLayout>
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="IR Send Count"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
-
-            <Spinner
-                android:id="@+id/irSendCountSpinner"
-                android:layout_width="120dp"
-                android:layout_height="48dp"
-                android:background="#333333"/>
-        </LinearLayout>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#333333"
-            android:layout_marginVertical="16dp"/>
 
         <!-- Table Section -->
         <LinearLayout
@@ -630,9 +619,9 @@
                 android:id="@+id/saveButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Save &amp; Play"
                 android:backgroundTint="#4FC3F7"
-                android:textColor="#000000"/>
+                android:text="スタート"
+                android:textColor="#000000" />
         </LinearLayout>
 
     </LinearLayout>

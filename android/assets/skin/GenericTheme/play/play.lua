@@ -1404,23 +1404,6 @@ local function main(keysNumber)
 			}},
 		})
 	end
-	-- spectrum (frame only, bars rendered by Java)
-	if property.hideFrames.item.off.isSelected() then
-		table.insert(skin.image,
-			{id = "frame_spectrum", src = "src_frame_spectrum", x = 0, y = 0, w = -1, h = -1}
-		)
-		-- spectrum offset 相对于 bga 中心左偏
-		local spec_x = geo.bga.center_x - 680 + offset.spectrum.x
-		local spec_y = 19 + offset.spectrum.y
-		local spec_w = offset.spectrum.w > 0 and offset.spectrum.w or 320
-		local spec_h = offset.spectrum.h > 0 and offset.spectrum.h or 80
-		if spec_y == 19 then spec_y = 19 + 10 end
-		append_all(skin.destination, {
-			{id = "frame_spectrum", dst = {
-				{x = spec_x, y = spec_y, w = spec_w, h = spec_h}
-			}},
-		})
-	end
 	-- bga header
 	do
 		local header_x = geo.bga.x - geo.bga.frame_w + offset.bga_header.x - offset.bga_header.w / 2

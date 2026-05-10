@@ -436,11 +436,6 @@
                 </VBox>
             </AnchorPane>
         </Tab>
-        <Tab fx:id="irTab" closable="false" text="IR">
-            <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
-                <fx:include fx:id="ir" source="IRConfigurationView.fxml" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />
-            </AnchorPane>
-        </Tab>
         <Tab fx:id="tableTab" closable="false" text="Table">
             <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                 <fx:include fx:id="table" source="TableEditorView.fxml" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0" />

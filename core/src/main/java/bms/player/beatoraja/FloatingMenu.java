@@ -46,6 +46,12 @@ public class FloatingMenu implements InputProcessor {
     private boolean selectMode = false; // 是否为 Select 界面
     private boolean keyConfigMode = false; // 是否为 KeyConfig 界面
     private boolean isPlayMode = false; // 是否为 Play 界面
+    /** Play 模式时：距上次交互超过此时间则自动隐藏图标（秒） */
+    private static final float HIDE_DELAY = 1.0f;
+    /** Play 模式时：距上次交互已过时间（秒） */
+    private float sinceLastInteraction = 0f;
+    /** Play 模式时：图标是否因超时被隐藏（点击图标区域可重新显示） */
+    private boolean playIconHidden = false;
 
     // ─── 频谱编辑模式 ───
     private int editingField = -1; // -1=none, 0=X, 1=Y, 2=W, 3=H
@@ -88,14 +94,15 @@ public class FloatingMenu implements InputProcessor {
     // 频谱调整：-111~114=X/Y/W/H选择器, -121~122=X+/- -123~124=Y+/- -125~126=W+/- -127~128=H+/-
     // 结构：6个通用 + 13个频谱调整（独占1页）+ 2个Controller Reset
     private final MenuItem[] items = {
-        // ── 通用按钮（第1页，8项）───────────────────────
+        // ── 通用按钮（第1页）───────────────────────
         new MenuItem("Touch Key: ON",  -100, true,  true, false, false),
-        new MenuItem("Spectrum In Game: ON", -101, true,  true, true, true),
-        new MenuItem("F1 Show FPS",      Keys.F1, false, true, true, false),
-        new MenuItem("F2 Update Song",   Keys.F2, false, true, true, false),
-        new MenuItem("F12 Skin Select",   Keys.F12, false, true, true, false),
-        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, true, false),
-        new MenuItem("Backspace",        Keys.BACKSPACE, false, true, true, false),
+        new MenuItem("F1 Show FPS",      Keys.F1, false, true, false, false),
+        new MenuItem("F2 Update Song",   Keys.F2, false, true, false, false),
+        new MenuItem("F10 RANDOM",   Keys.F10, false, true, false, false),
+        new MenuItem("F12 Skin Select",   Keys.F12, false, true, false, false),
+        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, false, false),
+        new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
+        new MenuItem("Backspace",        Keys.BACKSPACE, false, false, true, false),
         new MenuItem("Enter",            Keys.ENTER, false, true, true, false),
         new MenuItem("^ UP",        Keys.UP, false, true, true, false),
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
@@ -116,16 +123,16 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("[-]", -127, false, true, false, true),
         new MenuItem("[+]", -128, false, true, false, true),
         // ── Controller Reset（第3页，仅KeyConfig模式）──
-        new MenuItem("NUM 8 Controller Reset", Keys.NUM_8, false, false, true, false),
-        new MenuItem("NUM 2 Controller Reset", Keys.NUM_2, false, false, true, false),
+        new MenuItem("NUM 8 CTRLLER RST", Keys.NUM_8, false, false, true, false),
+        new MenuItem("NUM 2 CTRLLER RST", Keys.NUM_2, false, false, true, false),
     };
 
     // ─── 触摸与反馈状态 ───
     private float lastTouchX = 0, lastTouchY = 0;
-    /** 当前触摸是否被菜单消费（阻止穿透到游戏层） */
-    private boolean consumingTouch = false;
-    /** 当前手指正按下的按钮索引 */
-    private int pressedIndex = -1;
+    /** 每个指针是否被菜单消费（阻止穿透到游戏层） */
+    private boolean[] pointerConsuming = new boolean[20];
+    /** 每个指针正按下的按钮索引（-1 表示未按下按钮） */
+    private int[] pointerPressedIndex = new int[20];
     /** 每个按钮点击后的临时高亮计时器 */
     private final float[] flashTimers = new float[items.length];
     private static final float FLASH_DURATION = 0f; // 亮起常驻
@@ -149,7 +156,6 @@ public class FloatingMenu implements InputProcessor {
             Config config = ((MainController) mc).getConfig();
             if (config != null) {
                 items[0].label = "Touch Key: " + (config.isShowTouchKey() ? "ON" : "OFF");
-                items[1].label = "Spectrum In Game: " + (config.isSpectrumInGameArea() ? "ON" : "OFF");
             }
         }
     }
@@ -195,17 +201,23 @@ public class FloatingMenu implements InputProcessor {
         currentPage = 0;
     }
 
-    /** 设置是否为 Play 界面 */
+    /** 设置是否为 Play 界面（复用一个通用的菜单，不单独处理） */
     public void setPlayMode(boolean playMode) {
         this.isPlayMode = playMode;
-        currentPage = 0;
+        // 不再单独处理：play 模式复用 selectMode 的菜单
+        // 进入/退出 play 模式时重置超时状态
+        if (playMode) {
+            sinceLastInteraction = 0f;
+            playIconHidden = false;
+        }
     }
 
     /** 判断按钮是否在当前界面显示 */
     private boolean isItemVisible(MenuItem item) {
+        // Play 模式复用 selectMode 的菜单，使用 showOnSelect 作为显示依据
         if (selectMode && !item.showOnSelect) return false;
         if (keyConfigMode && !item.showOnKeyConfig) return false;
-        if (isPlayMode && !item.showOnPlay) return false;
+        if (isPlayMode && !item.showOnSelect) return false;
         return true;
     }
 
@@ -271,6 +283,14 @@ public class FloatingMenu implements InputProcessor {
             if (flashTimers[i] > 0) flashTimers[i] -= delta;
         }
 
+        // Play 模式：1秒无操作则自动隐藏图标
+        if (isPlayMode && visible && !expanded) {
+            sinceLastInteraction += delta;
+            if (sinceLastInteraction >= HIDE_DELAY) {
+                playIconHidden = true;
+            }
+        }
+
         // 长按调整：300ms后开始，每300ms加速（1→2→5→10→20...）
         if (adjustStartTime > 0 && adjustDirection != 0) {
             long elapsed = System.nanoTime() - adjustStartTime;
@@ -296,9 +316,14 @@ public class FloatingMenu implements InputProcessor {
 
         sprite.begin();
 
-        // 绘制浮动图标
-        sprite.setColor(1, 1, 1, 0.55f);
-        sprite.draw(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE);
+        // Play 模式超时隐藏：图标不绘制，但仍响应触摸
+        boolean showIcon = !(isPlayMode && playIconHidden);
+
+        if (showIcon) {
+            // 绘制浮动图标
+            sprite.setColor(1, 1, 1, 0.55f);
+            sprite.draw(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE);
+        }
 
         // 如果展开，绘制面板
         if (expanded && font != null) {
@@ -406,7 +431,14 @@ public class FloatingMenu implements InputProcessor {
             float by = contentTop - PANEL_PAD - pageBarHeight - (row + 1) * BTN_H - row * BTN_GAP;
 
             // 按钮背景颜色计算：按下或正在闪烁时变亮
-            if (j == pressedIndex || flashTimers[j] > 0) {
+            boolean isPressed = false;
+            for (int p = 0; p < pointerPressedIndex.length; p++) {
+                if (pointerPressedIndex[p] == itemIdx) {
+                    isPressed = true;
+                    break;
+                }
+            }
+            if (isPressed || flashTimers[itemIdx] > 0) {
                 sprite.setColor(0.4f, 0.6f, 1.0f, 0.9f);
             } else {
                 sprite.setColor(0.25f, 0.3f, 0.4f, 0.8f);
@@ -426,7 +458,7 @@ public class FloatingMenu implements InputProcessor {
 
     @Override
     public boolean touchDown(int screenX, int screenY, int pointer, int button) {
-        if (!visible) return false;
+        if (!visible || pointer >= pointerConsuming.length) return false;
 
         float tx = screenToLogicX(screenX);
         float ty = screenToLogicY(screenY);
@@ -437,114 +469,101 @@ public class FloatingMenu implements InputProcessor {
             // 展开状态：检查是否点击了图标（关闭菜单）
             if (hitTestIcon(tx, ty)) {
                 expanded = false;
-                consumingTouch = true;
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
                 return true;
             }
             // 检查是否点到了按钮
             int hit = hitTestPanel(tx, ty);
             if (hit >= 0) {
-                pressedIndex = hit;
-                pressButton(hit); // 按下时立即触发
-                consumingTouch = true;
+                pointerPressedIndex[pointer] = hit;
+                pressButton(hit);
+                pointerConsuming[pointer] = true;
                 return true;
             }
             // 处理翻页
             if (hit == -3) {
-                // 上一页
                 if (currentPage > 0) currentPage--;
-                consumingTouch = true;
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
                 return true;
             }
             if (hit == -4) {
-                // 下一页
                 int visibleCount = 0;
                 for (MenuItem item : items) {
                     if (selectMode ? item.showOnSelect : true) visibleCount++;
                 }
                 int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
                 if (currentPage < totalPages - 1) currentPage++;
-                consumingTouch = true;
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
                 return true;
             }
             // 面板区域内空白 → 消费事件
             if (hit == -1) {
-                consumingTouch = true;
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
                 return true;
             }
             // 面板外点击
-            consumingTouch = true;
+            pointerConsuming[pointer] = true;
+            pointerPressedIndex[pointer] = -1;
             return true;
         } else {
             // 收起状态：检查是否点击了图标
             if (hitTestIcon(tx, ty)) {
+                if (isPlayMode) {
+                    sinceLastInteraction = 0f;
+                    playIconHidden = false;
+                }
                 expanded = true;
                 justExpandedByIcon = true;
-                consumingTouch = true;
-                return true;  // 消耗事件
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
+                return true;
             }
-            // 没有点击图标，不拦截
             return false;
         }
     }
 
     @Override
     public boolean touchUp(int screenX, int screenY, int pointer, int button) {
-        if (!visible) {
-            consumingTouch = false;
-            Gdx.app.log("FloatingMenu", "touchUp: not visible, returning false");
-            return false;
-        }
+        if (!visible || pointer >= pointerConsuming.length) return false;
 
-        float tx = screenToLogicX(screenX);
-        float ty = screenToLogicY(screenY);
-
-        // 如果我们正在消费这个触摸事件，就一直消费到结束
-        if (consumingTouch) {
-            // 检查是否抬起了手指在按钮上（仅在面板展开时触发按钮行为）
-            if (expanded && pressedIndex >= 0) {
-                releaseButton(pressedIndex);
-                flashTimers[pressedIndex] = FLASH_DURATION;
+        // 如果这个指针正在消费事件
+        if (pointerConsuming[pointer]) {
+            // Play 模式：任何交互都重置超时计时器
+            if (isPlayMode) {
+                sinceLastInteraction = 0f;
             }
-
-            // 清除展开标记（仅用于本次触摸序列）
+            // 检查是否抬起了手指在按钮上
+            int pressedIdx = pointerPressedIndex[pointer];
+            if (expanded && pressedIdx >= 0) {
+                releaseButton(pressedIdx);
+                flashTimers[pressedIdx] = FLASH_DURATION;
+            }
             justExpandedByIcon = false;
-            pressedIndex = -1; // 抬起手指，清除按下状态
-            consumingTouch = false;
-            Gdx.app.log("FloatingMenu", "touchUp: consumingTouch ended");
-            return true;  // 始终消费这个事件序列
+            pointerPressedIndex[pointer] = -1;
+            pointerConsuming[pointer] = false;
+            return true;
         }
-
-        Gdx.app.log("FloatingMenu", "touchUp: not consuming, returning false");
-        // 防止触摸穿透到下层（KeyBoardInputProcesseor）触发重复的 ESC/ENTER 模拟
-        // 收起状态点击图标展开时，touchDown 已消费事件，touchUp 也应消费
-        consumingTouch = false;
         return false;
     }
 
     @Override
     public boolean touchDragged(int screenX, int screenY, int pointer) {
-        if (!visible) return false;
-        // 如果我们正在消费这个触摸事件，继续消费
-        if (consumingTouch) {
-            // 实时更新按下的按钮索引（支持滑动切换按键状态，实现滑动长按）
+        if (!visible || pointer >= pointerConsuming.length) return false;
+        if (pointerConsuming[pointer]) {
             if (expanded) {
                 float tx = screenToLogicX(screenX);
                 float ty = screenToLogicY(screenY);
                 int hit = hitTestPanel(tx, ty);
-                if (hit != pressedIndex) {
-                    if (pressedIndex >= 0) releaseButton(pressedIndex);
-                    pressedIndex = hit;
-                    if (pressedIndex >= 0) pressButton(pressedIndex);
+                int currentIdx = pointerPressedIndex[pointer];
+                if (hit != currentIdx) {
+                    if (currentIdx >= 0) releaseButton(currentIdx);
+                    pointerPressedIndex[pointer] = hit;
                 }
             }
-            return true;
-        }
-        // 检查是否拖拽到了面板区域
-        float tx = screenToLogicX(screenX);
-        float ty = screenToLogicY(screenY);
-        boolean inPanel = hitTestPanel(tx, ty) >= -1 || hitTestIcon(tx, ty);
-        if (inPanel) {
-            consumingTouch = true;
             return true;
         }
         return false;
@@ -564,7 +583,7 @@ public class FloatingMenu implements InputProcessor {
                 cancelEdit();
                 return true;
             } else if (keycode == Keys.ENTER) {
-                commitAdjust();
+                commitAdjust(false);
                 return true;
             }
         }
@@ -579,14 +598,19 @@ public class FloatingMenu implements InputProcessor {
 
     @Override
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
-        consumingTouch = false;
-        pressedIndex = -1;
+        if (pointer < pointerConsuming.length) {
+            pointerPressedIndex[pointer] = -1;
+            pointerConsuming[pointer] = false;
+        }
         return false;
     }
 
     /** 返回当前触摸是否正被浮动菜单消费（用于 MainController 跳过触摸指针/皮肤事件） */
     public boolean isConsumingTouch() {
-        return consumingTouch;
+        for (boolean consuming : pointerConsuming) {
+            if (consuming) return true;
+        }
+        return false;
     }
 
     // ─────────────────── 旧版轮询触摸处理（已废弃） ───────────────────
@@ -704,7 +728,7 @@ public class FloatingMenu implements InputProcessor {
     private void pressButton(int index) {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
-        if (item.keycode == -100 || item.keycode == -101) return; // Toggle 类型在 touchUp 处理
+        if (item.keycode == -100) return; // Toggle 类型在 touchUp 处理
 
         // 频谱调整 +/- 按钮：启动长按定时
         if (item.keycode >= -128 && item.keycode <= -121) {
@@ -749,10 +773,9 @@ public class FloatingMenu implements InputProcessor {
         if (item.keycode >= -128 && item.keycode <= -121) {
             adjustStartTime = 0;
             adjustDirection = 0;
-            if (!shortPressCommitted) {
-                commitAdjust();
-            }
             shortPressCommitted = false;
+            // 短按或长按释放时都要提交并保存
+            commitAdjust(true);
             return;
         }
 
@@ -794,13 +817,6 @@ public class FloatingMenu implements InputProcessor {
                             Gdx.app.log("FloatingMenu", "Failed to update touchKeyMapper state: " + e.getMessage());
                         }
                     }
-                } else if (item.keycode == -101) {
-                    // Spectrum In Game toggle
-                    boolean newState = !config.isSpectrumInGameArea();
-                    config.setSpectrumInGameArea(newState);
-                    item.label = "Spectrum In Game: " + (newState ? "ON" : "OFF");
-                    Config.write(config);
-                    Gdx.app.log("FloatingMenu", "Spectrum In Game toggled to: " + newState);
                 }
             }
         }
@@ -863,12 +879,12 @@ public class FloatingMenu implements InputProcessor {
             case 3: prefix = "H:"; break;
             default: return;
         }
-        // items 排列（新结构）：标题(9) X(10) X-(11) X+(12) Y(13) Y-(14) Y+(15) W(16) W-(17) W+(18) H(19) H-(20) H+(21)
-        items[10 + field * 3].label = prefix + " " + value;
+        // items 排列：0-11通用 + 12-23频谱调整(X/Y/W/H各3个) + 24-25 Controller Reset
+        items[12 + field * 3].label = prefix + " " + value;
     }
 
     /** 提交调整值到 PlayerConfig 并保存 */
-    private void commitAdjust() {
+    private void commitAdjust(boolean forceSave) {
         if (editingField < 0) return;
         Object mc = kbInput != null ? kbInput.getMainController() : null;
         if (mc instanceof MainController) {
@@ -882,7 +898,6 @@ public class FloatingMenu implements InputProcessor {
                     case 3: pc.setSpectrumOffsetH(editValue); break;
                 }
                 PlayerConfig.write(main.getConfig().getPlayerpath(), pc);
-                // 通知 BeatorajaGame 更新频谱配置
                 Object game = main.getBeatorajaGame();
                 if (game != null && game instanceof com.starxh.beatoraja.BeatorajaGame) {
                     ((com.starxh.beatoraja.BeatorajaGame) game).updateSpectrumConfig();
@@ -922,7 +937,7 @@ public class FloatingMenu implements InputProcessor {
                 case 3: prefix = "H:"; break;
                 default: prefix = "?"; break;
             }
-            items[10 + i * 3].label = prefix + " " + value;
+            items[12 + i * 3].label = prefix + " " + value;
         }
     }
 

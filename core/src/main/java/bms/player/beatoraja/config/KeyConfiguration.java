@@ -101,6 +101,8 @@ public class KeyConfiguration extends MainState {
 
 	public void create() {
 		loadSkin(SkinType.KEY_CONFIG);
+		// Android: 禁用 KeyConfig 界面的 Stage 触摸，防止与 FloatingMenu 冲突
+		setStage(null);
 		if(getSkin() == null) {
 			SkinHeader header = new SkinHeader();
 			header.setSourceResolution(Resolution.HD);
@@ -143,10 +145,7 @@ public class KeyConfiguration extends MainState {
 
 	@Override
 	public void input() {
-		// 如果浮动菜单正在消费触摸，跳过所有输入处理
-		if (main.getFloatingMenu() != null && main.getFloatingMenu().isConsumingTouch()) {
-			return;
-		}
+		// 禁用界面原生触摸处理，仅允许通过 InputProcessor(FloatingMenu/Keyboard) 驱动
 	}
 
 	public void render() {
@@ -156,13 +155,6 @@ public class KeyConfiguration extends MainState {
 
 		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-		// 如果浮动菜单正在消费触摸，跳过所有输入处理
-		if (main.getFloatingMenu() != null && main.getFloatingMenu().isConsumingTouch()) {
-			// 仍然渲染界面，但不处理输入
-			renderContent(sprite, scaleX, scaleY);
-			return;
-		}
 
 		if (input.isControlKeyPressed(ControlKeys.LEFT)) {
 			setMode((mode + KEYS.length - 1) % KEYS.length);

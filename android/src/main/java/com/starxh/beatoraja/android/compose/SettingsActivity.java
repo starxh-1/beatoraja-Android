@@ -51,8 +51,6 @@ public class SettingsActivity extends Activity {
     private int selectedBgmVolume = 100;
     private String selectedPlayerName = "player1";
     private List<String> bmsPaths = new ArrayList<>();
-    private boolean irEnable = false;
-    private int irSendCount = 5;
     private boolean showAudioSpectrum = true;
     private List<String> tableUrls = new ArrayList<>();
     private List<String> availablePlayers = new ArrayList<>();
@@ -60,6 +58,8 @@ public class SettingsActivity extends Activity {
     private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
     private int selectedGreenNumber = 0;
     private int selectedHispeedFix = 3;
+    private int selectedBga = 0;  // 0=On, 1=Auto, 2=Off
+    private int selectedBgaExpand = 1;  // 0=Full, 1=Keep Aspect Ratio, 2=Off
 
     // UI containers
     private LinearLayout bmsPathContainer;
@@ -116,20 +116,20 @@ public class SettingsActivity extends Activity {
                     bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
                 }
 
-                // 解析 irSendCount
-                irSendCount = findJsonIntValue(json, "irSendCount", 5);
-
                 // 解析 showAudioSpectrum
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
+
+                // 解析 bga
+                selectedBga = findJsonIntValue(json, "bga", 0);
+
+                // 解析 bgaExpand
+                selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
 
                 // 解析 tableURL 数组
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) {
                     tableUrls.add("");
                 }
-
-                // IR enable: default OFF, only enable if irconfig has content
-                irEnable = false;
             } else {
                 // 默认值
                 bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
@@ -595,13 +595,6 @@ public class SettingsActivity extends Activity {
             }
         });
 
-        // IR Enable
-        Switch irEnableSwitch = findViewById(R.id.irEnableSwitch);
-        irEnableSwitch.setChecked(irEnable);
-        irEnableSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            irEnable = isChecked;
-        });
-
         // Show Audio Spectrum
         Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
         showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
@@ -609,17 +602,21 @@ public class SettingsActivity extends Activity {
             showAudioSpectrum = isChecked;
         });
 
-        // IR Send Count
-        Spinner irSendCountSpinner = findViewById(R.id.irSendCountSpinner);
-        List<String> irSendCountList = new ArrayList<>();
-        for (int i = 1; i <= 10; i++) {
-            irSendCountList.add(String.valueOf(i));
-        }
-        ArrayAdapter<String> irSendAdapter = new ArrayAdapter<>(
-            this, R.layout.spinner_item, irSendCountList);
-        irSendAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        irSendCountSpinner.setAdapter(irSendAdapter);
-        irSendCountSpinner.setSelection(Math.min(irSendCount - 1, 9));
+        // BGA Display
+        Spinner bgaDisplaySpinner = findViewById(R.id.bgaDisplaySpinner);
+        List<String> bgaDisplayOptions = Arrays.asList("On", "Auto", "Off");
+        ArrayAdapter<String> bgaDisplayAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, bgaDisplayOptions);
+        bgaDisplayAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        bgaDisplaySpinner.setAdapter(bgaDisplayAdapter);
+        bgaDisplaySpinner.setSelection(selectedBga);
+
+        // BGA Expand
+        Spinner bgaExpandSpinner = findViewById(R.id.bgaExpandSpinner);
+        List<String> bgaExpandOptions = Arrays.asList("Full", "Keep Aspect Ratio", "Off");
+        ArrayAdapter<String> bgaExpandAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, bgaExpandOptions);
+        bgaExpandAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        bgaExpandSpinner.setAdapter(bgaExpandAdapter);
+        bgaExpandSpinner.setSelection(selectedBgaExpand);
 
         // Table URL Container
         tableUrlContainer = findViewById(R.id.tableUrlContainer);
@@ -679,11 +676,6 @@ public class SettingsActivity extends Activity {
         // Buttons
         Button saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> {
-            // 更新 irSendCount from spinner
-            String selected = (String) irSendCountSpinner.getSelectedItem();
-            if (selected != null) {
-                irSendCount = Integer.parseInt(selected);
-            }
             // Gauge Auto Shift
             selectedGaugeAutoShift = gaugeAutoShiftSpinner.getSelectedItemPosition();
             // Auto Save Replay
@@ -1067,15 +1059,18 @@ public class SettingsActivity extends Activity {
             // showAudioSpectrum
             existingConfig.put("showAudioSpectrum", showAudioSpectrum);
 
+            // bga
+            existingConfig.put("bga", selectedBga);
+
+            // bgaExpand
+            existingConfig.put("bgaExpand", selectedBgaExpand);
+
             // bmsroot array
             org.json.JSONArray bmsrootArray = new org.json.JSONArray();
             for (String path : bmsPaths) {
                 bmsrootArray.put(path);
             }
             existingConfig.put("bmsroot", bmsrootArray);
-
-            // irSendCount
-            existingConfig.put("irSendCount", irSendCount);
 
             // irconfig - keep existing if present, or empty array
             if (!existingConfig.has("irconfig")) {
@@ -1680,17 +1675,14 @@ public class SettingsActivity extends Activity {
             }
         }
 
-        // IR
-        irEnable = ((android.widget.Switch) findViewById(R.id.irEnableSwitch)).isChecked();
-        String irSendCountStr = (String) ((Spinner) findViewById(R.id.irSendCountSpinner)).getSelectedItem();
-        if (irSendCountStr != null) {
-            try {
-                irSendCount = Integer.parseInt(irSendCountStr);
-            } catch (Exception e) {}
-        }
-
         // Audio Spectrum
         showAudioSpectrum = ((android.widget.Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
+
+        // BGA Display
+        selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
+
+        // BGA Expand
+        selectedBgaExpand = ((Spinner) findViewById(R.id.bgaExpandSpinner)).getSelectedItemPosition();
 
         // Table URLs
         tableUrls.clear();
