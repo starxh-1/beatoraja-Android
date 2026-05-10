@@ -9,7 +9,6 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.play.bga.GdxVideoProcessor;
-import bms.player.beatoraja.play.bga.JCodecVideoProcessor;
 import bms.player.beatoraja.play.bga.MovieProcessor;
 
 /**
@@ -20,7 +19,7 @@ import bms.player.beatoraja.play.bga.MovieProcessor;
 public class SkinSourceMovie extends SkinSource {
 
 	/**
-	 * 视频处理器（Android 使用 gdx-video/JCodec）
+	 * 视频处理器（Android 使用 gdx-video）
 	 */
 	private MovieProcessor image;
 
@@ -35,17 +34,11 @@ public class SkinSourceMovie extends SkinSource {
 	}
 
 	public SkinSourceMovie(String s, int timer) {
-		// Android 平台：使用 gdx-video 硬件解码或 JCodec 软解
+		// Android: 使用 gdx-video 硬件解码
 		if (Gdx.app.getType() == Application.ApplicationType.Android) {
-			if (JCodecVideoProcessor.isJCodecFormat(s)) {
-				JCodecVideoProcessor jcp = new JCodecVideoProcessor();
-				jcp.create(s);
-				image = jcp;
-			} else {
-				GdxVideoProcessor gvp = new GdxVideoProcessor();
-				gvp.create(s);
-				image = gvp;
-			}
+			GdxVideoProcessor gvp = new GdxVideoProcessor();
+			gvp.create(s);
+			image = gvp;
 		} else {
 			// Desktop: 视频播放已不支持
 			image = null;

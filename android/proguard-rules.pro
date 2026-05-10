@@ -30,11 +30,6 @@
 # Needed by the gdx-video official extension (Android hardware video decoding).
 -keep class com.badlogic.gdx.video.** { *; }
 
-# Needed by JCodec (pure Java soft decoding for legacy .avi BGA videos).
-# Note: JCodec 0.2.5 only supports AVI container. MPEG PS (.mpg) and WMV are handled by gdx-video.
--keep class org.jcodec.** { *; }
--dontwarn org.jcodec.**
-
 # ===========================================================
 # R8 Release 构建修复：忽略 Android 不存在的 Java SE 桌面类
 # ===========================================================

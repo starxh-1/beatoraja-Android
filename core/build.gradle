@@ -26,9 +26,6 @@ dependencies {
   api "com.badlogicgames.gdx:gdx:$gdxVersion"
   implementation "com.badlogicgames.gdx-video:gdx-video:$gdxVideoVersion"
 
-  // JCodec 纯 Java 软解码：用于 .mpg/.avi 等旧格式的优雅降级，无 FFmpeg/JNI 冲突
-  implementation "org.jcodec:jcodec:$jcodecVersion"
-
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
   }

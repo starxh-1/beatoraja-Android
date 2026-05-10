@@ -76,14 +76,8 @@ public class BGAProcessor {
 	private boolean rbga;
 	private boolean rlayer;
 
-	/**
-	 * 是否在 Android 平台上运行（使用 gdx-video 硬件解码）
-	 */
-	private final boolean useGdxVideo;
-
 	public BGAProcessor(Config config, PlayerConfig player) {
 		this.player = player;
-		this.useGdxVideo = Gdx.app.getType() == Application.ApplicationType.Android;
 
 		Pixmap blank = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
 		blank.setColor(Color.BLACK);
@@ -94,23 +88,10 @@ public class BGAProcessor {
 		mpgresource = new ResourcePool<String, MovieProcessor>(Math.max(config.getSongResourceGen(), 1)) {
 			@Override
 			protected MovieProcessor load(String key) {
-				if (useGdxVideo) {
-					// Android 平台分两条路径：
-					// 1) .mpg/.avi 等旧格式 → JCodec 纯 Java 软解码（避免 FFmpeg JNI 冲突）
-					// 2) .mp4/.webm 等现代格式 → gdx-video 硬件解码（MediaCodec）
-					if (JCodecVideoProcessor.isJCodecFormat(key)) {
-						Logger.getGlobal().info("JCodec fallback for legacy format: " + key);
-						JCodecVideoProcessor jcp = new JCodecVideoProcessor();
-						jcp.create(key);
-						return jcp;
-					}
-					GdxVideoProcessor gvp = new GdxVideoProcessor();
-					gvp.create(key);
-					return gvp;
-				} else {
-					// Desktop: FFmpeg 软解码已移除（JavaCV 依赖已清理）
-					throw new UnsupportedOperationException("FFmpegProcessor has been removed. Desktop video playback is not supported.");
-				}
+				// Android: gdx-video 硬件解码（MediaCodec）处理所有格式
+				GdxVideoProcessor gvp = new GdxVideoProcessor();
+				gvp.create(key);
+				return gvp;
 			}
 
 			@Override
