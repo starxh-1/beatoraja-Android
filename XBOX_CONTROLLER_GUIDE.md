@@ -1,4 +1,4 @@
-// Written by AI
+Written by AI
 
 # XBOX手柄支持使用指南
 

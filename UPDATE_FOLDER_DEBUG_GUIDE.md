@@ -1,4 +1,4 @@
-// Written by AI
+Written by AI
 
 # F2 UPDATE_FOLDER 扫描诊断指南
 
