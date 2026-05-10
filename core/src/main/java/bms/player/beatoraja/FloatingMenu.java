@@ -382,8 +382,13 @@ public class FloatingMenu implements InputProcessor {
                 float arrowX = panelX + panelW - PANEL_PAD - layout.width;
                 font.draw(sprite, rightArrow, arrowX, pageY + pageBarHeight - 8);
             }
-            // 页码居中
-            String pageText = (currentPage + 1) + "/" + totalPages;
+            // 页码：频谱调整页显示"Spectrum"，其他页显示"页码"
+            String pageText;
+            if (isSpectrumPage) {
+                pageText = "Spectrum";
+            } else {
+                pageText = (currentPage + 1) + "/" + totalPages;
+            }
             font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
             layout.setText(font, pageText);
             float pageTextX = panelX + (panelW - layout.width) / 2;
