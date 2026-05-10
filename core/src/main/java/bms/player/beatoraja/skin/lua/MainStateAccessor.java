@@ -1,5 +1,7 @@
 package bms.player.beatoraja.skin.lua;
 
+import com.starxh.beatoraja.AudioSpectrumManager;
+import com.starxh.beatoraja.AudioSpectrumProvider;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.play.BMSPlayer;
 import bms.player.beatoraja.skin.SkinObject;
@@ -160,6 +162,20 @@ public class MainStateAccessor {
 			public LuaValue call(LuaValue path) {
 				state.main.getAudioProcessor().stop(path.tojstring());
 				return LuaBoolean.TRUE;
+			}
+		});
+		table.set("spectrum", new ZeroArgFunction() {
+			@Override
+			public LuaValue call() {
+				AudioSpectrumProvider provider = AudioSpectrumManager.getGlobalProvider();
+				float[] data = (provider != null) ? provider.getSpectrumMagnitudes() : null;
+				LuaTable table = new LuaTable();
+				if (data != null) {
+					for (int i = 0; i < data.length; i++) {
+						table.set(i + 1, LuaDouble.valueOf(data[i]));
+					}
+				}
+				return table;
 			}
 		});
 	}

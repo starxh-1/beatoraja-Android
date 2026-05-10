@@ -135,6 +135,26 @@ public class Config implements Validatable, Serializable {
 
 	private boolean showAudioSpectrum = true;
 
+	public boolean isSpectrumInGameArea() {
+		return spectrumInGameArea;
+	}
+
+	public void setSpectrumInGameArea(boolean spectrumInGameArea) {
+		this.spectrumInGameArea = spectrumInGameArea;
+	}
+
+	public boolean isShowFloatingMenuInPlay() {
+		return showFloatingMenuInPlay;
+	}
+
+	public void setShowFloatingMenuInPlay(boolean showFloatingMenuInPlay) {
+		this.showFloatingMenuInPlay = showFloatingMenuInPlay;
+	}
+
+	private boolean spectrumInGameArea = true;
+
+	private boolean showFloatingMenuInPlay = true;
+
 	private int prepareFramePerSecond = 0;
 	/**
 	 * 検索バー同時表示上限数

@@ -101,9 +101,8 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, false),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true, false),
-        // ── 频谱调整（第2页，13项，独立使用3列布局）─────
+        // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
-        new MenuItem("Spectrum Adjust", -110, false, true, false, true),  // 标题（不计入13个）
         new MenuItem("X: 0", -111, false, true, false, true),
         new MenuItem("[-]", -121, false, true, false, true),
         new MenuItem("[+]", -122, false, true, false, true),
@@ -385,7 +384,7 @@ public class FloatingMenu implements InputProcessor {
             // 页码：频谱调整页显示"Spectrum"，其他页显示"页码"
             String pageText;
             if (isSpectrumPage) {
-                pageText = "Spectrum";
+                pageText = "Spectrum Adjust";
             } else {
                 pageText = (currentPage + 1) + "/" + totalPages;
             }

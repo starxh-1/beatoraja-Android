@@ -43,6 +43,7 @@ public class BeatorajaGame extends ApplicationAdapter {
     public void create() {
         // 使用传入的参数初始化 beatoraja 核心控制器
         controller = new MainController(rootPath, bmsConfig, playerConfig, mode, useAudio);
+        controller.setBeatorajaGame(this);
         controller.create();
         spectrumRenderer = new SideSpectrumRenderer();
     }
@@ -99,60 +100,67 @@ public class BeatorajaGame extends ApplicationAdapter {
             if (state != null) {
                 bms.player.beatoraja.skin.Skin skin = state.getSkin();
                 if (skin != null && skin.header != null) {
-                    // 读取 skin 目录下的 spectrumconfig.json 作为默认值
+                    bms.player.beatoraja.skin.SkinType skinType = skin.header.getSkinType();
+                    bms.player.beatoraja.SkinConfig sc = controller.getPlayerConfig().getSkin()[skinType.getId()];
+
+                    // 读取 skin 目录下的 spectrumconfig.json 作为辅助配置
                     float configX = 0, configY = 0, configW = 0, configH = 0;
                     try {
-                        java.nio.file.Path skinPath = skin.header.getPath();
-                        if (skinPath != null) {
-                            java.nio.file.Path configPath = skinPath.getParent().resolve("spectrumconfig.json");
-                            if (java.nio.file.Files.exists(configPath)) {
-                                String json = new String(java.nio.file.Files.readAllBytes(configPath));
-                                Json jsonReader = new Json();
-                                java.util.Map<String, Object> config = jsonReader.fromJson(java.util.Map.class, json);
-                                if (config != null) {
-                                    if (config.get("x") != null) configX = ((Number) config.get("x")).floatValue();
-                                    if (config.get("y") != null) configY = ((Number) config.get("y")).floatValue();
-                                    if (config.get("w") != null) configW = ((Number) config.get("w")).floatValue();
-                                    if (config.get("h") != null) configH = ((Number) config.get("h")).floatValue();
-                                }
+                        java.nio.file.Path configPath = null;
+                        if (sc != null && sc.getPath() != null) {
+                            configPath = java.nio.file.Paths.get(sc.getPath()).getParent().resolve("spectrumconfig.json");
+                        }
+                        if (configPath == null || !java.nio.file.Files.exists(configPath)) {
+                            // 尝试从 skin header 的 path 获取
+                            configPath = skin.header.getPath().getParent().resolve("spectrumconfig.json");
+                        }
+                        if (java.nio.file.Files.exists(configPath)) {
+                            String json = new String(java.nio.file.Files.readAllBytes(configPath));
+                            com.badlogic.gdx.utils.JsonValue jsonValue = new com.badlogic.gdx.utils.JsonReader().parse(json);
+                            if (jsonValue != null) {
+                                if (jsonValue.has("x")) configX = jsonValue.getFloat("x");
+                                if (jsonValue.has("y")) configY = jsonValue.getFloat("y");
+                                if (jsonValue.has("w")) configW = jsonValue.getFloat("w");
+                                if (jsonValue.has("h")) configH = jsonValue.getFloat("h");
                             }
                         }
                     } catch (Exception e) {
                         com.badlogic.gdx.Gdx.app.log("Spectrum", "Failed to read spectrumconfig.json: " + e.getMessage());
                     }
 
+                    // 检查 skin 是否支持 spectrum（通过 skin header 的 CustomOffset 定义）
                     bms.player.beatoraja.skin.SkinHeader.CustomOffset[] offsets = skin.header.getCustomOffsets();
                     if (offsets != null) {
                         for (bms.player.beatoraja.skin.SkinHeader.CustomOffset off : offsets) {
                             if ("spectrum".equalsIgnoreCase(off.name) || off.name.toLowerCase().contains("spectrum")) {
                                 skinHasSpectrum = true;
-                                bms.player.beatoraja.SkinConfig.Offset vals = off.getOffset();
-                                if (vals != null) {
-                                    // 玩家配置优先，其次json配置，最后hardcoded
-                                    if (vals.x != 0) specX = vals.x;
-                                    else if (configX != 0) specX = configX;
-                                    if (vals.y != 0) specY = vals.y;
-                                    else if (configY != 0) specY = configY;
-                                    if (vals.w != 0) specW = vals.w;
-                                    else if (configW != 0) specW = configW;
-                                    if (vals.h != 0) specH = vals.h;
-                                    else if (configH != 0) specH = configH;
-                                } else {
-                                    // 使用json配置
-                                    if (configX != 0) specX = configX;
-                                    if (configY != 0) specY = configY;
-                                    if (configW != 0) specW = configW;
-                                    if (configH != 0) specH = configH;
-                                }
-                                // 仍然为0则用hardcoded
-                                if (specX == 0) specX = 680;
-                                if (specY == 0) specY = 10;
-                                if (specW == 0) specW = 320;
-                                if (specH == 0) specH = 80;
                                 break;
                             }
                         }
                     }
+
+                    // 直接用 PlayerConfig > json > hardcoded
+                    bms.player.beatoraja.PlayerConfig playerConfig = controller.getPlayerConfig();
+                    int pX = playerConfig != null ? playerConfig.getSpectrumOffsetX() : 0;
+                    int pY = playerConfig != null ? playerConfig.getSpectrumOffsetY() : 0;
+                    int pW = playerConfig != null ? playerConfig.getSpectrumOffsetW() : 0;
+                    int pH = playerConfig != null ? playerConfig.getSpectrumOffsetH() : 0;
+
+                    if (pX != 0) specX = pX;
+                    else if (configX != 0) specX = configX;
+                    else specX = 680;
+
+                    if (pY != 0) specY = pY;
+                    else if (configY != 0) specY = configY;
+                    else specY = 10;
+
+                    if (pW != 0) specW = pW;
+                    else if (configW != 0) specW = configW;
+                    else specW = 320;
+
+                    if (pH != 0) specH = pH;
+                    else if (configH != 0) specH = configH;
+                    else specH = 80;
                 }
             }
         }
@@ -213,5 +221,17 @@ public class BeatorajaGame extends ApplicationAdapter {
      */
     public MainController getMainController() {
         return controller;
+    }
+
+    /**
+     * 更新频谱渲染配置（供FloatingMenu调用）
+     */
+    public void updateSpectrumConfig() {
+        if (controller != null) {
+            Config cfg = controller.getConfig();
+            if (cfg != null) {
+                configureSpectrumRenderer(cfg);
+            }
+        }
     }
 }

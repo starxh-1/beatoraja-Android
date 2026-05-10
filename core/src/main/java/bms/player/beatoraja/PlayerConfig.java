@@ -765,6 +765,12 @@ public final class PlayerConfig {
 		this.twitterAccessTokenSecret = twitterAccessTokenSecret;
 	}
 
+	// -- Spectrum offset (Java-side, independent of luaskin)
+	private int spectrumOffsetX = 0;
+	private int spectrumOffsetY = 0;
+	private int spectrumOffsetW = 0;
+	private int spectrumOffsetH = 0;
+
 	// --Stream
 	public boolean getRequestEnable() {
         return enableRequest;
@@ -1188,4 +1194,13 @@ public final class PlayerConfig {
 	public void setChartReplicationMode(String chartReplicationMode) {
 		this.chartReplicationMode = chartReplicationMode;
 	}
+
+	public int getSpectrumOffsetX() { return spectrumOffsetX; }
+	public void setSpectrumOffsetX(int v) { this.spectrumOffsetX = v; }
+	public int getSpectrumOffsetY() { return spectrumOffsetY; }
+	public void setSpectrumOffsetY(int v) { this.spectrumOffsetY = v; }
+	public int getSpectrumOffsetW() { return spectrumOffsetW; }
+	public void setSpectrumOffsetW(int v) { this.spectrumOffsetW = v; }
+	public int getSpectrumOffsetH() { return spectrumOffsetH; }
+	public void setSpectrumOffsetH(int v) { this.spectrumOffsetH = v; }
 }

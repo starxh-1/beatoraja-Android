@@ -95,6 +95,9 @@ public class MainController {
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
     private boolean selectorInitialized = false;
 
+    /** BeatorajaGame实例引用，用于FloatingMenu回调更新频谱配置 */
+    private Object beatorajaGame;
+
     public static final int offsetCount = SkinProperty.OFFSET_MAX + 1;
     private final SkinOffset[] offset = new SkinOffset[offsetCount];
 
@@ -218,6 +221,8 @@ public class MainController {
     public Config getConfig() { return config; }
     public PlayerConfig getPlayerConfig() { return player; }
     public BitmapFont getSystemFont18() { return systemfont18; }
+    public Object getBeatorajaGame() { return beatorajaGame; }
+    public void setBeatorajaGame(Object game) { this.beatorajaGame = game; }
 
     public void changeState(MainStateType state) {
         MainState newState = null;
@@ -285,11 +290,16 @@ public class MainController {
             };
             Gdx.input.setInputProcessor(escapeMapper);
         } else {
-            // 浮动菜单：在 PLAY / DECIDE 状态隐藏
+            // 浮动菜单：在 PLAY / DECIDE 状态隐藏（除非 config 允许在 PLAY 显示）
             if (floatingMenu != null) {
-                floatingMenu.setVisible(state != MainStateType.PLAY && state != MainStateType.DECIDE);
+                boolean menuVisible = state != MainStateType.PLAY && state != MainStateType.DECIDE;
+                if (state == MainStateType.PLAY && config != null && config.isShowFloatingMenuInPlay()) {
+                    menuVisible = true;
+                }
+                floatingMenu.setVisible(menuVisible);
                 floatingMenu.setSelectMode(state == MainStateType.MUSICSELECT);
                 floatingMenu.setKeyConfigMode(state == MainStateType.CONFIG);
+                floatingMenu.setPlayMode(state == MainStateType.PLAY);
             }
             // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
             if (current != null && current.getStage() != null) {
@@ -316,18 +326,11 @@ public class MainController {
                 bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
                     (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
                 if (touchKeyMapper != null) {
-                    // 将触摸按键映射添加到InputMultiplexer的最高优先级
-                    if (floatingMenu != null && current.getStage() != null) {
+                    // 将触摸按键映射添加到InputMultiplexer，play界面禁用触摸检测让触摸只流向touchkey
+                    if (floatingMenu != null) {
                         Gdx.input.setInputProcessor(new InputMultiplexer(
                             floatingMenu,
-                            touchKeyMapper,  // 在Stage之前处理触摸
-                            current.getStage(),
-                            input.getKeyBoardInputProcesseor()
-                        ));
-                    } else if (current.getStage() != null) {
-                        Gdx.input.setInputProcessor(new InputMultiplexer(
                             touchKeyMapper,
-                            current.getStage(),
                             input.getKeyBoardInputProcesseor()
                         ));
                     } else {
@@ -336,7 +339,7 @@ public class MainController {
                             input.getKeyBoardInputProcesseor()
                         ));
                     }
-                    Gdx.app.log("MainController", "PlayTouchKeyMapper registered as InputProcessor");
+                    Gdx.app.log("MainController", "PlayTouchKeyMapper registered as InputProcessor (stage touch disabled)");
                 }
             } catch (Exception e) {
                 Gdx.app.log("MainController", "Failed to register PlayTouchKeyMapper: " + e.getMessage());

@@ -1405,18 +1405,16 @@ local function main(keysNumber)
 		})
 	end
 	-- spectrum (frame only, bars rendered by Java)
-	if property.hideFrames.item.off.isSelected() and property.inGameSpectrum.item.on.isSelected() then
+	if property.hideFrames.item.off.isSelected() then
 		table.insert(skin.image,
 			{id = "frame_spectrum", src = "src_frame_spectrum", x = 0, y = 0, w = -1, h = -1}
 		)
-		-- spectrum offset 默认值（如果玩家没有配置过）
-		local spec_x = offset.spectrum.x
-		local spec_y = offset.spectrum.y
+		-- spectrum offset 相对于 bga 中心左偏
+		local spec_x = geo.bga.center_x - 680 + offset.spectrum.x
+		local spec_y = 19 + offset.spectrum.y
 		local spec_w = offset.spectrum.w > 0 and offset.spectrum.w or 320
 		local spec_h = offset.spectrum.h > 0 and offset.spectrum.h or 80
-		-- 如果 offset 为 0，使用默认值让 frame 显示在中间偏下
-		if spec_x == 0 then spec_x = 680 end
-		if spec_y == 0 then spec_y = 10 end
+		if spec_y == 19 then spec_y = 19 + 10 end
 		append_all(skin.destination, {
 			{id = "frame_spectrum", dst = {
 				{x = spec_x, y = spec_y, w = spec_w, h = spec_h}
