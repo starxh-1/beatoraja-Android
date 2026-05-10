@@ -23,6 +23,7 @@ Main reason though: x86 handhelds are too heavy omg I just can't imagine playing
 ## 2. What's Different from the Original beatoraja
 
 What's new: Audio Spectrum — it's in the Play Option in the launcher.
+
 What's missing:
 1. All JavaFX-related implementations are gone — so here's a new launcher with Jetpack Compose, it just needs to be able to change options.
 2. Audio engine swapped to libgdx-oboe instead of PortAudio or OpenAL — honestly without Oboe this project wouldn't have been possible at all.
