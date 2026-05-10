@@ -23,6 +23,9 @@ public class SideSpectrumRenderer {
     private float gameAreaX = 0, gameAreaY = 0, gameAreaW = 320, gameAreaH = 80;
     private boolean hasValidGameArea = false;
 
+    private int lastW = -1, lastH = -1;
+    private boolean needsMatrixUpdate = true;
+
     public SideSpectrumRenderer() {
         shapeRenderer = new ShapeRenderer();
         camera = new OrthographicCamera();
@@ -68,6 +71,13 @@ public class SideSpectrumRenderer {
     public void render() {
         int w = Gdx.graphics.getWidth();
         int h = Gdx.graphics.getHeight();
+
+        if (w != lastW || h != lastH) {
+            lastW = w;
+            lastH = h;
+            needsMatrixUpdate = true;
+        }
+
         testTimer += Gdx.graphics.getDeltaTime();
 
         // 1. 获取数据
@@ -75,7 +85,7 @@ public class SideSpectrumRenderer {
         if (spectrumProvider != null) {
             float[] latest = spectrumProvider.getSpectrumMagnitudes();
             if (latest != null && latest.length >= 64) {
-                System.arraycopy(latest, 0, spectrum, 0, 64);
+                java.lang.System.arraycopy(latest, 0, spectrum, 0, 64);
                 for (float v : spectrum) {
                     if (v > 0.0001f) {
                         hasRealData = true;
@@ -85,7 +95,7 @@ public class SideSpectrumRenderer {
             }
         }
 
-        // 2. 更新下落逻辑（即使没有音频数据也继续渲染，让条形图逐渐归零）
+        // 2. 更新下落逻辑
         for (int i = 0; i < 64; i++) {
             if (spectrum[i] > topValues[i]) {
                 topValues[i] = spectrum[i];
@@ -116,15 +126,21 @@ public class SideSpectrumRenderer {
 
             // 设置viewport和camera只覆盖spectrum区域
             Gdx.gl.glViewport((int) specScreenX, (int) specScreenY_bottom, (int) specScreenW, (int) specScreenH);
-            camera.setToOrtho(false, (int) specScreenW, (int) specScreenH);
-            camera.update();
+            if (needsMatrixUpdate) {
+                camera.setToOrtho(false, (int) specScreenW, (int) specScreenH);
+                camera.update();
+                needsMatrixUpdate = false;
+            }
             shapeRenderer.setProjectionMatrix(camera.combined);
             renderInGameArea(spectrum, topValues, hasRealData, specScreenW, specScreenH);
         } else {
             // 黑边区域渲染模式 - 使用屏幕坐标
             Gdx.gl.glViewport(0, 0, w, h);
-            camera.setToOrtho(false, w, h);
-            camera.update();
+            if (needsMatrixUpdate) {
+                camera.setToOrtho(false, w, h);
+                camera.update();
+                needsMatrixUpdate = false;
+            }
             shapeRenderer.setProjectionMatrix(camera.combined);
             renderInBlackBars(spectrum, topValues, w, h, hasRealData);
         }

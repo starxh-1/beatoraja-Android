@@ -40,6 +40,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
     // pointer ID -> 初始按下的按键索引 (-1 表示未按在键上)
     private int[] pointerMap = new int[64];
 
+    private final Matrix4 oldProj = new Matrix4();
+
     private static final String[] KEY_LABELS = {"SCR", "1", "2", "3", "4", "5", "6", "7"};
     private static final Color SCRATCH_COLOR = new Color(0.8f, 0.2f, 0.2f, 0.1f);
     private static final Color WHITE_KEY_COLOR = new Color(0.9f, 0.9f, 0.9f, 0.1f);
@@ -116,7 +118,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             }
         }
 
-        Matrix4 oldProj = sprite.getProjectionMatrix().cpy();
+        oldProj.set(sprite.getProjectionMatrix());
         sprite.setProjectionMatrix(stage.getViewport().getCamera().combined);
         for (TouchKeyButton button : keyButtons) button.drawCustom(sprite, whitePixel, font);
         sprite.setProjectionMatrix(oldProj);

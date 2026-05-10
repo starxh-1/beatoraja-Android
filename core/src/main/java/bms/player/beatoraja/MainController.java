@@ -550,6 +550,13 @@ public class MainController {
     /** 预分配的坐标文字 StringBuilder，避免每帧 String.format() */
     private final StringBuilder coordTextBuilder = new StringBuilder(16);
 
+    // --- 频谱可视化反射缓存 ---
+    private Object visualizerInstance = null;
+    private java.lang.reflect.Method visualizerHasNewDataMethod = null;
+    private java.lang.reflect.Method visualizerGetMagnitudesMethod = null;
+    private boolean visualizerReflectionFailed = false;
+    private final Color spectrumBarColor = new Color(0.2f, 0.8f, 1f, 0.8f);
+
     /**
      * 将屏幕坐标 (Gdx.input.getX/getY) 转换为游戏逻辑坐标（皮肤坐标系）。
      * 在等比视口模式下，屏幕坐标需要扣除 pillarbox/letterbox 偏移并缩放。
@@ -726,17 +733,9 @@ public class MainController {
         // 在PLAY界面，检查PlayTouchKeyMapper是否正在消费触摸
         boolean playTouchKeyConsuming = false;
         if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
-            try {
-                BMSPlayer player = (BMSPlayer) current;
-                java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
-                field.setAccessible(true);
-                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
-                    (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
-                if (touchKeyMapper != null && touchKeyMapper.isConsumingTouch()) {
-                    playTouchKeyConsuming = true;
-                }
-            } catch (Exception e) {
-                // 忽略
+            bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = ((BMSPlayer) current).getTouchKeyMapper();
+            if (touchKeyMapper != null && touchKeyMapper.isConsumingTouch()) {
+                playTouchKeyConsuming = true;
             }
         }
 
@@ -748,21 +747,12 @@ public class MainController {
 
         // 绘制Play界面触摸按键（仅Android，在BMSPlayer界面）
         if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
-            try {
-                BMSPlayer player = (BMSPlayer) current;
-                // 使用反射获取touchKeyMapper
-                java.lang.reflect.Field field = BMSPlayer.class.getDeclaredField("touchKeyMapper");
-                field.setAccessible(true);
-                bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper =
-                    (bms.player.beatoraja.play.PlayTouchKeyMapper) field.get(player);
-                if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
-                    // 在皮肤绘制之后渲染，确保在最上层
-                    sprite.begin();
-                    touchKeyMapper.render(sprite, systemfont);
-                    sprite.end();
-                }
-            } catch (Exception e) {
-                // 静默失败，不影响游戏
+            bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = ((BMSPlayer) current).getTouchKeyMapper();
+            if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
+                // 在皮肤绘制之后渲染，确保在最上层
+                sprite.begin();
+                touchKeyMapper.render(sprite, systemfont);
+                sprite.end();
             }
         }
 
@@ -919,31 +909,30 @@ public class MainController {
      */
     private void drawAudioSpectrum() {
         // 只在 Android 上运行
-        if (Gdx.app.getType() != Application.ApplicationType.Android) {
+        if (Gdx.app.getType() != Application.ApplicationType.Android || visualizerReflectionFailed) {
             return;
         }
 
         float[] magnitudes = null;
 
-        // 通过反射获取 Visualizer 实例
+        // 使用反射缓存获取 Visualizer 数据
         try {
-            Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AudioSpectrumVisualizer");
-            java.lang.reflect.Method method = clazz.getMethod("getInstance");
-            Object visualizerObj = method.invoke(null);
-            if (visualizerObj == null) {
-                return;
+            if (visualizerInstance == null) {
+                Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AudioSpectrumVisualizer");
+                visualizerInstance = clazz.getMethod("getInstance").invoke(null);
+                if (visualizerInstance == null) return;
+                visualizerHasNewDataMethod = visualizerInstance.getClass().getMethod("hasNewData");
+                visualizerGetMagnitudesMethod = visualizerInstance.getClass().getMethod("getSmoothedBandMagnitudes");
             }
 
-            java.lang.reflect.Method hasNewDataMethod = visualizerObj.getClass().getMethod("hasNewData");
-            boolean hasNewData = (Boolean) hasNewDataMethod.invoke(visualizerObj);
+            boolean hasNewData = (Boolean) visualizerHasNewDataMethod.invoke(visualizerInstance);
             if (!hasNewData) {
                 return;
             }
 
-            java.lang.reflect.Method getMagnitudesMethod = visualizerObj.getClass().getMethod("getSmoothedBandMagnitudes");
-            magnitudes = (float[]) getMagnitudesMethod.invoke(visualizerObj);
+            magnitudes = (float[]) visualizerGetMagnitudesMethod.invoke(visualizerInstance);
         } catch (Exception e) {
-            // Visualizer 不可用，忽略
+            visualizerReflectionFailed = true; // 失败后不再尝试，避免每帧报错
             return;
         }
 
@@ -986,15 +975,13 @@ public class MainController {
         int barWidth = borderWidth / bandCount - 2;
         if (barWidth < 2) barWidth = 2;
 
-        Color barColor = new Color(0.2f, 0.8f, 1f, 0.8f); // 蓝绿色
-
         if (viewportX > 0) {
             // 左侧黑边：从下往上画
             for (int i = 0; i < bandCount; i++) {
                 int x = borderWidth - (i + 1) * (barWidth + 2);
                 int barHeight = (int) (magnitudes[i] * viewportH * 0.8f);
                 int y = viewportY + (viewportH - barHeight) / 2;
-                sprite.setColor(barColor);
+                sprite.setColor(spectrumBarColor);
                 sprite.draw(white, x, y, barWidth, barHeight);
             }
         } else if (screenAspect < targetAspect) {
@@ -1003,7 +990,7 @@ public class MainController {
                 int x = viewportX + borderWidth - (i + 1) * (barWidth + 2);
                 int barHeight = (int) (magnitudes[i] * viewportW * 0.8f);
                 int y = borderWidth - barHeight;
-                sprite.setColor(barColor);
+                sprite.setColor(spectrumBarColor);
                 sprite.draw(white, x, y, barWidth, barHeight);
             }
         }

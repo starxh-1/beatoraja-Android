@@ -38,8 +38,8 @@ public class FloatingMenu implements InputProcessor {
     private static final float BTN_H = 80;               // 缩小 30%
     private static final float BTN_GAP = 10;             // 缩小 30%
     private static final float PANEL_PAD = 24;           // 缩小 30%
-    /** 频谱调整页开始的按钮索引（第12项，0-based） */
-    private static final int SPECTRUM_START = 12;
+    /** 频谱调整页开始的按钮索引（第13项，0-based） */
+    private static final int SPECTRUM_START = 13;
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
@@ -126,6 +126,8 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("NUM 8 CTRLLER RST", Keys.NUM_8, false, false, true, false),
         new MenuItem("NUM 2 CTRLLER RST", Keys.NUM_2, false, false, true, false),
     };
+
+    private final Matrix4 menuProj = new Matrix4();
 
     // ─── 触摸与反馈状态 ───
     private float lastTouchX = 0, lastTouchY = 0;
@@ -312,7 +314,7 @@ public class FloatingMenu implements InputProcessor {
         }
 
         // ─── 设置投影矩阵到逻辑坐标 ───
-        sprite.setProjectionMatrix(new Matrix4().setToOrtho2D(0, 0, logicW, logicH));
+        sprite.setProjectionMatrix(menuProj.setToOrtho2D(0, 0, logicW, logicH));
 
         sprite.begin();
         // 确保使用正常的混合模式，防止皮肤（如 Note 爆发效果）残留的加算模式导致菜单发光
@@ -881,8 +883,8 @@ public class FloatingMenu implements InputProcessor {
             case 3: prefix = "H:"; break;
             default: return;
         }
-        // items 排列：0-11通用 + 12-23频谱调整(X/Y/W/H各3个) + 24-25 Controller Reset
-        items[12 + field * 3].label = prefix + " " + value;
+        // items 排列：0-12通用 + 13-24频谱调整(X/Y/W/H各3个) + 25-26 Controller Reset
+        items[13 + field * 3].label = prefix + " " + value;
     }
 
     /** 提交调整值到 PlayerConfig 并保存 */
@@ -939,7 +941,7 @@ public class FloatingMenu implements InputProcessor {
                 case 3: prefix = "H:"; break;
                 default: prefix = "?"; break;
             }
-            items[12 + i * 3].label = prefix + " " + value;
+            items[13 + i * 3].label = prefix + " " + value;
         }
     }
 

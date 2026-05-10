@@ -68,6 +68,14 @@ public class LaneRenderer {
 
 	private static final Rectangle DEFAULT_VIEWPORT = new Rectangle(0, 0, Float.MAX_VALUE, Float.MAX_VALUE);
 
+	private static final Color COLOR_TIME_TEXT = Color.valueOf("40c0c0");
+	private static final Color COLOR_BPM_TEXT = Color.valueOf("00c000");
+	private static final Color COLOR_STOP_TEXT = Color.valueOf("c0c000");
+	private static final Color[] JUDGE_AREA_COLORS = {
+			Color.valueOf("0000ff20"), Color.valueOf("00ff0020"), Color.valueOf("ffff0020"),
+			Color.valueOf("ff800020"), Color.valueOf("ff000020")
+	};
+
 	public LaneRenderer(BMSPlayer main, BMSModel model) {
 
 		this.main = main;
@@ -317,8 +325,6 @@ public class LaneRenderer {
 
 		// 判定エリア表示
 		if (config.isShowjudgearea()) {
-			final Color[] color = { Color.valueOf("0000ff20"), Color.valueOf("00ff0020"), Color.valueOf("ffff0020"),
-					Color.valueOf("ff800020"), Color.valueOf("ff000020") };
 			for (int lane = 0; lane < lanes.length; lane++) {
 				final long[][] judgetime = main.getJudgeManager().getJudgeTimeRegion(lane);
 				for (int i = pos; i < timelines.length; i++) {
@@ -327,8 +333,8 @@ public class LaneRenderer {
 						double rate = (tl.getSection() - (i > 0 ? timelines[i - 1].getSection() : 0)) * (i > 0 ? timelines[i - 1].getScroll() : 1.0) * rxhs
 								/ (tl.getMicroTime() - (i > 0
 										? timelines[i - 1].getMicroTime() + timelines[i - 1].getMicroStop() : 0));
-						for (int j = color.length - 1; j >= 0; j--) {
-							sprite.setColor(color[j]);
+						for (int j = JUDGE_AREA_COLORS.length - 1; j >= 0; j--) {
+							sprite.setColor(JUDGE_AREA_COLORS[j]);
 							long nj = j > 0 ? judgetime[j - 1][1] : 0;
 							sprite.draw(main.getImage(IMAGE_WHITE), lanes[lane].region.x, (float) (hl + nj * rate), lanes[lane].region.width,
 									(float) ((judgetime[j][1] - nj) * rate));
@@ -398,7 +404,7 @@ public class LaneRenderer {
 					for (Rectangle r : playerr) {
 						// TODO 数値もスキンベースへ移行
 						if(font != null) {
-							sprite.draw(font, cachedTimeText[i], r.x + 4, (float) (y + 20), Color.valueOf("40c0c0"));
+							sprite.draw(font, cachedTimeText[i], r.x + 4, (float) (y + 20), COLOR_TIME_TEXT);
 						}
 					}
 				}
@@ -411,7 +417,7 @@ public class LaneRenderer {
 						for (Rectangle r : playerr) {
 							// TODO 数値もスキンベースへ移行
 							if(font != null) {
-								sprite.draw(font, cachedBpmText[i], r.x + r.width / 2, (float) (y + 20), Color.valueOf("00c000"));
+								sprite.draw(font, cachedBpmText[i], r.x + r.width / 2, (float) (y + 20), COLOR_BPM_TEXT);
 							}
 
 						}
@@ -424,7 +430,7 @@ public class LaneRenderer {
 						for (Rectangle r : playerr) {
 							// TODO 数値もスキンベースへ移行
 							if(font != null) {
-								sprite.draw(font, cachedStopText[i], r.x + r.width / 2, (float) (y + 20), Color.valueOf("c0c000"));
+								sprite.draw(font, cachedStopText[i], r.x + r.width / 2, (float) (y + 20), COLOR_STOP_TEXT);
 							}
 						}
 					}

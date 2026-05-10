@@ -53,6 +53,10 @@ public class BMSPlayer extends MainState {
 	 */
 	private PlayTouchKeyMapper touchKeyMapper;
 
+	public PlayTouchKeyMapper getTouchKeyMapper() {
+		return touchKeyMapper;
+	}
+
 	private KeySoundProcessor keysound;
 
 	private int assist = 0;
