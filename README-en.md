@@ -5,7 +5,7 @@ maybe changed 5% texts
 
 Android version of beatoraja, built with [libGDX](https://libgdx.com/).
 
-[中文](README.md) | [English](README-en.md)
+[中文](README.md)
 
 ---
 

@@ -2,7 +2,7 @@
 
 beatoraja 的 Android 移植版，使用 [libGDX](https://libgdx.com/) 构建。
 
-[English](README-en.md) | [中文](README.md)
+[English](README-en.md)
 
 ## 1. 为啥做这个beatoraja-Android移植
 
