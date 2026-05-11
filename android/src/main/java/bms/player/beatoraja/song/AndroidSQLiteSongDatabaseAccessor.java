@@ -764,6 +764,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             Log.e(TAG, "================================================================================");
         } finally {
             db.endTransaction();
+            // 强制 checkpoint 将 WAL 写入主数据库文件，确保后续读取可见
+            try {
+                db.execSQL("PRAGMA wal_checkpoint(FULL)");
+            } catch (Throwable e) {
+                Log.w(TAG, "wal_checkpoint failed: " + e.getMessage());
+            }
         }
     }
 
@@ -854,6 +860,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             Log.e(TAG, "updateSongDatasParallel: Batch insert failed", t);
         } finally {
             db.endTransaction();
+            // 强制 checkpoint 将 WAL 写入主数据库文件，确保后续读取可见
+            try {
+                db.execSQL("PRAGMA wal_checkpoint(FULL)");
+            } catch (Throwable e) {
+                Log.w(TAG, "wal_checkpoint failed: " + e.getMessage());
+            }
         }
         long writeElapsed = System.currentTimeMillis() - writeStart;
         long totalElapsed = System.currentTimeMillis() - startTime;
