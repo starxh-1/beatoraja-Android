@@ -51,7 +51,7 @@ Everything else is essentially the same as beatoraja.
 
 ## 6. Features from the Original That I Couldn't Get Working
 
-- **cim reading and parsing**: There might be a way, but I have no idea how this works...
+- **CimFS reading and parsing**: There might be a way, but I have no idea how this works...
 
 ---
 
