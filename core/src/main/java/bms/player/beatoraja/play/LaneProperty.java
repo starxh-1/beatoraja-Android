@@ -134,4 +134,12 @@ public class LaneProperty {
 	public int[][] getScratchKeyAssign() {
 		return scratchToKey;
 	}
+
+	/**
+	 * 获取 lane 到 key index 的映射
+	 * @return laneToKey 数组，laneToKey[lane][0] 是该 lane 对应的主要 key index
+	 */
+	public int[][] getLaneToKey() {
+		return laneToKey;
+	}
 }

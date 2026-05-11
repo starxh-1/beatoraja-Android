@@ -428,8 +428,11 @@ public class BMSPlayer extends MainState {
 				touchKeyMapper = new PlayTouchKeyMapper(
 					this,
 					main.getConfig().getResolution(),
-					input
+					input,
+					null
 				);
+				// 注入 LaneProperty（需要等 laneProperty 初始化后才能设置）
+				touchKeyMapper.setLaneProperty(laneProperty);
 				// 根据全局设置启用/禁用触摸按键
 				touchKeyMapper.setEnabled(main.getConfig().isShowTouchKey());
 				Gdx.app.log("BMSPlayer", "Touch key mapper initialized successfully, enabled: " + touchKeyMapper.isEnabled());
@@ -442,6 +445,11 @@ public class BMSPlayer extends MainState {
 		}
 
 		loadSkin(getSkinType());
+
+		// 根据 skin 的 laneregion 更新触摸按键区域（仅 Android 平台）
+		if (touchKeyMapper != null) {
+			touchKeyMapper.updateRegionsFromSkin();
+		}
 
 		final SystemSoundManager.SoundType[] guideses = {GUIDESE_PG,GUIDESE_GR,GUIDESE_GD,GUIDESE_BD,GUIDESE_PR,GUIDESE_MS};
 		for(int i = 0;i < 6;i++) {
