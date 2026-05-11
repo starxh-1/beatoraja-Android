@@ -19,7 +19,7 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 
 区别：
 1. JavaFX 相关的实现都没有了，让 AI 拿 Compose 随便写了个新的 launcher，能改选项就行
-2. 音频引擎换成了 libgdx-oboe 而不是 PortAudio 或者 OpenAL，可以说如果没有 Oboe 这个移植项目根本搞不出来。
+2. 音频引擎换成了 libgdx-oboe，可以说如果没有 Oboe 这个移植项目根本搞不出来。
 
 其余功能基本沿袭自 beatoraja。
 
