@@ -40,6 +40,7 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 
 - select, decide 和 result 音效无法播放，原因仍在排查中。
 - 高刷屏幕（>60Hz）有一定几率出现帧数不稳定的问题，待进一步研究。
+- result 界面有概率遇到卡死，需等到大概十秒以上才能响应，排查中
 
 ## 6. 原版beatoraja有，但我无法实现的功能
 
@@ -50,7 +51,7 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 - beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
 - libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
 - GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
-- KissFFT by Mark Borgerding (https://github.com/MarkBorgerding/kissfft)
+- KissFFT by Mark Borgerding (https://github.com/mborgerding/kissfft)
 
 - MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
   and some AIs whatever free or paid which I can't remember anymore
