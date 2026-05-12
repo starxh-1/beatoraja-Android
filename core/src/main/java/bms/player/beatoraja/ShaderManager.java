@@ -41,6 +41,7 @@ public class ShaderManager {
 			if (vert == null || !vert.exists()) {
 				// 针对 distance_field 提供硬编码兜底
 				if ("distance_field".equals(name)) {
+					Gdx.app.log("ShaderManager", "Using hardcoded fallback for distance_field shader");
 					String vertSrc = "attribute vec4 a_position;\n" +
 									 "attribute vec4 a_color;\n" +
 									 "attribute vec2 a_texCoord0;\n" +
@@ -72,13 +73,20 @@ public class ShaderManager {
 									 "}";
 					ShaderProgram shader = new ShaderProgram(vertSrc, fragSrc);
 					if (shader.isCompiled()) {
+						Gdx.app.log("ShaderManager", "Fallback distance_field compiled OK, uniforms: u_outlineDistance=" + shader.fetchUniformLocation("u_outlineDistance", false));
 						shaders.put(name, shader);
 						return shader;
+					} else {
+						Gdx.app.error("ShaderManager", "Fallback distance_field compile failed: " + shader.getLog());
 					}
 				}
 				Gdx.app.error("ShaderManager", "CRITICAL: Cannot find shader: " + name);
 				return null;
 			}
+
+			// [DEBUG] 记录 shader 来源
+			String shaderSource = (vert != null && vert.exists()) ? ("file:" + vert.path()) : "fallback";
+			Gdx.app.log("ShaderManager", "Using shader: " + name + " from " + shaderSource + ", vert=" + (vert != null ? vert.path() : "null"));
 
 			ShaderProgram shader = new ShaderProgram(vert, frag);
 			if (shader.isCompiled()) {
