@@ -115,6 +115,9 @@ public class AndroidLauncher extends AndroidApplication {
         // 检测并解压 skin zip 到外部存储
         ensureExternalSkinZip(filesDir);
 
+        // 检测并解压 songs zip 到 Download 目录
+        ensureExternalSongZip();
+
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
 
@@ -235,11 +238,17 @@ public class AndroidLauncher extends AndroidApplication {
                     if (destFile.exists() && destFile.list() != null && destFile.list().length > 0) {
                         Log.i(TAG, "Skin already exists, skip: " + destFile.getAbsolutePath());
                     } else {
-                        // 先尝试直接移动
+                        // 先尝试直接移动到临时 zip 路径
                         File destParent = destFile.getParentFile();
                         if (destParent != null && !destParent.exists()) destParent.mkdirs();
-                        if (zip.renameTo(destFile)) {
-                            Log.i(TAG, "Moved skin zip to: " + destFile.getAbsolutePath());
+                        File tempZip = new File(internalSkinDir, skinName + ".zip");
+                        if (zip.renameTo(tempZip)) {
+                            Log.i(TAG, "Moved skin zip to: " + tempZip.getAbsolutePath());
+                            // 然后解压
+                            if (extractSkinZip(tempZip, internalSkinDir)) {
+                                tempZip.delete();
+                                Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
+                            }
                         } else {
                             // 移动失败，解压后删除 zip
                             if (extractSkinZip(zip, internalSkinDir)) {
@@ -324,6 +333,67 @@ public class AndroidLauncher extends AndroidApplication {
             return true;
         } catch (IOException e) {
             Log.e(TAG, "Failed to extract skin zip: " + zipFile.getName(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 检测并解压 songs 目录下的 zip 文件到 songs 子目录
+     */
+    private void ensureExternalSongZip() {
+        File songsDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SONGS_FOLDER);
+        if (!songsDir.exists() || !songsDir.isDirectory()) return;
+
+        File[] zipFiles = songsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
+        if (zipFiles == null || zipFiles.length == 0) return;
+
+        Log.i(TAG, "Found " + zipFiles.length + " song zip(s) in: " + songsDir.getAbsolutePath());
+        for (File zip : zipFiles) {
+            String songName = zip.getName().replace(".zip", "");
+            File extractDir = new File(songsDir, songName);
+
+            if (extractDir.exists() && extractDir.list() != null && extractDir.list().length > 0) {
+                Log.i(TAG, "Song already extracted, skip: " + extractDir.getAbsolutePath());
+                zip.delete();
+                continue;
+            }
+
+            Log.i(TAG, "Extracting song zip: " + zip.getName() + " -> " + extractDir.getAbsolutePath());
+            if (extractSongZip(zip, extractDir)) {
+                zip.delete();
+                Log.i(TAG, "Deleted song zip after extract: " + zip.getName());
+            }
+        }
+    }
+
+    /**
+     * 解压 song zip 到目标目录（通常是 songs/songname/）
+     * @return true if extracted successfully
+     */
+    private boolean extractSongZip(File zipFile, File destDir) {
+        destDir.mkdirs();
+        Log.i(TAG, "Extracting song: " + zipFile.getName() + " -> " + destDir.getAbsolutePath());
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                java.util.zip.ZipEntry entry = entries.nextElement();
+                File outFile = new File(destDir, entry.getName());
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                } else {
+                    outFile.getParentFile().mkdirs();
+                    try (InputStream is = zip.getInputStream(entry);
+                         OutputStream os = new FileOutputStream(outFile)) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
+                    }
+                }
+            }
+            Log.i(TAG, "Song extracted successfully: " + destDir.getName());
+            return true;
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to extract song zip: " + zipFile.getName(), e);
             return false;
         }
     }
