@@ -725,23 +725,14 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 				// 智能处理字体路径
 				Path path;
 				String fontPathStr = font.path.replace("\\", "/");
-				
-				// 检测 font.path 是否已经是相对于 assets 根目录的完整路径
-				// 如果以 "skin/" 或 "font/" 开头，说明是完整路径，不需要再拼接
-				boolean isFullPath = fontPathStr.startsWith("skin/") || fontPathStr.startsWith("font/");
-				
-				if (isFullPath) {
-					// 已经是完整路径，直接使用
-					path = java.nio.file.Paths.get(fontPathStr).normalize();
-				} else {
-					// 相对路径，需要相对于 skin 文件所在目录解析
-					path = skinPath.getParent().resolve(font.path).normalize();
-				}
+
+				// Android 上，skin 文件在外部存储而非 assets，所以始终相对于 skinPath.getParent() 来解析
+				// 这样 font/fnt/main.fnt 会被解析为 /storage/emulated/0/.../skin/ModernChic/Select/font/fnt/main.fnt
+				path = skinPath.getParent().resolve(font.path).normalize();
 				
 				// [DEBUG] 记录 font.path 解析结果以便排查路径问题
 				com.badlogic.gdx.Gdx.app.log("FontDebug", "createText: font.id=" + font.id
 						+ ", font.path=" + font.path
-						+ ", isFullPath=" + isFullPath
 						+ ", skinPath.parent=" + skinPath.getParent()
 						+ ", resolved+normalized=" + path
 						+ ", text.size=" + text.size);

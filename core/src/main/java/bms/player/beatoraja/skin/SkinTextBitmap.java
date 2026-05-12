@@ -11,6 +11,8 @@ import com.badlogic.gdx.Application;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
@@ -205,8 +207,45 @@ public final class SkinTextBitmap extends SkinText {
 				_fontData = new BitmapFont.BitmapFontData(fh, false);
 
 				_regions = new Array<>(_fontData.imagePaths.length);
+				// Get the directory path of the .fnt file to resolve page texture paths
+				// fh.parent() on an absolute FileHandle may not return the correct parent directory,
+				// so we extract the parent from the file path directly
+				String fontPathStr = fh.path().replace("\\", "/");
+				int lastSlash = fontPathStr.lastIndexOf('/');
+				String fontDir = lastSlash > 0 ? fontPathStr.substring(0, lastSlash + 1) : "";
 				for (int i = 0; i < _fontData.imagePaths.length; ++i) {
-					_regions.add(new TextureRegion(SkinLoader.getTexture(_fontData.imagePaths[i], usecim, useMipMaps)));
+					// Determine the page texture path
+					String pageFileName = _fontData.imagePaths[i].replace("\\", "/");
+					String pagePath;
+					// Check if it's already an absolute path (starts with / on Unix or contains Android external storage pattern)
+					boolean isAbsolutePath = pageFileName.startsWith("/") ||
+							(pageFileName.contains("/storage/emulated") || pageFileName.contains("/Android/data"));
+					if (isAbsolutePath) {
+						// Already an absolute path - use directly without prepending fontDir
+						pagePath = pageFileName;
+					} else if (pageFileName.contains("/")) {
+						// Contains a directory component - but check if it looks like an already-resolved full path
+						// If pageFileName looks like a complete path (contains /storage/ or /Android/data), use it directly
+						if (pageFileName.contains("/storage/") || pageFileName.contains("/Android/data")) {
+							pagePath = pageFileName;
+						} else {
+							pagePath = fontDir + pageFileName;
+						}
+					} else {
+						// Just a filename - prepend font directory
+						pagePath = fontDir + pageFileName;
+					}
+					Texture tex = SkinLoader.getTexture(pagePath, usecim, useMipMaps);
+					if (tex == null) {
+						Gdx.app.error("FontDebug", "Failed to load texture for page " + i + ": " + pagePath);
+						// Use a 1x1 white placeholder texture to avoid crash
+						Pixmap placeholder = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
+						placeholder.setColor(1, 1, 1, 1);
+						placeholder.fill();
+						tex = new Texture(placeholder);
+						placeholder.dispose();
+					}
+					_regions.add(new TextureRegion(tex));
 				}
 
 				_font = new BitmapFont(_fontData, _regions, true);

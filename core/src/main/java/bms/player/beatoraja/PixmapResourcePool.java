@@ -69,9 +69,13 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 						for (java.io.File candidate : files) {
 							if (candidate.getName().equalsIgnoreCase(fileName)) {
 								actualPath = candidate.getAbsolutePath().replace("\\", "/");
-								exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+								// On Android, absolute paths from external storage should use Gdx.files.absolute(), not internal()
+								if (actualPath.startsWith("/") && !actualPath.startsWith("/data/") && !actualPath.startsWith("/app/")) {
+									exists = com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+								} else {
+									exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+								}
 								if (exists) {
-									java.util.logging.Logger.getGlobal().info("Case-insensitive match found: " + path + " -> " + actualPath);
 									break;
 								}
 							}
@@ -92,7 +96,13 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 			if(actualPath.endsWith(".cim")) {
 				tex = PixmapIO.readCIM(com.badlogic.gdx.Gdx.files.internal(actualPath));
 			} else {
-				tex = new Pixmap(com.badlogic.gdx.Gdx.files.internal(actualPath));
+				// Try internal first (for assets), but if actualPath is absolute on Android, use absolute
+				if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android
+						&& actualPath.startsWith("/")) {
+					tex = new Pixmap(com.badlogic.gdx.Gdx.files.absolute(actualPath));
+				} else {
+					tex = new Pixmap(com.badlogic.gdx.Gdx.files.internal(actualPath));
+				}
 			}
 		} catch (Throwable e) {
 			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {

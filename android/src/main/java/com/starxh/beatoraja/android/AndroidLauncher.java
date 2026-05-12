@@ -237,7 +237,13 @@ public class AndroidLauncher extends AndroidApplication {
                     // 如果已存在同名文件夹，跳过
                     if (destFile.exists() && destFile.list() != null && destFile.list().length > 0) {
                         Log.i(TAG, "Skin already exists, skip: " + destFile.getAbsolutePath());
-                    } else {
+                    } else if (destFile.exists() && !destFile.isDirectory()) {
+                        // 遗留 bug：之前被 renameTo 成了文件而不是目录，删掉它重新处理
+                        Log.w(TAG, "Found legacy file instead of directory, deleting: " + destFile.getAbsolutePath());
+                        destFile.delete();
+                    }
+
+                    if (!destFile.exists() || !destFile.isDirectory()) {
                         // 先尝试直接移动到临时 zip 路径
                         File destParent = destFile.getParentFile();
                         if (destParent != null && !destParent.exists()) destParent.mkdirs();
@@ -313,10 +319,23 @@ public class AndroidLauncher extends AndroidApplication {
 
         Log.i(TAG, "Extracting skin: " + zipFile.getName() + " -> " + skinExtractDir.getAbsolutePath());
         try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
+            // Find and strip common top-level prefix to avoid double-nesting
+            String prefixToStrip = findCommonZipPrefix(zip, skinName);
+            if (prefixToStrip != null) {
+                Log.i(TAG, "Stripping top-level prefix: '" + prefixToStrip + "'");
+            }
+
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
-                File outFile = new File(skinExtractDir, entry.getName());
+                String entryName = entry.getName();
+                // Strip common prefix if found
+                if (prefixToStrip != null && entryName.startsWith(prefixToStrip)) {
+                    entryName = entryName.substring(prefixToStrip.length());
+                }
+                if (entryName.isEmpty()) continue;
+
+                File outFile = new File(skinExtractDir, entryName);
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
@@ -372,12 +391,25 @@ public class AndroidLauncher extends AndroidApplication {
      */
     private boolean extractSongZip(File zipFile, File destDir) {
         destDir.mkdirs();
+        String zipBaseName = zipFile.getName().replace(".zip", "");
         Log.i(TAG, "Extracting song: " + zipFile.getName() + " -> " + destDir.getAbsolutePath());
         try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
+            // Find and strip common top-level prefix to avoid double-nesting
+            String prefixToStrip = findCommonZipPrefix(zip, zipBaseName);
+            if (prefixToStrip != null) {
+                Log.i(TAG, "Stripping top-level prefix: '" + prefixToStrip + "'");
+            }
+
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
-                File outFile = new File(destDir, entry.getName());
+                String entryName = entry.getName();
+                if (prefixToStrip != null && entryName.startsWith(prefixToStrip)) {
+                    entryName = entryName.substring(prefixToStrip.length());
+                }
+                if (entryName.isEmpty()) continue;
+
+                File outFile = new File(destDir, entryName);
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
@@ -396,6 +428,47 @@ public class AndroidLauncher extends AndroidApplication {
             Log.e(TAG, "Failed to extract song zip: " + zipFile.getName(), e);
             return false;
         }
+    }
+
+    /**
+     * Find the common top-level folder prefix among all zip entries.
+     * If entries look like "ModernChic/default/..." and no other root, returns "ModernChic/".
+     * Returns null if no common prefix found.
+     */
+    private String findCommonZipPrefix(java.util.zip.ZipFile zip, String zipBaseName) {
+        java.util.List<String> topLevelFolders = new java.util.ArrayList<>();
+        java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+        while (entries.hasMoreElements()) {
+            java.util.zip.ZipEntry entry = entries.nextElement();
+            String name = entry.getName();
+            int slash = name.indexOf('/');
+            if (slash > 0) {
+                topLevelFolders.add(name.substring(0, slash + 1));
+            }
+        }
+        if (topLevelFolders.isEmpty()) return null;
+
+        // Find most common top-level folder
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        for (String folder : topLevelFolders) {
+            counts.put(folder, counts.getOrDefault(folder, 0) + 1);
+        }
+        String mostCommon = null;
+        int maxCount = 0;
+        for (java.util.Map.Entry<String, Integer> e : counts.entrySet()) {
+            if (e.getValue() > maxCount) {
+                maxCount = e.getValue();
+                mostCommon = e.getKey();
+            }
+        }
+        // If most common folder appears multiple times and matches zip base name, use it
+        if (mostCommon != null && maxCount > 1) {
+            String candidate = mostCommon.endsWith("/") ? mostCommon.substring(0, mostCommon.length() - 1) : mostCommon;
+            if (candidate.equalsIgnoreCase(zipBaseName)) {
+                return mostCommon;
+            }
+        }
+        return null;
     }
 
     /**
