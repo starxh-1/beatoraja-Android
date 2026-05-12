@@ -59,6 +59,11 @@ public class ShaderManager {
 									 "varying vec4 v_color;\n" +
 									 "varying vec2 v_texCoord;\n" +
 									 "uniform sampler2D u_texture;\n" +
+									 "uniform float u_outlineDistance;\n" +
+									 "uniform vec4 u_outlineColor;\n" +
+									 "uniform vec4 u_shadowColor;\n" +
+									 "uniform float u_shadowSmoothing;\n" +
+									 "uniform vec2 u_shadowOffset;\n" +
 									 "void main() {\n" +
 									 "    float distance = texture2D(u_texture, v_texCoord).a;\n" +
 									 "    float smoothing = 1.0 / 32.0;\n" +
