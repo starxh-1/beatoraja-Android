@@ -109,8 +109,11 @@ public class AndroidLauncher extends AndroidApplication {
         String root = filesDir.getAbsolutePath();
         System.setProperty("beatoraja.root", root);
 
-        // 复制 skin 资源到外部存储（如果不存在）
-        ensureSkinAssets(filesDir);
+        // 首次启动时创建必要的目录
+        createDefaultDirectories();
+
+        // 检测并解压 skin zip 到外部存储
+        ensureExternalSkinZip(filesDir);
 
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
@@ -165,7 +168,8 @@ public class AndroidLauncher extends AndroidApplication {
             }
         } catch (Exception e) { Log.w(TAG, "Read config fail: " + e.getMessage()); }
 
-        String defaultBmsRoot = getDownloadPath() + "/oraja_bms";
+        // BMS 歌曲目录：Download/beatoraja/songs
+        String defaultBmsRoot = new File(new File(getDownloadPath(), BEATORAJA_BASE), SONGS_FOLDER).getAbsolutePath();
         String[] allBmsRoots = (bmsrootFromConfig.length > 0) ? bmsrootFromConfig : new String[]{defaultBmsRoot};
 
         try {
@@ -184,12 +188,218 @@ public class AndroidLauncher extends AndroidApplication {
 
     private boolean pendingInitialization = false;
 
+    private static final String BEATORAJA_BASE = "beatoraja";
+    private static final String SONGS_FOLDER = "songs";
+    private static final String SKINS_FOLDER = "skins";
+
+    /**
+     * 首次启动时创建必要的目录
+     */
+    private void createDefaultDirectories() {
+        File downloadBase = new File(getDownloadPath(), BEATORAJA_BASE);
+        File songsDir = new File(downloadBase, SONGS_FOLDER);
+        File skinsDir = new File(downloadBase, SKINS_FOLDER);
+
+        if (!songsDir.exists()) {
+            songsDir.mkdirs();
+            Log.i(TAG, "Created songs directory: " + songsDir.getAbsolutePath());
+        }
+        if (!skinsDir.exists()) {
+            skinsDir.mkdirs();
+            Log.i(TAG, "Created skins directory: " + skinsDir.getAbsolutePath());
+        }
+    }
+
+    /**
+     * 检测外部 skin 并导入到 skin 目录
+     * 检测 Download/beatoraja/skins/ 下的 zip 和文件夹
+     * zip 解压后删除，文件夹移动后删除
+     * 如果没有外部 skin，则复制内置 assets/skin/
+     */
+    private void ensureExternalSkinZip(File filesDir) {
+        File externalSkinsDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SKINS_FOLDER);
+        File internalSkinDir = new File(filesDir, "skin");
+
+        if (externalSkinsDir.exists() && externalSkinsDir.isDirectory()) {
+            boolean hasProcessed = false;
+
+            // 处理 zip 文件
+            File[] zipFiles = externalSkinsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
+            if (zipFiles != null && zipFiles.length > 0) {
+                Log.i(TAG, "Found " + zipFiles.length + " skin zip(s) in: " + externalSkinsDir.getAbsolutePath());
+                for (File zip : zipFiles) {
+                    String skinName = zip.getName().replace(".zip", "");
+                    File destFile = new File(internalSkinDir, skinName);
+
+                    // 如果已存在同名文件夹，跳过
+                    if (destFile.exists() && destFile.list() != null && destFile.list().length > 0) {
+                        Log.i(TAG, "Skin already exists, skip: " + destFile.getAbsolutePath());
+                    } else {
+                        // 先尝试直接移动
+                        File destParent = destFile.getParentFile();
+                        if (destParent != null && !destParent.exists()) destParent.mkdirs();
+                        if (zip.renameTo(destFile)) {
+                            Log.i(TAG, "Moved skin zip to: " + destFile.getAbsolutePath());
+                        } else {
+                            // 移动失败，解压后删除 zip
+                            if (extractSkinZip(zip, internalSkinDir)) {
+                                zip.delete();
+                                Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
+                            }
+                        }
+                    }
+                }
+                hasProcessed = true;
+            }
+
+            // 处理文件夹
+            File[] skinFolders = externalSkinsDir.listFiles(File::isDirectory);
+            if (skinFolders != null && skinFolders.length > 0) {
+                for (File skinFolder : skinFolders) {
+                    File destSkinDir = new File(internalSkinDir, skinFolder.getName());
+
+                    // 如果目标已存在同名文件夹，跳过
+                    if (destSkinDir.exists()) {
+                        Log.i(TAG, "Skin folder already exists, skip: " + destSkinDir.getAbsolutePath());
+                    } else {
+                        // 先尝试直接移动
+                        if (skinFolder.renameTo(destSkinDir)) {
+                            Log.i(TAG, "Moved skin folder to: " + destSkinDir.getAbsolutePath());
+                        } else {
+                            // 移动失败，复制后删除原文件夹
+                            try {
+                                copyDirectory(skinFolder, destSkinDir);
+                                deleteRecursive(skinFolder);
+                                Log.i(TAG, "Copied and deleted skin folder: " + skinFolder.getName());
+                            } catch (IOException e) {
+                                Log.e(TAG, "Failed to copy skin folder: " + skinFolder.getName(), e);
+                            }
+                        }
+                    }
+                }
+                hasProcessed = true;
+            }
+
+            if (hasProcessed) return;
+        }
+
+        // 没有外部 skin，走老路：复制内置 assets/skin/
+        ensureSkinAssets(filesDir);
+    }
+
+    /**
+     * 解压 skin zip 到目标目录
+     * @return true if extracted successfully
+     */
+    private boolean extractSkinZip(File zipFile, File destDir) {
+        destDir.mkdirs();
+        String skinName = zipFile.getName().replace(".zip", "");
+        File skinExtractDir = new File(destDir, skinName);
+
+        // 如果已存在同名文件夹，跳过
+        if (skinExtractDir.exists() && skinExtractDir.list() != null && skinExtractDir.list().length > 0) {
+            Log.i(TAG, "Skin already extracted, skip: " + skinExtractDir.getAbsolutePath());
+            return false;
+        }
+
+        Log.i(TAG, "Extracting skin: " + zipFile.getName() + " -> " + skinExtractDir.getAbsolutePath());
+        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
+            java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                java.util.zip.ZipEntry entry = entries.nextElement();
+                File outFile = new File(skinExtractDir, entry.getName());
+                if (entry.isDirectory()) {
+                    outFile.mkdirs();
+                } else {
+                    outFile.getParentFile().mkdirs();
+                    try (InputStream is = zip.getInputStream(entry);
+                         OutputStream os = new FileOutputStream(outFile)) {
+                        byte[] buf = new byte[8192];
+                        int len;
+                        while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
+                    }
+                }
+            }
+            Log.i(TAG, "Skin extracted successfully: " + skinExtractDir.getName());
+            return true;
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to extract skin zip: " + zipFile.getName(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 将外部 skin 文件夹移动到目标目录
+     * @return true if moved successfully
+     */
+    private boolean moveSkinFolder(File skinFolder, File destDir) {
+        destDir.mkdirs();
+        File destSkinDir = new File(destDir, skinFolder.getName());
+
+        // 如果目标已存在同名文件夹，跳过
+        if (destSkinDir.exists()) {
+            Log.i(TAG, "Skin folder already exists, skip: " + destSkinDir.getAbsolutePath());
+            return false;
+        }
+
+        Log.i(TAG, "Moving skin folder: " + skinFolder.getAbsolutePath() + " -> " + destSkinDir.getAbsolutePath());
+        try {
+            copyDirectory(skinFolder, destSkinDir);
+            return true;
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to move skin folder: " + skinFolder.getName(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 递归复制目录
+     */
+    private void copyDirectory(File src, File dest) throws IOException {
+        if (!src.exists()) return;
+        if (!src.isDirectory()) return;
+
+        dest.mkdirs();
+        File[] children = src.listFiles();
+        if (children == null) return;
+
+        for (File child : children) {
+            File destChild = new File(dest, child.getName());
+            if (child.isDirectory()) {
+                copyDirectory(child, destChild);
+            } else {
+                try (InputStream is = new FileInputStream(child);
+                     OutputStream os = new FileOutputStream(destChild)) {
+                    byte[] buf = new byte[8192];
+                    int len;
+                    while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
+                }
+            }
+        }
+    }
+
+    /**
+     * 递归删除目录
+     */
+    private boolean deleteRecursive(File path) {
+        if (path == null || !path.exists()) return false;
+        if (path.isDirectory()) {
+            File[] children = path.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    deleteRecursive(child);
+                }
+            }
+        }
+        return path.delete();
+    }
+
     /**
      * 将 assets/skin/ 目录复制到外部存储（如果目标不存在）
      */
     private void ensureSkinAssets(File filesDir) {
         File skinDir = new File(filesDir, "skin");
-        if (skinDir.exists()) return; // 已存在，无需复制
+        if (skinDir.exists()) return;
 
         Log.i(TAG, "Copying skin assets to: " + skinDir.getAbsolutePath());
         skinDir.mkdirs();

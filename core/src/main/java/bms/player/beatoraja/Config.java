@@ -651,7 +651,7 @@ public class Config implements Validatable, Serializable {
 				// Android 平台的默认 BMS 路径由 AndroidLauncher 通过 SongDatabaseAccessor 设置
 				// 这里不硬编码具体路径，避免引用 android.os 包导致跨平台编译失败
 				// 如果此处被调用且 bmsroot 仍为空，使用回退路径
-				bmsroot = new String[]{"/storage/emulated/0/Download/oraja_bms"};
+				bmsroot = new String[]{"/storage/emulated/0/Download/beatoraja/songs"};
 			}
 		}
 

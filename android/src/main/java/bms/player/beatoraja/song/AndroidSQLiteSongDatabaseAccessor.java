@@ -621,9 +621,9 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         Log.i(TAG, "Database file path: " + db.getPath());
         Log.i(TAG, "Database file exists: " + new java.io.File(db.getPath()).exists());
 
-        // 确保默认的 Download/oraja_bms 目录存在（用于向后兼容）
+        // 确保默认的 Download/beatoraja/songs 目录存在
         String defaultRoot = getDownloadPath();
-        String defaultPath = defaultRoot + "/oraja_bms";
+        String defaultPath = defaultRoot + "/beatoraja/songs";
         FileHandle defaultDir = Gdx.files.absolute(defaultPath);
         if (!defaultDir.exists()) {
             Log.i(TAG, "Creating default BMS directory: " + defaultPath);

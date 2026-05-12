@@ -113,7 +113,7 @@ public class SettingsActivity extends Activity {
                 bmsPaths = findJsonArrayStrings(json, "bmsroot");
                 Log.d("SettingsActivity", "Read " + bmsPaths.size() + " bmsroot paths");
                 if (bmsPaths.isEmpty()) {
-                    bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
+                    bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
                 }
 
                 // 解析 showAudioSpectrum
@@ -132,12 +132,12 @@ public class SettingsActivity extends Activity {
                 }
             } else {
                 // 默认值
-                bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
+                bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
                 tableUrls.add("");
             }
         } catch (Exception e) {
             e.printStackTrace();
-            bmsPaths.add("/storage/emulated/0/Download/oraja_bms");
+            bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
             tableUrls.add("");
         }
 
