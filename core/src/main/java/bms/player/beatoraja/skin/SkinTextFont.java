@@ -91,15 +91,24 @@ public final class SkinTextFont extends SkinText {
                 e.printStackTrace();
             }
             // [DEBUG] 暴露 FileHandle 路径和 exists 状态
-            com.badlogic.gdx.files.FileHandle fontFile = Gdx.files.internal(normalizedPath);
-            Gdx.app.log("FontDebug", "Trying to load font from: " + fontFile.path() + ", exists: " + fontFile.exists()
-                    + ", size=" + size);
-            if (!fontFile.exists()) {
-                // 尝试 absolute 路径作为备选
-                com.badlogic.gdx.files.FileHandle fontFileAbs = Gdx.files.absolute(normalizedPath);
-                Gdx.app.log("FontDebug", "Trying absolute path: " + fontFileAbs.path() + ", exists: " + fontFileAbs.exists());
-                if (fontFileAbs.exists()) {
-                    fontFile = fontFileAbs;
+            // 注意：Gdx.files.internal() 只适用于 APK 内置 assets，对外部存储的绝对路径始终返回 exists:false
+            // 因此对于绝对路径（以 / 开头），直接使用 absolute 路径加载以避免误导性日志
+            com.badlogic.gdx.files.FileHandle fontFile;
+            if (normalizedPath.startsWith("/") || fontpath.startsWith("/")) {
+                // 绝对路径：直接使用 absolute() 加载
+                fontFile = com.badlogic.gdx.Gdx.files.absolute(normalizedPath);
+                Gdx.app.log("FontDebug", "Absolute path font: " + fontFile.path() + ", exists: " + fontFile.exists() + ", size=" + size);
+            } else {
+                // 相对路径：先尝试 internal（用于 assets 内路径），失败则 fallback 到 absolute
+                fontFile = com.badlogic.gdx.Gdx.files.internal(normalizedPath);
+                Gdx.app.log("FontDebug", "Trying to load font from: " + fontFile.path() + ", exists: " + fontFile.exists() + ", size=" + size);
+                if (!fontFile.exists()) {
+                    // 尝试 absolute 路径作为备选
+                    com.badlogic.gdx.files.FileHandle fontFileAbs = com.badlogic.gdx.Gdx.files.absolute(normalizedPath);
+                    Gdx.app.log("FontDebug", "Internal not found, trying absolute: " + fontFileAbs.path() + ", exists: " + fontFileAbs.exists());
+                    if (fontFileAbs.exists()) {
+                        fontFile = fontFileAbs;
+                    }
                 }
             }
             // Check cache first - avoid repeated I/O opening the same font file
