@@ -697,53 +697,53 @@ local function main(keysNumber)
 		local ln_cycle = 256
 		append_all(skin.image, {
 			-- normal note
-			{id = "note_w", src = "src_notes", x = white_x, y = note_y, w = geo.note.original_white_w, h = 48},
-			{id = "note_b", src = "src_notes", x = black_x, y = note_y, w = geo.note.original_black_w, h = 48},
-			{id = "note_s", src = "src_notes", x = scratch_x, y = note_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "note_w", src = "src_notes", x = white_x, y = note_y, w = geo.note.original_white_w, h = 72},
+			{id = "note_b", src = "src_notes", x = black_x, y = note_y, w = geo.note.original_black_w, h = 72},
+			{id = "note_s", src = "src_notes", x = scratch_x, y = note_y, w = geo.note.original_scratch_w, h = 72},
 			-- ln end
-			{id = "lne_w", src = "src_notes", x = white_x, y = lne_y, w = geo.note.original_white_w, h = 48},
-			{id = "lne_b", src = "src_notes", x = black_x, y = lne_y, w = geo.note.original_black_w, h = 48},
-			{id = "lne_s", src = "src_notes", x = scratch_x, y = lne_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "lne_w", src = "src_notes", x = white_x, y = lne_y, w = geo.note.original_white_w, h = 72},
+			{id = "lne_b", src = "src_notes", x = black_x, y = lne_y, w = geo.note.original_black_w, h = 72},
+			{id = "lne_s", src = "src_notes", x = scratch_x, y = lne_y, w = geo.note.original_scratch_w, h = 72},
 			-- ln start
-			{id = "lns_w", src = "src_notes", x = white_x, y = lns_y, w = geo.note.original_white_w, h = 48},
-			{id = "lns_b", src = "src_notes", x = black_x, y = lns_y, w = geo.note.original_black_w, h = 48},
-			{id = "lns_s", src = "src_notes", x = scratch_x, y = lns_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "lns_w", src = "src_notes", x = white_x, y = lns_y, w = geo.note.original_white_w, h = 72},
+			{id = "lns_b", src = "src_notes", x = black_x, y = lns_y, w = geo.note.original_black_w, h = 72},
+			{id = "lns_s", src = "src_notes", x = scratch_x, y = lns_y, w = geo.note.original_scratch_w, h = 72},
 			-- ln body (inactive/未入力)
-			{id = "lnb_w", src = "src_notes", x = white_x, y = lnb_y, w = geo.note.original_white_w, h = 48},
-			{id = "lnb_b", src = "src_notes", x = black_x, y = lnb_y, w = geo.note.original_black_w, h = 48},
-			{id = "lnb_s", src = "src_notes", x = scratch_x, y = lnb_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "lnb_w", src = "src_notes", x = white_x, y = lnb_y, w = geo.note.original_white_w, h = 72},
+			{id = "lnb_b", src = "src_notes", x = black_x, y = lnb_y, w = geo.note.original_black_w, h = 72},
+			{id = "lnb_s", src = "src_notes", x = scratch_x, y = lnb_y, w = geo.note.original_scratch_w, h = 72},
 			-- ln body (active/入力中)
 			{id = "lna_w", src = "src_notes", x = white_x, y = lna_y, w = geo.note.original_white_w, h = 72, divy = 2, cycle = ln_cycle},
 			{id = "lna_b", src = "src_notes", x = black_x, y = lna_y, w = geo.note.original_black_w, h = 72, divy = 2, cycle = ln_cycle},
 			{id = "lna_s", src = "src_notes", x = scratch_x, y = lna_y, w = geo.note.original_scratch_w, h = 72, divy = 2, cycle = ln_cycle},
 			-- hcn end
-			{id = "hcne_w", src = "src_notes", x = white_x, y = hcne_y, w = geo.note.original_white_w, h = 48},
-			{id = "hcne_b", src = "src_notes", x = black_x, y = hcne_y, w = geo.note.original_black_w, h = 48},
-			{id = "hcne_s", src = "src_notes", x = scratch_x, y = hcne_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "hcne_w", src = "src_notes", x = white_x, y = hcne_y, w = geo.note.original_white_w, h = 72},
+			{id = "hcne_b", src = "src_notes", x = black_x, y = hcne_y, w = geo.note.original_black_w, h = 72},
+			{id = "hcne_s", src = "src_notes", x = scratch_x, y = hcne_y, w = geo.note.original_scratch_w, h = 72},
 			-- hcn start
-			{id = "hcns_w", src = "src_notes", x = white_x, y = hcns_y, w = geo.note.original_white_w, h = 48},
-			{id = "hcns_b", src = "src_notes", x = black_x, y = hcns_y, w = geo.note.original_black_w, h = 48},
-			{id = "hcns_s", src = "src_notes", x = scratch_x, y = hcns_y, w = geo.note.original_scratch_w, h = 48},
+			{id = "hcns_w", src = "src_notes", x = white_x, y = hcns_y, w = geo.note.original_white_w, h = 72},
+			{id = "hcns_b", src = "src_notes", x = black_x, y = hcns_y, w = geo.note.original_black_w, h = 72},
+			{id = "hcns_s", src = "src_notes", x = scratch_x, y = hcns_y, w = geo.note.original_scratch_w, h = 72},
 			-- hcn body (inactive)
-			{id = "hcnb_w", src = "src_notes", x = white_x, y = hcnb_y, w = geo.note.original_white_w, h = 18},
-			{id = "hcnb_b", src = "src_notes", x = black_x, y = hcnb_y, w = geo.note.original_black_w, h = 18},
-			{id = "hcnb_s", src = "src_notes", x = scratch_x, y = hcnb_y, w = geo.note.original_scratch_w, h = 18},
+			{id = "hcnb_w", src = "src_notes", x = white_x, y = hcnb_y, w = geo.note.original_white_w, h = 27},
+			{id = "hcnb_b", src = "src_notes", x = black_x, y = hcnb_y, w = geo.note.original_black_w, h = 27},
+			{id = "hcnb_s", src = "src_notes", x = scratch_x, y = hcnb_y, w = geo.note.original_scratch_w, h = 27},
 			-- hcn body (active)
-			{id = "hcna_w", src = "src_notes", x = white_x, y = hcna_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle},
-			{id = "hcna_b", src = "src_notes", x = black_x, y = hcna_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle},
-			{id = "hcna_s", src = "src_notes", x = scratch_x, y = hcna_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcna_w", src = "src_notes", x = white_x, y = hcna_y, w = geo.note.original_white_w, h = 72, divy = 2, cycle = ln_cycle},
+			{id = "hcna_b", src = "src_notes", x = black_x, y = hcna_y, w = geo.note.original_black_w, h = 72, divy = 2, cycle = ln_cycle},
+			{id = "hcna_s", src = "src_notes", x = scratch_x, y = hcna_y, w = geo.note.original_scratch_w, h = 72, divy = 2, cycle = ln_cycle},
 			-- hcn body (reactive/途中から入力)
-			{id = "hcnr_w", src = "src_notes", x = white_x, y = hcnr_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle},
-			{id = "hcnr_b", src = "src_notes", x = black_x, y = hcnr_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle},
-			{id = "hcnr_s", src = "src_notes", x = scratch_x, y = hcnr_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_w", src = "src_notes", x = white_x, y = hcnr_y, w = geo.note.original_white_w, h = 72, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_b", src = "src_notes", x = black_x, y = hcnr_y, w = geo.note.original_black_w, h = 72, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_s", src = "src_notes", x = scratch_x, y = hcnr_y, w = geo.note.original_scratch_w, h = 72, divy = 2, cycle = ln_cycle},
 			-- hcn damage (miss)
-			{id = "hcnd_w", src = "src_notes", x = white_x, y = hcnd_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle / 2},
-			{id = "hcnd_b", src = "src_notes", x = black_x, y = hcnd_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle / 2},
-			{id = "hcnd_s", src = "src_notes", x = scratch_x, y = hcnd_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_w", src = "src_notes", x = white_x, y = hcnd_y, w = geo.note.original_white_w, h = 72, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_b", src = "src_notes", x = black_x, y = hcnd_y, w = geo.note.original_black_w, h = 72, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_s", src = "src_notes", x = scratch_x, y = hcnd_y, w = geo.note.original_scratch_w, h = 72, divy = 2, cycle = ln_cycle / 2},
 			-- mine
-			{id = "mine_w", src = "src_mine", x = white_x, y = 0, w = geo.note.original_white_w, h = 48},
-			{id = "mine_b", src = "src_mine", x = black_x, y = 0, w = geo.note.original_black_w, h = 48},
-			{id = "mine_s", src = "src_mine", x = scratch_x, y = 0, w = geo.note.original_scratch_w, h = 48},
+			{id = "mine_w", src = "src_mine", x = white_x, y = 0, w = geo.note.original_white_w, h = 72},
+			{id = "mine_b", src = "src_mine", x = black_x, y = 0, w = geo.note.original_black_w, h = 72},
+			{id = "mine_s", src = "src_mine", x = scratch_x, y = 0, w = geo.note.original_scratch_w, h = 72},
 
 			{id = "section_line", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1},
 		})
@@ -1805,7 +1805,7 @@ local function main(keysNumber)
 	end
 	-- glow
 	table.insert(skin.image,
-		{id = "glow", src = "src_glow", x = 0, y = 0, w = 492, h = 48}
+		{id = "glow", src = "src_glow", x = 0, y = 0, w = 492, h = 72}
 	)
 	do
 		local h = 50 local loading_a = 180 local playing_dark_a = 80
