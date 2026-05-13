@@ -371,14 +371,16 @@ public class AndroidLauncher extends AndroidApplication {
             String songName = zip.getName().replace(".zip", "");
             File extractDir = new File(songsDir, songName);
 
-            if (extractDir.exists() && extractDir.list() != null && extractDir.list().length > 0) {
+            // 只检查目标目录是否存在且有内容，如果已有内容则跳过解压（不删除 zip）
+            if (extractDir.exists() && extractDir.isDirectory() && extractDir.list() != null && extractDir.list().length > 0) {
                 Log.i(TAG, "Song already extracted, skip: " + extractDir.getAbsolutePath());
-                zip.delete();
+                // 不再删除 zip，保留以防用户需要重新安装
                 continue;
             }
 
             Log.i(TAG, "Extracting song zip: " + zip.getName() + " -> " + extractDir.getAbsolutePath());
             if (extractSongZip(zip, extractDir)) {
+                // 解压成功后删除 zip
                 zip.delete();
                 Log.i(TAG, "Deleted song zip after extract: " + zip.getName());
             }

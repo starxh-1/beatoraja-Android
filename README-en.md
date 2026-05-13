@@ -35,7 +35,7 @@ Everything else is essentially the same as beatoraja.
 - CPU: arm64-v8a, reference device is Snapdragon 810.
 - Display: 16:9 1080P for the best experience. Since modern phones rarely have 16:9 aspect ratios, the audio spectrum is placed outside the playfield on left and right by default.
 - RAM: 2GB or above
-- Note: The app technically supports 32-bit devices, but performance is terrible — can barely run no-K BMS. Can't handle BGA. (Tested on Xiaomi 2s)
+- Note: The app technically supports 32-bit devices, but performance is terrible — just close to 60fps to run BMS without Keysounds and BGA. (Tested on Xiaomi 2s)
 
 ## 4. Not Yet Implemented
 
@@ -48,6 +48,7 @@ Everything else is essentially the same as beatoraja.
 - select, decide, and result sound effects can't play — still investigating.
 - High refresh rate screens (>60Hz) may experience unstable framerates — under research.
 - Result could be lag by at least 10 secs to get response — still investigating.
+- Some skins come with font bugs (eg. Modernchic)
 
 ## 6. Features from the Original That I Couldn't Get Working
 
