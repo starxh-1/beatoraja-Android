@@ -410,9 +410,8 @@ local function main(keysNumber)
 		geo.lanearea.padding_left, geo.lanearea.padding_right = geo.lanearea.padding_right, geo.lanearea.padding_left
 	end
 
-	-- lane fills header width minus left margin for progress bar
-	local progress_bar_margin = 50
-	local lane_w = header.w - progress_bar_margin
+	-- lane fills header width (centered)
+	local lane_w = header.w
 
 	-- calculate note width scale to fill the lane width
 	-- 7key: white*4 + black*3 + scratch + separateline*7 = base lane width from notes
@@ -439,10 +438,10 @@ local function main(keysNumber)
 	geo.lanearea.w = lane_w
 	geo.lanearea.original_w = lane_w
 
+	-- lane centered
 	geo.lanearea.x = 0
 	geo.lanearea.x = geo.lanearea.x + offset.lane.x
-	-- lane left-aligned with margin for progress bar
-	geo.lane.x = progress_bar_margin + offset.lane.x
+	geo.lane.x = (header.w - lane_w) / 2 + offset.lane.x
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 	geo.lane.fivekey_center_x = geo.lane.center_x - geo.lane.fivekeycover_w / 2
@@ -1765,37 +1764,6 @@ local function main(keysNumber)
 			{x = geo.lane.x - padding_left, y = 0, w = padding_left + geo.lane.w + padding_right, h = header.h},
 		}})
 	end]]
-	-- musicProgressBar
-	do
-		local w = 10 local slider_h = 20
-		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h - 30 * 2, type = 6}
-		)
-		local margin_y = 34
-		local bar_h = geo.lane.h - margin_y * 2
-		local x = geo.lanearea.x + 24
-		if is2P() then
-			x = geo.lanearea.x + geo.lanearea.w - 24 - w
-		end
-		x = x + offset.lane.x
-		local y = geo.lane.y + margin_y
-		if property.hideFrames.item.off.isSelected() then
-			append_all(skin.destination, {
-				{id = -111, dst = {
-					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40}
-				}},
-			})
-		end
-		append_all(skin.destination, {
-			{id = -110, dst = {
-				{x = x, y = y, w = w, h = bar_h}
-			}},
-			{id = "musicprogress", dst = {
-				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h},
-				{time = 1000, a = 100},
-			}},
-		})
-	end
 	-- lane
 	do
 		local black = {r = 0, g = 0, b = 0}
@@ -2240,7 +2208,7 @@ local function main(keysNumber)
 
 	-- gaugearea - aligned with lane
 	geo.gaugearea = {}
-	geo.gaugearea.x = progress_bar_margin
+	geo.gaugearea.x = (header.w - lane_w) / 2
 	geo.gaugearea.w = lane_w
 
 	geo.gauge = {}
@@ -2296,7 +2264,7 @@ local function main(keysNumber)
 	do
 		local h = 18 local y = geo.gauge.y + geo.gauge.h + 6
 		-- judgerank
-		local judgerank_image_w = 183 local judgerank_image_h = 48
+		local judgerank_image_w = 183 local judgerank_image_h = 36
 		for i = 1, 5 do
 			table.insert(skin.image, {
 				id = "judgerank_"..i, src = "src_rank_random", x = 0, y = judgerank_image_h * (i - 1), w = judgerank_image_w, h = judgerank_image_h
