@@ -422,7 +422,7 @@ local function main(keysNumber)
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
 
 	geo.lane = {}
-	geo.lane.separateline_w = 6
+	geo.lane.separateline_w = 6 * note_scale_w
 	geo.lane.y = 226
 	geo.lane.h = header.h - geo.lane.y
 	geo.lane.w = lane_w
