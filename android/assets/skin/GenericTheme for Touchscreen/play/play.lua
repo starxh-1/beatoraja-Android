@@ -410,9 +410,9 @@ local function main(keysNumber)
 		geo.lanearea.padding_left, geo.lanearea.padding_right = geo.lanearea.padding_right, geo.lanearea.padding_left
 	end
 
-	-- lane fills most of screen width, leaving space for progress bar on left
+	-- lane fills header width minus left margin for progress bar
 	local progress_bar_margin = 50
-	local lane_w = header.w - progress_bar_margin * 2
+	local lane_w = header.w - progress_bar_margin
 
 	-- calculate note width scale to fill the lane width
 	-- 7key: white*4 + black*3 + scratch + separateline*7 = base lane width from notes
@@ -436,12 +436,13 @@ local function main(keysNumber)
 	geo.note.black_w = note_black_w
 	geo.note.scratch_w = note_scratch_w
 
-	geo.lanearea.w = header.w
-	geo.lanearea.original_w = header.w
+	geo.lanearea.w = lane_w
+	geo.lanearea.original_w = lane_w
 
 	geo.lanearea.x = 0
 	geo.lanearea.x = geo.lanearea.x + offset.lane.x
-	geo.lane.x = (geo.lanearea.w - geo.lane.w) / 2 + offset.lane.x
+	-- lane left-aligned with margin for progress bar
+	geo.lane.x = progress_bar_margin + offset.lane.x
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 	geo.lane.fivekey_center_x = geo.lane.center_x - geo.lane.fivekeycover_w / 2
@@ -618,12 +619,8 @@ local function main(keysNumber)
 
 		{id = "src_frame_lane", path = "parts/frame_lane.png"},
 		{id = "src_frame_bga", path = "parts/frame_bga.png"},
-		{id = "src_frame_bpm", path = "parts/frame_bpm.png"},
-		{id = "src_frame_spectrum", path = "parts/frame_spectrum.png"},
-
-		{id = "src_titlegradation_header", path = "parts/titlegradation_header.png"},
-		{id = "src_titlegradation_standby", path = "parts/titlegradation_standby.png"},
-
+		
+		
 		{id = "src_fullcombo_glow", path = "parts/fullcombo/glow.png"},
 		{id = "src_fullcombo_circle", path = "parts/fullcombo/circle.png"},
 		{id = "src_fullcombo_ring", path = "parts/fullcombo/ring.png"},
@@ -701,53 +698,53 @@ local function main(keysNumber)
 		local ln_cycle = 256
 		append_all(skin.image, {
 			-- normal note
-			{id = "note_w", src = "src_notes", x = white_x, y = note_y, w = geo.note.original_white_w, h = 36},
-			{id = "note_b", src = "src_notes", x = black_x, y = note_y, w = geo.note.original_black_w, h = 36},
-			{id = "note_s", src = "src_notes", x = scratch_x, y = note_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "note_w", src = "src_notes", x = white_x, y = note_y, w = geo.note.original_white_w, h = 48},
+			{id = "note_b", src = "src_notes", x = black_x, y = note_y, w = geo.note.original_black_w, h = 48},
+			{id = "note_s", src = "src_notes", x = scratch_x, y = note_y, w = geo.note.original_scratch_w, h = 48},
 			-- ln end
-			{id = "lne_w", src = "src_notes", x = white_x, y = lne_y, w = geo.note.original_white_w, h = 36},
-			{id = "lne_b", src = "src_notes", x = black_x, y = lne_y, w = geo.note.original_black_w, h = 36},
-			{id = "lne_s", src = "src_notes", x = scratch_x, y = lne_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "lne_w", src = "src_notes", x = white_x, y = lne_y, w = geo.note.original_white_w, h = 48},
+			{id = "lne_b", src = "src_notes", x = black_x, y = lne_y, w = geo.note.original_black_w, h = 48},
+			{id = "lne_s", src = "src_notes", x = scratch_x, y = lne_y, w = geo.note.original_scratch_w, h = 48},
 			-- ln start
-			{id = "lns_w", src = "src_notes", x = white_x, y = lns_y, w = geo.note.original_white_w, h = 36},
-			{id = "lns_b", src = "src_notes", x = black_x, y = lns_y, w = geo.note.original_black_w, h = 36},
-			{id = "lns_s", src = "src_notes", x = scratch_x, y = lns_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "lns_w", src = "src_notes", x = white_x, y = lns_y, w = geo.note.original_white_w, h = 48},
+			{id = "lns_b", src = "src_notes", x = black_x, y = lns_y, w = geo.note.original_black_w, h = 48},
+			{id = "lns_s", src = "src_notes", x = scratch_x, y = lns_y, w = geo.note.original_scratch_w, h = 48},
 			-- ln body (inactive/未入力)
-			{id = "lnb_w", src = "src_notes", x = white_x, y = lnb_y, w = geo.note.original_white_w, h = 36},
-			{id = "lnb_b", src = "src_notes", x = black_x, y = lnb_y, w = geo.note.original_black_w, h = 36},
-			{id = "lnb_s", src = "src_notes", x = scratch_x, y = lnb_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "lnb_w", src = "src_notes", x = white_x, y = lnb_y, w = geo.note.original_white_w, h = 48},
+			{id = "lnb_b", src = "src_notes", x = black_x, y = lnb_y, w = geo.note.original_black_w, h = 48},
+			{id = "lnb_s", src = "src_notes", x = scratch_x, y = lnb_y, w = geo.note.original_scratch_w, h = 48},
 			-- ln body (active/入力中)
 			{id = "lna_w", src = "src_notes", x = white_x, y = lna_y, w = geo.note.original_white_w, h = 72, divy = 2, cycle = ln_cycle},
 			{id = "lna_b", src = "src_notes", x = black_x, y = lna_y, w = geo.note.original_black_w, h = 72, divy = 2, cycle = ln_cycle},
 			{id = "lna_s", src = "src_notes", x = scratch_x, y = lna_y, w = geo.note.original_scratch_w, h = 72, divy = 2, cycle = ln_cycle},
 			-- hcn end
-			{id = "hcne_w", src = "src_notes", x = white_x, y = hcne_y, w = geo.note.original_white_w, h = 36},
-			{id = "hcne_b", src = "src_notes", x = black_x, y = hcne_y, w = geo.note.original_black_w, h = 36},
-			{id = "hcne_s", src = "src_notes", x = scratch_x, y = hcne_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "hcne_w", src = "src_notes", x = white_x, y = hcne_y, w = geo.note.original_white_w, h = 48},
+			{id = "hcne_b", src = "src_notes", x = black_x, y = hcne_y, w = geo.note.original_black_w, h = 48},
+			{id = "hcne_s", src = "src_notes", x = scratch_x, y = hcne_y, w = geo.note.original_scratch_w, h = 48},
 			-- hcn start
-			{id = "hcns_w", src = "src_notes", x = white_x, y = hcns_y, w = geo.note.original_white_w, h = 36},
-			{id = "hcns_b", src = "src_notes", x = black_x, y = hcns_y, w = geo.note.original_black_w, h = 36},
-			{id = "hcns_s", src = "src_notes", x = scratch_x, y = hcns_y, w = geo.note.original_scratch_w, h = 36},
+			{id = "hcns_w", src = "src_notes", x = white_x, y = hcns_y, w = geo.note.original_white_w, h = 48},
+			{id = "hcns_b", src = "src_notes", x = black_x, y = hcns_y, w = geo.note.original_black_w, h = 48},
+			{id = "hcns_s", src = "src_notes", x = scratch_x, y = hcns_y, w = geo.note.original_scratch_w, h = 48},
 			-- hcn body (inactive)
 			{id = "hcnb_w", src = "src_notes", x = white_x, y = hcnb_y, w = geo.note.original_white_w, h = 18},
 			{id = "hcnb_b", src = "src_notes", x = black_x, y = hcnb_y, w = geo.note.original_black_w, h = 18},
 			{id = "hcnb_s", src = "src_notes", x = scratch_x, y = hcnb_y, w = geo.note.original_scratch_w, h = 18},
 			-- hcn body (active)
-			{id = "hcna_w", src = "src_notes", x = white_x, y = hcna_y, w = geo.note.original_white_w, h = 36, divy = 2, cycle = ln_cycle},
-			{id = "hcna_b", src = "src_notes", x = black_x, y = hcna_y, w = geo.note.original_black_w, h = 36, divy = 2, cycle = ln_cycle},
-			{id = "hcna_s", src = "src_notes", x = scratch_x, y = hcna_y, w = geo.note.original_scratch_w, h = 36, divy = 2, cycle = ln_cycle},
+			{id = "hcna_w", src = "src_notes", x = white_x, y = hcna_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcna_b", src = "src_notes", x = black_x, y = hcna_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcna_s", src = "src_notes", x = scratch_x, y = hcna_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle},
 			-- hcn body (reactive/途中から入力)
-			{id = "hcnr_w", src = "src_notes", x = white_x, y = hcnr_y, w = geo.note.original_white_w, h = 36, divy = 2, cycle = ln_cycle},
-			{id = "hcnr_b", src = "src_notes", x = black_x, y = hcnr_y, w = geo.note.original_black_w, h = 36, divy = 2, cycle = ln_cycle},
-			{id = "hcnr_s", src = "src_notes", x = scratch_x, y = hcnr_y, w = geo.note.original_scratch_w, h = 36, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_w", src = "src_notes", x = white_x, y = hcnr_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_b", src = "src_notes", x = black_x, y = hcnr_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle},
+			{id = "hcnr_s", src = "src_notes", x = scratch_x, y = hcnr_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle},
 			-- hcn damage (miss)
-			{id = "hcnd_w", src = "src_notes", x = white_x, y = hcnd_y, w = geo.note.original_white_w, h = 36, divy = 2, cycle = ln_cycle / 2},
-			{id = "hcnd_b", src = "src_notes", x = black_x, y = hcnd_y, w = geo.note.original_black_w, h = 36, divy = 2, cycle = ln_cycle / 2},
-			{id = "hcnd_s", src = "src_notes", x = scratch_x, y = hcnd_y, w = geo.note.original_scratch_w, h = 36, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_w", src = "src_notes", x = white_x, y = hcnd_y, w = geo.note.original_white_w, h = 48, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_b", src = "src_notes", x = black_x, y = hcnd_y, w = geo.note.original_black_w, h = 48, divy = 2, cycle = ln_cycle / 2},
+			{id = "hcnd_s", src = "src_notes", x = scratch_x, y = hcnd_y, w = geo.note.original_scratch_w, h = 48, divy = 2, cycle = ln_cycle / 2},
 			-- mine
-			{id = "mine_w", src = "src_mine", x = white_x, y = 0, w = geo.note.original_white_w, h = 36},
-			{id = "mine_b", src = "src_mine", x = black_x, y = 0, w = geo.note.original_black_w, h = 36},
-			{id = "mine_s", src = "src_mine", x = scratch_x, y = 0, w = geo.note.original_scratch_w, h = 36},
+			{id = "mine_w", src = "src_mine", x = white_x, y = 0, w = geo.note.original_white_w, h = 48},
+			{id = "mine_b", src = "src_mine", x = black_x, y = 0, w = geo.note.original_black_w, h = 48},
+			{id = "mine_s", src = "src_mine", x = scratch_x, y = 0, w = geo.note.original_scratch_w, h = 48},
 
 			{id = "section_line", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1},
 		})
@@ -1298,103 +1295,7 @@ local function main(keysNumber)
 
 		-- standby removed
 	end
-	-- bpm
-	do
-		table.insert(skin.image,
-			{id = "frame_bpm", src = "src_frame_bpm", x = 0, y = 0, w = -1, h = -1}
-		)
-		local bpm_center_x = geo.bga.center_x + offset.bpm.x
-		local bpm_y = 19 + offset.bpm.y local bpm_w = 420 local bpm_h = 64
-		local bpm_a = 255 + offset.bpm.a
-		local frame_w = 8 local frame_h = 8
-		append_all(skin.destination, {
-			-- background black
-			{id = -110, dst = {
-				{x = bpm_center_x - bpm_w / 2 - 4, y = bpm_y - 4, w = bpm_w + 8, h = bpm_h + 8, a = bpm_a}
-			}},
-		})
-		if property.hideFrames.item.off.isSelected() then
-			append_all(skin.destination, {
-				{id = "frame_bpm", dst = {
-					{x = bpm_center_x - bpm_w / 2 - frame_w, y = bpm_y - frame_h, w = bpm_w + frame_w * 2, h = bpm_h + frame_h * 2, a = bpm_a}
-				}},
-			})
-		end
-
-		append_all(skin.value, {
-			number({id = "bpm_min", src = "src_number_kenney_future", divx = 10, digit = 4, align = 2, ref = 91}),
-			number({id = "bpm_now", src = "src_number_kenney_future", divx = 10, digit = 4, align = 2, ref = 160}),
-			number({id = "bpm_max", src = "src_number_kenney_future", divx = 10, digit = 4, align = 2, ref = 90}),
-		})
-		local num_y = bpm_y + 6 local num_w = 38 local num_h = 26
-		local sideNumRate = 0.7
-		append_all(skin.destination, {
-			{id = "bpm_min", op = {177}, filter = 1, dst = {
-				{x = bpm_center_x - 144 - (num_w * 2 * sideNumRate), y = num_y, w = num_w * sideNumRate, h = num_h * sideNumRate}
-			}},
-			{id = "bpm_now", filter = 1, dst = {
-				{x = bpm_center_x - num_w * 2, y = num_y, w = num_w, h = num_h}
-			}},
-			{id = "bpm_max", op = {177}, filter = 1, dst = {
-				{x = bpm_center_x + 144 - (num_w * 2 * sideNumRate), y = num_y, w = num_w * sideNumRate, h = num_h * sideNumRate}
-			}},
-		})
-
-		local text_img_w = 205 local text_img_h = 70
-		append_all(skin.image, {
-			{id = "text_image_bpm", src = "src_othertexts", x = 0, y = text_img_h * 9, w = text_img_w, h = text_img_h},
-			{id = "text_image_min", src = "src_othertexts", x = 0, y = text_img_h * 10, w = text_img_w, h = text_img_h},
-			{id = "text_image_max", src = "src_othertexts", x = 0, y = text_img_h * 11, w = text_img_w, h = text_img_h},
-		})
-		local text_y = num_y + num_h + 8 local text_w = 20 local text_h = 18
-		local imgRate = text_h / text_img_h * 0.9
-		local sideTextRate = 0.85
-		append_all(skin.destination, {
-			{id = "text_image_min", filter = 1, dst = {
-				{x = bpm_center_x - 144 - text_img_w * imgRate * sideTextRate / 2, y = text_y + 2, w = text_img_w * imgRate * sideTextRate, h = text_img_h * imgRate * sideTextRate}
-			}},
-			{id = "text_image_bpm", filter = 1, dst = {
-				{x = bpm_center_x - text_img_w * imgRate / 2, y = text_y + 2, w = text_img_w * imgRate, h = text_img_h * imgRate}
-			}},
-			{id = "text_image_max", filter = 1, dst = {
-				{x = bpm_center_x + 144 - text_img_w * imgRate * sideTextRate / 2, y = text_y + 2, w = text_img_w * imgRate * sideTextRate, h = text_img_h * imgRate * sideTextRate}
-			}},
-		})
-	end
-	-- bga header
-	do
-		local header_x = geo.bga.x - geo.bga.frame_w + offset.bga_header.x - offset.bga_header.w / 2
-		local header_w = geo.bga.w + geo.bga.frame_w * 2 + offset.bga_header.w
-		local header_center_x = header_x + header_w / 2
-		local header_y = geo.bga.y + geo.bga.h + geo.bga.frame_h
-		local header_h = header.h - header_y
-
-		-- background black
-		do
-			local w = geo.bgaarea.w + 20 -- 20でlaneとscoragraphまでの隙間を埋める
-			local x = header_center_x - w / 2
-			local y = header_y
-			local h = header_h
-			table.insert(skin.destination,
-				{id = -110, dst = {
-					{x = x, y = y, w = w, h = h, a = 200 + offset.bga_header.a}
-				}}
-			)
-		end
-
-		-- title & artist removed
-		-- difficulty
-		local margin_outside_x = 0
-		local margin_max = 4
-		local bga_diff_w = geo.bgaarea.w - (geo.bga.w + geo.bga.frame_w * 2)
-		if bga_diff_w <= margin_max then -- BGAと他のエリアが近接する場合は、headerの両サイドにマージンを設ける
-			margin_outside_x = margin_max - bga_diff_w
-		end
-		-- difficulty and level removed
-		-- stage removed
-	end
-
-	-- notesgraph and timingVisualizer (in bga area)
+	-- notesgraph
 	do
 		local w = geo.bga.w / 2 - 20
 		local h = 130
@@ -1929,7 +1830,9 @@ local function main(keysNumber)
 	-- lane border white line レーン周りの白線
 	if property.hideFrames.item.off.isSelected() then
 		local w = 3
-		append_all(skin.destination, border_dst(geo.lane.x - w, geo.lane.y - w, geo.lane.w + w * 2, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
+		-- constrain border width to not exceed header.w
+		local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.x - w))
+		append_all(skin.destination, border_dst(geo.lane.x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
 		append_all(skin.destination, border_dst(geo.lane.x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
 	end
 	-- glow
@@ -2335,23 +2238,18 @@ local function main(keysNumber)
 		})
 	end
 
-	-- gaugearea
+	-- gaugearea - aligned with lane
 	geo.gaugearea = {}
-	geo.gaugearea.protrude_x = 30
-	geo.gaugearea.padding_x = 8
-	geo.gaugearea.x = geo.lane.x - geo.gaugearea.protrude_x
-	if is2P() then
-		geo.gaugearea.x = geo.lane.x - geo.gaugearea.padding_x
-	end
-	geo.gaugearea.w = geo.lane.w + geo.gaugearea.protrude_x + geo.gaugearea.padding_x
+	geo.gaugearea.x = progress_bar_margin
+	geo.gaugearea.w = lane_w
 
 	geo.gauge = {}
-	geo.gauge.x = geo.gaugearea.x + geo.gaugearea.padding_x
+	geo.gauge.x = geo.gaugearea.x + 8
 	if is2P() then
-		geo.gauge.x = geo.gaugearea.x + geo.gaugearea.padding_x
+		geo.gauge.x = geo.gaugearea.x + geo.gaugearea.w - 8
 	end
 	geo.gauge.y = 138
-	geo.gauge.w = geo.gaugearea.w - geo.gaugearea.padding_x * 2
+	geo.gauge.w = geo.gaugearea.w - 16
 	geo.gauge.h = 35
 	-- gauge area background
 	table.insert(skin.destination, {id = -110, dst = {
@@ -2398,7 +2296,7 @@ local function main(keysNumber)
 	do
 		local h = 18 local y = geo.gauge.y + geo.gauge.h + 6
 		-- judgerank
-		local judgerank_image_w = 183 local judgerank_image_h = 36
+		local judgerank_image_w = 183 local judgerank_image_h = 48
 		for i = 1, 5 do
 			table.insert(skin.image, {
 				id = "judgerank_"..i, src = "src_rank_random", x = 0, y = judgerank_image_h * (i - 1), w = judgerank_image_w, h = judgerank_image_h
