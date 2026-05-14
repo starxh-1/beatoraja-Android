@@ -398,9 +398,9 @@ local function main(keysNumber)
 
 	-- note geometry
 	geo.note = {}
-	geo.note.original_white_w = 60
-	geo.note.original_black_w = 48
-	geo.note.original_scratch_w = 108
+	geo.note.original_white_w = 64
+	geo.note.original_black_w = 56
+	geo.note.original_scratch_w = 80
 
 	-- lane and lanearea geometry
 	geo.lanearea = {}
@@ -1753,6 +1753,38 @@ local function main(keysNumber)
 				}},
 			})
 		end
+	end
+
+	-- musicProgressBar
+	do
+		local w = 10 local slider_h = 20
+		table.insert(skin.slider,
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h - 30 * 2, type = 6}
+		)
+		local margin_y = 34
+		local bar_h = geo.lane.h - margin_y * 2
+		local x = geo.lanearea.x + 24
+		if is2P() then
+			x = geo.lanearea.x + geo.lanearea.w - 24 - w
+		end
+		x = x + offset.lane.x
+		local y = geo.lane.y + margin_y
+		if property.hideFrames.item.off.isSelected() then
+			append_all(skin.destination, {
+				{id = -111, dst = {
+					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40}
+				}},
+			})
+		end
+		append_all(skin.destination, {
+			{id = -110, dst = {
+				{x = x, y = y, w = w, h = bar_h}
+			}},
+			{id = "musicprogress", dst = {
+				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h},
+				{time = 1000, a = 100},
+			}},
+		})
 	end
 
 	-- lane
