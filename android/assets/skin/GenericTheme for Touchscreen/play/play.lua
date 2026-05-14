@@ -415,14 +415,14 @@ local function main(keysNumber)
 
 	-- calculate note width scale to fill the lane width
 	-- 7key: white*4 + black*3 + scratch + separateline*7 = base lane width from notes
-	local base_note_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 6 * 7
+	local base_note_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
 	local note_scale_w = lane_w / base_note_width
 	local note_white_w = geo.note.original_white_w * note_scale_w
 	local note_black_w = geo.note.original_black_w * note_scale_w
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
 
 	geo.lane = {}
-	geo.lane.separateline_w = 6 * note_scale_w
+	geo.lane.separateline_w = 3
 	geo.lane.y = 226
 	geo.lane.h = header.h - geo.lane.y
 	geo.lane.w = lane_w
@@ -441,7 +441,10 @@ local function main(keysNumber)
 	-- lane centered
 	geo.lanearea.x = 0
 	geo.lanearea.x = geo.lanearea.x + offset.lane.x
+	-- lane centered (UI reference)
 	geo.lane.x = (header.w - lane_w) / 2 + offset.lane.x
+	-- lane visual position (notes rendering, offset from lane.x)
+	geo.lane.visual_x = geo.lane.x + 60
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 	geo.lane.fivekey_center_x = geo.lane.center_x - geo.lane.fivekeycover_w / 2
@@ -466,9 +469,9 @@ local function main(keysNumber)
 	end
 
 	geo.lane.each_x = {}
-	geo.lane.each_x[geo.lane.order[1]] = geo.lane.x
+	geo.lane.each_x[geo.lane.order[1]] = geo.lane.visual_x
 	if keysNumber == 5 and isRightScratch() then
-		geo.lane.each_x[geo.lane.order[1]] = geo.lane.x + geo.note.white_w + geo.note.black_w + geo.lane.separateline_w
+		geo.lane.each_x[geo.lane.order[1]] = geo.lane.visual_x + geo.note.white_w + geo.note.black_w + geo.lane.separateline_w
 	end
 	for i = 2, #geo.lane.order do
 		geo.lane.each_x[geo.lane.order[i]] = geo.lane.each_x[geo.lane.order[i-1]] + geo.lane.each_w[geo.lane.order[i-1]] + geo.lane.separateline_w
@@ -780,22 +783,22 @@ local function main(keysNumber)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
 			group = {
 				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}
 				}}
 			},
 			time = {
 				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}
 				}}
 			},
 			bpm = {
 				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}
 				}}
 			},
 			stop = {
 				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}
 				}}
 			},
 		}
@@ -1780,16 +1783,16 @@ local function main(keysNumber)
 		local lane_darkness_a = offset.lane_darkness.a
 		if lane_darkness_a == nil then lane_darkness_a = 50 end
 		table.insert(skin.destination, {id = -110, offset = 3, dst = {
-			{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.h, a = lane_darkness_a},
+			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.h, a = lane_darkness_a},
 		}})
 	end
 	-- lane border white line レーン周りの白線
 	if property.hideFrames.item.off.isSelected() then
 		local w = 3
 		-- constrain border width to not exceed header.w
-		local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.x - w))
-		append_all(skin.destination, border_dst(geo.lane.x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
-		append_all(skin.destination, border_dst(geo.lane.x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
+		local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.visual_x - w))
+		append_all(skin.destination, border_dst(geo.lane.visual_x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
+		append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
 	end
 	-- glow
 	table.insert(skin.image,
@@ -1799,22 +1802,22 @@ local function main(keysNumber)
 		local h = 50 local loading_a = 180 local playing_dark_a = 80
 		-- loading
 		table.insert(skin.destination, {id = "glow", op = {80}, offset = 3, blend = 2, dst = {
-			{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
+			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
 		}})
 		-- loaded ~ playstart
 		table.insert(skin.destination, {id = "glow", timer = 40, loop = -1, offset = 3, blend = 2, dst = {
-			{time = 0, x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
+			{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
 			{time = header.playstart, a = playing_dark_a}
 		}})
 		-- playing
 		table.insert(skin.destination, {id = "glow", timer = 140, offset = 3, blend = 2, dst = {
-			{time = 0, x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = h, acc = 2},
+			{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, acc = 2},
 			{time = 1000, a = playing_dark_a},
 		}})
 	end
 	-- judgeline
 	table.insert(skin.destination, {id = -111, offset = 3, dst = {
-		{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0},
+		{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0},
 	}})
 	-- keybeam
 	do
@@ -1912,7 +1915,7 @@ local function main(keysNumber)
 
 		-- duration green(green number)
 		local function durationgreen_dst(_offset, op_additional, y, min_max_y)
-			local x = geo.lane.x + geo.lane.w * 0.55
+			local x = geo.lane.visual_x + geo.lane.w * 0.55
 			local center_x = x + num_w * 3 / 2
 			local color = {r = 100, g = 235, b = 100}
 			return {
@@ -1934,17 +1937,17 @@ local function main(keysNumber)
 		-- hiddencover
 		append_all(skin.destination, {
 			{id = "hiddencover", dst = {
-				{x = geo.lane.x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
+				{x = geo.lane.visual_x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
 			}},
 		})
 
 		-- liftcover
 		append_all(skin.destination, {
 			{id = "liftcover", dst = {
-				{x = geo.lane.x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
+				{x = geo.lane.visual_x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
 			}},
 			{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
-				{x = geo.lane.x + geo.lane.w * 0.25, y = geo.lane.y - num_h - num_margin_y, w = num_w, h = num_h},
+				{x = geo.lane.visual_x + geo.lane.w * 0.25, y = geo.lane.y - num_h - num_margin_y, w = num_w, h = num_h},
 			}},
 		})
 		append_all(skin.destination, durationgreen_dst(3, {272}, geo.lane.y - (num_h + num_margin_y), geo.lane.y - (num_h + num_h * minmaxrate + num_margin_y * 2)))
@@ -1952,10 +1955,10 @@ local function main(keysNumber)
 		-- lanecover(sudden)
 		append_all(skin.destination, {
 			{id = "lanecover", dst = {
-				{x = geo.lane.x, y = header.h, w = geo.lane.w, h = cover_h},
+				{x = geo.lane.visual_x, y = header.h, w = geo.lane.w, h = cover_h},
 			}},
 			{id = "num_lanecover", offset = 4, op = {270}, filter = 1, dst = {
-				{x = geo.lane.x + geo.lane.w * 0.25, y = header.h + num_margin_y, w = num_w, h = num_h},
+				{x = geo.lane.visual_x + geo.lane.w * 0.25, y = header.h + num_margin_y, w = num_w, h = num_h},
 			}},
 		})
 		append_all(skin.destination, durationgreen_dst(4, {}, header.h + num_margin_y, header.h + num_h + num_margin_y * 2))
@@ -2608,10 +2611,10 @@ local function main(keysNumber)
 			append_all(skin.destination, {
 				{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
 					-- 下から伸びて、細くなって消える
-					merge_all({time = 0, x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = 0}, color),
+					merge_all({time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = 0}, color),
 					{time = 100, h = geo.lane.h, acc = 2},
-					{time = 1000, x = geo.lane.x + geo.lane.w / 2 - 10, w = 20, a = 230},
-					{time = 1400, x = geo.lane.x + geo.lane.w / 2, w = 0, a = 0}
+					{time = 1000, x = geo.lane.visual_x + geo.lane.w / 2 - 10, w = 20, a = 230},
+					{time = 1400, x = geo.lane.visual_x + geo.lane.w / 2, w = 0, a = 0}
 				}},
 			})
 		end
