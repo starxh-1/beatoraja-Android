@@ -398,9 +398,9 @@ local function main(keysNumber)
 
 	-- note geometry
 	geo.note = {}
-	geo.note.original_white_w = 64
-	geo.note.original_black_w = 56
-	geo.note.original_scratch_w = 80
+	geo.note.original_white_w = 60
+	geo.note.original_black_w = 48
+	geo.note.original_scratch_w = 64
 
 	-- lane and lanearea geometry
 	geo.lanearea = {}
@@ -689,7 +689,7 @@ local function main(keysNumber)
 	skin.timingvisualizer = {}
 
 	do
-		local white_x = 216 local black_x = 276 local scratch_x = 108
+		local white_x = 216 local black_x = 276 local scratch_x = 384
 		local note_y = 0
 		local lne_y = 36 local lns_y = 72 local lnb_y = 108 local lna_y = 144
 		local hcne_y = 216 local hcns_y = 252 local hcnb_y = 288 local hcna_y = 306 local hcnr_y = 306 local hcnd_y = 342
