@@ -193,8 +193,8 @@ public class SideSpectrumRenderer {
         Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
 
         float baseY = (h - totalHeight) / 2;
-        for (int i = 1; i < 32; i++) {
-            float y = baseY + i * barH;
+        for (int i = 1; i <= 31; i++) {
+            float y = baseY + (32 - i) * barH;
             drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW);
             drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW);
         }
