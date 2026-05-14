@@ -689,7 +689,7 @@ local function main(keysNumber)
 	skin.timingvisualizer = {}
 
 	do
-		local white_x = 216 local black_x = 276 local scratch_x = 384
+		local white_x = 216 local black_x = 276 local scratch_x = 108
 		local note_y = 0
 		local lne_y = 36 local lns_y = 72 local lnb_y = 108 local lna_y = 144
 		local hcne_y = 216 local hcns_y = 252 local hcnb_y = 288 local hcna_y = 306 local hcnr_y = 306 local hcnd_y = 342
