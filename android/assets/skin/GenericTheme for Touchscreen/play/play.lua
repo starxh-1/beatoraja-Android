@@ -444,7 +444,7 @@ local function main(keysNumber)
 	-- lane centered (UI reference)
 	geo.lane.x = (header.w - lane_w) / 2 + offset.lane.x
 	-- lane visual position (notes rendering, offset from lane.x)
-	geo.lane.visual_x = geo.lane.x + 60
+	geo.lane.visual_x = geo.lane.x + 65
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 	geo.lane.fivekey_center_x = geo.lane.center_x - geo.lane.fivekeycover_w / 2
@@ -870,8 +870,8 @@ local function main(keysNumber)
 	end
 
 	geo.judge = {}
-	geo.judge.scale = 1 + offset.judge.w / 100
-	geo.judge.y = geo.lane.y + 140
+	geo.judge.scale = 1.2 + offset.judge.w / 100
+	geo.judge.y = geo.lane.y + 280
 	geo.judge.h = 84 * geo.judge.scale
 	do
 		local offset_x, num_space = 0, 0
