@@ -768,16 +768,16 @@ local function main(keysNumber)
 
 			hidden = {},
 			processed = {},
-			size = {},
+			size = {72, 72, 72, 72, 72, 72, 72, 72},
 			dst = {
-				{x = geo.lane.each_x[1], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[2], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[3], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[4], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[5], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[6], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[7], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[8], y = geo.lane.y - 12, w = geo.note.scratch_w, h = geo.lane.h},
+				{x = geo.lane.each_x[1], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[2], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[3], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[4], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[5], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[6], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[7], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[8], y = geo.lane.y - 18, w = geo.note.scratch_w, h = geo.lane.h},
 			},
 			-- idにdestinationの特殊番号(-111など)は使えないっぽい(NPEになる)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
@@ -817,13 +817,14 @@ local function main(keysNumber)
 			skin.note.mine = {"mine_w", "mine_b", "mine_w", "mine_b", "mine_w", "mine_s"}
 
 			skin.note.dst = {
-				{x = geo.lane.each_x[1], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[2], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[3], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[4], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[5], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[6], y = geo.lane.y - 12, w = geo.note.scratch_w, h = geo.lane.h},
+				{x = geo.lane.each_x[1], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[2], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[3], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[4], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[5], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[6], y = geo.lane.y - 18, w = geo.note.scratch_w, h = geo.lane.h},
 			}
+			skin.note.size = {72, 72, 72, 72, 72, 72}
 		end
 	end
 
