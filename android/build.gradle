@@ -74,12 +74,12 @@ dependencies {
   coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.1.5'
   implementation "com.badlogicgames.gdx-controllers:gdx-controllers-android:$gdxControllersVersion"
   implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
-  implementation 'org.sqldroid:sqldroid:1.0.3'
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.21.2'
   implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
   implementation (project(':core')) {
     exclude group: 'org.xerial', module: 'sqlite-jdbc'
   }
+  implementation 'org.sqldroid:sqldroid:1.0.3'
   implementation "com.badlogicgames.gdx-video:gdx-video-android:$gdxVideoVersion"
 
   // Compose BOM

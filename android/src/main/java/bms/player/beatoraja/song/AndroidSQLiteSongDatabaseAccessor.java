@@ -1062,11 +1062,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
-            // If this folder (directly or indirectly) contains BMS files, insert it into folder table
-            // This ensures all ancestor folders exist in folder table for UI navigation
-            if (containsBms) {
-                insertFolder(folder, db);
-            }
+            // Always insert this folder into folder table for UI navigation,
+            // not just when it contains BMS files directly.
+            // This ensures the root folder has correct CRC for parent lookup.
+            insertFolder(folder, db);
 
             return containsBms;
         } catch (Exception e) {
