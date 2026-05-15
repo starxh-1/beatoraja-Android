@@ -12,7 +12,7 @@ import java.io.UnsupportedEncodingException;
 
 /**
  * イメージデータをソースとして持つスキン用テキスト
- * 
+ *
  * @author exch
  */
 public final class SkinTextImage extends SkinText {
@@ -113,7 +113,7 @@ public final class SkinTextImage extends SkinText {
 
 	/**
 	 * テキストイメージ
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static final class SkinTextImageSource implements Disposable {

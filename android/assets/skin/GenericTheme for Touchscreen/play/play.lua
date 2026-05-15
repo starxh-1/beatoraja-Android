@@ -918,7 +918,7 @@ local function main(keysNumber)
 			group = {
 				{id = "section_line", offset = 3, dst = (function()
 					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}}
+						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 128, g = 128, b = 128}}
 					else
 						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}}
 					end
@@ -927,7 +927,7 @@ local function main(keysNumber)
 			time = {
 				{id = "section_line", offset = 3, dst = (function()
 					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}}
+						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 64, g = 192, b = 192}}
 					else
 						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}}
 					end
@@ -936,7 +936,7 @@ local function main(keysNumber)
 			bpm = {
 				{id = "section_line", offset = 3, dst = (function()
 					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}}
+						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 0, g = 192, b = 0}}
 					else
 						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}}
 					end
@@ -945,7 +945,7 @@ local function main(keysNumber)
 			stop = {
 				{id = "section_line", offset = 3, dst = (function()
 					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = 1, h = geo.lane.h, r = 192, g = 192, b = 0}}
+						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 192, g = 192, b = 0}}
 					else
 						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}}
 					end

@@ -334,8 +334,10 @@ public class LaneRenderer {
 					if (isPortrait) {
 						// Portrait: horizontal falling - x decreases from right to left
 						// Judgment line at left (hl), spawn at right (hu)
-						hl = lanes[0].region.x;
-						hu = lanes[0].region.x + lanes[0].region.width;
+						// Include LIFT in hl calculation to match landscape behavior
+						final float trackWidth = lanes[0].region.width;
+						hl = playconfig.isEnablelift() ? lanes[0].region.x + trackWidth * playconfig.getLift() : lanes[0].region.x;
+						hu = lanes[0].region.x + trackWidth;
 						rxhs = (hu - hl) * hispeed;
 						notePosStart = hl;  // Distance logic: hl + distance
 					} else {
@@ -353,11 +355,15 @@ public class LaneRenderer {
 		if (isPortrait) {
 			// Portrait: LIFT/LANECOVER affect X direction
 			main.main.getOffset(OFFSET_LIFT).x = (float) ((hu - lanes[0].region.x) * playconfig.getLift());
+			main.main.getOffset(OFFSET_LIFT).y = 0;
 			main.main.getOffset(OFFSET_LANECOVER).x = (float) ((hu - hl) * lanecover);
+			main.main.getOffset(OFFSET_LANECOVER).y = 0;
 		} else {
 			// Landscape: LIFT/LANECOVER affect Y direction
 			main.main.getOffset(OFFSET_LIFT).y = (float) (hl - lanes[0].region.y);
+			main.main.getOffset(OFFSET_LIFT).x = 0;
 			main.main.getOffset(OFFSET_LANECOVER).y = (float) ((hl - hu) * lanecover);
+			main.main.getOffset(OFFSET_LANECOVER).x = 0;
 		}
 		// TODO HIDDENとLIFT混在の必要性とHIDDENの必要性
 		final SkinOffset hidden = main.main.getOffset(OFFSET_HIDDEN_COVER);
@@ -366,9 +372,11 @@ public class LaneRenderer {
 			if (isPortrait) {
 				hidden.x = (int) ((1 - playconfig.getLift()) * playconfig.getHidden()
 						* skin.getLaneRegion()[0].width);
+				hidden.y = 0;
 			} else {
 				hidden.y = (int) ((1 - playconfig.getLift()) * playconfig.getHidden()
 						* skin.getLaneRegion()[0].height);
+				hidden.x = 0;
 			}
 		} else {
 			hidden.a = -255;
@@ -406,7 +414,7 @@ public class LaneRenderer {
 		final boolean enableConstant = playconfig.isEnableConstant() && (main.getState() != BMSPlayer.STATE_PRACTICE);
 		final int baseduration = playconfig.getDuration();
 		final float alphaLimit =  playconfig.getConstantFadeinTime() * 1000;
-		for (int i = pos; i < timelines.length && (isPortrait ? notePos >= hl : notePos <= hu); i++) {
+		for (int i = pos; i < timelines.length && notePos <= hu; i++) {
 			final TimeLine tl = timelines[i];
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
@@ -469,9 +477,10 @@ public class LaneRenderer {
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
-							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							// Shift line ahead (left) by 95 pixels to align with notes
+							line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
 						} else {
-							line.draw(sprite, time, main, 0, (int) (notePos - hl));
+							line.draw(sprite, time, main, 0, (int) (notePos - hl - 80));
 						}
 					}
 					for (Rectangle r : playerr) {
@@ -490,7 +499,7 @@ public class LaneRenderer {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+								line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
 							} else {
 								line.draw(sprite, time, main, 0, (int) (notePos - hl));
 							}
@@ -510,7 +519,7 @@ public class LaneRenderer {
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+								line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
 							} else {
 								line.draw(sprite, time, main, 0, (int) (notePos - hl));
 							}
@@ -532,7 +541,7 @@ public class LaneRenderer {
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
 						if (isPortrait) {
-							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
 						} else {
 							line.draw(sprite, time, main, 0, (int) (notePos - hl));
 						}
@@ -561,7 +570,7 @@ public class LaneRenderer {
 		notePos = orgNotePos;
 		final long now = main.timer.getNowTime();
 
-		for (int i = pos; i < timelines.length && (isPortrait ? notePos >= hl : notePos <= hu); i++) {
+		for (int i = pos; i < timelines.length && notePos <= hu; i++) {
 			final TimeLine tl = timelines[i];
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
@@ -631,11 +640,15 @@ public class LaneRenderer {
 					float dstx, dsty, dstw, dsth;
 					if (isPortrait) {
 						// Portrait: notes fall horizontally (x decreases from right to left)
-						// Lead edge is at notePos. Fill the lane thickness.
-						dstx = (float) notePos;
-						dsty = lanes[lane].region.y + offsetY;
-						dstw = scale + offsetW;
-						dsth = lanes[lane].region.height + offsetH;
+						// Correct orientation: rotate 270 CCW (Bottom -> Left).
+						// W (thickness) is vertical, H (length/scale) is horizontal.
+						dstw = lanes[lane].region.height + offsetH;
+						dsth = scale + offsetW;
+
+						// Compensation for 270 CCW rotation around center:
+						// Align leading edge (original Bottom) exactly with notePos.
+						dstx = (float) notePos - (dstw - dsth) / 2f;
+						dsty = lanes[lane].region.y + offsetY + (dstw - dsth) / 2f;
 					}
  else {
 						// Landscape: notes fall vertically (y increases from bottom to top)
@@ -692,7 +705,7 @@ public class LaneRenderer {
 								sprite.setColor(1, 1, 1, 1f);
 								if (s != null) {
 									if (isPortrait) {
-										sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 90.0f);
+										sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
 									} else {
 										sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 									}
@@ -705,7 +718,7 @@ public class LaneRenderer {
 							sprite.setColor(1, 1, 1, 1f);
 							if (s != null) {
 								if (isPortrait) {
-									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 90.0f);
+									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
 								} else {
 									sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 								}
@@ -772,7 +785,7 @@ public class LaneRenderer {
 						if (lanes[lane].hiddenImage != null) {
 							sprite.setColor(1, 1, 1, 1f);
 							if (isPortrait) {
-								sprite.draw(lanes[lane].hiddenImage, (float) notePos, lanes[lane].region.y, scale, lanes[lane].region.width);
+								sprite.draw(lanes[lane].hiddenImage, (float) notePos, lanes[lane].region.y, scale, lanes[lane].region.width, 0.5f, 0.5f, 90.0f);
 							} else {
 								sprite.draw(lanes[lane].hiddenImage, lanes[lane].region.x, (float) notePos, lanes[lane].region.width, scale);
 							}
@@ -905,11 +918,13 @@ public class LaneRenderer {
 							if (drawCondition) {
 								sprite.setColor(1, 1, 1, 1f);
 								if (isPortrait) {
-									// origin is (width/2, height/2) in pixels
+									// Align leading edge to notePos and rotate around center
+									float poorX = (float) notePos - (dstw - dsth) / 2f;
+									float poorY = dsty + (dstw - dsth) / 2f;
 									if (notePos < orgNotePos) {
-										if (s != null) sprite.draw(s, (float) notePos, dsty, dstw, dsth, dstw / 2, dsth / 2, 270.0f);
+										if (s != null) sprite.draw(s, (float) notePos - (dstw - dsth) / 2f, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
 									} else if (s != null) {
-										sprite.draw(s, dstx, dsty, dstw, dsth, dstw / 2, dsth / 2, 270.0f);
+										sprite.draw(s, poorX, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
 									}
 								} else {
 									if (notePos > orgNotePos) {
