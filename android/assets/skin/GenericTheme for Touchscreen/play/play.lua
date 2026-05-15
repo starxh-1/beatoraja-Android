@@ -1059,18 +1059,20 @@ local function main(keysNumber)
 		local n_w = 55
 		local n_total_w = n_w * 10
 		num_space = num_space * geo.judge.scale
+		local judge_align = 0
+		if isPortraitLayout() then judge_align = 1 end
 		append_all(skin.value, {
-			{id = "judge_n_pg", src = "src_judge", x = 227, y = 0, w = n_total_w, h = 252, divx = 10, divy = 3, digit = 6, ref = 75, cycle = 120, space = num_space},
-			{id = "judge_n_gr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
-			{id = "judge_n_gd", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
-			{id = "judge_n_bd", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
-			{id = "judge_n_pr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
-			{id = "judge_n_ms", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
+			{id = "judge_n_pg", src = "src_judge", x = 227, y = 0, w = n_total_w, h = 252, divx = 10, divy = 3, digit = 6, ref = 75, cycle = 120, space = num_space, align = judge_align},
+			{id = "judge_n_gr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
+			{id = "judge_n_gd", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
+			{id = "judge_n_bd", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
+			{id = "judge_n_pr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
+			{id = "judge_n_ms", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
 		})
 
 		local f_x, f_y, f_angle, f_cx, f_cy
 		if isPortraitLayout() then
-			f_x = geo.lane.x + 280
+			f_x = 95
 			f_y = 540
 			f_angle = 270 -- Correct upright orientation for GREAT in portrait
 			f_cx = 0.5
@@ -1093,8 +1095,8 @@ local function main(keysNumber)
 
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then
-			n_x = 0
-			n_y = - (f_w + between_space - num_space * 1.5)
+			n_x = -65
+			n_y = 0
 			n_angle = 270 -- Same for numbers
 			n_cx = 0.5
 			n_cy = 0.5
@@ -1163,7 +1165,7 @@ local function main(keysNumber)
 						{time = looptime}
 					}}
 				},
-				shift = true
+				shift = false
 			}
 		}
 	end
@@ -2096,18 +2098,22 @@ local function main(keysNumber)
 			timer = {101, 102, 103, 104, 105, 100}
 		end
 		local h = 564 -- Length of keybeam
+		if isPortraitLayout() then
+			h = 1200
+		end
 		local a = 255 + offset.keybeam.a
+		local portrait_y_offset = 15
 		-- push
 		do
 			for i = 1, keysNumber do
 				if isPortraitLayout() then
-					-- Portrait: horizontal beam. Result needs to be 564 wide, thickness high.
-					-- Rotate vertical asset 90 deg CCW around its center.
-					-- Center it at (hit_line + length/2, lane_center).
+					-- Portrait: horizontal beam. Asset is vertical (Bottom=Hitline).
+					-- Rotate 270 CCW around Bottom-Center to point Right (+X).
 					local thickness = geo.lane.each_w[i]
+					local y_pos = geo.lane.each_y[i] + thickness / 2 + portrait_y_offset
 					table.insert(skin.destination, {
 						id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
-							{x = geo.lane.x + h / 2, y = geo.lane.each_y[i] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, angle = 90, a = a}
+							{x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, angle = 270, a = a}
 						}
 					})
 				else
@@ -2123,15 +2129,16 @@ local function main(keysNumber)
 			if isPortraitLayout() then
 				-- Portrait scratch keybeam extends horizontally
 				local thickness = geo.lane.each_w[keysNumber + 1]
+				y_pos = geo.lane.each_y[keysNumber + 1] + thickness / 2 + portrait_y_offset
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
-						{time = 0, x = geo.lane.x, y = geo.lane.each_y[keysNumber + 1] + thickness / 2, w = 0, h = thickness, cx = 0, cy = 0.5, a = a, angle = 90},
-						{time = scratch_ontime, w = h}
+						{time = 0, x = geo.lane.x + 5, y = y_pos, w = thickness, h = 0, cx = 0.5, cy = 0, a = a, angle = 270},
+						{time = scratch_ontime, h = h}
 					}
 				})
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
-						{x = geo.lane.x + h / 2, y = geo.lane.each_y[keysNumber + 1] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, a = a, angle = 90}
+						{x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270}
 					}
 				})
 			else
@@ -2153,10 +2160,11 @@ local function main(keysNumber)
 		for i = 1, keysNumber + 1 do
 			if isPortraitLayout() then
 				local thickness = geo.lane.each_w[i]
+				y_pos = geo.lane.each_y[i] + thickness / 2 + portrait_y_offset
 				table.insert(skin.destination, {
 					id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
-						{time = 0, x = geo.lane.x + h / 2, y = geo.lane.each_y[i] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, a = a, angle = 90},
-						{time = key_offtime, h = 0}
+						{time = 0, x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270},
+						{time = key_offtime, x = geo.lane.x + 5, y = y_pos, w = 0, a = 0}
 					}
 				})
 			else
@@ -2885,41 +2893,46 @@ local function main(keysNumber)
 		end
 		local y = geo.lane.y - size_h / 2 + geo.lane.judgeline_h / 2
 		for i = 1, keysNumber + 1 do
-			local x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2 - size_w / 2
-			local bomb_y = y
-			local bomb_x = x
+			local size_w_final = size_w
+			local size_h_final = size_h
 			if isPortraitLayout() then
-				-- Portrait: lanes are horizontal stripes, bomb should align with each lane's vertical position
-				bomb_y = geo.lane.each_y[i] + geo.lane.each_w[i] / 2 - size_h / 2
-				bomb_x = geo.lane.x - size_w / 2  -- Correctly aligned with judgment line
+				size_h_final = geo.lane.each_w[i] * 2.0
+				size_w_final = size_h_final
+			end
+			local bomb_y_offset = 0
+			if isPortraitLayout() and keysNumber == 5 then bomb_y_offset = 9 end
+			local bomb_y = geo.lane.each_y[i] + geo.lane.each_w[i] / 2 - size_h_final / 2 + bomb_y_offset
+			local bomb_x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2 - size_w_final / 2
+			if isPortraitLayout() then
+				bomb_x = geo.lane.x - size_w_final / 2 + 5
 			end
 			if isFastSlowBomb then
 				append_all(skin.destination, {
 					{id = "bomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {-1242, -1243}, blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = normal_cycle - 1}
 					}},
 					{id = "fastbomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {1242}, blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = normal_cycle - 1}
 					}},
 					{id = "slowbomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {1243}, blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = normal_cycle - 1}
 					}},
 					{id = "lnbomb_"..i, offset = 3, loop = ln_cycle, filter = 1, timer = lnBombTimer(i), blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = ln_cycle - 1}
 					}}
 				})
 			else
 				append_all(skin.destination, {
 					{id = "bomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = normal_cycle - 1}
 					}},
 					{id = "lnbomb_"..i, offset = 3, loop = ln_cycle, filter = 1, timer = lnBombTimer(i), blend = 2, dst = {
-						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w_final, h = size_h_final},
 						{time = ln_cycle - 1}
 					}}
 				})
