@@ -200,6 +200,13 @@ local property = {
 			on = {name = "On", op = 968},
 		}
 	},
+	layout = {
+		name = "Layout",
+		item = {
+			landscape = {name = "Landscape", op = 1100},
+			portrait = {name = "Portrait", op = 1101},
+		}
+	},
 }
 local property_order = {
 	"playSide",
@@ -222,7 +229,8 @@ local property_order = {
 	"absolutePositioning",
 	"hideFrames",
 	"inGameSpectrum",
-	"total"
+	"total",
+	"layout"
 }
 -- 全itemに、そのオプションが選択中か返すisSelected()をセットする
 for property_key, property_value in pairs(property) do
@@ -244,6 +252,13 @@ local function skin_property()
 		table.insert(result_property, p)
 	end
 	return result_property
+end
+
+local function isLandscapeLayout()
+	return property.layout.item.landscape.isSelected()
+end
+local function isPortraitLayout()
+	return property.layout.item.portrait.isSelected()
 end
 
 local function is1P()
@@ -402,7 +417,118 @@ local function main(keysNumber)
 	geo.note.original_black_w = 48
 	geo.note.original_scratch_w = 64
 
+	-- Portrait layout: rotate 90 degrees
+	-- Original landscape: x=horizontal, y=vertical, notes fall in -Y direction
+	-- Portrait rotated: x=vertical, y=horizontal, notes fall in -X direction (leftward)
+	local function initPortraitGeo(geo)
+		-- Lane is now horizontal stripes across the full 1080 height of the landscape buffer
+		geo.lane = {}
+		geo.lane.separateline_w = 3
+
+		-- Calculate scaling to fill the 1080 height (which is screen width in portrait)
+		local base_note_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+		local note_scale_w = 1080 / base_note_width
+		geo.note.scale_w = note_scale_w
+		geo.note.white_w = geo.note.original_white_w * note_scale_w
+		geo.note.black_w = geo.note.original_black_w * note_scale_w
+		geo.note.scratch_w = geo.note.original_scratch_w * note_scale_w
+
+		-- Portrait lane: x=judgment line position, y=bottom of screen
+		geo.lane.x = 226  -- Judgment line position
+		geo.lane.y = 0    -- Fill from bottom of buffer
+		geo.lane.w = 1920 - geo.lane.x - 100  -- Lane length
+		geo.lane.h = 1080 -- Full height of buffer
+
+		-- Lane order: 1P standard (Scratch on left).
+		-- In portrait buffer, Y=1080 is Left, Y=0 is Right.
+		geo.lane.order = {7, 6, 5, 4, 3, 2, 1, 8}
+		if keysNumber == 5 then
+			geo.lane.order = {5, 4, 3, 2, 1, 6}
+		end
+		if isRightScratch() then
+			-- Right Scratch: Scratch at smallest Y.
+			geo.lane.order = {8, 1, 2, 3, 4, 5, 6, 7}
+			if keysNumber == 5 then
+				geo.lane.order = {6, 1, 2, 3, 4, 5}
+			end
+		end
+
+		-- Lane thicknesses (perpendicular to fall direction)
+		geo.lane.each_w = {}
+		geo.lane.each_w[1] = geo.note.white_w
+		geo.lane.each_w[2] = geo.note.black_w
+		geo.lane.each_w[3] = geo.note.white_w
+		geo.lane.each_w[4] = geo.note.black_w
+		geo.lane.each_w[5] = geo.note.white_w
+		geo.lane.each_w[6] = geo.note.black_w
+		geo.lane.each_w[7] = geo.note.white_w
+		geo.lane.each_w[8] = geo.note.scratch_w
+
+		-- Note height scale along fall direction (X in buffer) - Set to 60 for full filling
+		geo.lane.each_h = {60, 60, 60, 60, 60, 60, 60, 60}
+		if keysNumber == 5 then
+			geo.lane.each_h = {60, 60, 60, 60, 60, 60}
+		end
+
+		-- Lane positions
+		geo.lane.each_y = {}
+		geo.lane.each_x = {}
+		local current_y = geo.lane.y
+		for i = 1, #geo.lane.order do
+			local lane_idx = geo.lane.order[i]
+			geo.lane.each_x[lane_idx] = geo.lane.x
+			geo.lane.each_y[lane_idx] = current_y
+			current_y = current_y + geo.lane.each_w[lane_idx] + geo.lane.separateline_w
+		end
+
+		geo.lane.visual_x = geo.lane.x
+		geo.lane.center_x = geo.lane.x + geo.lane.w / 2
+		geo.lane.fivekey_center_x = geo.lane.center_x
+		geo.lane.judgeline_h = 10
+
+		-- Gauge area - at top in portrait
+		geo.gaugearea = {}
+		geo.gaugearea.x = 0
+		geo.gaugearea.w = geo.lane.x - 20
+		geo.gaugearea.y = 0
+		geo.gaugearea.h = geo.lane.y + geo.lane.h / 2
+
+		geo.gauge = {}
+		geo.gauge.x = geo.gaugearea.x + 8
+		geo.gauge.y = 138
+		geo.gauge.w = geo.gaugearea.w - 16
+		geo.gauge.h = 35
+
+		-- Score/info area
+		geo.scoreinfoarea = {}
+		geo.scoreinfoarea.x = 0
+		geo.scoreinfoarea.w = geo.gaugearea.w
+		geo.scoreinfoarea.y = geo.gauge.y + 100
+
+		-- Scoregraph - hidden in portrait
+		geo.scoregrapharea = {}
+		geo.scoregrapharea.w = 0
+
+		-- BGA - hidden in portrait
+		geo.bgaarea = {}
+		geo.bgaarea.w = 0
+		geo.bgaarea.x = 0
+		geo.bga = {w = 0, h = 0, x = 0, y = 0, center_x = 0, center_y = 0}
+
+		-- Lanearea
+		geo.lanearea = {}
+		geo.lanearea.x = 0
+		geo.lanearea.w = geo.lane.x
+		geo.lanearea.original_w = geo.lane.x
+	end
+
+	-- Initialize portrait geometry if needed
+	if isPortraitLayout() then
+		initPortraitGeo(geo)
+	end
+
 	-- lane and lanearea geometry
+	if not isPortraitLayout() then
 	geo.lanearea = {}
 	geo.lanearea.padding_left = 0
 	geo.lanearea.padding_right = 0
@@ -476,6 +602,8 @@ local function main(keysNumber)
 	for i = 2, #geo.lane.order do
 		geo.lane.each_x[geo.lane.order[i]] = geo.lane.each_x[geo.lane.order[i-1]] + geo.lane.each_w[geo.lane.order[i-1]] + geo.lane.separateline_w
 	end
+
+	end  -- end of landscape geometry
 
 	-- scoregraph geometry
 	geo.scoregrapharea = {}
@@ -600,13 +728,17 @@ local function main(keysNumber)
 		{id = "src_background", path = "customize/background/*.png"},
 		{id = "src_failed", path = "customize/failed/*.png"},
 		{id = "src_notes", path = "customize/notes/*.png"},
+		{id = "src_notes_portrait", path = "customize/notes/*_portrait.png"},
 		{id = "src_mine", path = "customize/mine/*.png"},
 		{id = "src_gauge", path = "customize/gauge/*.png"},
 		{id = "src_glow", path = "customize/glow/*.png"},
+		{id = "src_glow_portrait", path = "customize/glow/*_portrait.png"},
 		{id = "src_judge", path = "customize/judge/*.png"},
 		{id = "src_keybeam", path = "customize/keybeam/*.png"},
+		{id = "src_keybeam_portrait", path = "customize/keybeam/*_portrait.png"},
 		{id = "src_bomb", path = "customize/bomb/*.png"},
 		{id = "src_lanecover", path = "customize/lanecover/*.png"},
+		{id = "src_lanecover_portrait", path = "customize/lanecover/*_portrait.png"},
 		{id = "src_hiddencover", path = "customize/hiddencover/*.png"},
 		{id = "src_liftcover", path = "customize/liftcover/*.png"},
 		{id = "src_lowerlanearea_customizedimage", path = "customize/lowerlanearea/*.png"},
@@ -620,8 +752,8 @@ local function main(keysNumber)
 		{id = "src_rank_random", path = "parts/rank_random.png"},
 
 		{id = "src_frame_bga", path = "parts/frame_bga.png"},
-		
-		
+
+
 		{id = "src_fullcombo_glow", path = "parts/fullcombo/glow.png"},
 		{id = "src_fullcombo_circle", path = "parts/fullcombo/circle.png"},
 		{id = "src_fullcombo_ring", path = "parts/fullcombo/ring.png"},
@@ -769,37 +901,55 @@ local function main(keysNumber)
 			hidden = {},
 			processed = {},
 			size = {72, 72, 72, 72, 72, 72, 72, 72},
-			dst = {
-				{x = geo.lane.each_x[1], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[2], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[3], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[4], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[5], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[6], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[7], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[8], y = geo.lane.y - 18, w = geo.note.scratch_w, h = geo.lane.h},
-			},
+			dst = (function()
+				local d = {}
+				for i = 1, keysNumber + 1 do
+					if isPortraitLayout() then
+						-- In portrait, w is track length, h is lane thickness
+						d[i] = {x = geo.lane.x, y = geo.lane.each_y[i], w = geo.lane.w, h = geo.lane.each_w[i]}
+					else
+						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 18, w = geo.lane.each_w[i], h = geo.lane.h}
+					end
+				end
+				return d
+			end)(),
 			-- idにdestinationの特殊番号(-111など)は使えないっぽい(NPEになる)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
 			group = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}}
+					end
+				end)()}
 			},
 			time = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}}
+					end
+				end)()}
 			},
 			bpm = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}}
+					end
+				end)()}
 			},
 			stop = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.x, y = geo.lane.y, w = 1, h = geo.lane.h, r = 192, g = 192, b = 0}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}}
+					end
+				end)()}
 			},
 		}
 		if keysNumber == 5 then
@@ -872,7 +1022,11 @@ local function main(keysNumber)
 
 	geo.judge = {}
 	geo.judge.scale = 1.2 + offset.judge.w / 100
-	geo.judge.y = geo.lane.y + 280
+	if isPortraitLayout() then
+		geo.judge.y = geo.lane.y + 280
+	else
+		geo.judge.y = geo.lane.y + 140
+	end
 	geo.judge.h = 84 * geo.judge.scale
 	do
 		local offset_x, num_space = 0, 0
@@ -907,21 +1061,44 @@ local function main(keysNumber)
 			{id = "judge_n_ms", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space},
 		})
 
-		f_w = f_w * geo.judge.scale
-		n_w = n_w * geo.judge.scale
-		offset_x = offset_x * geo.judge.scale
-		between_space = between_space * geo.judge.scale
+		local f_x, f_y, f_angle, f_cx, f_cy
+		if isPortraitLayout() then
+			f_x = geo.lane.x + 280
+			f_y = 540
+			f_angle = 270 -- Correct upright orientation for GREAT in portrait
+			f_cx = 0.5
+			f_cy = 0.5
+		else
+			f_x = geo.lane.center_x -(f_w + between_space - num_space * 1.5) / 2 + offset_x
+			f_y = geo.judge.y
+			f_angle = 0
+			f_cx = 0 -- Reset to landscape defaults
+			f_cy = 0
+		end
 
-		local f_x = geo.lane.center_x -(f_w + between_space - num_space * 1.5) / 2 + offset_x -- why 1.5?
-		if keysNumber == 5 then
+		if keysNumber == 5 and not isPortraitLayout() then
 			if isLeftScratch() then
 				f_x = f_x - geo.lane.fivekeycover_w / 2
 			else
 				f_x = f_x + geo.lane.fivekeycover_w / 2
 			end
 		end
-		local n_x = f_w + between_space - num_space * 4.5 -- why 4.5?
-		local n_y = 0
+
+		local n_x, n_y, n_angle, n_cx, n_cy
+		if isPortraitLayout() then
+			n_x = 0
+			n_y = - (f_w + between_space - num_space * 1.5)
+			n_angle = 270 -- Same for numbers
+			n_cx = 0.5
+			n_cy = 0.5
+		else
+			n_x = f_w + between_space - num_space * 4.5
+			n_y = 0
+			n_angle = 0
+			n_cx = 0
+			n_cy = 0
+		end
+
 		local looptime = 500
 		skin.judge = {
 			{
@@ -929,53 +1106,53 @@ local function main(keysNumber)
 				index = 0,
 				images = {
 					{id = "judge_f_pg", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}},
 					{id = "judge_f_gr", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}},
 					{id = "judge_f_gd", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}},
 					{id = "judge_f_bd", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}},
 					{id = "judge_f_pr", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}},
 					{id = "judge_f_ms", loop = -1, timer = 46, offsets = {3, 32}, dst = {
-						{time = 0, x = f_x, y = geo.judge.y, w = f_w, h = geo.judge.h},
+						{time = 0, x = f_x, y = f_y, w = f_w, h = geo.judge.h, angle = f_angle, cx = f_cx, cy = f_cy},
 						{time = looptime}
 					}}
 				},
 				numbers = {
 					{id = "judge_n_pg", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}},
 					{id = "judge_n_gr", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}},
 					{id = "judge_n_gd", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}},
 					{id = "judge_n_bd", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}},
 					{id = "judge_n_pr", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}},
 					{id = "judge_n_ms", loop = -1, offset = 32, timer = 46, dst = {
-						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h},
+						{time = 0, x = n_x, y = n_y, w = n_w, h = geo.judge.h, angle = n_angle, cx = n_cx, cy = n_cy},
 						{time = looptime}
 					}}
 				},
@@ -1797,18 +1974,30 @@ local function main(keysNumber)
 			if i % 2 == 1 then
 				color = white
 			end
-			table.insert(skin.destination, {id = -111, offset = 3, dst = {
-				merge_all({x = geo.lane.each_x[i], y = geo.lane.y, w = math.ceil(geo.lane.each_w[i]), h = geo.lane.h, a = 255 + offset.lane.a}, color)
-			}})
+			if isPortraitLayout() then
+				table.insert(skin.destination, {id = -111, offset = 3, dst = {
+					merge_all({x = geo.lane.x, y = geo.lane.each_y[i], w = geo.lane.w, h = math.ceil(geo.lane.each_w[i]), a = 255 + offset.lane.a}, color)
+				}})
+			else
+				table.insert(skin.destination, {id = -111, offset = 3, dst = {
+					merge_all({x = geo.lane.each_x[i], y = geo.lane.y, w = math.ceil(geo.lane.each_w[i]), h = geo.lane.h, a = 255 + offset.lane.a}, color)
+				}})
+			end
 		end
 	end
 	-- laneSeparateLine
 	do
 		local rgb = 30
 		for i = 2, #geo.lane.order do
-			table.insert(skin.destination, {id = -111, offset = 3, dst = {
-				{x = geo.lane.each_x[geo.lane.order[i]] - geo.lane.separateline_w, y = geo.lane.y, w = geo.lane.separateline_w, h = geo.lane.h, r = rgb, g = rgb, b = rgb}
-			}})
+			if isPortraitLayout() then
+				table.insert(skin.destination, {id = -111, offset = 3, dst = {
+					{x = geo.lane.x, y = geo.lane.each_y[geo.lane.order[i]] - geo.lane.separateline_w, w = geo.lane.w, h = geo.lane.separateline_w, r = rgb, g = rgb, b = rgb}
+				}})
+			else
+				table.insert(skin.destination, {id = -111, offset = 3, dst = {
+					{x = geo.lane.each_x[geo.lane.order[i]] - geo.lane.separateline_w, y = geo.lane.y, w = geo.lane.separateline_w, h = geo.lane.h, r = rgb, g = rgb, b = rgb}
+				}})
+			end
 		end
 	end
 	-- laneDarkness
@@ -1828,30 +2017,60 @@ local function main(keysNumber)
 		append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
 	end
 	-- glow
-	table.insert(skin.image,
-		{id = "glow", src = "src_glow", x = 0, y = 0, w = 492, h = 72}
-	)
-	do
-		local h = 50 local loading_a = 180 local playing_dark_a = 80
-		-- loading
-		table.insert(skin.destination, {id = "glow", op = {80}, offset = 3, blend = 2, dst = {
-			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
+	if isPortraitLayout() then
+		table.insert(skin.image,
+			{id = "glow", src = "src_glow_portrait", x = 0, y = 0, w = 72, h = 492}
+		)
+		do
+			local w = 50 local loading_a = 180 local playing_dark_a = 80
+			-- loading
+			table.insert(skin.destination, {id = "glow", op = {80}, offset = 3, blend = 2, dst = {
+				{x = geo.lane.x, y = geo.lane.y, w = w, h = geo.lane.h, a = loading_a},
+			}})
+			-- loaded ~ playstart
+			table.insert(skin.destination, {id = "glow", timer = 40, loop = -1, offset = 3, blend = 2, dst = {
+				{time = 0, x = geo.lane.x, y = geo.lane.y, w = w, h = geo.lane.h, a = loading_a},
+				{time = header.playstart, a = playing_dark_a}
+			}})
+			-- playing
+			table.insert(skin.destination, {id = "glow", timer = 140, offset = 3, blend = 2, dst = {
+				{time = 0, x = geo.lane.x, y = geo.lane.y, w = w, h = geo.lane.h, a = playing_dark_a, acc = 2},
+			}})
+		end
+	else
+		table.insert(skin.image,
+			{id = "glow", src = "src_glow", x = 0, y = 0, w = 492, h = 72}
+		)
+		do
+			local h = 50 local loading_a = 180 local playing_dark_a = 80
+			-- loading
+			table.insert(skin.destination, {id = "glow", op = {80}, offset = 3, blend = 2, dst = {
+				{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
+			}})
+			-- loaded ~ playstart
+			table.insert(skin.destination, {id = "glow", timer = 40, loop = -1, offset = 3, blend = 2, dst = {
+				{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
+				{time = header.playstart, a = playing_dark_a}
+			}})
+			-- playing
+			table.insert(skin.destination, {id = "glow", timer = 140, offset = 3, blend = 2, dst = {
+				{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, acc = 2},
+				{time = 1000, a = playing_dark_a},
+			}})
+		end
+	end
+	-- judgment line
+	if isPortraitLayout() then
+		-- Portrait: judgment line is vertical at x position
+		table.insert(skin.destination, {id = -111, offset = 3, dst = {
+			{x = geo.lane.x, y = geo.lane.y, w = geo.lane.judgeline_h, h = geo.lane.h, r = 255, g = 0, b = 0},
 		}})
-		-- loaded ~ playstart
-		table.insert(skin.destination, {id = "glow", timer = 40, loop = -1, offset = 3, blend = 2, dst = {
-			{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, a = loading_a},
-			{time = header.playstart, a = playing_dark_a}
-		}})
-		-- playing
-		table.insert(skin.destination, {id = "glow", timer = 140, offset = 3, blend = 2, dst = {
-			{time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = h, acc = 2},
-			{time = 1000, a = playing_dark_a},
+	else
+		-- Landscape: judgment line is horizontal at y position
+		table.insert(skin.destination, {id = -111, offset = 3, dst = {
+			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0},
 		}})
 	end
-	-- judgeline
-	table.insert(skin.destination, {id = -111, offset = 3, dst = {
-		{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0},
-	}})
 	-- keybeam
 	do
 		do
@@ -1869,45 +2088,84 @@ local function main(keysNumber)
 			kind = {"w", "b", "w", "b", "w", "s"}
 			timer = {101, 102, 103, 104, 105, 100}
 		end
-		local h = geo.lane.h / 2 + offset.keybeam.h
+		local h = 564 -- Length of keybeam
 		local a = 255 + offset.keybeam.a
 		-- push
 		do
 			for i = 1, keysNumber do
+				if isPortraitLayout() then
+					-- Portrait: horizontal beam. Result needs to be 564 wide, thickness high.
+					-- Rotate vertical asset 90 deg CCW around its center.
+					-- Center it at (hit_line + length/2, lane_center).
+					local thickness = geo.lane.each_w[i]
+					table.insert(skin.destination, {
+						id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
+							{x = geo.lane.x + h / 2, y = geo.lane.each_y[i] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, angle = 90, a = a}
+						}
+					})
+				else
+					table.insert(skin.destination, {
+						id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
+							{x = geo.lane.each_x[i], y = geo.lane.y, w = geo.lane.each_w[i], h = h, a = a}
+						}
+					})
+				end
+			end
+			-- スクラッチのキービームのみ伸びる动画をする(オートプレイではオフ)
+			local scratch_ontime = 40
+			if isPortraitLayout() then
+				-- Portrait scratch keybeam extends horizontally
+				local thickness = geo.lane.each_w[keysNumber + 1]
 				table.insert(skin.destination, {
-					id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
-						{x = geo.lane.each_x[i], y = geo.lane.y, w = geo.lane.each_w[i], h = h, a = a}
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
+						{time = 0, x = geo.lane.x, y = geo.lane.each_y[keysNumber + 1] + thickness / 2, w = 0, h = thickness, cx = 0, cy = 0.5, a = a, angle = 90},
+						{time = scratch_ontime, w = h}
+					}
+				})
+				table.insert(skin.destination, {
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
+						{x = geo.lane.x + h / 2, y = geo.lane.each_y[keysNumber + 1] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, a = a, angle = 90}
+					}
+				})
+			else
+				table.insert(skin.destination, {
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
+						{time = 0, x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = 0, a = a},
+						{time = scratch_ontime, h = h}
+					}
+				})
+				table.insert(skin.destination, {
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
+						{x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = h, a = a}
 					}
 				})
 			end
-			-- スクラッチのキービームのみ伸びるアニメーションをする(オートプレイではオフ)
-			local scratch_ontime = 40
-			table.insert(skin.destination, {
-				id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
-					{time = 0, x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = 0, a = a},
-					{time = scratch_ontime, h = h}
-				}
-			})
-			table.insert(skin.destination, {
-				id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
-					{x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = h, a = a}
-				}
-			})
 		end
 		-- away
 		local key_offtime = 100
 		for i = 1, keysNumber + 1 do
-			table.insert(skin.destination, {
-				id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
-					{time = 0, x = geo.lane.each_x[i], y = geo.lane.y, w = geo.lane.each_w[i], h = h, a = a},
-					{time = key_offtime, x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2, w = 0, a = 0}
-				}
-			})
+			if isPortraitLayout() then
+				local thickness = geo.lane.each_w[i]
+				table.insert(skin.destination, {
+					id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
+						{time = 0, x = geo.lane.x + h / 2, y = geo.lane.each_y[i] + thickness / 2, w = h, h = thickness, cx = 0.5, cy = 0.5, a = a, angle = 90},
+						{time = key_offtime, h = 0}
+					}
+				})
+			else
+				table.insert(skin.destination, {
+					id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
+						{time = 0, x = geo.lane.each_x[i], y = geo.lane.y, w = geo.lane.each_w[i], h = h, a = a},
+						{time = key_offtime, x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2, w = 0, a = 0}
+					}
+				})
+			end
 		end
 	end
 	-- notes
 	table.insert(skin.destination, {id = "notes", offset = 30})
-	-- 5keyscover
+
+	-- failed animation
 	if keysNumber == 5 then
 		table.insert(skin.image,
 			{id = "5keyscover", src = "src_5keyscover", x = 0, y = 0, w = -1, h = -1}
@@ -1975,14 +2233,26 @@ local function main(keysNumber)
 		})
 
 		-- liftcover
-		append_all(skin.destination, {
-			{id = "liftcover", dst = {
-				{x = geo.lane.visual_x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
-			}},
-			{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
-				{x = geo.lane.visual_x + geo.lane.w * 0.25, y = geo.lane.y - num_h - num_margin_y, w = num_w, h = num_h},
-			}},
-		})
+		if isPortraitLayout() then
+			-- Portrait: cover extends horizontally from judgment line leftward
+			append_all(skin.destination, {
+				{id = "liftcover", dst = {
+					{x = geo.lane.x - cover_h, y = geo.lane.y, w = cover_h, h = geo.lane.h},
+				}},
+				{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
+					{x = geo.lane.x - cover_h - num_w - num_margin_y, y = geo.lane.y + geo.lane.h * 0.25, w = num_w, h = num_h},
+				}},
+			})
+		else
+			append_all(skin.destination, {
+				{id = "liftcover", dst = {
+					{x = geo.lane.visual_x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
+				}},
+				{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
+					{x = geo.lane.visual_x + geo.lane.w * 0.25, y = geo.lane.y - num_h - num_margin_y, w = num_w, h = num_h},
+				}},
+			})
+		end
 		append_all(skin.destination, durationgreen_dst(3, {272}, geo.lane.y - (num_h + num_margin_y), geo.lane.y - (num_h + num_h * minmaxrate + num_margin_y * 2)))
 
 		-- lanecover(sudden)
@@ -2009,33 +2279,40 @@ local function main(keysNumber)
 		local num_w = 18
 		local display_time = 500
 
-		local function position(total_w, isJudgeDetail)
-			local position, anotherTypeAIsOn
+		local function get_position_property(total_w, isJudgeDetail)
+			local pos_property, anotherIsOnAndTypeA
 			if isJudgeDetail then
-				position = property.judgeDetailPosition.item
+				pos_property = property.judgeDetailPosition.item
 				anotherIsOnAndTypeA = not property.ghostScore.item.off.isSelected() and property.ghostScorePosition.item.typeA.isSelected()
 			else -- ghostScore
-				position = property.ghostScorePosition.item
+				pos_property = property.ghostScorePosition.item
 				anotherIsOnAndTypeA = not property.judgeDetail.item.off.isSelected() and property.judgeDetailPosition.item.typeA.isSelected()
 			end
 
-			local x, y
-			if position.typeA.isSelected() then
-				local lane_center_x = geo.lane.center_x
-				if keysNumber == 5 then
-					lane_center_x = geo.lane.fivekey_center_x
-				end
-				if anotherIsOnAndTypeA then
-					local between_space = 15
-					if isJudgeDetail then
-						x = lane_center_x + between_space
-					else
-						x = lane_center_x - (total_w + between_space)
-					end
+			local x, y, angle
+			if pos_property.typeA.isSelected() then
+				if isPortraitLayout() then
+					x = geo.lane.x + 280
+					y = 540
+					angle = 270 -- Right-side up in portrait
 				else
-					x = lane_center_x - total_w / 2
+					local lane_center_x = geo.lane.center_x
+					if keysNumber == 5 then
+						lane_center_x = geo.lane.fivekey_center_x
+					end
+					if anotherIsOnAndTypeA then
+						local between_space = 15
+						if isJudgeDetail then
+							x = lane_center_x + between_space
+						else
+							x = lane_center_x - (total_w + between_space)
+						end
+					else
+						x = lane_center_x - total_w / 2
+					end
+					y = judge_y + judge_h
+					angle = 0
 				end
-				y = judge_y + judge_h
 			else
 				local lane_side_margin = 8
 				if is1P() then
@@ -2043,16 +2320,17 @@ local function main(keysNumber)
 				else
 					x = geo.lane.x - (total_w + lane_side_margin)
 				end
-				if position.typeB.isSelected() then
+				if pos_property.typeB.isSelected() then
 					y = judge_y
-				elseif position.typeC.isSelected() then
+				elseif pos_property.typeC.isSelected() then
 					y = geo.lane.y
 				end
 				if isJudgeDetail then
 					y = y + h + 4
 				end
+				angle = 0
 			end
-			return x, y
+			return x, y, angle
 		end
 
 		-- judge detail
@@ -2064,14 +2342,14 @@ local function main(keysNumber)
 					{id = "image_fast", src = "src_fastslow", x = 0, y = 0, w = w, h = h},
 					{id = "image_slow", src = "src_fastslow", x = 0, y = h, w = w, h = h},
 				})
-				local x, y = position(w, true)
+				local x, y, angle = get_position_property(w, true)
 				append_all(skin.destination, {
 					{id = "image_fast", offsets = {3, 33}, op = {1242, 32}, loop = -1, timer = 46, filter = 1, dst = {
-						{time = 0, x = x, y = y, w = w, h = h},
+						{time = 0, x = x, y = y, w = w, h = h, angle = angle},
 						{time = display_time}
 					}},
 					{id = "image_slow", offsets = {3, 33}, op = {1243, 32}, loop = -1, timer = 46, filter = 1, dst = {
-						{time = 0, x = x, y = y, w = w, h = h},
+						{time = 0, x = x, y = y, w = w, h = h, angle = angle},
 						{time = display_time}
 					}},
 				})
@@ -2087,16 +2365,16 @@ local function main(keysNumber)
 				})
 
 				local total_w = num_w * digit
-				local x, y = position(total_w, true)
+				local x, y, angle = get_position_property(total_w, true)
 				append_all(skin.destination, {
 					{id = "judge_diff_ms", offsets = {3, 33}, draw = function() return main_state.number(525) >= 0 and main_state.option(32) end,
 						loop = -1, timer = 46, filter = 1, dst = {
-						{time = 0, x = x, y = y, w = num_w, h = h, r = 0, g = 0, b = 255},
+						{time = 0, x = x, y = y, w = num_w, h = h, r = 0, g = 0, b = 255, angle = angle},
 						{time = display_time}
 					}},
 					{id = "judge_diff_ms", offsets = {3, 33}, draw = function() return main_state.number(525) < 0 and main_state.option(32) end,
 						loop = -1, timer = 46, filter = 1, dst = {
-						{time = 0, x = x, y = y, w = num_w, h = h, r = 255, g = 0, b = 0},
+						{time = 0, x = x, y = y, w = num_w, h = h, r = 255, g = 0, b = 0, angle = angle},
 						{time = display_time}
 					}},
 				})
@@ -2124,10 +2402,10 @@ local function main(keysNumber)
 			})
 
 			local total_w = num_w * digit
-			local x, y = position(total_w, false)
+			local x, y, angle = get_position_property(total_w, false)
 			append_all(skin.destination, {
 				{id = "ghostscore", offsets = {3, 33}, op = {32}, loop = -1, timer = 46, filter = 1, dst = {
-					{time = 0, x = x, y = y, w = num_w, h = h},
+					{time = 0, x = x, y = y, w = num_w, h = h, angle = angle},
 					{time = display_time}
 				}},
 			})
@@ -2231,9 +2509,10 @@ local function main(keysNumber)
 	end
 
 	-- gaugearea - aligned with lane
+	if not isPortraitLayout() then
 	geo.gaugearea = {}
-	geo.gaugearea.x = (header.w - lane_w) / 2
-	geo.gaugearea.w = lane_w
+	geo.gaugearea.x = (header.w - header.w) / 2
+	geo.gaugearea.w = header.w
 
 	geo.gauge = {}
 	geo.gauge.x = geo.gaugearea.x + 8
@@ -2283,6 +2562,7 @@ local function main(keysNumber)
 				{x = x + w * 4 + 12, y = y, w = 24, h = 20},
 			}},
 		})
+	end
 	end
 	-- judgerank & ramdom
 	do
@@ -2599,33 +2879,40 @@ local function main(keysNumber)
 		local y = geo.lane.y - size_h / 2 + geo.lane.judgeline_h / 2
 		for i = 1, keysNumber + 1 do
 			local x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2 - size_w / 2
+			local bomb_y = y
+			local bomb_x = x
+			if isPortraitLayout() then
+				-- Portrait: lanes are horizontal stripes, bomb should align with each lane's vertical position
+				bomb_y = geo.lane.each_y[i] + geo.lane.each_w[i] / 2 - size_h / 2
+				bomb_x = geo.lane.x - size_w / 2  -- Correctly aligned with judgment line
+			end
 			if isFastSlowBomb then
 				append_all(skin.destination, {
 					{id = "bomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {-1242, -1243}, blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = normal_cycle - 1}
 					}},
 					{id = "fastbomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {1242}, blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = normal_cycle - 1}
 					}},
 					{id = "slowbomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), op = {1243}, blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = normal_cycle - 1}
 					}},
 					{id = "lnbomb_"..i, offset = 3, loop = ln_cycle, filter = 1, timer = lnBombTimer(i), blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = ln_cycle - 1}
 					}}
 				})
 			else
 				append_all(skin.destination, {
 					{id = "bomb_"..i, offset = 3, loop = -1, filter = 1, timer = bombTimer(i), blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = normal_cycle - 1}
 					}},
 					{id = "lnbomb_"..i, offset = 3, loop = ln_cycle, filter = 1, timer = lnBombTimer(i), blend = 2, dst = {
-						{time = 0, x = x, y = y, w = size_w, h = size_h},
+						{time = 0, x = bomb_x, y = bomb_y, w = size_w, h = size_h},
 						{time = ln_cycle - 1}
 					}}
 				})

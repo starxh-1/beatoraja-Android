@@ -18,6 +18,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 
 import bms.player.beatoraja.Resolution;
 import bms.player.beatoraja.input.BMSPlayerInputProcessor;
+import bms.player.beatoraja.skin.SkinObject;
 import bms.player.beatoraja.skin.SkinProperty;
 
 /**
@@ -48,6 +49,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
     private static final Color WHITE_KEY_COLOR = new Color(0.9f, 0.9f, 0.9f, 0.3f);
     private static final Color BLACK_KEY_COLOR = new Color(0.3f, 0.3f, 0.3f, 0.3f);
     private static final Color LABEL_COLOR = new Color(1.0f, 1.0f, 1.0f, 0.8f);
+
+    private boolean isPortrait = false;
+    private static final int OP_PORTRAIT = 1101;
 
     public PlayTouchKeyMapper(BMSPlayer player, Resolution resolution, BMSPlayerInputProcessor inputProcessor, LaneProperty laneProperty) {
         this.player = player;
@@ -86,24 +90,75 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             return;
         }
 
-        
-        // 清除旧的按钮
-
         // 根据 laneregion 数量创建新按钮
         keyButtons = new TouchKeyButton[laneRegions.length];
 
-        // 触摸区域向下延伸的额外高度（像素）
-        float touchExtension = logicH * 0.15f;
-
         for (int i = 0; i < laneRegions.length; i++) {
-            Rectangle r = laneRegions[i];
-            // beatoraja skin 使用 Y 轴向下坐标（原点左上），Stage 使用 Y 轴向上坐标
-            // 需要将 skin 坐标转换为 stage 坐标
-            float stageY = logicH - r.y - r.height;
+            String label = getKeyLabel(i, laneRegions.length);
+            Color color = getKeyColor(i, laneRegions.length);
+            keyButtons[i] = new TouchKeyButton(0, 0, 0, 0, label, color);
+            stage.addActor(keyButtons[i]);
+        }
+
+        regionsInitialized = true;
+    }
+
+    /**
+     * 动态同步轨道位置到触摸区域，实现“跟着 LaneRenderer 走”
+     */
+    private void updateRegionsFromLanes() {
+        if (!regionsInitialized) return;
+        PlaySkin skin = (PlaySkin) player.getSkin();
+        if (skin == null) return;
+
+        SkinNote skinNote = null;
+        for (SkinObject obj : skin.getAllSkinObjects()) {
+            if (obj instanceof SkinNote) {
+                skinNote = (SkinNote) obj;
+                break;
+            }
+        }
+        if (skinNote == null) return;
+
+        SkinNote.SkinLane[] lanes = skinNote.getLanes();
+        if (lanes == null || lanes.length != keyButtons.length) return;
+
+        boolean isPortrait = player.getLanerender().isPortrait();
+        float touchExtension = isPortrait ? logicH * 0.05f : logicH * 0.15f;
+
+        for (int i = 0; i < lanes.length; i++) {
+            Rectangle r = lanes[i].region; // 获取当前帧的轨道基础区域
+
+            // 计算所有偏移量的总和（如 LIFT、LaneCover 等）
+            float offsetX = 0;
+            float offsetY = 0;
+            for (SkinObject.SkinOffset o : lanes[i].getSkinOffsets()) {
+                if (o != null) {
+                    offsetX += o.x;
+                    offsetY += o.y;
+                }
+            }
+
+            float stageY;
+            float finalX = r.x + offsetX;
+            float finalY = r.y + offsetY;
+
+            if (isPortrait) {
+                // 竖屏逻辑：映射 Stage y=0 -> 右，y=1080 -> 左
+                // 此时 finalY 包含 LIFT 等带来的偏移。直接使用以实现“跟着轨道走”。
+                stageY = finalY;
+            } else {
+                // 横屏逻辑：正常 Y 轴翻转，同时应用偏移
+                stageY = logicH - finalY - r.height;
+            }
 
             // 扩展触摸区域高度
-            float extendedY = stageY - touchExtension;
-            float extendedHeight = r.height + touchExtension * 2;
+            // 在竖屏模式下，Y轴对应厚度，X轴对应轨道方向。
+            // 为了防止按键“粘连”（冲突），在竖屏模式下取消 Y 轴扩展。
+            float currentTouchExtension = isPortrait ? 0 : touchExtension;
+            float extendedY = stageY - currentTouchExtension;
+            float extendedHeight = r.height + currentTouchExtension * 2;
+
             // 确保不超出屏幕边界
             if (extendedY < 0) {
                 extendedHeight += extendedY;
@@ -112,11 +167,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             if (extendedY + extendedHeight > logicH) {
                 extendedHeight = logicH - extendedY;
             }
-            keyButtons[i] = new TouchKeyButton(r.x, extendedY, r.width, extendedHeight, "", Color.CLEAR);
-            stage.addActor(keyButtons[i]);
-        }
 
-        regionsInitialized = true;
+            keyButtons[i].updateBounds(finalX, extendedY, r.width, extendedHeight);
+        }
     }
 
     /**
@@ -162,14 +215,12 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
      * lane index 直接对应 logical key index
      */
     private int getLogicalKeyNumber(int laneIdx, int totalLanes) {
-        // 对于单 scratch 模式（如 7K），scratch 是最后一个
-        // 对于双 scratch 模式（如 14K），两个 scratch 各有各的索引
-        // 对于无 scratch 模式（如 9K），直接返回 laneIdx + 1
-        if (totalLanes == 9) {
-            // POPN_9K: 1-9
-            return laneIdx + 1;
+        // 对于 14K (16 lanes with 2 SCR)
+        if (totalLanes == 16) {
+            if (laneIdx < 7) return laneIdx;
+            if (laneIdx > 7 && laneIdx < 15) return laneIdx - 8;
         }
-        // 其他模式：lane index 就是 logical key index
+        // 对于 7K/5K 等，直接返回 0-indexed 序号以匹配皮肤视觉标签 (0, 1, 2...)
         return laneIdx;
     }
 
@@ -215,6 +266,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
     public void render(SpriteBatch sprite, BitmapFont font) {
         if (!enabled) return;
 
+        // 同步位置
+        updateRegionsFromLanes();
+
         // 清理已断开的指针
         for (int p = 0; p < pointerMap.length; p++) {
             if (pointerMap[p] != -1 && !Gdx.input.isTouched(p)) {
@@ -224,7 +278,12 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             }
         }
 
-        // 触摸区域不绘制，只保留触摸检测功能
+        // 绘制触摸按键区域
+        for (int i = 0; i < keyButtons.length; i++) {
+            if (keyButtons[i] != null) {
+                keyButtons[i].drawCustom(sprite, whitePixel, font);
+            }
+        }
     }
 
     public void setEnabled(boolean enabled) {
@@ -306,6 +365,11 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             this.label = label;
             this.bgColor = bgColor;
             this.bounds = new Rectangle(x, y, w, h);
+            setBounds(x, y, w, h);
+        }
+
+        public void updateBounds(float x, float y, float w, float h) {
+            this.bounds.set(x, y, w, h);
             setBounds(x, y, w, h);
         }
 

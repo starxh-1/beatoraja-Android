@@ -13,7 +13,7 @@ import com.badlogic.gdx.utils.*;
 
 /**
  * スキンオブジェクト
- * 
+ *
  * @author exch
  */
 public abstract class SkinObject extends DisposableObject {
@@ -42,9 +42,9 @@ public abstract class SkinObject extends DisposableObject {
      * 1 : Linear filtering
      */
 	private int dstfilter;
-	
+
 	private int imageType;
-	
+
 	/**
 	 * 画像回転の中心
 	 */
@@ -92,7 +92,7 @@ public abstract class SkinObject extends DisposableObject {
 	 * 描画先
 	 */
 	private SkinObjectDestination[] dst = new SkinObjectDestination[0];
-	
+
 	// 以下、高速化用
 	private long starttime;
 	private long endtime;
@@ -113,7 +113,7 @@ public abstract class SkinObject extends DisposableObject {
 
 	private Rectangle tmpRect = new Rectangle();
 	private TextureRegion tmpImage = new TextureRegion();
-	
+
 	public SkinObjectDestination[] getAllDestination() {
 		return dst;
 	}
@@ -167,13 +167,13 @@ public abstract class SkinObject extends DisposableObject {
 			setDrawCondition(op);
 		}
 	}
-	
+
 	public void setDestination(long time, float x, float y, float w, float h, int acc, int a, int r, int g, int b,
 			int blend, int filter, int angle, int center, int loop, TimerProperty timer, BooleanProperty draw) {
 		setDestination(time, x, y, w, h, acc, a, r, g, b, blend, filter, angle, center, loop, timer);
 		dstdraw = new BooleanProperty[] {draw};
 	}
-	
+
 	private void setDestination(long time, float x, float y, float w, float h, int acc, int a, int r, int g, int b,
 			int blend, int filter, int angle, int center, int loop, TimerProperty timer) {
 		SkinObjectDestination obj = new SkinObjectDestination(time, new Rectangle(x, y, w, h), new Color(r / 255.0f,
@@ -199,11 +199,11 @@ public abstract class SkinObject extends DisposableObject {
 		if (dstblend == 0) {
 			dstblend = blend;
 		}
-		
+
 		if (dstfilter == 0) {
 			dstfilter = filter;
 		}
-		
+
 		if (dstcenter == 0 && center >= 0 && center < 10) {
 			dstcenter = center;
 			centerx = CENTERX[center];
@@ -229,7 +229,7 @@ public abstract class SkinObject extends DisposableObject {
 		l.add(obj);
 		dst = l.toArray(SkinObjectDestination.class);
 		starttime = dst[0].time;
-		endtime = dst[dst.length - 1].time;		
+		endtime = dst[dst.length - 1].time;
 	}
 
 	public BooleanProperty[] getDrawCondition() {
@@ -262,7 +262,7 @@ public abstract class SkinObject extends DisposableObject {
 		this.dstop = op.toArray();
 		this.dstdraw = draw.toArray(BooleanProperty.class);
 	}
-	
+
 	public void setDrawCondition(BooleanProperty[] dstdraw) {
 		this.dstdraw = dstdraw;
 	}
@@ -292,7 +292,7 @@ public abstract class SkinObject extends DisposableObject {
 
 	/**
 	 * 指定して時間に応じた描画領域を返す
-	 * 
+	 *
 	 * @param time
 	 *            時間(ms)
 	 * @return 描画領域
@@ -382,7 +382,7 @@ public abstract class SkinObject extends DisposableObject {
 			return;
 		}
 	}
-	
+
 	public Rectangle getDestination(long time, MainState state) {
 		return draw ? region : null;
 	}
@@ -402,7 +402,7 @@ public abstract class SkinObject extends DisposableObject {
 		}
 		getRate();
 		if(rate == 0) {
-			color.set(dst[index].color);			
+			color.set(dst[index].color);
 		} else {
 			if(acc == 3) {
 				final Color r1 = dst[index].color;
@@ -429,11 +429,11 @@ public abstract class SkinObject extends DisposableObject {
 			}
 		}
 	}
-	
+
 	public Color getColor() {
 		return color;
 	}
-	
+
 	private void prepareAngle() {
 		if (fixa != Integer.MIN_VALUE) {
 			angle = fixa;
@@ -452,7 +452,7 @@ public abstract class SkinObject extends DisposableObject {
 			}
 		}
 	}
-	
+
 	private void getRate() {
 		if(rate != -1) {
 			return;
@@ -484,7 +484,7 @@ public abstract class SkinObject extends DisposableObject {
 		this.rate = 0;
 		this.index = 0;
 	}
-	
+
 	public boolean validate() {
 		return getAllDestination().length > 0;
 	}
@@ -494,7 +494,7 @@ public abstract class SkinObject extends DisposableObject {
 	 */
 	public void load() {
 	}
-	
+
 	public void prepare(long time, MainState state) {
 		prepare(time, state, 0, 0);
 	}
@@ -534,17 +534,17 @@ public abstract class SkinObject extends DisposableObject {
 		if (color.a == 0f || image == null) {
 			return;
 		}
-		
+
 		tmpRect.set(region);
 		if(stretch != null) {
 			stretch.stretchRect(tmpRect, tmpImage, image);
 		}
 		sprite.setColor(color);
 		sprite.setBlend(dstblend);
-		sprite.setType(dstfilter != 0 && imageType == SkinObjectRenderer.TYPE_NORMAL ? 
+		sprite.setType(dstfilter != 0 && imageType == SkinObjectRenderer.TYPE_NORMAL ?
 				(tmpRect.width == tmpImage.getRegionWidth() && tmpRect.height == tmpImage.getRegionHeight() ?
 				SkinObjectRenderer.TYPE_NORMAL : SkinObjectRenderer.TYPE_BILINEAR) : imageType);
-		
+
 		if (angle != 0) {
 			sprite.draw(tmpImage, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height, centerx , centery, angle);
 		} else {
@@ -567,10 +567,10 @@ public abstract class SkinObject extends DisposableObject {
 		}
 		sprite.setColor(color);
 		sprite.setBlend(dstblend);
-		sprite.setType(dstfilter != 0 && imageType == SkinObjectRenderer.TYPE_NORMAL ? 
+		sprite.setType(dstfilter != 0 && imageType == SkinObjectRenderer.TYPE_NORMAL ?
 				(tmpRect.width == tmpImage.getRegionWidth() && tmpRect.height == tmpImage.getRegionHeight() ?
 				SkinObjectRenderer.TYPE_NORMAL : SkinObjectRenderer.TYPE_BILINEAR) : imageType);
-		
+
 		if (angle != 0) {
 			sprite.draw(tmpImage, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height, centerx , centery, angle);
 		} else {
@@ -647,7 +647,7 @@ public abstract class SkinObject extends DisposableObject {
 
 	/**
 	 * スキンオブジェクトの描画先を表現するクラス
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class SkinObjectDestination {
@@ -669,10 +669,10 @@ public abstract class SkinObject extends DisposableObject {
 			this.acc = acc;
 		}
 	}
-	
+
 	/**
 	 * オフセット
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class SkinOffset {
@@ -690,17 +690,17 @@ public abstract class SkinObject extends DisposableObject {
 	 * @author exch
 	 */
 	public static class RateProperty implements FloatProperty {
-		
+
 		private final IntegerProperty ref;
 		private final int min;
 		private final int max;
-		
+
 		public RateProperty(int type, int min, int max) {
 			this.ref = IntegerPropertyFactory.getIntegerProperty(type);
 			this.min = min;
 			this.max = max;
 		}
-		
+
 		public float get(MainState state) {
 			final int value = ref != null ? ref.get(state) : 0;
 			if(min < max) {
@@ -725,6 +725,10 @@ public abstract class SkinObject extends DisposableObject {
 
 	public abstract void dispose();
 
+	public SkinOffset[] getSkinOffsets() {
+		return off;
+	}
+
 	public int[] getOffsetID() {
 		return offset;
 	}
@@ -748,7 +752,7 @@ public abstract class SkinObject extends DisposableObject {
 			this.off = new SkinOffset[this.offset.length];
 		}
 	}
-	
+
 	public SkinOffset[] getOffsets() {
 		return off;
 	}
@@ -756,7 +760,7 @@ public abstract class SkinObject extends DisposableObject {
 	public TimerProperty getDestinationTimer() {
 		return dsttimer;
 	}
-	
+
 	public final int getImageType() {
 		return imageType;
 	}
@@ -764,7 +768,7 @@ public abstract class SkinObject extends DisposableObject {
 	public final void setImageType(int imageType) {
 		this.imageType = imageType;
 	}
-	
+
 	public final int getFilter() {
 		return dstfilter;
 	}

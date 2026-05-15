@@ -55,6 +55,12 @@ public class LaneRenderer {
 	private double minbpm;
 	private double maxbpm;
 
+	// Portrait mode: notes fall horizontally instead of vertically
+	private boolean isPortrait = false;
+	public boolean isPortrait() { return isPortrait; }
+	// Portrait op value from skin (1101 = portrait, 1100 = landscape)
+	private static final int OP_PORTRAIT = 1101;
+
 	//PMSのリズムに合わせたノートの拡大用
 	//4分から最大拡大までの時間
 	private final float noteExpansionTime = 9;
@@ -287,6 +293,25 @@ public class LaneRenderer {
 			}
 		}
 		if (skin == null) return;
+		// Detect portrait mode from skin configuration (op 1101 = portrait)
+		isPortrait = false;
+		if (main.getSkin() != null && main.getSkin().header != null) {
+			for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : main.getSkin().header.getCustomOptions()) {
+				if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
+					isPortrait = true;
+					break;
+				}
+			}
+		}
+		// Also check option map as secondary source
+		if (!isPortrait && skin.getOption() != null) {
+			for (com.badlogic.gdx.utils.IntIntMap.Entry e : skin.getOption()) {
+				if (e.value == OP_PORTRAIT) {
+					isPortrait = true;
+					break;
+				}
+			}
+		}
 		final Rectangle[] playerr = skin.getLaneGroupRegion();
 		double bpm = model.getBpm();
 		double nbpm = bpm;
@@ -299,25 +324,51 @@ public class LaneRenderer {
 		final double region = nscroll > 0 ? (240000 / nbpm / hispeed) / nscroll : 0;
 		// double sect = (bpm / 60) * 4 * 1000;
 		// TODO hu,hlをレーン毎に変更
-		final double hu = lanes[0].region.y + lanes[0].region.height;
-		final double hl = playconfig.isEnablelift() ? lanes[0].region.y + lanes[0].region.height * playconfig.getLift() : lanes[0].region.y;
-		final double rxhs = (hu - hl) * hispeed;
-		double y = hl;
+
+		// Portrait mode: notes fall horizontally (right to left)
+		// Landscape mode: notes fall vertically (bottom to top)
+		final double hu;
+		final double hl;
+		final double rxhs;
+		final double notePosStart;
+					if (isPortrait) {
+						// Portrait: horizontal falling - x decreases from right to left
+						// Judgment line at left (hl), spawn at right (hu)
+						hl = lanes[0].region.x;
+						hu = lanes[0].region.x + lanes[0].region.width;
+						rxhs = (hu - hl) * hispeed;
+						notePosStart = hl;  // Distance logic: hl + distance
+					} else {
+			// Landscape: vertical falling - y increases from bottom to top
+			hu = lanes[0].region.y + lanes[0].region.height;
+			hl = playconfig.isEnablelift() ? lanes[0].region.y + lanes[0].region.height * playconfig.getLift() : lanes[0].region.y;
+			rxhs = (hu - hl) * hispeed;
+			notePosStart = hl;  // Start from bottom
+		}
+		double notePos = notePosStart;
 
 		final float lanecover = playconfig.isEnablelanecover() ? playconfig.getLanecover() : 0;
 		currentduration = (int) Math.round(region * (1 - lanecover));
 
-		main.main.getOffset(OFFSET_LIFT).y = (float) (hl - lanes[0].region.y);
-		main.main.getOffset(OFFSET_LANECOVER).y = (float) ((hl - hu) * lanecover);
+		if (isPortrait) {
+			// Portrait: LIFT/LANECOVER affect X direction
+			main.main.getOffset(OFFSET_LIFT).x = (float) ((hu - lanes[0].region.x) * playconfig.getLift());
+			main.main.getOffset(OFFSET_LANECOVER).x = (float) ((hu - hl) * lanecover);
+		} else {
+			// Landscape: LIFT/LANECOVER affect Y direction
+			main.main.getOffset(OFFSET_LIFT).y = (float) (hl - lanes[0].region.y);
+			main.main.getOffset(OFFSET_LANECOVER).y = (float) ((hl - hu) * lanecover);
+		}
 		// TODO HIDDENとLIFT混在の必要性とHIDDENの必要性
 		final SkinOffset hidden = main.main.getOffset(OFFSET_HIDDEN_COVER);
 		if (playconfig.isEnablehidden()) {
 			hidden.a = 0;
-			if (playconfig.isEnablelift()) {
-				hidden.y =  (1 - playconfig.getLift()) * playconfig.getHidden()
-						* skin.getLaneRegion()[0].height;
+			if (isPortrait) {
+				hidden.x = (int) ((1 - playconfig.getLift()) * playconfig.getHidden()
+						* skin.getLaneRegion()[0].width);
 			} else {
-				hidden.y = playconfig.getHidden() * skin.getLaneRegion()[0].height;
+				hidden.y = (int) ((1 - playconfig.getLift()) * playconfig.getHidden()
+						* skin.getLaneRegion()[0].height);
 			}
 		} else {
 			hidden.a = -255;
@@ -336,8 +387,13 @@ public class LaneRenderer {
 						for (int j = JUDGE_AREA_COLORS.length - 1; j >= 0; j--) {
 							sprite.setColor(JUDGE_AREA_COLORS[j]);
 							long nj = j > 0 ? judgetime[j - 1][1] : 0;
-							sprite.draw(main.getImage(IMAGE_WHITE), lanes[lane].region.x, (float) (hl + nj * rate), lanes[lane].region.width,
-									(float) ((judgetime[j][1] - nj) * rate));
+							if (isPortrait) {
+								sprite.draw(main.getImage(IMAGE_WHITE), (float) (hl + nj * rate), lanes[lane].region.y,
+										(float) ((judgetime[j][1] - nj) * rate), lanes[lane].region.height);
+							} else {
+								sprite.draw(main.getImage(IMAGE_WHITE), lanes[lane].region.x, (float) (hl + nj * rate), lanes[lane].region.width,
+										(float) ((judgetime[j][1] - nj) * rate));
+							}
 						}
 						break;
 					}
@@ -346,11 +402,11 @@ public class LaneRenderer {
 		}
 
 		// draw section line
-		final double orgy = y;
+		final double orgNotePos = notePos;
 		final boolean enableConstant = playconfig.isEnableConstant() && (main.getState() != BMSPlayer.STATE_PRACTICE);
 		final int baseduration = playconfig.getDuration();
 		final float alphaLimit =  playconfig.getConstantFadeinTime() * 1000;
-		for (int i = pos; i < timelines.length && y <= hu; i++) {
+		for (int i = pos; i < timelines.length && (isPortrait ? notePos >= hl : notePos <= hu); i++) {
 			final TimeLine tl = timelines[i];
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
@@ -389,22 +445,43 @@ public class LaneRenderer {
 				if (i > 0) {
 					final TimeLine prevtl = timelines[i - 1];
 					if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
-						y += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						if (isPortrait) {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						} else {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						}
 					} else {
-						y += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-								/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						if (isPortrait) {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
+									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						} else {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
+									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						}
 					}
 				} else {
-					y += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					if (isPortrait) {
+						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					} else {
+						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					}
 				}
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
-						line.draw(sprite, time, main, 0, (int) (y - hl));
+						if (isPortrait) {
+							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+						} else {
+							line.draw(sprite, time, main, 0, (int) (notePos - hl));
+						}
 					}
 					for (Rectangle r : playerr) {
 						// TODO 数値もスキンベースへ移行
 						if(font != null) {
-							sprite.draw(font, cachedTimeText[i], r.x + 4, (float) (y + 20), COLOR_TIME_TEXT);
+							if (isPortrait) {
+								sprite.draw(font, cachedTimeText[i], (float) (hu - notePos), r.y + r.height - 4, COLOR_TIME_TEXT);
+							} else {
+								sprite.draw(font, cachedTimeText[i], r.x + 4, (float) (notePos + 20), COLOR_TIME_TEXT);
+							}
 						}
 					}
 				}
@@ -412,25 +489,40 @@ public class LaneRenderer {
 				if (config.isBpmguide() || showTimeline) {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
-							line.draw(sprite, time, main, 0, (int) (y - hl));
+							if (isPortrait) {
+								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							} else {
+								line.draw(sprite, time, main, 0, (int) (notePos - hl));
+							}
 						}
 						for (Rectangle r : playerr) {
 							// TODO 数値もスキンベースへ移行
 							if(font != null) {
-								sprite.draw(font, cachedBpmText[i], r.x + r.width / 2, (float) (y + 20), COLOR_BPM_TEXT);
+								if (isPortrait) {
+									sprite.draw(font, cachedBpmText[i], (float) (hu - notePos), r.y + r.height / 2, COLOR_BPM_TEXT);
+								} else {
+									sprite.draw(font, cachedBpmText[i], r.x + r.width / 2, (float) (notePos + 20), COLOR_BPM_TEXT);
+								}
 							}
-
 						}
 
 					}
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
-							line.draw(sprite, time, main, 0, (int) (y - hl));
+							if (isPortrait) {
+								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							} else {
+								line.draw(sprite, time, main, 0, (int) (notePos - hl));
+							}
 						}
 						for (Rectangle r : playerr) {
 							// TODO 数値もスキンベースへ移行
 							if(font != null) {
-								sprite.draw(font, cachedStopText[i], r.x + r.width / 2, (float) (y + 20), COLOR_STOP_TEXT);
+								if (isPortrait) {
+									sprite.draw(font, cachedStopText[i], (float) (hu - notePos), r.y + r.height / 2, COLOR_STOP_TEXT);
+								} else {
+									sprite.draw(font, cachedStopText[i], r.x + r.width / 2, (float) (notePos + 20), COLOR_STOP_TEXT);
+								}
 							}
 						}
 					}
@@ -439,7 +531,11 @@ public class LaneRenderer {
 				// 小節線描画
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
-						line.draw(sprite, time, main, 0, (int) (y - hl));
+						if (isPortrait) {
+							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+						} else {
+							line.draw(sprite, time, main, 0, (int) (notePos - hl));
+						}
 					}
 				}
 				nbpm = tl.getBPM();
@@ -462,10 +558,10 @@ public class LaneRenderer {
 		sprite.setColor(Color.WHITE);
 		sprite.setBlend(0);
 		sprite.setType(SkinObjectRenderer.TYPE_NORMAL);
-		y = orgy;
+		notePos = orgNotePos;
 		final long now = main.timer.getNowTime();
 
-		for (int i = pos; i < timelines.length && y <= hu; i++) {
+		for (int i = pos; i < timelines.length && (isPortrait ? notePos >= hl : notePos <= hu); i++) {
 			final TimeLine tl = timelines[i];
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
@@ -504,13 +600,26 @@ public class LaneRenderer {
 				if (i > 0) {
 					final TimeLine prevtl = timelines[i - 1];
 					if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
-						y += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						if (isPortrait) {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						} else {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+						}
 					} else {
-						y += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-								/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						if (isPortrait) {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
+									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						} else {
+							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
+									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+						}
 					}
 				} else {
-					y += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					if (isPortrait) {
+						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					} else {
+						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+					}
 				}
 			}
 			// ノート描画
@@ -518,24 +627,44 @@ public class LaneRenderer {
 				final float scale = lanes[lane].scale;
 				final Note note = tl.getNote(lane);
 				if (note != null) {
-					// Debug: 确认音符绘制是否被调用
-		// 					Gdx.app.log("NoteDebug", "Drawing note at lane " + lane + ", y=" + (float)y + ", noteType=" + note.getClass().getSimpleName());
-					//4分のタイミングでノートを拡大する
-					float dstx = lanes[lane].region.x + offsetX;
-					float dsty = (float) y + offsetY - offsetH / 2;
-					float dstw = lanes[lane].region.width + offsetW;
-					float dsth = scale + offsetH;
+					// 4分音符タイミングでノートを拡大する
+					float dstx, dsty, dstw, dsth;
+					if (isPortrait) {
+						// Portrait: notes fall horizontally (x decreases from right to left)
+						// Lead edge is at notePos. Fill the lane thickness.
+						dstx = (float) notePos;
+						dsty = lanes[lane].region.y + offsetY;
+						dstw = scale + offsetW;
+						dsth = lanes[lane].region.height + offsetH;
+					}
+ else {
+						// Landscape: notes fall vertically (y increases from bottom to top)
+						dstx = lanes[lane].region.x + offsetX;
+						dsty = (float) notePos + offsetY - offsetH / 2;
+						dstw = lanes[lane].region.width + offsetW;
+						dsth = scale + offsetH;
+					}
 					if(skin.getNoteExpansionRate()[0] != 100 || skin.getNoteExpansionRate()[1] != 100) {
 						if((now - main.getNowQuarterNoteTime()) < noteExpansionTime) {
 							dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
 							dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
-							dstx -= (dstw - lanes[lane].region.width) / 2;
-							dsty -= (dsth - scale) / 2;
+							if (isPortrait) {
+								dstx -= (dstw - scale) / 2;
+								dsty -= (dsth - lanes[lane].region.width) / 2;
+							} else {
+								dstx -= (dstw - lanes[lane].region.width) / 2;
+								dsty -= (dsth - scale) / 2;
+							}
 						} else if((now - main.getNowQuarterNoteTime()) >= noteExpansionTime && (now - main.getNowQuarterNoteTime()) <= (noteExpansionTime + noteContractionTime)) {
 							dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
 							dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
-							dstx -= (dstw - lanes[lane].region.width) / 2;
-							dsty -= (dsth - scale) / 2;
+							if (isPortrait) {
+								dstx -= (dstw - scale) / 2;
+								dsty -= (dsth - lanes[lane].region.width) / 2;
+							} else {
+								dstx -= (dstw - lanes[lane].region.width) / 2;
+								dsty -= (dsth - scale) / 2;
+							}
 						}
 					}
 					// 可见性裁剪：跳过视口外的音符
@@ -561,14 +690,26 @@ public class LaneRenderer {
 		// 								Gdx.app.log("NoteDebug", "Camera Viewport - laneRegion: y=" + lanes[lane].region.y + ", h=" + lanes[lane].region.height + " | hu=" + hu + " hl=" + hl + " | Note: x=" + dstx + " y=" + dsty + " w=" + dstw + " h=" + dsth);
 								// Force full opacity to fix alpha transparency issue
 								sprite.setColor(1, 1, 1, 1f);
-								if (s != null) sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+								if (s != null) {
+									if (isPortrait) {
+										sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 90.0f);
+									} else {
+										sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+									}
+								}
 							}
 						} else if (tl.getMicroTime() >= microtime || (config.isShowpastnote() && note.getState() == 0)) {
 		// 							Gdx.app.log("NoteDebug", "NormalNote 2: noteImage=" + (lanes[lane].noteImage != null) + ", processedImage=" + (lanes[lane].processedImage != null) + ", selected s=" + (s != null));
 		// 							Gdx.app.log("NoteDebug", "Camera Viewport - laneRegion: y=" + lanes[lane].region.y + ", h=" + lanes[lane].region.height + " | hu=" + hu + " hl=" + hl + " | Note: x=" + dstx + " y=" + dsty + " w=" + dstw + " h=" + dsth);
 							// Force full opacity to fix alpha transparency issue
 							sprite.setColor(1, 1, 1, 1f);
-							if (s != null) sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+							if (s != null) {
+								if (isPortrait) {
+									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 90.0f);
+								} else {
+									sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+								}
+							}
 						}
 					} else if (note instanceof LongNote ln) {
 						if (!ln.isEnd() && ln.getPair().getMicroTime() >= microtime) {
@@ -596,13 +737,18 @@ public class LaneRenderer {
 								}
 								prevtl = nowtl;
 							}
-							if (dy > 0) {
-								final float dscale = dsth > scale ? (dsth - scale) / 2 : 0;
-		// 								Gdx.app.log("NoteDebug", "LongNote: dy=" + dy + ", total y=" + (float)(dsty + dy));
-								this.drawLongNote(sprite, lanes[lane].longImage, dstx, (float) (dsty + dy), dstw,
-										(float) (dsty < (lanes[lane].region.y - dscale) ? dsty - (lanes[lane].region.y -dscale) : dy), dsth, lane,
-										ln);
-							}
+					if (dy > 0) {
+						if (isPortrait) {
+							// In portrait, dstx is hit line. Body length dy extends along X.
+							this.drawLongNote(sprite, lanes[lane].longImage, dstx, dsty, dstw, (float) dy, scale, lane, ln, isPortrait);
+						} else {
+							final float dscale = (dsth > scale ? (dsth - scale) / 2 : 0);
+							this.drawLongNote(sprite, lanes[lane].longImage, dstx, (float) (dsty + dy), dstw,
+									(float) (dsty < (lanes[lane].region.y - dscale) ? dsty - (lanes[lane].region.y - dscale) : dy), dsth, lane,
+									ln, isPortrait);
+						}
+					}
+
 							// System.out.println(dy);
 						}
 					} else if (note instanceof MineNote) {
@@ -610,7 +756,11 @@ public class LaneRenderer {
 						if (tl.getMicroTime() >= microtime) {
 							if (lanes[lane].mineImage != null) {
 								sprite.setColor(1, 1, 1, 1f);
-								sprite.draw(lanes[lane].mineImage, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+								if (isPortrait) {
+									sprite.draw(lanes[lane].mineImage, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
+								} else {
+									sprite.draw(lanes[lane].mineImage, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
+								}
 							}
 						}
 					}
@@ -621,7 +771,11 @@ public class LaneRenderer {
 					if (hnote != null) {
 						if (lanes[lane].hiddenImage != null) {
 							sprite.setColor(1, 1, 1, 1f);
-							sprite.draw(lanes[lane].hiddenImage, lanes[lane].region.x, (float) y, lanes[lane].region.width, scale);
+							if (isPortrait) {
+								sprite.draw(lanes[lane].hiddenImage, (float) notePos, lanes[lane].region.y, scale, lanes[lane].region.width);
+							} else {
+								sprite.draw(lanes[lane].hiddenImage, lanes[lane].region.x, (float) notePos, lanes[lane].region.width, scale);
+							}
 						}
 					}
 				}
@@ -636,9 +790,13 @@ public class LaneRenderer {
 			//遅BADからノースピの速度で落下
 			final long badTime = Math.abs( main.getJudgeManager().getJudgeTable(false)[2][0] );
 			double stopTime;
-			double orgy2 = lanes[0].dstnote2;
-			if(orgy2 < -lanes[0].region.height) orgy2 = -lanes[0].region.height;
-			if(orgy2 > orgy) orgy2 = orgy;
+			double orgNotePos2 = lanes[0].dstnote2;
+			if(orgNotePos2 < -lanes[0].region.width) orgNotePos2 = -lanes[0].region.width;
+			if(isPortrait) {
+				if(orgNotePos2 > hu) orgNotePos2 = hu;
+			} else {
+				if(orgNotePos2 > orgNotePos) orgNotePos2 = orgNotePos;
+			}
 			final double rxhs2 = (hu - hl);
 			int nowPos = timelines.length - 1;
 			for (int i = pos; i < timelines.length; i++) {
@@ -648,29 +806,41 @@ public class LaneRenderer {
 					break;
 				}
 			}
-			for (int i = nowPos; i >= 0 && y >= orgy2; i--) {
+			for (int i = nowPos; i >= 0 && (isPortrait ? notePos <= orgNotePos2 : notePos >= orgNotePos2); i--) {
 				final TimeLine tl = timelines[i];
-				y = orgy;
+				notePos = orgNotePos;
 				if (i + 1 < timelines.length) {
 					int j;
 					for (j = i; j + 1 < timelines.length && timelines[j + 1].getMicroTime() < microtime; j++) {
 						if(timelines[j + 1].getMicroTime() > tl.getMicroTime() + tl.getMicroStop() + badTime) {
 							stopTime = Math.max(tl.getMicroTime() + tl.getMicroStop() + badTime - timelines[j].getMicroTime() - timelines[j].getMicroStop(), 0);
-							y -= (timelines[j + 1].getMicroTime() - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							if (isPortrait) {
+								notePos += (timelines[j + 1].getMicroTime() - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							} else {
+								notePos -= (timelines[j + 1].getMicroTime() - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							}
 							//4分の画面上での長さ rxhs2 / 4 [pixel] 4分の時間 60 / BPM [second] 落下速度 rxhs2 * BPM / 240 [pixel/second]
 						}
 					}
 					if(timelines[j].getMicroTime() + timelines[j].getMicroStop() < microtime) {
 						if(microtime > tl.getMicroTime() + tl.getMicroStop() + badTime) {
 							stopTime = Math.max(tl.getMicroTime() + tl.getMicroStop() + badTime - timelines[j].getMicroTime() - timelines[j].getMicroStop(), 0);
-							y -= (microtime - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							if (isPortrait) {
+								notePos += (microtime - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							} else {
+								notePos -= (microtime - timelines[j].getMicroTime() - timelines[j].getMicroStop() - stopTime) * rxhs2 * timelines[j].getBPM() / 240000000;
+							}
 						}
 					}
 				} else {
 					if(tl.getMicroTime() + tl.getMicroStop() < microtime) {
 						if(microtime > tl.getMicroTime() + tl.getMicroStop() + badTime) {
 							stopTime = Math.max(tl.getMicroTime() + tl.getMicroStop() + badTime - tl.getMicroTime() - tl.getMicroStop(), 0);
-							y -= (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
+							if (isPortrait) {
+								notePos += (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
+							} else {
+								notePos -= (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
+							}
 						}
 					}
 				}
@@ -682,21 +852,39 @@ public class LaneRenderer {
 						if (note instanceof NormalNote) {
 							// draw normal note
 							//4分のタイミングでノートを拡大する
-							float dstx = lanes[lane].region.x;
-							float dsty = (float) y;
-							float dstw = lanes[lane].region.width;
-							float dsth = scale;
+							float dstx, dsty, dstw, dsth;
+							if (isPortrait) {
+								dstx = (float) notePos;
+								dsty = lanes[lane].region.y;
+								dstw = scale;
+								dsth = lanes[lane].region.width;
+							} else {
+								dstx = lanes[lane].region.x;
+								dsty = (float) notePos;
+								dstw = lanes[lane].region.width;
+								dsth = scale;
+							}
 							if(skin.getNoteExpansionRate()[0] != 100 || skin.getNoteExpansionRate()[1] != 100) {
 								if((now - main.getNowQuarterNoteTime()) < noteExpansionTime) {
 									dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
 									dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
-									dstx -= (dstw - lanes[lane].region.width) / 2;
-									dsty -= (dsth - scale) / 2;
+									if (isPortrait) {
+										dstx -= (dstw - scale) / 2;
+										dsty -= (dsth - lanes[lane].region.width) / 2;
+									} else {
+										dstx -= (dstw - lanes[lane].region.width) / 2;
+										dsty -= (dsth - scale) / 2;
+									}
 								} else if((now - main.getNowQuarterNoteTime()) >= noteExpansionTime && (now - main.getNowQuarterNoteTime()) <= (noteExpansionTime + noteContractionTime)) {
 									dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
 									dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
-									dstx -= (dstw - lanes[lane].region.width) / 2;
-									dsty -= (dsth - scale) / 2;
+									if (isPortrait) {
+										dstx -= (dstw - scale) / 2;
+										dsty -= (dsth - lanes[lane].region.width) / 2;
+									} else {
+										dstx -= (dstw - lanes[lane].region.width) / 2;
+										dsty -= (dsth - scale) / 2;
+									}
 								}
 							}
 							TextureRegion s;
@@ -713,12 +901,22 @@ public class LaneRenderer {
 							if (s == null) {
 		// 								Gdx.app.log("NoteDebug", "WARNING: both noteImage and processedImage are null! lane=" + lane);
 							}
-							if ( ((note.getState() == 0 || note.getState() >= 4) && tl.getMicroTime() <= microtime) && y >= orgy2) {
+							boolean drawCondition = ((note.getState() == 0 || note.getState() >= 4) && tl.getMicroTime() <= microtime) && (isPortrait ? notePos <= orgNotePos2 : notePos >= orgNotePos2);
+							if (drawCondition) {
 								sprite.setColor(1, 1, 1, 1f);
-								if(y > orgy) {
-									if (s != null) sprite.draw(s, dstx, (float) (orgy - (dsth - scale) / 2), dstw, dsth);
-								} else if (s != null) {
-									sprite.draw(s, dstx, dsty, dstw, dsth);
+								if (isPortrait) {
+									// origin is (width/2, height/2) in pixels
+									if (notePos < orgNotePos) {
+										if (s != null) sprite.draw(s, (float) notePos, dsty, dstw, dsth, dstw / 2, dsth / 2, 270.0f);
+									} else if (s != null) {
+										sprite.draw(s, dstx, dsty, dstw, dsth, dstw / 2, dsth / 2, 270.0f);
+									}
+								} else {
+									if (notePos > orgNotePos) {
+										if (s != null) sprite.draw(s, dstx, (float) (orgNotePos - (dsth - scale) / 2), dstw, dsth);
+									} else if (s != null) {
+										sprite.draw(s, dstx, dsty, dstw, dsth);
+									}
 								}
 							}
 						}
@@ -745,7 +943,7 @@ public class LaneRenderer {
 	}
 
 	final private void drawLongNote(SkinObjectRenderer sprite, TextureRegion[] longImage, float x, float y, float width, float height, float scale,
-			int lane, LongNote ln) {
+			int lane, LongNote ln, boolean isPortrait) {
 		if (longImage == null) return;
 
 		// Force full opacity to fix alpha transparency issue
@@ -759,39 +957,73 @@ public class LaneRenderer {
 					: (judge.getPassingLongNote(lane) == ln && ln.getState() != 0
 							? (judge.getHellChargeJudge(lane) ? 8 : 9) : 7)];
 			if (img1 != null) {
-				sprite.draw(img1, x, y - height + scale, width, height - scale);
+				if (isPortrait) {
+					// Draw as thickness x length and rotate to length x thickness
+					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+				} else {
+					sprite.draw(img1, x, y - height + scale, width, height - scale);
+				}
 			}
 			if (longImage.length > 4 && longImage[4] != null) {
-				sprite.draw(longImage[4], x, y, width, scale);
+				if (isPortrait) {
+					sprite.draw(longImage[4], x + height, y, scale, width, scale / 2, width / 2, 270.0f);
+				} else {
+					sprite.draw(longImage[4], x, y, width, scale);
+				}
 			}
 			if (longImage.length > 5 && longImage[5] != null) {
-				sprite.draw(longImage[5], x, y - height, width, scale);
+				if (isPortrait) {
+					sprite.draw(longImage[5], x, y, scale, width, scale / 2, width / 2, 270.0f);
+				} else {
+					sprite.draw(longImage[5], x, y - height, width, scale);
+				}
 			}
 		} else if ((model.getLntype() == BMSModel.LNTYPE_CHARGENOTE && ln.getType() == LongNote.TYPE_UNDEFINED)
 				|| ln.getType() == LongNote.TYPE_CHARGENOTE) {
 			// CN
 			TextureRegion img1 = longImage[main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3];
 			if (img1 != null) {
-				sprite.draw(img1, x, y - height + scale, width, height - scale);
+				if (isPortrait) {
+					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+				} else {
+					sprite.draw(img1, x, y - height + scale, width, height - scale);
+				}
 			}
 			if (longImage.length > 0 && longImage[0] != null) {
-				sprite.draw(longImage[0], x, y, width, scale);
+				if (isPortrait) {
+					sprite.draw(longImage[0], x + height, y, scale, width, scale / 2, width / 2, 270.0f);
+				} else {
+					sprite.draw(longImage[0], x, y, width, scale);
+				}
 			}
 			if (longImage.length > 1 && longImage[1] != null) {
-				sprite.draw(longImage[1], x, y - height, width, scale);
+				if (isPortrait) {
+					sprite.draw(longImage[1], x, y, scale, width, scale / 2, width / 2, 270.0f);
+				} else {
+					sprite.draw(longImage[1], x, y - height, width, scale);
+				}
 			}
 		} else if ((model.getLntype() == BMSModel.LNTYPE_LONGNOTE && ln.getType() == LongNote.TYPE_UNDEFINED)
 				|| ln.getType() == LongNote.TYPE_LONGNOTE) {
 			// LN
 			TextureRegion img1 = longImage[main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3];
 			if (img1 != null) {
-				sprite.draw(img1, x, y - height + scale, width, height - scale);
+				if (isPortrait) {
+					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+				} else {
+					sprite.draw(img1, x, y - height + scale, width, height - scale);
+				}
 			}
 			if (longImage.length > 1 && longImage[1] != null) {
-				sprite.draw(longImage[1], x, y - height, width, scale);
+				if (isPortrait) {
+					sprite.draw(longImage[1], x, y, scale, width, scale / 2, width / 2, 270.0f);
+				} else {
+					sprite.draw(longImage[1], x, y - height, width, scale);
+				}
 			}
 		}
 	}
+
 
 	public void dispose() {
 		// Font is now globally cached in MainController - don't dispose it here

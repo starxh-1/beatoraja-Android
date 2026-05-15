@@ -19,6 +19,7 @@ import com.badlogic.gdx.math.Rectangle;
 public class SkinNote extends SkinObject {
 
 	private SkinLane[] lanes;
+	public SkinLane[] getLanes() { return lanes; }
 
 	private LaneRenderer renderer;
 	private long time;
@@ -79,7 +80,7 @@ public class SkinNote extends SkinObject {
 		}
 	}
 
-	static class SkinLane extends SkinObject {
+	public static class SkinLane extends SkinObject {
 		/**
 		 * ノーツ画像
 		 */
