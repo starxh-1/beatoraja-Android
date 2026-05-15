@@ -959,76 +959,68 @@ public class LaneRenderer {
 
 	final private void drawLongNote(SkinObjectRenderer sprite, TextureRegion[] longImage, float x, float y, float width, float height, float scale,
 			int lane, LongNote ln, boolean isPortrait) {
-		if (longImage == null) return;
+		if (longImage == null || longImage.length == 0) return;
 
 		// Force full opacity to fix alpha transparency issue
 		sprite.setColor(1, 1, 1, 1f);
 
-		if (isPortrait) {
-			// Portrait mode optimized drawing:
-			// x = notePos, y = lane_y, width = track_width, height = dy (body length)
-			float W = width;
-			float H = height;
-			float headH = scale;
-
-			// LN Type Check
-			int bodyIdx, headIdx, tailIdx;
-			if ((model.getLntype() == BMSModel.LNTYPE_HELLCHARGENOTE && ln.getType() == LongNote.TYPE_UNDEFINED) || ln.getType() == LongNote.TYPE_HELLCHARGENOTE) {
-				final JudgeManager judge = main.getJudgeManager();
-				bodyIdx = judge.getProcessingLongNote(lane) == ln.getPair() ? 6 : (judge.getPassingLongNote(lane) == ln && ln.getState() != 0 ? (judge.getHellChargeJudge(lane) ? 8 : 9) : 7);
-				headIdx = 4; tailIdx = 5;
-			} else {
-				bodyIdx = main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3;
-				headIdx = 0; tailIdx = 1;
-			}
-
-			// Draw Body: Origin at (0.5W, 0). Rotate 270 CCW.
-			// This keeps the leading edge fixed at notePos (x) regardless of body length (H).
-			if (longImage.length > bodyIdx && longImage[bodyIdx] != null) {
-				sprite.draw(longImage[bodyIdx], x - 0.5f * W, y + 0.5f * W, W, H, 0.5f, 0, 270.0f);
-			}
-
-			// Draw Head: Fixed size 'scale' (headH), Origin at center.
-			if (longImage.length > headIdx && longImage[headIdx] != null) {
-				sprite.draw(longImage[headIdx], x - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
-			}
-
-			// Draw Tail: Fixed size 'scale' (headH), positioned at x + H.
-			if (longImage.length > tailIdx && longImage[tailIdx] != null) {
-				sprite.draw(longImage[tailIdx], x + H - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
-			}
-			return;
-		}
-
-		// Landscape logic (Original)
+		// Determine LN type indices
+		int bodyIdx, headIdx, tailIdx;
 		if ((model.getLntype() == BMSModel.LNTYPE_HELLCHARGENOTE && ln.getType() == LongNote.TYPE_UNDEFINED)
 				|| ln.getType() == LongNote.TYPE_HELLCHARGENOTE) {
 			// HCN
 			final JudgeManager judge = main.getJudgeManager();
-			TextureRegion img1 = longImage[judge.getProcessingLongNote(lane) == ln.getPair() ? 6
+			bodyIdx = judge.getProcessingLongNote(lane) == ln.getPair() ? 6
 					: (judge.getPassingLongNote(lane) == ln && ln.getState() != 0
-							? (judge.getHellChargeJudge(lane) ? 8 : 9) : 7)];
-			if (img1 != null) {
-				sprite.draw(img1, x, y - height + scale, width, height - scale);
+							? (judge.getHellChargeJudge(lane) ? 8 : 9) : 7);
+			headIdx = 4;
+			tailIdx = 5;
+		} else {
+			// CN or LN
+			bodyIdx = main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3;
+			headIdx = 0;
+			tailIdx = 1;
+		}
+
+		if (isPortrait) {
+			// Portrait mode: notes fall horizontally (x decreases from right to left)
+			// Rotate 270 CCW around center. Origin at (0.5, 0) for body, (0.5, 0.5) for head/tail.
+			// Body: leading edge stays fixed at notePos (no diagonal drift)
+			float W = width;
+			float H = height;
+			float headH = scale;
+
+			// Draw Body: rotate 270 CCW around (0.5, 0)
+			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
+				sprite.draw(longImage[bodyIdx], x - 0.5f * W, y + 0.5f * W, W, H, 0.5f, 0, 270.0f);
 			}
-			if (longImage.length > 4 && longImage[4] != null) {
-				sprite.draw(longImage[4], x, y, width, scale);
+
+			// Draw Head at start position
+			if (headIdx < longImage.length && longImage[headIdx] != null) {
+				sprite.draw(longImage[headIdx], x - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
 			}
-			if (longImage.length > 5 && longImage[5] != null) {
-				sprite.draw(longImage[5], x, y - height, width, scale);
+
+			// Draw Tail at end position
+			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
+				sprite.draw(longImage[tailIdx], x + H - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
 			}
 		} else {
-			// CN / LN
-			TextureRegion img1 = longImage[main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3];
-			if (img1 != null) {
-				sprite.draw(img1, x, y - height + scale, width, height - scale);
+			// Landscape mode: notes fall vertically (y increases from bottom to top)
+			// Unified drawing: if head/tail materials exist, always draw them at endpoints
+
+			// Draw Body (bodyIdx)
+			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
+				sprite.draw(longImage[bodyIdx], x, y - height + scale, width, height - scale);
 			}
-			int headIdx = (model.getLntype() == BMSModel.LNTYPE_CHARGENOTE || ln.getType() == LongNote.TYPE_CHARGENOTE) ? 0 : -1;
-			if (headIdx == 0 && longImage.length > 0 && longImage[0] != null) {
-				sprite.draw(longImage[0], x, y, width, scale);
+
+			// Draw Head at start position (headIdx)
+			if (headIdx >= 0 && headIdx < longImage.length && longImage[headIdx] != null) {
+				sprite.draw(longImage[headIdx], x, y, width, scale);
 			}
-			if (longImage.length > 1 && longImage[1] != null) {
-				sprite.draw(longImage[1], x, y - height, width, scale);
+
+			// Draw Tail at end position (tailIdx)
+			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
+				sprite.draw(longImage[tailIdx], x, y - height, width, scale);
 			}
 		}
 	}
