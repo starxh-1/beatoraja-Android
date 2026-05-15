@@ -1070,6 +1070,12 @@ local function main(keysNumber)
 			{id = "judge_n_ms", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
 		})
 
+		f_w = f_w * geo.judge.scale
+		n_w = n_w * geo.judge.scale
+		n_total_w = n_total_w * geo.judge.scale
+		offset_x = offset_x * geo.judge.scale
+		between_space = between_space * geo.judge.scale
+
 		local f_x, f_y, f_angle, f_cx, f_cy
 		if isPortraitLayout() then
 			f_x = 95
@@ -1165,7 +1171,7 @@ local function main(keysNumber)
 						{time = looptime}
 					}}
 				},
-				shift = false
+				shift = true
 			}
 		}
 	end
@@ -2102,7 +2108,12 @@ local function main(keysNumber)
 			h = 1200
 		end
 		local a = 255 + offset.keybeam.a
-		local portrait_y_offset = 15
+		local keybeam_y_offset = 0
+		local keybeam_x_offset = 0
+		if isPortraitLayout() then
+			keybeam_y_offset = -600
+			keybeam_x_offset = 60
+		end
 		-- push
 		do
 			for i = 1, keysNumber do
@@ -2110,10 +2121,10 @@ local function main(keysNumber)
 					-- Portrait: horizontal beam. Asset is vertical (Bottom=Hitline).
 					-- Rotate 270 CCW around Bottom-Center to point Right (+X).
 					local thickness = geo.lane.each_w[i]
-					local y_pos = geo.lane.each_y[i] + thickness / 2 + portrait_y_offset
+					local y_pos = geo.lane.each_y[i] + thickness / 2 + keybeam_y_offset
 					table.insert(skin.destination, {
 						id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
-							{x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, angle = 270, a = a}
+							{x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, angle = 270, a = a}
 						}
 					})
 				else
@@ -2129,16 +2140,16 @@ local function main(keysNumber)
 			if isPortraitLayout() then
 				-- Portrait scratch keybeam extends horizontally
 				local thickness = geo.lane.each_w[keysNumber + 1]
-				y_pos = geo.lane.each_y[keysNumber + 1] + thickness / 2 + portrait_y_offset
+				y_pos = geo.lane.each_y[keysNumber + 1] + thickness / 2 + keybeam_y_offset
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
-						{time = 0, x = geo.lane.x + 5, y = y_pos, w = thickness, h = 0, cx = 0.5, cy = 0, a = a, angle = 270},
+						{time = 0, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = 0, cx = 0.5, cy = 0, a = a, angle = 270},
 						{time = scratch_ontime, h = h}
 					}
 				})
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
-						{x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270}
+						{x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270}
 					}
 				})
 			else
@@ -2160,11 +2171,11 @@ local function main(keysNumber)
 		for i = 1, keysNumber + 1 do
 			if isPortraitLayout() then
 				local thickness = geo.lane.each_w[i]
-				y_pos = geo.lane.each_y[i] + thickness / 2 + portrait_y_offset
+				y_pos = geo.lane.each_y[i] + thickness / 2 + keybeam_y_offset
 				table.insert(skin.destination, {
 					id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
-						{time = 0, x = geo.lane.x + 5, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270},
-						{time = key_offtime, x = geo.lane.x + 5, y = y_pos, w = 0, a = 0}
+						{time = 0, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270},
+						{time = key_offtime, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = 0, a = 0}
 					}
 				})
 			else
@@ -2901,7 +2912,12 @@ local function main(keysNumber)
 			end
 			local bomb_y_offset = 0
 			if isPortraitLayout() and keysNumber == 5 then bomb_y_offset = 9 end
-			local bomb_y = geo.lane.each_y[i] + geo.lane.each_w[i] / 2 - size_h_final / 2 + bomb_y_offset
+			local bomb_y
+			if isPortraitLayout() then
+				bomb_y = geo.lane.each_y[i] + geo.lane.each_w[i] / 2 - size_h_final / 2 + bomb_y_offset
+			else
+				bomb_y = geo.lane.y - size_h / 2 + geo.lane.judgeline_h / 2
+			end
 			local bomb_x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2 - size_w_final / 2
 			if isPortraitLayout() then
 				bomb_x = geo.lane.x - size_w_final / 2 + 5
