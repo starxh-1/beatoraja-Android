@@ -423,11 +423,16 @@ local function main(keysNumber)
 	local function initPortraitGeo(geo)
 		-- Lane is now horizontal stripes across the full 1080 height of the landscape buffer
 		geo.lane = {}
-		geo.lane.separateline_w = 3
 
 		-- Calculate scaling to fill the 1080 height (which is screen width in portrait)
-		local base_note_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
-		local note_scale_w = 1080 / base_note_width
+		local base_widths = {
+			[1] = geo.note.original_white_w, [2] = geo.note.original_black_w, [3] = geo.note.original_white_w,
+			[4] = geo.note.original_black_w, [5] = geo.note.original_white_w, [6] = geo.note.original_black_w,
+			[7] = geo.note.original_white_w, [8] = geo.note.original_scratch_w
+		}
+		local total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+		local note_scale_w = 1080 / total_orig_w
+
 		geo.note.scale_w = note_scale_w
 		geo.note.white_w = geo.note.original_white_w * note_scale_w
 		geo.note.black_w = geo.note.original_black_w * note_scale_w
@@ -439,46 +444,48 @@ local function main(keysNumber)
 		geo.lane.w = 1920 - geo.lane.x - 100  -- Lane length
 		geo.lane.h = 1080 -- Full height of buffer
 
-		-- Lane order: 1P standard (Scratch on left).
-		-- In portrait buffer, Y=1080 is Left, Y=0 is Right.
+		-- Lane order and positions
 		geo.lane.order = {7, 6, 5, 4, 3, 2, 1, 8}
 		if keysNumber == 5 then
 			geo.lane.order = {5, 4, 3, 2, 1, 6}
 		end
 		if isRightScratch() then
-			-- Right Scratch: Scratch at smallest Y.
 			geo.lane.order = {8, 1, 2, 3, 4, 5, 6, 7}
 			if keysNumber == 5 then
 				geo.lane.order = {6, 1, 2, 3, 4, 5}
 			end
 		end
 
-		-- Lane thicknesses (perpendicular to fall direction)
 		geo.lane.each_w = {}
-		geo.lane.each_w[1] = geo.note.white_w
-		geo.lane.each_w[2] = geo.note.black_w
-		geo.lane.each_w[3] = geo.note.white_w
-		geo.lane.each_w[4] = geo.note.black_w
-		geo.lane.each_w[5] = geo.note.white_w
-		geo.lane.each_w[6] = geo.note.black_w
-		geo.lane.each_w[7] = geo.note.white_w
-		geo.lane.each_w[8] = geo.note.scratch_w
+		geo.lane.each_y = {}
+		geo.lane.each_x = {}
 
-		-- Note height scale along fall direction (X in buffer) - Set to 60 for full filling
+		-- Cumulative distribution with FIXED separator width to ensure seamless gaps
+		local sep_w = 6
+		geo.lane.separateline_w = sep_w
+		local num_seps = #geo.lane.order - 1
+		local total_lane_w = 1080 - (num_seps * sep_w)
+		local base_total_lane_w = total_orig_w - (num_seps * 3)
+
+		local current_lane_y = 0
+		local current_base_lane_w = 0
+		for i = 1, #geo.lane.order do
+			local lane_idx = geo.lane.order[i]
+			local y_offset = (i - 1) * sep_w
+
+			geo.lane.each_x[lane_idx] = geo.lane.x
+			geo.lane.each_y[lane_idx] = current_lane_y + y_offset
+
+			current_base_lane_w = current_base_lane_w + base_widths[lane_idx]
+			local next_lane_y = math.floor(current_base_lane_w * total_lane_w / base_total_lane_w)
+			geo.lane.each_w[lane_idx] = next_lane_y - current_lane_y
+			current_lane_y = next_lane_y
+		end
+
+		-- Note height scale along fall direction
 		geo.lane.each_h = {60, 60, 60, 60, 60, 60, 60, 60}
 		if keysNumber == 5 then
 			geo.lane.each_h = {60, 60, 60, 60, 60, 60}
-		end
-
-		-- Lane positions
-		geo.lane.each_y = {}
-		geo.lane.each_x = {}
-		local current_y = geo.lane.y
-		for i = 1, #geo.lane.order do
-			local lane_idx = geo.lane.order[i]
-			geo.lane.each_x[lane_idx] = geo.lane.x
-			geo.lane.each_y[lane_idx] = current_y
-			current_y = current_y + geo.lane.each_w[lane_idx] + geo.lane.separateline_w
 		end
 
 		geo.lane.visual_x = geo.lane.x

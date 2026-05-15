@@ -973,22 +973,26 @@ public class LaneRenderer {
 							? (judge.getHellChargeJudge(lane) ? 8 : 9) : 7)];
 			if (img1 != null) {
 				if (isPortrait) {
-					// Draw as thickness x length and rotate to length x thickness
-					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+					// In portrait, width is lane thickness (Y-axis), height is body length (X-axis).
+					// To extend to the right (future), unrotated rect should point UP (positive Y).
+					// Draw w=width, h=height, Origin=(width/2, 0). Rotate 270 CCW.
+					// Compensation for rotation center: Leading edge (0,0) must align with logical note position.
+					// Note: x passed here is compensated dstx. We use it as the origin anchor.
+					sprite.draw(img1, x + (width - height) / 2f, y + (width - height) / 2f, width, height, 0.5f, 0, 270.0f);
 				} else {
 					sprite.draw(img1, x, y - height + scale, width, height - scale);
 				}
 			}
 			if (longImage.length > 4 && longImage[4] != null) {
 				if (isPortrait) {
-					sprite.draw(longImage[4], x + height, y, scale, width, scale / 2, width / 2, 270.0f);
+					sprite.draw(longImage[4], x + height, y, scale, width, 0.5f, 0.5f, 270.0f);
 				} else {
 					sprite.draw(longImage[4], x, y, width, scale);
 				}
 			}
 			if (longImage.length > 5 && longImage[5] != null) {
 				if (isPortrait) {
-					sprite.draw(longImage[5], x, y, scale, width, scale / 2, width / 2, 270.0f);
+					sprite.draw(longImage[5], x, y, scale, width, 0.5f, 0.5f, 270.0f);
 				} else {
 					sprite.draw(longImage[5], x, y - height, width, scale);
 				}
@@ -999,21 +1003,21 @@ public class LaneRenderer {
 			TextureRegion img1 = longImage[main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3];
 			if (img1 != null) {
 				if (isPortrait) {
-					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+					sprite.draw(img1, x + (width - height) / 2f, y + (width - height) / 2f, width, height, 0.5f, 0, 270.0f);
 				} else {
 					sprite.draw(img1, x, y - height + scale, width, height - scale);
 				}
 			}
 			if (longImage.length > 0 && longImage[0] != null) {
 				if (isPortrait) {
-					sprite.draw(longImage[0], x + height, y, scale, width, scale / 2, width / 2, 270.0f);
+					sprite.draw(longImage[0], x + height, y, scale, width, 0.5f, 0.5f, 270.0f);
 				} else {
 					sprite.draw(longImage[0], x, y, width, scale);
 				}
 			}
 			if (longImage.length > 1 && longImage[1] != null) {
 				if (isPortrait) {
-					sprite.draw(longImage[1], x, y, scale, width, scale / 2, width / 2, 270.0f);
+					sprite.draw(longImage[1], x, y, scale, width, 0.5f, 0.5f, 270.0f);
 				} else {
 					sprite.draw(longImage[1], x, y - height, width, scale);
 				}
@@ -1024,14 +1028,14 @@ public class LaneRenderer {
 			TextureRegion img1 = longImage[main.getJudgeManager().getProcessingLongNote(lane) == ln.getPair() ? 2 : 3];
 			if (img1 != null) {
 				if (isPortrait) {
-					sprite.draw(img1, x, y, height, width, 0, width / 2, 270.0f);
+					sprite.draw(img1, x + (width - height) / 2f, y + (width - height) / 2f, width, height, 0.5f, 0, 270.0f);
 				} else {
 					sprite.draw(img1, x, y - height + scale, width, height - scale);
 				}
 			}
 			if (longImage.length > 1 && longImage[1] != null) {
 				if (isPortrait) {
-					sprite.draw(longImage[1], x, y, scale, width, scale / 2, width / 2, 270.0f);
+					sprite.draw(longImage[1], x, y, scale, width, 0.5f, 0.5f, 270.0f);
 				} else {
 					sprite.draw(longImage[1], x, y - height, width, scale);
 				}
