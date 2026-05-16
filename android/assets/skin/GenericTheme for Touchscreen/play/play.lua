@@ -2119,12 +2119,12 @@ local function main(keysNumber)
 			for i = 1, keysNumber do
 				if isPortraitLayout() then
 					-- Portrait: horizontal beam. Asset is vertical (Bottom=Hitline).
-					-- Rotate 270 CCW around Bottom-Center to point Right (+X).
+					-- Rotate 270 CCW around Center.
 					local thickness = geo.lane.each_w[i]
 					local y_pos = geo.lane.each_y[i] + thickness / 2 + keybeam_y_offset
 					table.insert(skin.destination, {
 						id = "keybeam_"..kind[i], offset = 3, timer = timer[i], brend = 1, dst = {
-							{x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, angle = 270, a = a}
+							{x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, angle = 270, a = a}
 						}
 					})
 				else
@@ -2140,16 +2140,18 @@ local function main(keysNumber)
 			if isPortraitLayout() then
 				-- Portrait scratch keybeam extends horizontally
 				local thickness = geo.lane.each_w[keysNumber + 1]
-				y_pos = geo.lane.each_y[keysNumber + 1] + thickness / 2 + keybeam_y_offset
+				local scratch_lane_center = geo.lane.each_y[keysNumber + 1] + thickness / 2
+				-- Compensation: When h=0, offset should be 0. When h=1200, offset should be -600.
+				-- We animate 'y' along with 'h' to keep it locked to the lane.
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
-						{time = 0, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = 0, cx = 0.5, cy = 0, a = a, angle = 270},
-						{time = scratch_ontime, h = h}
+						{time = 0, x = geo.lane.x + keybeam_x_offset, y = scratch_lane_center, w = thickness, h = 0, a = a, angle = 270},
+						{time = scratch_ontime, x = geo.lane.x + keybeam_x_offset, y = scratch_lane_center + keybeam_y_offset, w = thickness, h = h, a = a, angle = 270}
 					}
 				})
 				table.insert(skin.destination, {
 					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
-						{x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270}
+						{x = geo.lane.x + keybeam_x_offset, y = scratch_lane_center + keybeam_y_offset, w = thickness, h = h, a = a, angle = 270}
 					}
 				})
 			else
@@ -2171,11 +2173,11 @@ local function main(keysNumber)
 		for i = 1, keysNumber + 1 do
 			if isPortraitLayout() then
 				local thickness = geo.lane.each_w[i]
-				y_pos = geo.lane.each_y[i] + thickness / 2 + keybeam_y_offset
+				local y_pos = geo.lane.each_y[i] + thickness / 2 + keybeam_y_offset
 				table.insert(skin.destination, {
 					id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
-						{time = 0, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, cx = 0.5, cy = 0, a = a, angle = 270},
-						{time = key_offtime, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = 0, a = 0}
+						{time = 0, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = thickness, h = h, a = a, angle = 270},
+						{time = key_offtime, x = geo.lane.x + keybeam_x_offset, y = y_pos, w = 0, h = h, a = 0, angle = 270}
 					}
 				})
 			else

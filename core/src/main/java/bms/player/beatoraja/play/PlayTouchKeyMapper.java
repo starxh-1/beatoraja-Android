@@ -58,7 +58,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         this.inputProcessor = inputProcessor;
         this.laneProperty = laneProperty;
         this.logicW = resolution.width;
-        this.logicH = resolution.height; 
+        this.logicH = resolution.height;
 
         stage = new Stage(new FitViewport(logicW, logicH));
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
