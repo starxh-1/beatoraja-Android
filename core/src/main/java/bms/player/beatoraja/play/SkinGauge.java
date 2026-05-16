@@ -198,9 +198,15 @@ public final class SkinGauge extends SkinObject {
 					final int imageIndex = exgauge + (notes == i ? 4 : (notes - animation > i ? 0 : 2))
 							+ (border < this.border ? 1 : 0);
 					if (imageIndex >= 0 && imageIndex < images.length) {
-						sprite.draw(
-							images[imageIndex],
-							region.x + region.width * (i - 1) / parts, region.y, region.width / parts, region.height);
+						if (angle != 0) {
+							sprite.draw(images[imageIndex],
+								region.x + region.width * (i - 1) / parts, region.y,
+								region.width / parts, region.height, centerx, centery, angle);
+						} else {
+							sprite.draw(images[imageIndex],
+								region.x + region.width * (i - 1) / parts, region.y,
+								region.width / parts, region.height);
+						}
 					}
 				}
 			}
@@ -209,8 +215,15 @@ public final class SkinGauge extends SkinObject {
 					final float border = i * max / parts;
 					final int imageIndex = exgauge + (notes >= i ? 0 : 2) + (border < this.border ? 1 : 0);
 					if (imageIndex >= 0 && imageIndex < images.length) {
-						sprite.draw(images[imageIndex],
-							region.x + region.width * (i - 1) / parts, region.y, region.width / parts, region.height);
+						if (angle != 0) {
+							sprite.draw(images[imageIndex],
+								region.x + region.width * (i - 1) / parts, region.y,
+								region.width / parts, region.height, centerx, centery, angle);
+						} else {
+							sprite.draw(images[imageIndex],
+								region.x + region.width * (i - 1) / parts, region.y,
+								region.width / parts, region.height);
+						}
 					}
 
 					if(i == notes) {
@@ -219,9 +232,15 @@ public final class SkinGauge extends SkinObject {
 							final Color orgColor = sprite.getColor();
 							flickerColor.set(orgColor.r, orgColor.g, orgColor.b, orgColor.a * (animation < duration / 2 ? animation / ((float) duration / 2 - 1) : ((duration - 1) - animation) / ((float) duration / 2 - 1)));
 							sprite.setColor(flickerColor);
-//						System.out.println(animation + "  " + duration + "  " + flickerColor.toString());
-							sprite.draw(images[flickerIndex],
-								region.x + region.width * (i - 1) / parts, region.y, region.width / parts, region.height);
+							if (angle != 0) {
+								sprite.draw(images[flickerIndex],
+									region.x + region.width * (i - 1) / parts, region.y,
+									region.width / parts, region.height, centerx, centery, angle);
+							} else {
+								sprite.draw(images[flickerIndex],
+									region.x + region.width * (i - 1) / parts, region.y,
+									region.width / parts, region.height);
+							}
 							sprite.setColor(orgColor);
 						}
 					}

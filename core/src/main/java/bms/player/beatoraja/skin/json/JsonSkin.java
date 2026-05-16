@@ -432,6 +432,8 @@ public class JsonSkin {
 		public TimerProperty timer;
 		public int loop;
 		public int center;
+		public float cx;
+		public float cy;
 		public int offset;
 		public int[] offsets = new int[0];
 		public int stretch = -1;

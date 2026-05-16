@@ -83,11 +83,11 @@ public abstract class SkinObject extends DisposableObject {
 	/**
 	 * 回転中心のX座標(左端:0.0 - 右端:1.0)
 	 */
-	private float centerx;
+	protected float centerx;
 	/**
 	 * 回転中心のY座標(下端:0.0 - 上端:1.0)
 	 */
-	private float centery;
+	protected float centery;
 	/**
 	 * 描画先
 	 */

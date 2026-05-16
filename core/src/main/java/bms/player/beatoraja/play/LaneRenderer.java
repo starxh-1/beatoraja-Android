@@ -14,6 +14,7 @@ import bms.player.beatoraja.skin.SkinImage;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
@@ -405,6 +406,45 @@ public class LaneRenderer {
 						}
 						break;
 					}
+				}
+			}
+		}
+
+		// Draw BGA background for transparent lane effect (GenericTheme Touchscreen only)
+		// This allows the BGA to show through the lane area when lane_darkness_a is set
+		boolean isTouchscreenSkin = main.getSkin() != null && main.getSkin().header != null &&
+			main.getSkin().header.getPath() != null &&
+			main.getSkin().header.getPath().toString().contains("Touchscreen");
+		boolean actuallyPortrait = main.getSkin() != null && main.getSkin().getHeight() > main.getSkin().getWidth();
+		if (isTouchscreenSkin && lanes != null && lanes.length > 0 && lanes[0] != null && skin != null) {
+			Texture bgaFrame = main.resource.getBGAManager().getCurrentBGAFrame();
+			Texture layerFrame = main.resource.getBGAManager().getCurrentLayerFrame();
+			if (bgaFrame != null) {
+				float laneX, laneY, laneW, laneH;
+				if (actuallyPortrait) {
+					// Portrait mode: lanes are horizontal
+					laneX = 0;
+					laneY = 0;
+					laneW = main.getSkin().getWidth();
+					laneH = lanes[0].region.width * lanes.length;
+				} else {
+					// Landscape mode: lanes are vertical
+					laneX = lanes[0].region.x;
+					laneY = 0;
+					laneW = lanes[0].region.width * lanes.length;
+					laneH = main.getSkin().getHeight();
+				}
+				sprite.setColor(1f, 1f, 1f, 0.15f);
+				sprite.setBlend(0);
+				TextureRegion bgaImage = new TextureRegion(bgaFrame);
+				bgaImage.setRegion(0, 0, bgaFrame.getWidth(), bgaFrame.getHeight());
+				sprite.draw(bgaImage, laneX, laneY, laneW, laneH);
+				// Draw layer on top if available
+				if (layerFrame != null) {
+					sprite.setBlend(2);
+					TextureRegion layerImage = new TextureRegion(layerFrame);
+					layerImage.setRegion(0, 0, layerFrame.getWidth(), layerFrame.getHeight());
+					sprite.draw(layerImage, laneX, laneY, laneW, laneH);
 				}
 			}
 		}

@@ -2029,10 +2029,10 @@ local function main(keysNumber)
 			end
 		end
 	end
-	-- laneDarkness
+	-- laneDarkness (semi-transparent to let BGA show through)
 	do
 		local lane_darkness_a = offset.lane_darkness.a
-		if lane_darkness_a == nil then lane_darkness_a = 50 end
+		if lane_darkness_a == nil then lane_darkness_a = 0 end
 		table.insert(skin.destination, {id = -110, offset = 3, dst = {
 			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.h, a = lane_darkness_a},
 		}})
@@ -2568,7 +2568,7 @@ local function main(keysNumber)
 			w = -geo.gauge.w
 		end
 		table.insert(skin.destination, {id = "gauge", dst = {
-			{x = x, y = y, w = w, h = h, angle = angle, cx = 0.5, cy = 0.5},
+			{x = x, y = y, w = w, h = h, angle = angle, cx = 0.5, cy = 0.5, center = 5},
 		}})
 	end
 	-- gaugevalue
