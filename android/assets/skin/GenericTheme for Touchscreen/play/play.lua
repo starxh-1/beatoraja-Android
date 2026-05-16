@@ -501,10 +501,10 @@ local function main(keysNumber)
 		geo.gaugearea.h = geo.lane.y + geo.lane.h / 2
 
 		geo.gauge = {}
-		geo.gauge.x = geo.gaugearea.x + 8
-		geo.gauge.y = 138
-		geo.gauge.w = geo.gaugearea.w - 16
-		geo.gauge.h = 35
+		geo.gauge.x = 226 / 2 -- Position on the phone's height axis (Buffer X)
+		geo.gauge.y = 940     -- Position on the phone's width axis (Buffer Y)
+		geo.gauge.w = 1000    -- Length (Buffer X in landscape, width in portrait)
+		geo.gauge.h = 35      -- Thickness
 
 		-- Score/info area
 		geo.scoreinfoarea = {}
@@ -2559,12 +2559,16 @@ local function main(keysNumber)
 	-- gauge
 	do
 		local x = geo.gauge.x local w = geo.gauge.w
-		if not isPortraitLayout() and is2P() then
+		local y = geo.gauge.y local h = geo.gauge.h
+		local angle = 0
+		if isPortraitLayout() then
+			angle = 270
+		elseif is2P() then
 			x = geo.gauge.x + geo.gauge.w
 			w = -geo.gauge.w
 		end
 		table.insert(skin.destination, {id = "gauge", dst = {
-			{x = x, y = geo.gauge.y, w = w, h = geo.gauge.h},
+			{x = x, y = y, w = w, h = h, angle = angle, cx = 0.5, cy = 0.5},
 		}})
 	end
 	-- gaugevalue
@@ -2573,34 +2577,31 @@ local function main(keysNumber)
 			number({id = "gaugevalue", src = "src_number_newtown", divx = 10, digit = 3, ref = 107}),
 			number({id = "gaugevalue_ad", src = "src_number_newtown", divx = 10, digit = 1, ref = 407}),
 		})
-		local y = geo.gauge.y + geo.gauge.h + 7 local w = 35 local h = 35
-		local x
+		local w = 35 local h = 35
 		if isPortraitLayout() then
-			x = geo.gauge.x
-		elseif is2P() then
-			x = geo.lane.x
+			local x = geo.gauge.x + 50
+			local start_y = geo.gauge.y + 350
+			append_all(skin.destination, {
+				{id = "gaugevalue", dst = {{x = x, y = start_y, w = w, h = h, angle = 270}}},
+				{id = "text_image_dot", dst = {{x = x, y = start_y + w * 3 + 2, w = w, h = h, angle = 270}}},
+				{id = "gaugevalue_ad", dst = {{x = x, y = start_y + w * 3 + 12, w = w, h = h, angle = 270}}},
+				{id = "text_image_%", dst = {{x = x, y = start_y + w * 4 + 14, w = 24, h = 20, angle = 270}}},
+			})
 		else
-			x = geo.lane.x + geo.lane.w - w * 5
+			local y = geo.gauge.y + geo.gauge.h + 7
+			local x = is2P() and geo.lane.x or (geo.lane.x + geo.lane.w - w * 5)
+			append_all(skin.destination, {
+				{id = "gaugevalue", dst = {{x = x, y = y, w = w, h = h}}},
+				{id = "text_image_dot", dst = {{x = x + w * 3 + 1, y = y, w = w, h = h}}},
+				{id = "gaugevalue_ad", dst = {{x = x + w * 3 + 10, y = y, w = w, h = h}}},
+				{id = "text_image_%", dst = {{x = x + w * 4 + 12, y = y, w = 24, h = 20}}},
+			})
 		end
-		append_all(skin.destination, {
-			{id = "gaugevalue", dst = {
-				{x = x, y = y, w = w, h = h},
-			}},
-			{id = "text_image_dot", dst = {
-				{x = x + w * 3 + 1, y = y, w = w, h = h},
-			}},
-			{id = "gaugevalue_ad", dst = {
-				{x = x + w * 3 + 10, y = y, w = w, h = h},
-			}},
-			{id = "text_image_%", dst = {
-				{x = x + w * 4 + 12, y = y, w = 24, h = 20},
-			}},
-		})
 	end
 	-- judgerank & ramdom
 	do
-		local h = 18 local y = geo.gauge.y + geo.gauge.h + 6
-		-- judgerank
+		local h = 18
+		-- judgerank images
 		local judgerank_image_w = 183 local judgerank_image_h = 36
 		for i = 1, 5 do
 			table.insert(skin.image, {
@@ -2608,29 +2609,41 @@ local function main(keysNumber)
 			})
 		end
 		local judgerank_w = judgerank_image_w * h / judgerank_image_h
-		local judgerank_x = isPortraitLayout() and geo.gauge.x or geo.lane.x
-		if not isPortraitLayout() and is2P() then
-			judgerank_x = geo.lane.x + geo.lane.w - judgerank_w
-		end
-		for i = 1, 5 do
-			table.insert(skin.destination, {id = "judgerank_"..i, op = {185 - i}, filter = 1, dst = {
-				{x = judgerank_x, y = y, w = judgerank_w, h = h},
-			}})
-		end
-		-- random
+
+		-- random images
 		local random_image_w = 192 local random_image_h = 36
 		table.insert(skin.image, {
 			id = "random", src = "src_rank_random", x = 200, y = 0, w = random_image_w, h = random_image_h * 10, divy = 10, len = 10, ref = 42
 		})
 		local random_w = random_image_w * h / random_image_h
-		local space_x = 15
-		local random_x = (isPortraitLayout() and geo.gauge.x or geo.lane.x) + judgerank_w + space_x
-		if not isPortraitLayout() and is2P() then
-			random_x = geo.lane.x + geo.lane.w - (judgerank_w + space_x + random_w)
+
+		if isPortraitLayout() then
+			local x = geo.gauge.x + 50
+			local y = geo.gauge.y - 100
+			local space_y = 15
+			for i = 1, 5 do
+				table.insert(skin.destination, {id = "judgerank_"..i, op = {185 - i}, filter = 1, dst = {
+					{x = x, y = y, w = judgerank_w, h = h, angle = 270}
+				}})
+			end
+			table.insert(skin.destination, {id = "random", filter = 1, dst = {
+				{x = x, y = y + judgerank_w + space_y, w = random_w, h = h, angle = 270}
+			}})
+		else
+			local y = geo.gauge.y + geo.gauge.h + 6
+			local judgerank_x = is2P() and (geo.lane.x + geo.lane.w - judgerank_w) or geo.lane.x
+			for i = 1, 5 do
+				table.insert(skin.destination, {id = "judgerank_"..i, op = {185 - i}, filter = 1, dst = {
+					{x = judgerank_x, y = y, w = judgerank_w, h = h}
+				}})
+			end
+			local space_x = 15
+			local random_x = judgerank_x + judgerank_w + space_x
+			if is2P() then random_x = judgerank_x - space_x - random_w end
+			table.insert(skin.destination, {id = "random", filter = 1, dst = {
+				{x = random_x, y = y, w = random_w, h = h}
+			}})
 		end
-		table.insert(skin.destination, {id = "random", filter = 1, dst = {
-			{x = random_x, y = y, w = random_w, h = h},
-		}})
 	end
 	-- cleared lamp display
 	do
