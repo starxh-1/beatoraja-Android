@@ -610,6 +610,20 @@ local function main(keysNumber)
 		geo.lane.each_x[geo.lane.order[i]] = geo.lane.each_x[geo.lane.order[i-1]] + geo.lane.each_w[geo.lane.order[i-1]] + geo.lane.separateline_w
 	end
 
+	-- gaugearea - aligned with lane
+	geo.gaugearea = {}
+	geo.gaugearea.x = 0
+	geo.gaugearea.w = header.w
+
+	geo.gauge = {}
+	geo.gauge.x = geo.gaugearea.x + 8
+	if is2P() then
+		geo.gauge.x = geo.gaugearea.x + geo.gaugearea.w - 8
+	end
+	geo.gauge.y = 138
+	geo.gauge.w = geo.gaugearea.w - 16
+	geo.gauge.h = 35
+
 	end  -- end of landscape geometry
 
 	-- scoregraph geometry
@@ -1078,7 +1092,7 @@ local function main(keysNumber)
 
 		local f_x, f_y, f_angle, f_cx, f_cy
 		if isPortraitLayout() then
-			f_x = 95
+			f_x = 400
 			f_y = 540
 			f_angle = 270 -- Correct upright orientation for GREAT in portrait
 			f_cx = 0.5
@@ -2112,7 +2126,7 @@ local function main(keysNumber)
 		local keybeam_x_offset = 0
 		if isPortraitLayout() then
 			keybeam_y_offset = -600
-			keybeam_x_offset = 60
+			keybeam_x_offset = 0
 		end
 		-- push
 		do
@@ -2537,27 +2551,15 @@ local function main(keysNumber)
 	end
 
 	-- gaugearea - aligned with lane
-	if not isPortraitLayout() then
-	geo.gaugearea = {}
-	geo.gaugearea.x = (header.w - header.w) / 2
-	geo.gaugearea.w = header.w
-
-	geo.gauge = {}
-	geo.gauge.x = geo.gaugearea.x + 8
-	if is2P() then
-		geo.gauge.x = geo.gaugearea.x + geo.gaugearea.w - 8
-	end
-	geo.gauge.y = 138
-	geo.gauge.w = geo.gaugearea.w - 16
-	geo.gauge.h = 35
-	-- gauge area background
+	local gauge_bg_h = header.h - geo.lane.h - 4
+	if isPortraitLayout() then gauge_bg_h = header.h end
 	table.insert(skin.destination, {id = -110, dst = {
-		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w, h = header.h - geo.lane.h - 4, a = 240},
+		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w, h = gauge_bg_h, a = 240},
 	}})
 	-- gauge
 	do
 		local x = geo.gauge.x local w = geo.gauge.w
-		if is2P() then
+		if not isPortraitLayout() and is2P() then
 			x = geo.gauge.x + geo.gauge.w
 			w = -geo.gauge.w
 		end
@@ -2572,9 +2574,13 @@ local function main(keysNumber)
 			number({id = "gaugevalue_ad", src = "src_number_newtown", divx = 10, digit = 1, ref = 407}),
 		})
 		local y = geo.gauge.y + geo.gauge.h + 7 local w = 35 local h = 35
-		local x = geo.lane.x + geo.lane.w - w * 5
-		if is2P() then
+		local x
+		if isPortraitLayout() then
+			x = geo.gauge.x
+		elseif is2P() then
 			x = geo.lane.x
+		else
+			x = geo.lane.x + geo.lane.w - w * 5
 		end
 		append_all(skin.destination, {
 			{id = "gaugevalue", dst = {
@@ -2591,7 +2597,6 @@ local function main(keysNumber)
 			}},
 		})
 	end
-	end
 	-- judgerank & ramdom
 	do
 		local h = 18 local y = geo.gauge.y + geo.gauge.h + 6
@@ -2603,8 +2608,8 @@ local function main(keysNumber)
 			})
 		end
 		local judgerank_w = judgerank_image_w * h / judgerank_image_h
-		local judgerank_x = geo.lane.x
-		if is2P() then
+		local judgerank_x = isPortraitLayout() and geo.gauge.x or geo.lane.x
+		if not isPortraitLayout() and is2P() then
 			judgerank_x = geo.lane.x + geo.lane.w - judgerank_w
 		end
 		for i = 1, 5 do
@@ -2619,8 +2624,8 @@ local function main(keysNumber)
 		})
 		local random_w = random_image_w * h / random_image_h
 		local space_x = 15
-		local random_x = geo.lane.x + judgerank_w + space_x
-		if is2P() then
+		local random_x = (isPortraitLayout() and geo.gauge.x or geo.lane.x) + judgerank_w + space_x
+		if not isPortraitLayout() and is2P() then
 			random_x = geo.lane.x + geo.lane.w - (judgerank_w + space_x + random_w)
 		end
 		table.insert(skin.destination, {id = "random", filter = 1, dst = {
