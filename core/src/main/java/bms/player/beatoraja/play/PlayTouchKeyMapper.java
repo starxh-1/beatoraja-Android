@@ -45,10 +45,10 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
     private final Matrix4 oldProj = new Matrix4();
 
-    private static final Color SCRATCH_COLOR = new Color(0.8f, 0.2f, 0.2f, 0.3f);
-    private static final Color WHITE_KEY_COLOR = new Color(0.9f, 0.9f, 0.9f, 0.3f);
-    private static final Color BLACK_KEY_COLOR = new Color(0.3f, 0.3f, 0.3f, 0.3f);
-    private static final Color LABEL_COLOR = new Color(1.0f, 1.0f, 1.0f, 0.8f);
+    private static final Color SCRATCH_COLOR = new Color(0.8f, 0.2f, 0.2f, 0.0f);
+    private static final Color WHITE_KEY_COLOR = new Color(0.9f, 0.9f, 0.9f, 0.0f);
+    private static final Color BLACK_KEY_COLOR = new Color(0.3f, 0.3f, 0.3f, 0.0f);
+    private static final Color LABEL_COLOR = new Color(1.0f, 1.0f, 1.0f, 0.0f);
 
     private boolean isPortrait = false;
     private static final int OP_PORTRAIT = 1101;
@@ -58,7 +58,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         this.inputProcessor = inputProcessor;
         this.laneProperty = laneProperty;
         this.logicW = resolution.width;
-        this.logicH = resolution.height;
+        this.logicH = resolution.height; 
 
         stage = new Stage(new FitViewport(logicW, logicH));
         Pixmap pixmap = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
@@ -374,11 +374,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         }
 
         public void drawCustom(SpriteBatch batch, Texture white, BitmapFont font) {
-            batch.setColor(bgColor);
+            batch.setColor(bgColor.r, bgColor.g, bgColor.b, 0f);
             batch.draw(white, bounds.x, bounds.y, bounds.width, bounds.height);
-            batch.setColor(LABEL_COLOR);
-            GlyphLayout layout = new GlyphLayout(font, label);
-            font.draw(batch, label, bounds.x + (bounds.width - layout.width) / 2, bounds.y + (bounds.height + layout.height) / 2);
         }
 
         public Rectangle getBounds() { return bounds; }

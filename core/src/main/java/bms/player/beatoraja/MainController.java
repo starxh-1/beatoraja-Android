@@ -745,16 +745,15 @@ public class MainController {
             floatingMenu.render(sprite, systemfont);
         }
 
-        // 绘制Play界面触摸按键（仅Android，在BMSPlayer界面）
-        if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
-            bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = ((BMSPlayer) current).getTouchKeyMapper();
-            if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
-                // 在皮肤绘制之后渲染，确保在最上层
-                sprite.begin();
-                touchKeyMapper.render(sprite, systemfont);
-                sprite.end();
-            }
-        }
+        // Touch key rendering
+         if (Gdx.app.getType() == Application.ApplicationType.Android && current instanceof BMSPlayer) {
+             bms.player.beatoraja.play.PlayTouchKeyMapper touchKeyMapper = ((BMSPlayer) current).getTouchKeyMapper();
+             if (touchKeyMapper != null && touchKeyMapper.isEnabled()) {
+                 sprite.begin();
+                 touchKeyMapper.render(sprite, systemfont);
+                 sprite.end();
+             }
+         }
 
         if(download != null && download.isDownload()){
             downloadIpfsMessageRenderer(download.getMessage());
