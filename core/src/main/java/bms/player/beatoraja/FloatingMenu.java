@@ -413,7 +413,7 @@ public class FloatingMenu implements InputProcessor {
             // 页码：频谱调整页显示"Spectrum"，其他页显示"页码"
             String pageText;
             if (isSpectrumPage) {
-                pageText = "Spectrum Adjust";
+                pageText = "In-Game Spectrum Adjust";
             } else {
                 pageText = (currentPage + 1) + "/" + totalPages;
             }
