@@ -766,6 +766,23 @@ public class AndroidLauncher extends AndroidApplication {
         });
     }
 
+    /**
+     * Show a native Android confirmation dialog before exiting the game.
+     * Called via reflection from MusicSelectInputProcessor.
+     */
+    public void showNativeExitDialog() {
+        runOnUiThread(() -> {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle("Exit Game?")
+                .setMessage("Are you sure you want to exit?")
+                .setPositiveButton("YES", (dialog, which) -> {
+                    Gdx.app.exit();
+                })
+                .setNegativeButton("NO", null)
+                .show();
+        });
+    }
+
     private void openUrlDirect(String url) {
         try {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));

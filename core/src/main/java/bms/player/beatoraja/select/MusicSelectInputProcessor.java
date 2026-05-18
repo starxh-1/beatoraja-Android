@@ -62,6 +62,27 @@ public final class MusicSelectInputProcessor {
     public void input() {
     	final MainController main = select.main;
         final BMSPlayerInputProcessor input = main.getInputProcessor();
+
+        // 检测退出请求 (ESC 或 Android Back)
+        if (input.isControlKeyPressed(ControlKeys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.BACK)) {
+            input.resetKeyChangedTime(ControlKeys.ESCAPE.keycode);
+            if (Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+                // 使用原生 Android 对话框进行确认
+                try {
+                    Object launcher = Gdx.app;
+                    java.lang.reflect.Method method = launcher.getClass().getMethod("showNativeExitDialog");
+                    method.invoke(launcher);
+                } catch (Exception e) {
+                    // 如果反射失败，回退到直接退出
+                    select.main.exit();
+                }
+            } else {
+                // 非 Android 平台直接退出（或保持原有逻辑）
+                select.main.exit();
+            }
+            return;
+        }
+
         final PlayerResource resource = main.getPlayerResource();
         final PlayerConfig config = resource.getPlayerConfig();
         final BarRenderer bar = select.getBarRender();
@@ -357,9 +378,9 @@ public final class MusicSelectInputProcessor {
 		if(input.isActivated(KeyCommand.UPDATE_FOLDER)) {
             Gdx.app.log("InputDebug", "================================================================================");
             Gdx.app.log("InputDebug", "UPDATE_FOLDER activated, starting async update");
-            Gdx.app.log("InputDebug", "Current selected bar type: " + (select.getBarManager().getSelected() != null ? 
+            Gdx.app.log("InputDebug", "Current selected bar type: " + (select.getBarManager().getSelected() != null ?
                 select.getBarManager().getSelected().getClass().getSimpleName() : "null"));
-            
+
             if (select.getBarManager().getSelected() instanceof bms.player.beatoraja.select.bar.FolderBar) {
                 bms.player.beatoraja.select.bar.FolderBar fb = (bms.player.beatoraja.select.bar.FolderBar) select.getBarManager().getSelected();
                 Gdx.app.log("InputDebug", "Target folder path: " + fb.getFolderData().getPath());
@@ -367,7 +388,7 @@ public final class MusicSelectInputProcessor {
                 bms.player.beatoraja.select.bar.SongBar sb = (bms.player.beatoraja.select.bar.SongBar) select.getBarManager().getSelected();
                 Gdx.app.log("InputDebug", "Target song path: " + sb.getSongData().getPath());
             }
-            
+
             Gdx.app.log("InputDebug", "================================================================================");
             select.executeEvent(EventType.update_folder);
         }
@@ -382,10 +403,6 @@ public final class MusicSelectInputProcessor {
         // copy song SHA256 hash
         if(input.isActivated(KeyCommand.COPY_SONG_SHA256_HASH)) {
             select.execute(MusicSelectCommand.COPY_SHA256_HASH);
-        }
-
-        if (input.isControlKeyPressed(ControlKeys.ESCAPE)) {
-            select.main.exit();
         }
     }
 }

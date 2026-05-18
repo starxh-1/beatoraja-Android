@@ -1,5 +1,4 @@
 #include "oboe_engine.hpp"
-#include "../utility/ptrptr.hpp"
 #include "../utility/log.hpp"
 #include "../utility/exception.hpp"
 #include <array>
@@ -39,45 +38,55 @@ oboe_engine::~oboe_engine() {
 }
 
 void oboe_engine::connect_to_device() {
-    // initialize Oboe audio stream
-    oboe::AudioStreamBuilder builder;
-    builder.setChannelCount(m_channels);
-    builder.setSampleRate(static_cast<int32_t>(m_sample_rate));
-    builder.setErrorCallback(this);
-    builder.setFormat(oboe::AudioFormat::I16);
-    builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
-    builder.setSharingMode(oboe::SharingMode::Exclusive);  // 先尝试独占模式
-    builder.setFormatConversionAllowed(true);
+    auto create_builder = [this](oboe::SharingMode sharing_mode) {
+        oboe::AudioStreamBuilder builder;
+        builder.setChannelCount(m_channels);
+        builder.setSampleRate(static_cast<int32_t>(m_sample_rate));
+        builder.setErrorCallback(this);
+        builder.setFormat(oboe::AudioFormat::I16);
+        builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
+        builder.setSharingMode(sharing_mode);
+        builder.setFormatConversionAllowed(true);
+        builder.setUsage(oboe::Usage::Game);
 
-    builder.setUsage(oboe::Usage::Game);
-    switch(m_mode) {
-        case mode::async_writing:
-        case mode::writing: {
-            builder.setContentType(oboe::ContentType::Music);
-            builder.setDirection(oboe::Direction::Output);
+        switch(m_mode) {
+            case mode::async_writing:
+            case mode::writing: {
+                builder.setContentType(oboe::ContentType::Music);
+                builder.setDirection(oboe::Direction::Output);
+                if (m_mode == mode::async_writing)
+                    builder.setDataCallback(this);
+            }
+            break;
+            case mode::reading: {
+                builder.setDirection(oboe::Direction::Input);
+                builder.setInputPreset(oboe::InputPreset::Generic);
+            }
+            break;
+        }
+        return builder;
+    };
 
-            if (m_mode == mode::async_writing)
-                builder.setDataCallback(this);
+    // Try Exclusive mode first
+    oboe::AudioStreamBuilder builder = create_builder(oboe::SharingMode::Exclusive);
+    oboe::Result result = builder.openStream(m_stream);
+
+    // Fallback to Shared mode if Exclusive fails or opens in Disconnected state
+    if (result != oboe::Result::OK || m_stream->getState() == oboe::StreamState::Disconnected) {
+        if (result != oboe::Result::OK) {
+            warn("Exclusive mode openStream failed ({}), falling back to Shared mode", oboe::convertToText(result));
+        } else {
+            warn("Stream opened in Disconnected state, retrying with Shared mode");
         }
-        break;
-        case mode::reading: {
-            builder.setDirection(oboe::Direction::Input);
-            builder.setInputPreset(oboe::InputPreset::Generic);
-        }
-        break;
+
+        builder = create_builder(oboe::SharingMode::Shared);
+        result = builder.openStream(m_stream);
     }
 
-    oboe::Result result = builder.openStream(ptrptr(m_stream));
-
-    // [修改点] 如果 Exclusive 模式打开失败，自动降级到 Shared 模式重试
-    // 解决 第三方 ROM 上全局音效导致独占模式被拒绝/窃取的问题
-    if (result != oboe::Result::OK) {
-        warn("Exclusive mode openStream failed ({}), falling back to Shared mode", oboe::convertToText(result));
-        builder.setSharingMode(oboe::SharingMode::Shared);
-        result = builder.openStream(ptrptr(m_stream));
+    if (!check(result, "Error opening stream: {}")) {
+        m_stream.reset();
+        return;
     }
-
-    check(result, "Error opening stream: {}");
 
     m_payload_size = m_stream->getFramesPerBurst() * 2;
     m_stream->setBufferSizeInFrames(static_cast<int32_t>(m_payload_size));
@@ -86,10 +95,8 @@ void oboe_engine::connect_to_device() {
 void oboe_engine::onErrorAfterClose(oboe::AudioStream *self, oboe::Result error) {
     if (error == oboe::Result::ErrorDisconnected) {
         info("Previous device disconnected. Trying to connect to a new one...");
-        // connect_to_device() 内部已实现 Exclusive → Shared 降级逻辑
-        // 当 stream was stolen 后重连时会先尝试 Exclusive，失败后自动降级到 Shared
         connect_to_device();
-        if (m_is_playing) {
+        if (m_is_playing && m_stream) {
             resume();
         }
     }

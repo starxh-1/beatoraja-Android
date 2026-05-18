@@ -435,7 +435,7 @@ public class LaneRenderer {
 					laneH = main.getSkin().getHeight();
 				}
 				sprite.setColor(1f, 1f, 1f, 0.15f);
-				sprite.setBlend(0);
+				sprite.setBlend(2);
 				TextureRegion bgaImage = new TextureRegion(bgaFrame);
 				bgaImage.setRegion(0, 0, bgaFrame.getWidth(), bgaFrame.getHeight());
 				sprite.draw(bgaImage, laneX, laneY, laneW, laneH);
