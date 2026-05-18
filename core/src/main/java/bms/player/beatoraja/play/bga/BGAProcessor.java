@@ -1,5 +1,6 @@
 package bms.player.beatoraja.play.bga;
 
+import java.nio.IntBuffer;
 import java.nio.file.*;
 import java.util.Arrays;
 import java.util.logging.Logger;
@@ -25,6 +26,7 @@ import com.badlogic.gdx.graphics.glutils.FrameBuffer;
 import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.Array;
+import com.badlogic.gdx.utils.BufferUtils;
 
 /**
  * BGAのリソース管理、描画用クラス
@@ -35,7 +37,9 @@ public class BGAProcessor {
 
 	// TODO イベントレイヤー対応(現状はミスレイヤーのみ)
 
+	private Config config;
 	private PlayerConfig player;
+	private SpriteBatch batch;
 	private volatile float progress = 0;
 
 	private volatile MovieProcessor[] movies = new MovieProcessor[0];
@@ -82,11 +86,17 @@ public class BGAProcessor {
 	private TextureRegion image;
 	private Rectangle tmpRect = new Rectangle();
 
+	private final Rectangle lastBGARect = new Rectangle();
+	private StretchType lastStretch = StretchType.STRETCH;
+	private boolean hasLastBGAParams = false;
+
 	private boolean rbga;
 	private boolean rlayer;
 
 	public BGAProcessor(Config config, PlayerConfig player) {
+		this.config = config;
 		this.player = player;
+		this.batch = new SpriteBatch();
 
 		Pixmap blank = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
 		blank.setColor(Color.BLACK);
@@ -278,6 +288,7 @@ public class BGAProcessor {
 	}
 
 	public void prepareBGA(long time) {
+		bgaFramebufferDirty = true;
 		if (time < 0 || timelines == null) {
 			this.time = -1;
 			return;
@@ -336,6 +347,13 @@ public class BGAProcessor {
 
 
 	public void drawBGA(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r) {
+		// Capture BGA drawing parameters for accurate lane background alignment
+		if (!hasLastBGAParams || !lastBGARect.equals(r) || lastStretch != dst.getStretch()) {
+			lastBGARect.set(r);
+			lastStretch = dst.getStretch();
+			hasLastBGAParams = true;
+		}
+
 		sprite.setColor(dst.getColor());
 		sprite.setBlend(dst.getBlend());
 		if (time < 0 || timelines == null) {
@@ -425,6 +443,8 @@ public class BGAProcessor {
 	 * @param height the height of the play area
 	 * @param stretch the stretch mode for BGA
 	 */
+	private static final IntBuffer viewportBuffer = BufferUtils.newIntBuffer(16);
+
 	public void renderBGAToFramebuffer(int width, int height, StretchType stretch) {
 		if (width <= 0 || height <= 0) return;
 
@@ -435,7 +455,15 @@ public class BGAProcessor {
 			}
 			bgaFramebuffer = new FrameBuffer(Pixmap.Format.RGBA8888, width, height, false);
 			bgaFramebufferRegion = new TextureRegion(bgaFramebuffer.getColorBufferTexture());
+			bgaFramebufferRegion.flip(false, true); // FBO textures are Y-up, flip for standard Y-down regions
 		}
+
+		// Save current GL viewport to restore later (fixes "out of bounds" issue)
+		Gdx.gl.glGetIntegerv(GL20.GL_VIEWPORT, viewportBuffer);
+		int prevX = viewportBuffer.get(0);
+		int prevY = viewportBuffer.get(1);
+		int prevW = viewportBuffer.get(2);
+		int prevH = viewportBuffer.get(3);
 
 		bgaFramebuffer.begin();
 		// Clear with transparent
@@ -444,22 +472,30 @@ public class BGAProcessor {
 
 		if (time < 0 || timelines == null) {
 			bgaFramebuffer.end();
+			Gdx.gl.glViewport(prevX, prevY, prevW, prevH);
 			return;
 		}
 
-		// Create a temporary SkinBGA-like object for drawing
-		final Rectangle r = new Rectangle(0, 0, width, height);
-		final Color c = new Color(1, 1, 1, 1);
+		// Use the tracked BGA rectangle if available for perfect alignment
+		Rectangle targetRect;
+		StretchType targetStretch;
+		if (hasLastBGAParams) {
+			targetRect = lastBGARect;
+			targetStretch = lastStretch;
+		} else {
+			targetRect = new Rectangle(0, 0, width, height);
+			targetStretch = stretch;
+		}
 
-		// Draw black background (opaque) using sprite batch directly
-		// We need to draw the black background before BGA/layer
-		// Use a local SpriteBatch to draw into the framebuffer
-		SpriteBatch batch = new SpriteBatch();
-		batch.setProjectionMatrix(new Matrix4().setToOrtho(0, width, 0, height, -1, 1));
+		// Use the shared SpriteBatch to draw into the framebuffer
+		batch.setProjectionMatrix(new Matrix4().setToOrtho2D(0, 0, width, height));
 		batch.begin();
+		// Draw black background (opaque)
 		batch.draw(blanktex, 0, 0, width, height);
-		batch.end();
-		batch.dispose();
+
+		// Adjust target rectangle to Y-up for drawing into LibGDX FBO
+		// since skin coordinates (targetRect) are Y-down
+		tmpRect.set(targetRect.x, (float)height - targetRect.y - targetRect.height, targetRect.width, targetRect.height);
 
 		if (misslayer != null && misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration) {
 			final Layer.Sequence[] seq = misslayer.sequence[0];
@@ -467,7 +503,7 @@ public class BGAProcessor {
 			if (index != Integer.MIN_VALUE) {
 				Texture miss = getBGAData(time, index, true);
 				if (miss != null) {
-					drawBGAFixRatioToRect(r, miss, stretch);
+					drawBGAFixRatioToRect(batch, tmpRect, miss, targetStretch);
 				}
 			}
 		} else {
@@ -475,26 +511,32 @@ public class BGAProcessor {
 			final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
 			if (playingbgatex != null) {
 				rbga = true;
-				drawBGAFixRatioToRect(r, playingbgatex, stretch);
+				drawBGAFixRatioToRect(batch, tmpRect, playingbgatex, targetStretch);
 			}
 
 			// Draw layer
 			final Texture playinglayertex = getBGAData(time - layer_start_time, playinglayerid, rlayer);
 			if (playinglayertex != null) {
 				rlayer = true;
-				drawBGAFixRatioToRect(r, playinglayertex, stretch);
+				drawBGAFixRatioToRect(batch, tmpRect, playinglayertex, targetStretch);
 			}
 		}
+		batch.end();
 
 		bgaFramebuffer.end();
+
+		// Restore previous GL viewport
+		Gdx.gl.glViewport(prevX, prevY, prevW, prevH);
+
 		bgaFramebufferDirty = false;
 	}
 
-	private void drawBGAFixRatioToRect(Rectangle r, Texture bga, StretchType stretch) {
+	private void drawBGAFixRatioToRect(SpriteBatch batch, Rectangle r, Texture bga, StretchType stretch) {
 		tmpRect.set(r);
 		image.setTexture(bga);
 		image.setRegion(0, 0, bga.getWidth(), bga.getHeight());
 		stretch.stretchRect(tmpRect, image, image);
+		batch.draw(image, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
 	}
 
 	/**
@@ -520,18 +562,36 @@ public class BGAProcessor {
 	 * This allows transparent lane areas to show the BGA underneath.
 	 * @return the current BGA texture, or null if no BGA is available
 	 */
-	public Texture getCurrentBGAFrame() {
+	public Texture getCurrentBGAFrame(int width, int height) {
 		if (time < 0 || timelines == null) {
 			return null;
 		}
-		// Render BGA to framebuffer to get BGA with black background
-		int width = bgaFramebuffer != null ? bgaFramebuffer.getWidth() : 0;
-		int height = bgaFramebuffer != null ? bgaFramebuffer.getHeight() : 0;
+		// Render BGA to framebuffer to get BGA with combined layers
 		if (width > 0 && height > 0) {
-			renderBGAToFramebuffer(width, height, StretchType.STRETCH);
+			StretchType stretch;
+			if (config != null) {
+				switch (config.getBgaExpand()) {
+					case Config.BGAEXPAND_FULL:
+						stretch = StretchType.STRETCH;
+						break;
+					case Config.BGAEXPAND_KEEP_ASPECT_RATIO:
+						stretch = StretchType.KEEP_ASPECT_RATIO_FIT_INNER;
+						break;
+					default:
+						stretch = StretchType.KEEP_ASPECT_RATIO_NO_EXPANDING;
+						break;
+				}
+			} else {
+				stretch = StretchType.STRETCH;
+			}
+
+			// Only render if dirty or size changed
+			if (bgaFramebufferDirty || bgaFramebuffer == null || bgaFramebuffer.getWidth() != width || bgaFramebuffer.getHeight() != height) {
+				renderBGAToFramebuffer(width, height, stretch);
+			}
 			return getSharedBGATexture();
 		}
-		// Fallback to raw BGA data if framebuffer not available
+		// Fallback to raw BGA data if width/height are invalid
 		if (misslayer != null && misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration) {
 			final Layer.Sequence[] seq = misslayer.sequence[0];
 			final int index = seq[(int) ((seq.length - 1) * (time - misslayertime) / getMisslayerduration)].id;
@@ -547,14 +607,7 @@ public class BGAProcessor {
 	 * @return the current layer texture, or null if no layer is available
 	 */
 	public Texture getCurrentLayerFrame() {
-		if (time < 0 || timelines == null) {
-			return null;
-		}
-		// Return from framebuffer if available (layer is rendered with BGA)
-		if (bgaFramebuffer != null) {
-			return bgaFramebufferRegion != null ? bgaFramebufferRegion.getTexture() : null;
-		}
-		return getBGAData(time - layer_start_time, playinglayerid, rlayer);
+		return null; // Layer is combined in getCurrentBGAFrame
 	}
 
 	/**
@@ -623,6 +676,15 @@ public class BGAProcessor {
 			cache.dispose();
 		}
 		mpgresource.dispose();
+		if (blanktex != null) {
+			blanktex.dispose();
+		}
+		if (bgaFramebuffer != null) {
+			bgaFramebuffer.dispose();
+		}
+		if (batch != null) {
+			batch.dispose();
+		}
 	}
 
 	public float getProgress() {

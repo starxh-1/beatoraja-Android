@@ -416,36 +416,68 @@ public class LaneRenderer {
 			main.getSkin().header.getPath() != null &&
 			main.getSkin().header.getPath().toString().contains("Touchscreen");
 		boolean actuallyPortrait = main.getSkin() != null && main.getSkin().getHeight() > main.getSkin().getWidth();
-		if (isTouchscreenSkin && lanes != null && lanes.length > 0 && lanes[0] != null && skin != null) {
-			Texture bgaFrame = main.resource.getBGAManager().getCurrentBGAFrame();
-			Texture layerFrame = main.resource.getBGAManager().getCurrentLayerFrame();
+		if (isTouchscreenSkin && lanes != null && lanes.length > 0 && skin != null) {
+			int skinW = (int)main.getSkin().getWidth();
+			int skinH = (int)main.getSkin().getHeight();
+			Texture bgaFrame = main.resource.getBGAManager().getCurrentBGAFrame(skinW, skinH);
 			if (bgaFrame != null) {
+				float minX = Float.MAX_VALUE;
+				float minY = Float.MAX_VALUE;
+				float maxX = -Float.MAX_VALUE;
+				float maxY = -Float.MAX_VALUE;
+				for (SkinLane lane : lanes) {
+					if (lane != null && lane.region != null) {
+						minX = Math.min(minX, lane.region.x);
+						minY = Math.min(minY, lane.region.y);
+						maxX = Math.max(maxX, lane.region.x + lane.region.width);
+						maxY = Math.max(maxY, lane.region.y + lane.region.height);
+					}
+				}
+
 				float laneX, laneY, laneW, laneH;
-				if (actuallyPortrait) {
-					// Portrait mode: lanes are horizontal
-					laneX = 0;
+				if (minX == Float.MAX_VALUE) {
+					// Fallback if no lane regions found
+					laneX = actuallyPortrait ? 0 : lanes[0].region.x;
 					laneY = 0;
-					laneW = main.getSkin().getWidth();
-					laneH = lanes[0].region.width * lanes.length;
+					laneW = actuallyPortrait ? skinW : lanes[0].region.width * lanes.length;
+					laneH = actuallyPortrait ? lanes[0].region.width * lanes.length : skinH;
 				} else {
-					// Landscape mode: lanes are vertical
-					laneX = lanes[0].region.x;
-					laneY = 0;
-					laneW = lanes[0].region.width * lanes.length;
-					laneH = main.getSkin().getHeight();
+					laneX = minX;
+					laneY = minY;
+					laneW = maxX - minX;
+					laneH = maxY - minY;
+
+					// In landscape mode, ensure it covers full height
+					if (!actuallyPortrait && laneH < skinH * 0.5f) {
+						laneY = 0;
+						laneH = skinH;
+					}
+					// In portrait mode, ensure it covers full width
+					if (actuallyPortrait && laneW < skinW * 0.5f) {
+						laneX = 0;
+						laneW = skinW;
+					}
 				}
+
 				sprite.setColor(1f, 1f, 1f, 0.15f);
-				sprite.setBlend(2);
-				TextureRegion bgaImage = new TextureRegion(bgaFrame);
-				bgaImage.setRegion(0, 0, bgaFrame.getWidth(), bgaFrame.getHeight());
-				sprite.draw(bgaImage, laneX, laneY, laneW, laneH);
-				// Draw layer on top if available
-				if (layerFrame != null) {
-					sprite.setBlend(2);
-					TextureRegion layerImage = new TextureRegion(layerFrame);
-					layerImage.setRegion(0, 0, layerFrame.getWidth(), layerFrame.getHeight());
-					sprite.draw(layerImage, laneX, laneY, laneW, laneH);
-				}
+				sprite.setBlend(0); // Use alpha blending for a more natural darkened BGA look
+
+				// Perfect alignment: Sample the sub-region of the combined BGA that matches lane position.
+				// Since bgaFrame was rendered to match skin dimensions and positions, we sample using skin coordinates.
+				int srcX = (int)laneX;
+				int srcY = (int)laneY;
+				int srcW = (int)laneW;
+				int srcH = (int)laneH;
+
+				// Clip to texture bounds to avoid GL errors
+				srcX = Math.max(0, Math.min(srcX, bgaFrame.getWidth() - 1));
+				srcY = Math.max(0, Math.min(srcY, bgaFrame.getHeight() - 1));
+				srcW = Math.max(1, Math.min(srcW, bgaFrame.getWidth() - srcX));
+				srcH = Math.max(1, Math.min(srcH, bgaFrame.getHeight() - srcY));
+
+				TextureRegion bgaRegion = new TextureRegion(bgaFrame, srcX, srcY, srcW, srcH);
+				bgaRegion.flip(false, true); // FBO textures are Y-up, must flip for Y-down display
+				sprite.draw(bgaRegion, laneX, laneY, laneW, laneH);
 			}
 		}
 
