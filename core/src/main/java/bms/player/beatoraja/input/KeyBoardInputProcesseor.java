@@ -107,6 +107,14 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 	}
 
 	public boolean keyDown(int keycode) {
+		// Android 返回键重映射：将 code 4 (BACK) 映射为 code 111 (ESCAPE)
+		if (keycode == Keys.BACK) {
+			Gdx.app.log("InputDebug", "keyDown: BACK detected, remapping to ESCAPE");
+			keycode = Keys.ESCAPE;
+			// 触发一次模拟按键，确保 poll() 能够捕获到状态变化
+			simulateKeyPress(Keys.ESCAPE);
+		}
+
 		Gdx.app.log("InputDebug", "keyDown START: " + keycode + " (" + Input.Keys.toString(keycode) + ")");
 		setLastPressedKey(keycode);
 		Gdx.app.log("InputDebug", "keyDown END: " + keycode);

@@ -263,6 +263,12 @@ public class MainController {
             current = newState;
             timer.setMainState(newState);
             current.prepare();
+
+            // 切换状态时，强制清理输入状态，防止前一个界面的模拟按键（如 Result 界的 ESCAPE）泄露到新界面
+            if (input != null && input.getKeyBoardInputProcesseor() != null) {
+                input.getKeyBoardInputProcesseor().clear();
+            }
+
             updateMainStateListener(0);
         }
 

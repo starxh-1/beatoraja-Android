@@ -82,20 +82,28 @@ public class FolderBar extends DirectoryBar {
             childrenLoadState = ChildrenLoadState.LOADED;
             Gdx.app.log("FolderBar", "Loaded " + cachedChildren.length + " song(s) for folder: " + (folder != null ? folder.getTitle() : "[root]"));
         } else {
-            // Get BMS root path for consistent CRC calculation
             String[] bmsroot = songdb.getBmsRoot();
-            String rootpath = (bmsroot != null && bmsroot.length > 0) ? bmsroot[0] : "";
-            if (rootpath.endsWith("/")) {
-                rootpath = rootpath.substring(0, rootpath.length() - 1);
-            }
-            final String bmspathForCrc = rootpath;
             cachedChildren = Stream.of(songdb.getFolderDatas("parent", crc)).map(folder -> {
                 String path = folder.getPath();
                 if (path.endsWith(String.valueOf(File.separatorChar))) {
                     path = path.substring(0, path.length() - 1);
                 }
 
-                String ccrc = SongUtils.crc32(path, new String[0], bmspathForCrc);
+                // 寻找匹配的 BMS 根目录以确保 CRC 计算一致
+                String matchingRoot = "";
+                if (bmsroot != null) {
+                    String normalizedPath = path.replace('\\', '/');
+                    for (String root : bmsroot) {
+                        if (root == null) continue;
+                        String r = root.replace('\\', '/');
+                        if (r.endsWith("/")) r = r.substring(0, r.length() - 1);
+                        if (normalizedPath.startsWith(r) && r.length() > matchingRoot.length()) {
+                            matchingRoot = r;
+                        }
+                    }
+                }
+
+                String ccrc = SongUtils.crc32(path, bmsroot != null ? bmsroot : new String[0], matchingRoot);
                 return new FolderBar(selector, folder, ccrc);
             }).toArray(Bar[]::new);
 
@@ -113,7 +121,7 @@ public class FolderBar extends DirectoryBar {
 
     public void updateFolderStatus() {
         Gdx.app.log("FolderBar", "updateFolderStatus called for: " + (folder != null ? folder.getTitle() : "[root]"));
-        
+
         // 对于根文件夹或子节点已加载的文件夹，从缓存的子节点中提取歌曲数据
         if (childrenLoadState == ChildrenLoadState.LOADED || childrenLoadState == ChildrenLoadState.LOADED_EMPTY) {
             Gdx.app.log("FolderBar", "Using cached children for status update");

@@ -186,6 +186,11 @@ public class AndroidLauncher extends AndroidApplication {
         inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
+
+        // 捕获 Android 系统的返回键，交由 LibGDX 的 InputProcessor 处理
+        // 必须在 initialize() 之后调用，此时 Gdx.input 才被初始化
+        Gdx.input.setCatchKey(Keys.BACK, true);
+
         setupSustainedPerformance();
     }
 
@@ -207,9 +212,31 @@ public class AndroidLauncher extends AndroidApplication {
             songsDir.mkdirs();
             Log.i(TAG, "Created songs directory: " + songsDir.getAbsolutePath());
         }
+
+        // 第一次启动时，将 assets 中的 inochi_ogg 复制到默认歌曲目录
+        File inochiDir = new File(songsDir, "inochi_ogg");
+        if (!inochiDir.exists()) {
+            Log.i(TAG, "First run: Copying inochi_ogg from assets to " + inochiDir.getAbsolutePath());
+            inochiDir.mkdirs();
+            copyAssetFolder(getAssets(), "inochi_ogg", inochiDir);
+        }
+
         if (!skinsDir.exists()) {
             skinsDir.mkdirs();
             Log.i(TAG, "Created skins directory: " + skinsDir.getAbsolutePath());
+        }
+
+        // 创建内部存储中的必要目录 (table, songinfo, etc.)
+        File filesDir = getExternalFilesDir(null);
+        if (filesDir != null) {
+            String[] internalDirs = {"table", "songinfo", "player", "irconfig", "sound", "bgm"};
+            for (String dir : internalDirs) {
+                File d = new File(filesDir, dir);
+                if (!d.exists()) {
+                    d.mkdirs();
+                    Log.i(TAG, "Created internal directory: " + d.getAbsolutePath());
+                }
+            }
         }
     }
 
@@ -705,18 +732,18 @@ public class AndroidLauncher extends AndroidApplication {
 
     public void setAndroidBackPressedFlag() {
         try {
+            // 在 Android 13+ 的 OnBackInvokedCallback 中，手动触发返回键事件
+            // 让它流向 KeyBoardInputProcesseor.keyDown 进行重映射
             BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
             game.getMainController().getInputProcessor().getKeyBoardInputProcesseor().simulateKeyPress(Keys.ESCAPE);
-        } catch (Exception e) {}
+        } catch (Exception ignored) {}
     }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         lastUserTouchTime = SystemClock.uptimeMillis();
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            setAndroidBackPressedFlag();
-            return true;
-        }
+        // 移除旧的 onKeyDown 拦截逻辑，改用 LibGDX 的 setCatchKey(Keys.BACK) 机制
+        // 这样可以确保 keyDown 事件能正常流向 InputProcessor
         return super.onKeyDown(keyCode, event);
     }
 
@@ -766,19 +793,37 @@ public class AndroidLauncher extends AndroidApplication {
         });
     }
 
+    private boolean isExitDialogShowing = false;
+
+    /**
+     * Check if the exit dialog is currently visible.
+     */
+    public boolean isExitDialogShowing() {
+        return isExitDialogShowing;
+    }
+
     /**
      * Show a native Android confirmation dialog before exiting the game.
      * Called via reflection from MusicSelectInputProcessor.
      */
     public void showNativeExitDialog() {
+        if (isExitDialogShowing) return;
+
         runOnUiThread(() -> {
+            isExitDialogShowing = true;
             new android.app.AlertDialog.Builder(this)
                 .setTitle("Exit Game?")
                 .setMessage("Are you sure you want to exit?")
                 .setPositiveButton("YES", (dialog, which) -> {
+                    isExitDialogShowing = false;
                     Gdx.app.exit();
                 })
-                .setNegativeButton("NO", null)
+                .setNegativeButton("NO", (dialog, which) -> {
+                    isExitDialogShowing = false;
+                })
+                .setOnCancelListener(dialog -> {
+                    isExitDialogShowing = false;
+                })
                 .show();
         });
     }

@@ -63,21 +63,28 @@ public final class MusicSelectInputProcessor {
     	final MainController main = select.main;
         final BMSPlayerInputProcessor input = main.getInputProcessor();
 
-        // 检测退出请求 (ESC 或 Android Back)
-        if (input.isControlKeyPressed(ControlKeys.ESCAPE) || Gdx.input.isKeyJustPressed(Input.Keys.BACK)) {
+        // 检测退出请求 (ESC)
+        // Android Back 键已被映射为 ESC，此处统一处理。
+        // 移除对 Gdx.input.isKeyJustPressed(Input.Keys.BACK) 的冗余检测。
+        if (input.isControlKeyPressed(ControlKeys.ESCAPE)) {
             input.resetKeyChangedTime(ControlKeys.ESCAPE.keycode);
             if (Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
                 // 使用原生 Android 对话框进行确认
                 try {
                     Object launcher = Gdx.app;
-                    java.lang.reflect.Method method = launcher.getClass().getMethod("showNativeExitDialog");
-                    method.invoke(launcher);
+                    java.lang.reflect.Method isShowingMethod = launcher.getClass().getMethod("isExitDialogShowing");
+                    boolean isShowing = (Boolean) isShowingMethod.invoke(launcher);
+
+                    if (!isShowing) {
+                        java.lang.reflect.Method showMethod = launcher.getClass().getMethod("showNativeExitDialog");
+                        showMethod.invoke(launcher);
+                    }
                 } catch (Exception e) {
                     // 如果反射失败，回退到直接退出
                     select.main.exit();
                 }
             } else {
-                // 非 Android 平台直接退出（或保持原有逻辑）
+                // 非 Android 平台直接退出
                 select.main.exit();
             }
             return;

@@ -112,8 +112,17 @@ public class SettingsActivity extends Activity {
                 // 解析 bmsroot 数组
                 bmsPaths = findJsonArrayStrings(json, "bmsroot");
                 Log.d("SettingsActivity", "Read " + bmsPaths.size() + " bmsroot paths");
-                if (bmsPaths.isEmpty()) {
-                    bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
+
+                String defaultBmsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
+                boolean hasDefault = false;
+                for (String p : bmsPaths) {
+                    if (p.equalsIgnoreCase(defaultBmsPath) || p.equalsIgnoreCase("/storage/emulated/0/Download/beatoraja/songs")) {
+                        hasDefault = true;
+                        break;
+                    }
+                }
+                if (!hasDefault) {
+                    bmsPaths.add(0, defaultBmsPath);
                 }
 
                 // 解析 showAudioSpectrum
@@ -132,12 +141,14 @@ public class SettingsActivity extends Activity {
                 }
             } else {
                 // 默认值
-                bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
+                String defaultBmsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
+                bmsPaths.add(defaultBmsPath);
                 tableUrls.add("");
             }
         } catch (Exception e) {
             e.printStackTrace();
-            bmsPaths.add("/storage/emulated/0/Download/beatoraja/songs");
+            String defaultBmsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
+            bmsPaths.add(defaultBmsPath);
             tableUrls.add("");
         }
 
@@ -699,10 +710,14 @@ public class SettingsActivity extends Activity {
 
     private void refreshBmsPathList() {
         bmsPathContainer.removeAllViews();
+        String defaultPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
+
         for (int i = 0; i < bmsPaths.size(); i++) {
             final int index = i;
+            final String currentPath = bmsPaths.get(i);
+
             EditText editText = new EditText(this);
-            editText.setText(bmsPaths.get(i));
+            editText.setText(currentPath);
             editText.setTextColor(0xFFFFFFFF);
             editText.setBackgroundColor(0xFF333333);
             editText.setPadding(16, 12, 16, 12);
@@ -731,22 +746,37 @@ public class SettingsActivity extends Activity {
                 }
             });
 
-            Button removeBtn = new Button(this);
-            removeBtn.setText("X");
-            removeBtn.setBackgroundColor(0xFFAA3333);
-            removeBtn.setTextColor(0xFFFFFFFF);
-            removeBtn.setTextSize(12);
-            removeBtn.setMinWidth(128);
-            removeBtn.setLayoutParams(new LinearLayout.LayoutParams(
-                128,
-                ViewGroup.LayoutParams.WRAP_CONTENT));
-            removeBtn.setOnClickListener(v -> {
-                bmsPaths.remove(index);
-                refreshBmsPathList();
-            });
-
             row.addView(editText);
-            row.addView(removeBtn);
+
+            // 如果不是默认路径，才添加删除按钮
+            if (!currentPath.equalsIgnoreCase(defaultPath) && !currentPath.equalsIgnoreCase("/storage/emulated/0/Download/beatoraja/songs")) {
+                Button removeBtn = new Button(this);
+                removeBtn.setText("X");
+                removeBtn.setBackgroundColor(0xFFAA3333);
+                removeBtn.setTextColor(0xFFFFFFFF);
+                removeBtn.setTextSize(12);
+                removeBtn.setMinWidth(128);
+                removeBtn.setLayoutParams(new LinearLayout.LayoutParams(
+                    128,
+                    ViewGroup.LayoutParams.WRAP_CONTENT));
+                removeBtn.setOnClickListener(v -> {
+                    bmsPaths.remove(index);
+                    refreshBmsPathList();
+                });
+                row.addView(removeBtn);
+
+                // 默认路径不可编辑
+                editText.setEnabled(true);
+            } else {
+                // 默认路径可以考虑禁用编辑，防止用户改坏了
+                editText.setEnabled(false);
+
+                // 添加一个提示标签或者是占位空间
+                View spacer = new View(this);
+                spacer.setLayoutParams(new LinearLayout.LayoutParams(128, ViewGroup.LayoutParams.MATCH_PARENT));
+                row.addView(spacer);
+            }
+
             bmsPathContainer.addView(row);
         }
     }

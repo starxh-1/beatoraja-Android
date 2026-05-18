@@ -103,20 +103,15 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     public SongData[] getSongDatas(String key, String value) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        Cursor c = null;
-        try {
-            // Use rawQuery with direct string instead of db.query() with parameters
-            // This avoids SQLDroid issue where getParameterMetaData is not implemented
-            String sql = "SELECT * FROM song WHERE " + key + " = '" + value.replace("'", "''") + "'";
-            c = db.rawQuery(sql, null);
+        // Use rawQuery with try-with-resources to ensure cursor closure
+        String sql = "SELECT * FROM song WHERE " + key + " = '" + value.replace("'", "''") + "'";
+        try (Cursor c = db.rawQuery(sql, null)) {
             while (c.moveToNext()) {
                 SongData sd = cursorToSongData(c);
                 list.add(sd);
             }
         } catch (Throwable t) {
             Log.e(TAG, "getSongDatas failed: " + t.getMessage(), t);
-        } finally {
-            if (c != null) c.close();
         }
         return list.toArray(new SongData[0]);
     }
@@ -141,16 +136,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 + (sha256s.length() > 0 ? "sha256 IN (" + sha256s.toString() + ")" : "1=0");
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        Cursor c = null;
-        try {
-            c = db.rawQuery(sql, null);
+        try (Cursor c = db.rawQuery(sql, null)) {
             while (c.moveToNext()) {
                 list.add(cursorToSongData(c));
             }
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatas by hashes failed", t);
-        } finally {
-            if (c != null) c.close();
         }
         return list.toArray(new SongData[0]);
     }
@@ -165,89 +156,71 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         if (scorePath == null || scorePath.isEmpty()) return map;
         File f = new File(scorePath);
         if (!f.exists()) return map;
-        SQLiteDatabase scoreDb = null;
-        try {
-            scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
+
+        try (SQLiteDatabase scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY)) {
             // beatoraja score.db: 表名 "score"，列：sha256, clear, combo, minbp
-            Cursor c = scoreDb.rawQuery("SELECT sha256, clear, combo, minbp FROM score", null);
-            while (c.moveToNext()) {
-                String sha = c.getString(0);
-                int clear  = c.getInt(1);
-                int combo  = c.getInt(2);
-                int minbp  = c.getInt(3);
-                // 只保留 clear 最高的记录
-                int[] existing = map.get(sha);
-                if (existing == null || clear > existing[0]) {
-                    map.put(sha, new int[]{clear, combo, minbp});
+            try (Cursor c = scoreDb.rawQuery("SELECT sha256, clear, combo, minbp FROM score", null)) {
+                while (c.moveToNext()) {
+                    String sha = c.getString(0);
+                    int clear  = c.getInt(1);
+                    int combo  = c.getInt(2);
+                    int minbp  = c.getInt(3);
+                    // 只保留 clear 最高的记录
+                    int[] existing = map.get(sha);
+                    if (existing == null || clear > existing[0]) {
+                        map.put(sha, new int[]{clear, combo, minbp});
+                    }
                 }
             }
-            c.close();
         } catch (Throwable t) {
             Log.w(TAG, "readScoreMapFromFile failed: " + scorePath + " - " + t.getMessage());
-        } finally {
-            if (scoreDb != null) {
-                try { scoreDb.close(); } catch (Throwable ignore) {}
-            }
         }
         return map;
     }
 
     @Override
     public SongData[] getSongDatas(String sql, String score, String scorelog, String info) {
-        // -----------------------------------------------------------------------
-        // 方案：不使用 ATTACH DATABASE（会导致锁问题），
-        // 而是解析 SQL，提取可能涉及的 score 表字段，
-        // 先查询所有歌曲，再在 Java 层用 score 数据进行过滤
-        // -----------------------------------------------------------------------
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
 
         try {
             // 先读取 score 数据到内存
             java.util.Map<String, ScoreData> scoreMap = new java.util.HashMap<>();
-            if (score != null && new File(score).exists()) {
+            // 只有当 SQL 包含 score 表字段时才去读取 score.db，显著提升 Result 界面性能
+            boolean needsScore = sql.toLowerCase().contains("score.") || sql.toLowerCase().contains("score ");
+
+            if (needsScore && score != null && !score.isEmpty() && new File(score).exists()) {
                 scoreMap = readScoreDataFromFile(score);
                 Log.i(TAG, "Loaded " + scoreMap.size() + " score records for filtering");
             }
 
-            // 先尝试原样执行查询，看是否能工作
             String baseSelect = "SELECT DISTINCT md5, sha256, title, subtitle, genre, artist, subartist, "
                     + "path, folder, stagefile, banner, backbmp, parent, level, difficulty, "
                     + "maxbpm, minbpm, mode, judge, feature, content, date, favorite, notes, "
                     + "adddate, preview, length, charthash FROM song";
 
-            Cursor c = null;
-            boolean querySucceeded = false;
-
-            try {
-                c = db.rawQuery(baseSelect + " WHERE " + sql, null);
+            try (Cursor c = db.rawQuery(baseSelect + " WHERE " + sql, null)) {
                 while (c.moveToNext()) {
                     try {
                         SongData sd = cursorToSongData(c);
                         list.add(sd);
                     } catch (Throwable ignored) {}
                 }
-                c.close();
-                querySucceeded = true;
                 Log.i(TAG, "getSongDatas(sql) direct query succeeded: " + list.size() + " results");
             } catch (Throwable sqlErr) {
                 Log.w(TAG, "getSongDatas(sql) WHERE clause failed: " + sqlErr.getMessage());
-                try { if (c != null) c.close(); } catch (Throwable ignore) {}
 
-                // 如果直接查询失败（可能因为引用了 score 表字段），
-                // 则查询所有歌曲，然后在 Java 层根据 SQL 进行过滤
                 list.clear();
-                c = db.rawQuery(baseSelect, null);
-                while (c.moveToNext()) {
-                    try {
-                        SongData sd = cursorToSongData(c);
-                        list.add(sd);
-                    } catch (Throwable ignored) {}
+                try (Cursor c = db.rawQuery(baseSelect, null)) {
+                    while (c.moveToNext()) {
+                        try {
+                            SongData sd = cursorToSongData(c);
+                            list.add(sd);
+                        } catch (Throwable ignored) {}
+                    }
                 }
-                c.close();
 
-                // 现在在 Java 层进行过滤
-                if (scoreMap.size() > 0) {
+                if (!scoreMap.isEmpty()) {
                     list = filterSongDataList(list, scoreMap, sql);
                 }
             }
@@ -260,38 +233,27 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return list.toArray(new SongData[0]);
     }
 
-    /**
-     * 从 score.db 读取完整的分数数据
-     */
     private java.util.Map<String, ScoreData> readScoreDataFromFile(String scorePath) {
         java.util.Map<String, ScoreData> map = new java.util.HashMap<>();
         if (scorePath == null || scorePath.isEmpty()) return map;
         File f = new File(scorePath);
         if (!f.exists()) return map;
 
-        SQLiteDatabase scoreDb = null;
-        try {
-            scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY);
-
-            // Detect available columns by querying the table schema
+        try (SQLiteDatabase scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY)) {
             java.util.Set<String> columns = new java.util.HashSet<>();
-            Cursor cols = scoreDb.rawQuery("PRAGMA table_info(score)", null);
-            while (cols.moveToNext()) {
-                columns.add(cols.getString(cols.getColumnIndex("name")));
+            try (Cursor cols = scoreDb.rawQuery("PRAGMA table_info(score)", null)) {
+                while (cols.moveToNext()) {
+                    columns.add(cols.getString(cols.getColumnIndex("name")));
+                }
             }
-            cols.close();
 
             if (columns.isEmpty()) {
                 Log.w(TAG, "score table has no columns in: " + scorePath);
                 return map;
             }
 
-            // Build query dynamically based on available columns.
-            // For missing columns, use "0 AS colname" so SQLite always returns a valid column.
             StringBuilder sql = new StringBuilder("SELECT ");
-            // sha256, playcount, clear - always include as-is (required)
             sql.append("sha256, playcount, clear, ");
-            // exscore: try exscore, then score, then 0
             if (columns.contains("exscore")) {
                 sql.append("exscore, ");
             } else if (columns.contains("score")) {
@@ -299,7 +261,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             } else {
                 sql.append("0 AS exscore, ");
             }
-            // All other columns: include if present, otherwise 0
             sql.append(columns.contains("maxcombo") ? "maxcombo, " : "0 AS maxcombo, ");
             sql.append(columns.contains("minbp") ? "minbp, " : "0 AS minbp, ");
             sql.append(columns.contains("perfect") ? "perfect, " : "0 AS perfect, ");
@@ -312,34 +273,30 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             sql.append(columns.contains("slow") ? "slow, " : "0 AS slow, ");
             sql.append(columns.contains("date") ? "date FROM score" : "0 AS date FROM score");
 
-            Cursor c = scoreDb.rawQuery(sql.toString(), null);
-            while (c.moveToNext()) {
-                ScoreData sd = new ScoreData();
-                sd.sha256 = getStringSafe(c, "sha256");
-                sd.playcount = getIntSafe(c, "playcount");
-                sd.clear = getIntSafe(c, "clear");
-                sd.score = getIntSafe(c, "score");
-                sd.exscore = getIntSafe(c, "exscore");
-                sd.maxcombo = getIntSafe(c, "maxcombo");
-                sd.minbp = getIntSafe(c, "minbp");
-                sd.perfect = getIntSafe(c, "perfect");
-                sd.great = getIntSafe(c, "great");
-                sd.good = getIntSafe(c, "good");
-                sd.bad = getIntSafe(c, "bad");
-                sd.poor = getIntSafe(c, "poor");
-                sd.totalnotes = getIntSafe(c, "totalnotes");
-                sd.fast = getIntSafe(c, "fast");
-                sd.slow = getIntSafe(c, "slow");
-                sd.date = getIntSafe(c, "date");
-                map.put(sd.sha256, sd);
+            try (Cursor c = scoreDb.rawQuery(sql.toString(), null)) {
+                while (c.moveToNext()) {
+                    ScoreData sd = new ScoreData();
+                    sd.sha256 = getStringSafe(c, "sha256");
+                    sd.playcount = getIntSafe(c, "playcount");
+                    sd.clear = getIntSafe(c, "clear");
+                    sd.score = getIntSafe(c, "score");
+                    sd.exscore = getIntSafe(c, "exscore");
+                    sd.maxcombo = getIntSafe(c, "maxcombo");
+                    sd.minbp = getIntSafe(c, "minbp");
+                    sd.perfect = getIntSafe(c, "perfect");
+                    sd.great = getIntSafe(c, "great");
+                    sd.good = getIntSafe(c, "good");
+                    sd.bad = getIntSafe(c, "bad");
+                    sd.poor = getIntSafe(c, "poor");
+                    sd.totalnotes = getIntSafe(c, "totalnotes");
+                    sd.fast = getIntSafe(c, "fast");
+                    sd.slow = getIntSafe(c, "slow");
+                    sd.date = getIntSafe(c, "date");
+                    map.put(sd.sha256, sd);
+                }
             }
-            c.close();
         } catch (Throwable t) {
             Log.w(TAG, "readScoreDataFromFile failed: " + scorePath + " - " + t.getMessage());
-        } finally {
-            if (scoreDb != null) {
-                try { scoreDb.close(); } catch (Throwable ignore) {}
-            }
         }
         return map;
     }
@@ -493,14 +450,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     public SongData[] getSongDatasByText(String text) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        Cursor c = null;
         String sql = "SELECT * FROM song WHERE title LIKE ? OR artist LIKE ? OR genre LIKE ?";
-        try {
-            c = db.rawQuery(sql, new String[]{"%" + text + "%", "%" + text + "%", "%" + text + "%"});
-            while (c.moveToNext()) list.add(cursorToSongData(c));
+        try (Cursor c = db.rawQuery(sql, new String[]{"%" + text + "%", "%" + text + "%", "%" + text + "%"})) {
+            while (c.moveToNext()) {
+                list.add(cursorToSongData(c));
+            }
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatasByText failed", t);
-        } finally { if (c != null) c.close(); }
+        }
         return list.toArray(new SongData[0]);
     }
 
@@ -508,22 +465,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     public FolderData[] getFolderDatas(String key, String value) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<FolderData> list = new ArrayList<>();
-        Cursor c = null;
         try {
             // Use rawQuery with direct string instead of db.query() with parameters
             // This avoids SQLDroid issue where getParameterMetaData is not implemented
             String sql = "SELECT * FROM folder WHERE " + key + " = '" + value.replace("'", "''") + "'";
-            c = db.rawQuery(sql, null);
-            while (c.moveToNext()) {
-                FolderData fd = new FolderData();
-                fd.setTitle(getStringSafe(c, "title"));
-                fd.setPath(getStringSafe(c, "path"));
-                fd.setDate(getIntSafe(c, "date"));
-                list.add(fd);
+            try (Cursor c = db.rawQuery(sql, null)) {
+                while (c.moveToNext()) {
+                    FolderData fd = new FolderData();
+                    fd.setTitle(getStringSafe(c, "title"));
+                    fd.setPath(getStringSafe(c, "path"));
+                    fd.setDate(getIntSafe(c, "date"));
+                    list.add(fd);
+                }
             }
         } catch (Throwable t) {
-            Log.e(TAG, "getFolderDatas failed: " + t.getMessage(), t);
-        } finally { if (c != null) c.close(); }
+            Log.e(TAG, "getFolderDatas failed: " + key + "=" + value + " - " + t.getMessage(), t);
+        }
         return list.toArray(new FolderData[0]);
     }
 
@@ -556,16 +513,17 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SQLiteDatabase db = helper.getWritableDatabase();
 
         // 检查数据库中已有多少歌曲记录，用于统计
-        Cursor songCountCursor = db.rawQuery("SELECT COUNT(*) FROM song", null);
         int existingSongCount = 0;
-        if (songCountCursor.moveToFirst()) {
-            existingSongCount = songCountCursor.getInt(0);
+        try (Cursor songCountCursor = db.rawQuery("SELECT COUNT(*) FROM song", null)) {
+            if (songCountCursor.moveToFirst()) {
+                existingSongCount = songCountCursor.getInt(0);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to get existing song count", t);
         }
-        songCountCursor.close();
         Log.i(TAG, "updateSongDatas: Existing songs in DB: " + existingSongCount + ", forceRefresh: " + forceRefresh);
 
         // Force create all tables if they don't exist BEFORE scanning
-        // This guarantees tables exist regardless of whether onCreate was called
         Log.i(TAG, "updateSongDatas: Force-creating all core tables if not exists...");
         db.execSQL("CREATE TABLE IF NOT EXISTS song ("
                 + "md5 TEXT, "
@@ -599,8 +557,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 + "playcount INTEGER, "
                 + "charthash TEXT"
                 + ", PRIMARY KEY (sha256))");
-        System.out.println("Table Created: song (updateSongDatas force check)");
-        Log.i(TAG, "Table Created: song (updateSongDatas force check)");
 
         db.execSQL("CREATE TABLE IF NOT EXISTS folder ("
                 + "title TEXT, "
@@ -614,162 +570,91 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 + "adddate INTEGER, "
                 + "max INTEGER"
                 + ", PRIMARY KEY (path))");
-        System.out.println("Table Created: folder (updateSongDatas force check)");
-        Log.i(TAG, "Table Created: folder (updateSongDatas force check)");
 
         Log.i(TAG, "updateSongDatas: All tables verified. Starting scan with " + paths.length + " root paths");
-        Log.i(TAG, "Database file path: " + db.getPath());
-        Log.i(TAG, "Database file exists: " + new java.io.File(db.getPath()).exists());
 
-        // 确保默认的 Download/beatoraja/songs 目录存在
-        String defaultRoot = getDownloadPath();
-        String defaultPath = defaultRoot + "/beatoraja/songs";
-        FileHandle defaultDir = Gdx.files.absolute(defaultPath);
-        if (!defaultDir.exists()) {
-            Log.i(TAG, "Creating default BMS directory: " + defaultPath);
-            defaultDir.mkdirs();
-            if (!defaultDir.exists()) {
-                Log.w(TAG, "LibGDX mkdirs failed, trying Android native API...");
-                java.io.File file = new java.io.File(defaultPath);
-                file.mkdirs();
-            }
-        }
-
-        // 创建 .nomedia 文件，防止系统媒体扫描器扫描 BMS 文件夹
-        File nomediaFile = new java.io.File(defaultPath, ".nomedia");
-        if (!nomediaFile.exists()) {
+        // 在所有扫描根目录下创建 .nomedia 文件
+        for (String path : paths) {
+            if (path == null || path.trim().isEmpty()) continue;
             try {
-                boolean created = nomediaFile.createNewFile();
-                Log.i(TAG, "Created .nomedia file: " + created + " - " + nomediaFile.getAbsolutePath());
-            } catch (java.io.IOException e) {
-                Log.e(TAG, "Failed to create .nomedia file", e);
+                FileHandle rootDir = Gdx.files.absolute(path.trim());
+                if (rootDir.exists() && rootDir.isDirectory()) {
+                    FileHandle nomedia = rootDir.child(".nomedia");
+                    if (!nomedia.exists()) {
+                        nomedia.writeString("", false);
+                        Log.i(TAG, "Created .nomedia in root path: " + rootDir.path());
+                    }
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "Failed to create .nomedia in " + path);
             }
         }
 
-        db.beginTransaction();
-
+        int deleteCount = 0;
         try {
-            int deleteCount = 0;
-            // 策略优化：删除同步只在 forceRefresh 时执行，避免每次都扫描所有文件
+            // Step 1: Deletion Sync - 只在 forceRefresh 时执行
             if (forceRefresh) {
-                // Step 1: Deletion Sync - Detect and remove files that no longer exist on disk
-                Log.i(TAG, "Deletion Sync: Querying all existing file paths from song table...");
-            List<String> existingPaths = new ArrayList<>();
-            Cursor cursor = db.rawQuery("SELECT path FROM song", null);
-            while (cursor.moveToNext()) {
-                existingPaths.add(getStringSafe(cursor, "path"));
-            }
-            cursor.close();
-            Log.i(TAG, "Deletion Sync: Found " + existingPaths.size() + " existing paths in database");
-
-            for (String path : existingPaths) {
-                FileHandle file = Gdx.files.absolute(path);
-                if (!file.exists()) {
-                    Log.w(TAG, "Deletion Sync: File not found on disk, deleting from database: " + path);
-                    db.delete("song", "path = ?", new String[]{path});
-                    deleteCount++;
+                Log.i(TAG, "Deletion Sync: Querying all existing file paths...");
+                List<String> existingPaths = new ArrayList<>();
+                try (Cursor cursor = db.rawQuery("SELECT path FROM song", null)) {
+                    while (cursor.moveToNext()) {
+                        existingPaths.add(getStringSafe(cursor, "path"));
+                    }
                 }
-            }
-            Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records");
-            } else {
-                Log.i(TAG, "Deletion Sync: Skipped (forceRefresh is false) - maintaining existing records");
+
+                db.beginTransactionNonExclusive();
+                try {
+                    for (String path : existingPaths) {
+                        FileHandle file = Gdx.files.absolute(path);
+                        if (!file.exists()) {
+                            db.delete("song", "path = ?", new String[]{path});
+                            deleteCount++;
+                        }
+                    }
+                    db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
+                Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and cleared folder table");
             }
 
-            // Step 2: forceRefresh 为 true 时使用多线程并行扫描（首次全量扫描场景）
+            // Step 2: forceRefresh 为 true 时使用并行扫描
             if (forceRefresh) {
-                Log.i(TAG, "Step 2: Using parallel multi-threaded scan (forceRefresh=true)");
                 updateSongDatasParallel(paths, forceRefresh);
                 return;
             }
 
-            // Step 2 (增量模式): 扫描所有传入的路径
-            Log.i(TAG, "================================================================================");
-            Log.i(TAG, "Step 2: Starting folder scan with " + paths.length + " root path(s)");
-            Log.i(TAG, "================================================================================");
-
+            // Step 2 (增量模式): 扫描所有路径
             for (String pathToScan : paths) {
-                if (pathToScan == null || pathToScan.trim().isEmpty()) {
-                    Log.w(TAG, "Skipping null or empty path");
-                    continue;
-                }
-
-                // 【诊断点 1】打印真实路径并检查目录状态
-                String trimmedPath = pathToScan.trim();
-                FileHandle scanDir = Gdx.files.absolute(trimmedPath);
-
-                Log.i(TAG, "================================================================================");
-                Log.i(TAG, "[ScannerDebug] Preparing to scan directory:");
-                Log.i(TAG, "[ScannerDebug]   Absolute path: " + scanDir.path());
-                Log.i(TAG, "[ScannerDebug]   exists: " + scanDir.exists());
-
-                // 额外检查：尝试获取底层 File 对象进行更详细的检查
-                try {
-                    java.io.File realFile = scanDir.file();
-                    Log.i(TAG, "[ScannerDebug]   File.exists(): " + realFile.exists());
-                    Log.i(TAG, "[ScannerDebug]   File.isDirectory(): " + realFile.isDirectory());
-                    Log.i(TAG, "[ScannerDebug]   File.canRead(): " + realFile.canRead());
-                    Log.i(TAG, "[ScannerDebug]   File.canExecute(): " + realFile.canExecute());
-                    if (realFile.exists() && realFile.isDirectory()) {
-                        java.io.File[] testList = realFile.listFiles();
-                        Log.i(TAG, "[ScannerDebug]   listFiles() returned: " + (testList == null ? "NULL" : testList.length + " items"));
-                    }
-                } catch (Exception e) {
-                    Log.e(TAG, "[ScannerDebug]   Failed to get underlying File object: " + e.getMessage());
-                }
-
-                Log.i(TAG, "[ScannerDebug]   forceRefresh: " + forceRefresh);
-                Log.i(TAG, "================================================================================");
-
+                if (pathToScan == null || pathToScan.trim().isEmpty()) continue;
+                FileHandle scanDir = Gdx.files.absolute(pathToScan.trim());
                 if (scanDir.exists()) {
                     Log.i(TAG, "Starting recursive scan of: " + scanDir.path());
-                    long folderScanStart = System.currentTimeMillis();
+                    // Each folder handles its own transaction
                     scanFolderRecursively(scanDir, decoder, db, fileCount, forceRefresh);
-                    long folderScanElapsed = System.currentTimeMillis() - folderScanStart;
-                    Log.i(TAG, "Recursive scan completed for: " + scanDir.path() + " in " + folderScanElapsed + "ms");
-                } else {
-                    Log.e(TAG, "================================================================================");
-                    Log.e(TAG, "[ERROR] BMS directory does not exist or cannot be accessed: " + scanDir.path());
-                    Log.e(TAG, "[ERROR] This is likely an Android Scoped Storage permission issue!");
-                    Log.e(TAG, "[ERROR] Please verify:");
-                    Log.e(TAG, "[ERROR]   1. MANAGE_EXTERNAL_STORAGE permission is granted");
-                    Log.e(TAG, "[ERROR]   2. Path string is correct (no typos)");
-                    Log.e(TAG, "[ERROR]   3. Directory actually exists on disk");
-                    Log.e(TAG, "================================================================================");
                 }
             }
 
-            Log.i(TAG, "================================================================================");
-            Log.i(TAG, "All paths scanned. Transaction committing...");
-            Log.i(TAG, "================================================================================");
-
-            db.setTransactionSuccessful();
             long endTime = System.currentTimeMillis();
-
-            // 统计扫描后的数量
-            Cursor newSongCountCursor = db.rawQuery("SELECT COUNT(*) FROM song", null);
             int newSongCount = 0;
-            if (newSongCountCursor.moveToFirst()) {
-                newSongCount = newSongCountCursor.getInt(0);
-            }
-            newSongCountCursor.close();
+            try (Cursor newSongCountCursor = db.rawQuery("SELECT COUNT(*) FROM song", null)) {
+                if (newSongCountCursor.moveToFirst()) {
+                    newSongCount = newSongCountCursor.getInt(0);
+                }
+            } catch (Throwable ignored) {}
 
             Log.i(TAG, "updateSongDatas completed: " + fileCount.get() + " files processed/updated, "
                     + deleteCount + " files deleted, "
-                    + (existingSongCount - fileCount.get() - deleteCount) + " files skipped (unmodified), "
                     + "total songs now: " + newSongCount
                     + " in " + (endTime - startTime) + "ms");
         } catch (Throwable t) {
-            Log.e(TAG, "================================================================================");
-            Log.e(TAG, "updateSongDatas failed with fatal error", t);
-            Log.e(TAG, "================================================================================");
+            Log.e(TAG, "updateSongDatas failed", t);
         } finally {
-            db.endTransaction();
-            // 强制 checkpoint 将 WAL 写入主数据库文件，确保后续读取可见
+            // 确保最后的 checkpoint
             try {
                 db.execSQL("PRAGMA wal_checkpoint(FULL)");
-            } catch (Throwable e) {
-                Log.w(TAG, "wal_checkpoint failed: " + e.getMessage());
-            }
+            } catch (Throwable ignored) {}
         }
     }
 
@@ -925,15 +810,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             // 增量更新检查
             if (!forceRefresh) {
                 SQLiteDatabase db = helper.getReadableDatabase();
-                Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName});
-                if (cursor.moveToFirst()) {
-                    int recordDate = cursor.getInt(0);
-                    if (recordDate == lastModifiedTime) {
-                        cursor.close();
-                        return null; // 未修改，跳过
+                try (Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName})) {
+                    if (cursor.moveToFirst()) {
+                        int recordDate = cursor.getInt(0);
+                        if (recordDate == lastModifiedTime) {
+                            return null; // 未修改，跳过
+                        }
                     }
                 }
-                cursor.close();
             }
 
             BMSModel model = decoder.decode(file);
@@ -1011,73 +895,64 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * @return true if this folder or any subfolder contains at least one BMS file
      */
     private boolean scanFolderRecursively(FileHandle folder, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger fileCount, boolean forceRefresh) {
-        // 【诊断点 2】拦截文件遍历的静默异常
-        try {
-            if (!folder.exists()) {
-                Log.w(TAG, "[ScanFolder] Folder does not exist: " + folder.path());
-                return false;
-            }
-
-            // 尝试列出目录内容
-            FileHandle[] children = null;
-            try {
-                children = folder.list();
-                Log.d(TAG, "[ScanFolder] list() returned for: " + folder.path() + " -> " + (children == null ? "NULL" : children.length + " items"));
-            } catch (Exception listException) {
-                // 【关键修复】捕获 list() 的异常，这在 Android 上处理外置存储时经常发生
-                Log.e(TAG, "================================================================================");
-                Log.e(TAG, "[ScannerError] Failed to list directory: " + folder.path());
-                Log.e(TAG, "[ScannerError] Exception type: " + listException.getClass().getName());
-                Log.e(TAG, "[ScannerError] Message: " + listException.getMessage());
-                Log.e(TAG, "[ScannerError] Full stack trace:");
-                Log.e(TAG, "================================================================================", listException);
-                return false;
-            }
-
-            if (children == null) {
-                Log.w(TAG, "[ScanFolder] list() returned NULL (directory may be empty or inaccessible): " + folder.path());
-                return false;
-            }
-
-            boolean containsBms = false;
-
-            // First process BMS files in this folder
-            for (FileHandle child : children) {
-                if (!child.isDirectory()) {
-                    String fileName = child.name().toLowerCase();
-                    if (isBmsFile(fileName)) {
-                        processBmsFile(child, decoder, db, fileCount, forceRefresh);
-                        containsBms = true;
-                    }
-                }
-            }
-
-            // Recurse into subfolders - if any subfolder contains BMS, mark this folder as containing BMS
-            for (FileHandle child : children) {
-                if (child.isDirectory()) {
-                    boolean subfolderContainsBms = scanFolderRecursively(child, decoder, db, fileCount, forceRefresh);
-                    if (subfolderContainsBms) {
-                        containsBms = true;
-                    }
-                }
-            }
-
-            // Always insert this folder into folder table for UI navigation,
-            // not just when it contains BMS files directly.
-            // This ensures the root folder has correct CRC for parent lookup.
-            insertFolder(folder, db);
-
-            return containsBms;
-        } catch (Exception e) {
-            // 【关键修复】捕获所有未预期的异常，防止扫描过程静默失败
-            Log.e(TAG, "================================================================================");
-            Log.e(TAG, "[ScannerError] Unexpected error during folder scan: " + folder.path());
-            Log.e(TAG, "[ScannerError] Exception type: " + e.getClass().getName());
-            Log.e(TAG, "[ScannerError] Message: " + e.getMessage());
-            Log.e(TAG, "[ScannerError] Full stack trace:");
-            Log.e(TAG, "================================================================================", e);
+        if (!folder.exists() || !folder.isDirectory()) {
             return false;
         }
+
+        FileHandle[] children;
+        try {
+            children = folder.list();
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to list folder: " + folder.path());
+            return false;
+        }
+        if (children == null) return false;
+
+        boolean containsBms = false;
+        List<FileHandle> bmsFiles = new ArrayList<>();
+        List<FileHandle> subDirs = new ArrayList<>();
+        for (FileHandle child : children) {
+            if (child.isDirectory()) {
+                subDirs.add(child);
+            } else if (isBmsFile(child.name().toLowerCase())) {
+                bmsFiles.add(child);
+            }
+        }
+
+        // 1. 处理当前文件夹下的 BMS 文件
+        if (!bmsFiles.isEmpty()) {
+            containsBms = true;
+            db.beginTransactionNonExclusive();
+            try {
+                for (FileHandle bmsFile : bmsFiles) {
+                    processBmsFile(bmsFile, decoder, db, fileCount, forceRefresh);
+                }
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+        }
+
+        // 2. 递归扫描子目录
+        for (FileHandle subDir : subDirs) {
+            if (scanFolderRecursively(subDir, decoder, db, fileCount, forceRefresh)) {
+                containsBms = true;
+            }
+        }
+
+        // 3. 如果本目录或其子目录包含 BMS，则插入目录记录到 folder 表
+        // 这是确保 UI 层级能够逐层显示文件夹的关键
+        if (containsBms) {
+            db.beginTransactionNonExclusive();
+            try {
+                insertFolder(folder, db);
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+        }
+
+        return containsBms;
     }
 
     /**
@@ -1102,20 +977,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             // 检查文件夹是否需要更新
             boolean needsUpdate = true;
-            Cursor cursor = db.rawQuery("SELECT date FROM folder WHERE path = ?", new String[]{path});
-            if (cursor.moveToFirst()) {
-                int recordDate = cursor.getInt(0);
-                if (recordDate == lastModified) {
-                    needsUpdate = false;
-                    Log.d(TAG, "Skipping unmodified folder: " + path);
+            try (Cursor cursor = db.rawQuery("SELECT date FROM folder WHERE path = ?", new String[]{path})) {
+                if (cursor.moveToFirst()) {
+                    int recordDate = cursor.getInt(0);
+                    if (recordDate == lastModified) {
+                        needsUpdate = false;
+                        Log.d(TAG, "Skipping unmodified folder: " + path);
+                    } else {
+                        Log.i(TAG, "Folder modified, need to update: " + path
+                                + " (DB date: " + recordDate + ", Folder date: " + lastModified + ")");
+                    }
                 } else {
-                    Log.i(TAG, "Folder modified, need to update: " + path
-                            + " (DB date: " + recordDate + ", Folder date: " + lastModified + ")");
+                    Log.i(TAG, "New folder, need to add: " + path);
                 }
-            } else {
-                Log.i(TAG, "New folder, need to add: " + path);
             }
-            cursor.close();
 
             if (needsUpdate) {
                 ContentValues cv = new ContentValues();
@@ -1182,21 +1057,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             // 检查是否需要增量更新
             if (!forceRefresh) {
-                Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName});
-                if (cursor.moveToFirst()) {
-                    int recordDate = cursor.getInt(0);
-                    if (recordDate == lastModifiedTime) {
-                        Log.d(TAG, "[ProcessBmsFile] Skipping unmodified file: " + pathName);
-                        cursor.close();
-                        return; // 文件未修改，跳过处理
+                try (Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName})) {
+                    if (cursor.moveToFirst()) {
+                        int recordDate = cursor.getInt(0);
+                        if (recordDate == lastModifiedTime) {
+                            Log.d(TAG, "[ProcessBmsFile] Skipping unmodified file: " + pathName);
+                            return; // 文件未修改，跳过处理
+                        } else {
+                            Log.i(TAG, "[ProcessBmsFile] File modified, need to update: " + pathName
+                                    + " (DB date: " + recordDate + ", File date: " + lastModifiedTime + ")");
+                        }
                     } else {
-                        Log.i(TAG, "[ProcessBmsFile] File modified, need to update: " + pathName
-                                + " (DB date: " + recordDate + ", File date: " + lastModifiedTime + ")");
+                        Log.i(TAG, "[ProcessBmsFile] New file, need to add: " + pathName);
                     }
-                } else {
-                    Log.i(TAG, "[ProcessBmsFile] New file, need to add: " + pathName);
                 }
-                cursor.close();
             } else {
                 Log.i(TAG, "[ProcessBmsFile] Force refreshing file: " + pathName);
             }
@@ -1490,16 +1364,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             if (oldVersion < 2) {
                 try {
                     // Check if playcount column already exists
-                    Cursor cursor = db.rawQuery("PRAGMA table_info(song)", null);
                     boolean hasPlaycount = false;
-                    while (cursor.moveToNext()) {
-                        String columnName = cursor.getString(cursor.getColumnIndex("name"));
-                        if ("playcount".equals(columnName)) {
-                            hasPlaycount = true;
-                            break;
+                    try (Cursor cursor = db.rawQuery("PRAGMA table_info(song)", null)) {
+                        while (cursor.moveToNext()) {
+                            String columnName = getStringSafe(cursor, "name");
+                            if ("playcount".equals(columnName)) {
+                                hasPlaycount = true;
+                                break;
+                            }
                         }
                     }
-                    cursor.close();
 
                     if (!hasPlaycount) {
                         Log.i(TAG, "Adding playcount column to song table");
@@ -1514,19 +1388,21 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             }
         }
         @Override
+        public void onConfigure(SQLiteDatabase db) {
+            super.onConfigure(db);
+            // 启用 WAL 模式：允许读写并发，彻底消除 SQLITE_BUSY。
+            db.enableWriteAheadLogging();
+        }
+
+        @Override
         public void onOpen(SQLiteDatabase db) {
             super.onOpen(db);
-            // 启用 WAL 模式：允许读写并发，多个读者不阻塞写者，彻底消除 SQLITE_BUSY。
-            // Android SQLiteDatabase 在 enableWriteAheadLogging() 后，
-            // 所有后续连接（包括 JDBC/SQLDroid 打开的 score.db）都运行在 WAL 模式下。
             try {
                 if (!db.isReadOnly()) {
                     db.execSQL("PRAGMA busy_timeout = 15000");
-                    db.execSQL("PRAGMA journal_mode = WAL");
-                    Log.i(TAG, "WAL mode enabled for: " + db.getPath());
                 }
             } catch (Throwable t) {
-                Log.w(TAG, "Failed to enable WAL on " + db.getPath() + ": " + t.getMessage());
+                Log.w(TAG, "Failed to set busy_timeout on " + db.getPath() + ": " + t.getMessage());
             }
         }
     }
