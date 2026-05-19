@@ -15,7 +15,6 @@ import java.util.logging.Logger;
 /**
  * Android 原生硬件解码视频处理器
  * 基于 LibGDX 官方扩展 gdx-video（底层为 Android MediaCodec）实现，
- * 彻底避开 FFmpeg JNI 库冲突，利用硬件加速解码提升性能。
  *
  * 生命周期注意事项：
  * - 切后台/锁屏时必须调用 pause()
@@ -26,7 +25,6 @@ import java.util.logging.Logger;
  * 音视频同步机制：
  * - 跟踪游戏时间与视频播放时间的偏差
  * - 当偏差超过阈值时，通过调节视频播放速度或跳帧来同步
- * - 为未来接入 FFmpeg 预留了扩展接口
  */
 public class GdxVideoProcessor implements MovieProcessor {
 
@@ -291,8 +289,10 @@ public class GdxVideoProcessor implements MovieProcessor {
             videoPlayer.stop();
             playing = false;
             preloaded = false;
+            initialized = false;
             startTime = -1;
             gameStartTime = -1;
+            currentTexture = null;
         } catch (Exception e) {
             // 静默失败
         }
