@@ -62,24 +62,32 @@ public class AndroidLauncher extends AndroidApplication {
         @Override
         public void run() {
             long now = SystemClock.uptimeMillis();
-            if (isTextInputActive || isUserTouching || (now - lastUserTouchTime < 2000)) {
-                if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 1000);
+            if (isTextInputActive || isUserTouching || (now - lastUserTouchTime < 500)) {
+                if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 500);
                 return;
             }
             try {
                 Window w = getWindow();
                 if (w != null && w.getDecorView() != null) {
                     isSimulatingTouch = true;
-                    MotionEvent scrollEvent = MotionEvent.obtain(now, now, MotionEvent.ACTION_SCROLL, 0, 0, 0);
-                    scrollEvent.setSource(android.view.InputDevice.SOURCE_MOUSE);
-                    w.getDecorView().dispatchGenericMotionEvent(scrollEvent);
-                    scrollEvent.recycle();
+                    // 使用更加频繁且自然的微小滑动，避开屏幕边缘（防止触发系统通知栏/导航栏引起闪烁和分辨率变动）
+                    float offsetX = 100f + (float) (Math.random() * 2.0);
+                    float offsetY = 100f + (float) (Math.random() * 2.0);
+                    MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, offsetX, offsetY, 0);
+                    MotionEvent move = MotionEvent.obtain(now, now + 5, MotionEvent.ACTION_MOVE, offsetX + 1f, offsetY + 1f, 0);
+                    MotionEvent up = MotionEvent.obtain(now, now + 10, MotionEvent.ACTION_UP, offsetX + 1f, offsetY + 1f, 0);
+                    w.getDecorView().dispatchTouchEvent(down);
+                    w.getDecorView().dispatchTouchEvent(move);
+                    w.getDecorView().dispatchTouchEvent(up);
+                    down.recycle();
+                    move.recycle();
+                    up.recycle();
                     isSimulatingTouch = false;
                 }
             } catch (Throwable t) {
                 isSimulatingTouch = false;
             }
-            if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 1000);
+            if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 500);
         }
     };
 
@@ -190,6 +198,13 @@ public class AndroidLauncher extends AndroidApplication {
         // 捕获 Android 系统的返回键，交由 LibGDX 的 InputProcessor 处理
         // 必须在 initialize() 之后调用，此时 Gdx.input 才被初始化
         Gdx.input.setCatchKey(Keys.BACK, true);
+
+        // initialize 之后立即设置高帧率（此时 Surface 已准备好）
+        setupHighRefreshRate();
+        // 重复调用几次，压制 dynamicfps 的限制
+        for (int i = 0; i < 3; i++) {
+            new Handler(Looper.getMainLooper()).postDelayed(this::setupHighRefreshRate, 500 * (i + 1));
+        }
 
         setupSustainedPerformance();
     }
@@ -655,7 +670,7 @@ public class AndroidLauncher extends AndroidApplication {
         try {
             Window window = getWindow();
             if (window != null) {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) window.setSustainedPerformanceMode(false);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) window.setSustainedPerformanceMode(true);
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                 window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
             }
@@ -719,15 +734,33 @@ public class AndroidLauncher extends AndroidApplication {
                 android.view.Display.Mode bestMode = null;
                 float highestRR = 0;
                 for (android.view.Display.Mode m : modes) {
+                    Log.i(TAG, "Supported mode: " + m.getPhysicalWidth() + "x" + m.getPhysicalHeight() + " @ " + m.getRefreshRate() + "Hz");
                     if (m.getRefreshRate() > highestRR) { highestRR = m.getRefreshRate(); bestMode = m; }
                 }
                 if (bestMode != null) {
                     WindowManager.LayoutParams params = window.getAttributes();
                     params.preferredDisplayModeId = bestMode.getModeId();
+                    params.preferredRefreshRate = bestMode.getRefreshRate();
                     window.setAttributes(params);
+                    Log.i(TAG, "High refresh rate requested: " + bestMode.getRefreshRate() + "Hz (modeId=" + bestMode.getModeId() + ")");
+                }
+                // 请求设备的最高刷新率，压制 dynamicfps 的限制 (Android 11+)
+                // 通过 SurfaceControl.setFrameRate 反射调用告知系统使用最高刷新率
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && highestRR > 0) {
+                    try {
+                        java.lang.reflect.Method getSurfaceControl = android.view.Window.class.getMethod("getSurfaceControl");
+                        Object surfaceControl = getSurfaceControl.invoke(window);
+                        if (surfaceControl != null) {
+                            java.lang.reflect.Method setFrameRate = surfaceControl.getClass().getMethod("setFrameRate", float.class, int.class);
+                            setFrameRate.invoke(surfaceControl, highestRR, 0 /* FRAME_RATE_COMPATIBILITY_DEFAULT */);
+                            Log.i(TAG, "SurfaceControl.setFrameRate(" + highestRR + ") called");
+                        }
+                    } catch (Throwable t) {
+                        Log.w(TAG, "SurfaceControl.setFrameRate failed: " + t.getMessage());
+                    }
                 }
             }
-        } catch (Throwable t) {}
+        } catch (Throwable t) { Log.e(TAG, "setupHighRefreshRate fail", t); }
     }
 
     public void setAndroidBackPressedFlag() {

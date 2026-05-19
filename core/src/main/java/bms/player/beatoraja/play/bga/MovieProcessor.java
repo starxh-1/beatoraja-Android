@@ -65,4 +65,13 @@ public interface MovieProcessor {
 	default void preload() {
 		// 默认不做操作
 	}
+
+	/**
+	 * 仅预加载解码器，不加载视频文件。
+	 * 子类可覆写以提前创建硬件解码器，减少首次播放延迟。
+	 * 默认调用 preload() 保持向后兼容。
+	 */
+	default void preloadDecoder() {
+		preload();
+	}
 }

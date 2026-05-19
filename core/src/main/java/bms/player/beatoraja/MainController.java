@@ -3,6 +3,7 @@ package bms.player.beatoraja;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Logger;
 
 import com.badlogic.gdx.*;
@@ -115,6 +116,8 @@ public class MainController {
 
     private final Array<MainStateListener> stateListener = new Array<MainStateListener>();
 
+    private int detectedRefreshRate = 120; // 记录检测到的原始刷新率
+
     public MainController(Path f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
@@ -186,27 +189,32 @@ public class MainController {
             // 强制关闭无限帧率模式，确保绝对时间对齐帧率控制始终生效
             config.setAndroidUnlimitedFPS(false);
 
-            int detectedRefreshRate = Gdx.graphics.getDisplayMode().refreshRate;
-            Gdx.app.log("beatoraja", "Detected screen refresh rate: " + detectedRefreshRate + "Hz");
-
-            int targetFPS;
-            if (detectedRefreshRate > 0) {
-                // 直接使用检测到的刷新率作为目标帧率
-                targetFPS = detectedRefreshRate;
-                Gdx.app.log("beatoraja", "Set max FPS to screen refresh rate: " + targetFPS);
-            } else {
-                // 无法检测时使用 120fps 默认
-                targetFPS = 120;
-                Gdx.app.log("beatoraja", "Could not detect refresh rate, setting max FPS to 120");
+            // 改进：遍历所有显示模式，找到硬件支持的最高刷新率，而不是当前刷新率
+            // 防止启动瞬间系统限制在 90Hz 导致检测值偏低
+            int maxRR = 60;
+            Graphics.DisplayMode[] modes = Gdx.graphics.getDisplayModes();
+            for (Graphics.DisplayMode mode : modes) {
+                if (mode.refreshRate > maxRR) maxRR = mode.refreshRate;
             }
+            this.detectedRefreshRate = maxRR;
+            Gdx.app.log("beatoraja", "Hardware max refresh rate detected: " + detectedRefreshRate + "Hz");
 
+            int targetFPS = detectedRefreshRate;
+            Gdx.app.log("beatoraja", "Set max FPS to hardware max: " + targetFPS);
+
+            // 内部限帧设定为与物理刷新率一致
             config.setMaxFramePerSecond(targetFPS);
 
-            // 高刷新率屏幕自动关闭 Vsync
+            // 高刷新率屏幕自动关闭 Vsync，减少输入延迟
             if (targetFPS > 60) {
                 config.setVsync(false);
                 Gdx.app.log("beatoraja", "VSync disabled for high refresh rate");
             }
+
+            // ─── 积极请求高刷新率 (Android 11+ Frame Rate API) ───
+            // 许多 Android 手机（如小米、一加）在没有触摸或进入视频播放时会自动降频到 90Hz/60Hz。
+            // 告知系统我们需要最高流畅度。
+            updateFrameRateAPI(targetFPS);
         }
     }
 
@@ -224,7 +232,68 @@ public class MainController {
     public Object getBeatorajaGame() { return beatorajaGame; }
     public void setBeatorajaGame(Object game) { this.beatorajaGame = game; }
 
+    // --- 性能 API 反射缓存 ---
+    private java.lang.reflect.Method setFrameRateMethod = null;
+    private long lastFrameRateUpdate = 0;
+
+    private void updateFrameRateAPI(int targetFPS) {
+        if (!isAndroid) return;
+        try {
+            Object graphics = Gdx.graphics;
+            java.lang.reflect.Field viewField = graphics.getClass().getDeclaredField("view");
+            viewField.setAccessible(true);
+            Object view = viewField.get(graphics);
+
+            if (view != null) {
+                java.lang.reflect.Method getHolder = view.getClass().getMethod("getHolder");
+                Object holder = getHolder.invoke(view);
+                if (holder != null) {
+                    java.lang.reflect.Method getSurface = holder.getClass().getMethod("getSurface");
+                    Object surface = getSurface.invoke(holder);
+                    if (surface != null) {
+                        java.lang.reflect.Method isValid = surface.getClass().getMethod("isValid");
+                        if (Boolean.TRUE.equals(isValid.invoke(surface))) {
+                            // 尝试获取三参数版本以支持 CHANGE_FRAME_RATE_ALWAYS
+                            if (setFrameRateMethod == null) {
+                                try {
+                                    setFrameRateMethod = surface.getClass().getMethod("setFrameRate", float.class, int.class, int.class);
+                                } catch (NoSuchMethodException e) {
+                                    setFrameRateMethod = surface.getClass().getMethod("setFrameRate", float.class, int.class);
+                                }
+                            }
+
+                            if (setFrameRateMethod.getParameterCount() == 3) {
+                                // 使用 FIXED_SOURCE (1) 和 CHANGE_FRAME_RATE_ALWAYS (1)
+                                setFrameRateMethod.invoke(surface, (float) targetFPS, 1, 1);
+                            } else {
+                                // 使用 FIXED_SOURCE (1)
+                                setFrameRateMethod.invoke(surface, (float) targetFPS, 1);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // 静默失败
+        }
+    }
+
     public void changeState(MainStateType state) {
+        // 在切换状态时，再次积极请求高刷新率
+        if (isAndroid) {
+            updateFrameRateAPI(detectedRefreshRate);
+            // 针对 PLAY 界面，额外启动一个短时延时任务，防止系统在场景切换完成后降频
+            if (state == MainStateType.PLAY) {
+                com.badlogic.gdx.utils.Timer.schedule(new com.badlogic.gdx.utils.Timer.Task() {
+                    @Override
+                    public void run() {
+                        updateFrameRateAPI(detectedRefreshRate);
+                        Gdx.app.log("beatoraja", "Delayed FrameRate API refresh executed");
+                    }
+                }, 1.5f); // 延迟 1.5 秒执行
+            }
+        }
+
         MainState newState = null;
         switch (state) {
             case MUSICSELECT:
@@ -467,9 +536,10 @@ public class MainController {
                     input.poll();
                 } else {
                     try {
-                        // Android 上用 1ms sleep 减少后台线程 CPU 消耗，留更多算力给 GL 线程
+                        // Android: 使用 parkNanos 替代 sleep，避免 MIUI DynamicFPS 检测到 App sleep 超时而锁 90Hz，
+                        // 同时让线程真正让出 CPU，降低占用。park 精确度足够，不需要额外 yield/busy-wait
                         if (isAndroidPlatform) {
-                            Thread.sleep(1);
+                            LockSupport.parkNanos(1_000_000);
                         } else {
                             Thread.sleep(0, 500000);
                         }
@@ -871,6 +941,15 @@ public class MainController {
         }
 
         if (doFrameLimit) {
+            // Android 优化：大幅增加 API 刷新频率（每 10 帧一次），对抗系统的 DynamicFPS 降频逻辑
+            if (isAndroid) {
+                lastFrameRateUpdate++;
+                if (lastFrameRateUpdate > 10) {
+                    updateFrameRateAPI(detectedRefreshRate);
+                    lastFrameRateUpdate = 0;
+                }
+            }
+
             final long frameIntervalNanos = 1_000_000_000L / maxFPS;
             final long now = System.nanoTime();
 
@@ -893,15 +972,14 @@ public class MainController {
                 }
             }
 
-            // 第二阶段：剩余 1ms 内用 yield 提高响应性（Android 放宽到 0.5ms 减少 CPU 自旋）
-            while (nextFrameTimeNanos - System.nanoTime() > (isAndroid ? 500_000 : 200_000)) {
+            // 第二阶段：剩余 1ms 内用 yield 提高响应性
+            while (nextFrameTimeNanos - System.nanoTime() > 200_000) {
                 Thread.yield();
             }
 
-            // 第三阶段：最后 0.2ms 用忙等保证精度
-            // Android 优化：完全去掉 busy-wait，避免占用 GPU 驱动线程需要的 CPU 时间
+            // 第三阶段：最后 200µs 用忙等保证精度
+            // Android 优化：跳过忙等，避免占用 GPU 驱动线程需要的 CPU 时间
             if (!isAndroid) {
-                //noinspection StatementWithEmptyBody
                 while (System.nanoTime() < nextFrameTimeNanos) {
                     // busy-wait for precision
                 }
@@ -1064,6 +1142,9 @@ public class MainController {
         // Android OpenGL 上下文重建后，所有 GPU 纹理均已失效，必须重新上传。
         if (isAndroid) {
             Gdx.app.log("MainController", "resume(): rebuilding font textures after GL context restore");
+
+            // 恢复时积极请求高刷新率
+            updateFrameRateAPI(config.getMaxFramePerSecond());
 
             // 步骤1：清除所有 SkinTextFont 的 generator 缓存
             bms.player.beatoraja.skin.SkinTextFont.invalidateGeneratorCache();

@@ -69,27 +69,34 @@ public class GdxVideoProcessor implements MovieProcessor {
     }
 
     /**
-     * 在 GL 线程上延迟创建 VideoPlayer 实例。
-     * @return true 表示初始化成功
+     * 仅预加载解码器（VideoPlayer），不加载视频文件。
+     * 解码器创建成功后，后续 play() 时只需加载文件即可，减少首次播放延迟。
+     * 此方法必须在 GL 线程上调用。
      */
-    private boolean ensureInitialized() {
-        if (initialized) return videoPlayer != null;
-        if (disposed) return false;
+    @Override
+    public void preloadDecoder() {
+        if (disposed || initialized) return;
         initialized = true;
         try {
             videoPlayer = VideoPlayerCreator.createVideoPlayer();
             if (videoPlayer != null) {
-                // BGA 视频的音频由 BMS 音频引擎单独处理，视频播放器静音
                 videoPlayer.setVolume(0f);
-                return true;
+                Logger.getGlobal().info("Video decoder preloaded: " + filepath);
             } else {
                 Logger.getGlobal().warning("VideoPlayerCreator returned null - 当前平台可能不支持视频播放");
-                return false;
             }
         } catch (Exception e) {
-            Logger.getGlobal().warning("GdxVideoProcessor init failed: " + e.getMessage());
-            return false;
+            Logger.getGlobal().warning("GdxVideoProcessor preloadDecoder failed: " + e.getMessage());
         }
+    }
+
+    /**
+     * 在 GL 线程上延迟创建 VideoPlayer 实例（内部使用）。
+     * @return true 表示初始化成功
+     */
+    private boolean ensureInitialized() {
+        if (!initialized) preloadDecoder();
+        return videoPlayer != null;
     }
 
     @Override
@@ -258,7 +265,6 @@ public class GdxVideoProcessor implements MovieProcessor {
             }
 
             videoPlayer.play();
-            preloaded = false;  // 重置预加载标志
             playing = true;
 
             // 初始化同步时间基准

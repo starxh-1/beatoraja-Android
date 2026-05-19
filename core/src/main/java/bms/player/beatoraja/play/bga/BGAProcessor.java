@@ -257,6 +257,21 @@ public class BGAProcessor {
 			cache.prepare(timelines);
 		}
 
+		// 预加载所有视频解码器（不加载视频文件），减少首次播放延迟
+		for (MovieProcessor mpg : movies) {
+			if (mpg != null) {
+				mpg.preloadDecoder();
+			}
+		}
+
+		// 预加载所有视频文件到内存/缓存，在 STATE_READY 期间完成，
+		// 这样 Timeline 触发 play() 时不再需要等文件 IO，解决 BGA 播放延迟问题
+		for (MovieProcessor mpg : movies) {
+			if (mpg != null) {
+				mpg.preload();
+			}
+		}
+
 		// 初始化为 -1 而非 0，确保 time=0 的 BGA 事件不会被 prepareBGA() 跳过
 		// （prepareBGA 中 tl.getTime() > this.time 条件：0 > -1 为 true，0 > 0 为 false）
 		time = -1;

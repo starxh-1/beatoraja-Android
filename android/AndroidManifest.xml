@@ -16,8 +16,6 @@
       android:fullBackupContent="true"
       android:icon="@drawable/ic_app_logo"
       android:roundIcon="@drawable/ic_app_logo"
-      android:isGame="true"
-      android:appCategory="game"
       android:label="@string/app_name"
       android:hardwareAccelerated="true"
       android:requestLegacyExternalStorage="true"
@@ -54,10 +52,6 @@
       <meta-data
           android:name="android.allow_rtl"
           android:value="false" />
-      <!-- 支持高刷新率 -->
-      <meta-data
-          android:name="android.supports_high_refresh_rate"
-          android:value="true" />
 
       <profileable android:shell="true" />
   </application>

@@ -30,22 +30,21 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 - 内存：2GB RAM 或以上
 - 说明：app 本身支持 32bit 设备，但性能太差，勉强跑跑无 K 音的 BMS 吧。BGA 都带不起来。(Tested on Xiaomi 2s)
 
-## 4. 尚未实现的功能
+## 4. 正在实现中的功能 
 
-- `.mpg`、`.wmv` 等格式的 BGA 播放（目前仅支持 mp4）。
-- Internet Ranking 功能（不清楚是否允许接入）。
 - 为触控屏专门设计的皮肤（我太懒了，这个之后再弄吧。。。）
 
-## 5. 已知 bug
+## 5. 无法实现（实现难度过大）的功能
+- 非 mp4 (H.264, HEVC) 的 视频软解（难度过大，期待有人提出新思路）
+- Internet Ranking 功能
+- CimFS 读取和解析
 
-- select, decide 和 result 音效无法播放，原因仍在排查中。
+## 6. 已知 bug
+
+- select, decide 音效无法播放，原因仍在排查中。
 - 高刷屏幕（>60Hz）有一定几率出现帧数不稳定的问题，待进一步研究。
 - result 界面有概率遇到卡死，需等到大概十秒以上才能响应，排查中
 - 部分皮肤会遇到字体 bug（如 Modernchic）
-
-## 6. 原版beatoraja有，但我无法实现的功能
-
-- **CimFS 读取和解析**：或许有办法，但我不懂这个。。
 
 # Special Thanks
 
