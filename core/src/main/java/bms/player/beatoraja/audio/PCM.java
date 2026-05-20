@@ -5,19 +5,10 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.logging.Logger;
 
-import org.jflac.FLACDecoder;
-import org.jflac.metadata.StreamInfo;
-
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.BufferUtils;
-import com.badlogic.gdx.utils.StreamUtils;
-import com.badlogic.gdx.utils.StreamUtils.OptimizedByteArrayOutputStream;
 
-import javazoom.jl.decoder.Bitstream;
-import javazoom.jl.decoder.Decoder;
-import javazoom.jl.decoder.Header;
-import javazoom.jl.decoder.SampleBuffer;
 
 /**
  * PCM音源処理用クラス (Android 适配版)
@@ -128,64 +119,9 @@ public abstract class PCM<T> {
                     pcm.put(temp);
                     pcm.flip();
                 }
-            } else if (ext.equals("ogg")) {
-                handleOgg(file);
-            } else if (ext.equals("mp3")) {
-                handleMP3(file);
-            } else if (ext.equals("flac")) {
-                handleFlac(file);
             }
 
             if(pcm == null) throw new IOException(file.path() + " : 转换失败");
-        }
-
-        private void handleMP3(FileHandle file) {
-            try (InputStream is = file.read()) {
-                Bitstream bitstream = new Bitstream(is);
-                Decoder decoder = new Decoder();
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                Header h;
-                while ((h = bitstream.readFrame()) != null) {
-                    SampleBuffer sb = (SampleBuffer) decoder.decodeFrame(h, bitstream);
-                    short[] pcmBuf = sb.getBuffer();
-                    for (int i = 0; i < sb.getBufferLength(); i++) {
-                        bos.write(pcmBuf[i] & 0xff);
-                        bos.write((pcmBuf[i] >> 8) & 0xff);
-                    }
-                    bitstream.closeFrame();
-                    if (this.sampleRate == 0) {
-                        this.channels = h.mode() == Header.SINGLE_CHANNEL ? 1 : 2;
-                        this.sampleRate = h.sample_frequency();
-                    }
-                }
-                byte[] bytes = bos.toByteArray();
-                pcm = getDirectByteBuffer(bytes.length).put(bytes);
-                pcm.flip();
-                bitsPerSample = 16;
-            } catch (Exception e) { e.printStackTrace(); }
-        }
-
-        private void handleOgg(FileHandle file) {
-            // Android 暂不支持 ogg 解码，建议使用 libGDX 默认处理
-        }
-
-        private void handleFlac(FileHandle file) {
-            try (InputStream is = file.read()) {
-                FLACDecoder decoder = new FLACDecoder(is);
-                decoder.readMetadata();
-                StreamInfo info = decoder.getStreamInfo();
-                this.channels = info.getChannels();
-                this.sampleRate = info.getSampleRate();
-                this.bitsPerSample = info.getBitsPerSample();
-
-                OptimizedByteArrayOutputStream output = new OptimizedByteArrayOutputStream((int)info.getTotalSamples() * 2);
-                decoder.addPCMProcessor(new FlacProcessor(output));
-                decoder.decodeFrames();
-
-                byte[] bytes = output.getBuffer();
-                pcm = getDirectByteBuffer(output.size()).put(bytes, 0, output.size());
-                pcm.flip();
-            } catch (Exception e) { e.printStackTrace(); }
         }
     }
 

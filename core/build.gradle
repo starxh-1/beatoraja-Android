@@ -2,14 +2,8 @@
 eclipse.project.name = appName + '-core'
 
 dependencies {
-  // 基础音频解码支持
-  implementation "org.jflac:jflac-codec:1.5.2"
-  implementation "javazoom:jlayer:1.0.1"
-
   // beatoraja 核心 JSON 工具
   implementation "com.fasterxml.jackson.core:jackson-databind:2.21.2"
-
-
 
   // 常用工具类
   implementation "org.apache.commons:commons-lang3:3.20.0"
