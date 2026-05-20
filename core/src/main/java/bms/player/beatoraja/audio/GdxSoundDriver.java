@@ -60,10 +60,8 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 	private Sound getKeySound(FileHandle handle, String ext) {
 		switch (ext) {
 			case ".wav":
-				// Android 优化：WAV 文件直接使用 libGDX 原生加载，避免 Java 层的 PCM 解码和重采样
+				// Android 优化：WAV 文件直接使用 libGDX 原生加载
 				return getKeySound(handle);
-			case ".flac":
-				return getKeySound(new PCMHandleStream(handle));
 			case ".ogg":
 			case ".mp3":
 				return getKeySound(handle);
@@ -254,31 +252,6 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 		public Sound sound;
 		public long id = -1;
 		public int channel = -1;
-	}
-
-	private class PCMHandleStream extends FileHandleStream {
-
-		private final FileHandle handle;
-
-		public PCMHandleStream(FileHandle handle) {
-			super("tempwav.wav");
-			this.handle = handle;
-		}
-
-        @Override
-        public InputStream read() {
-            try {
-                return new WavFileInputStream(PCM.load(handle, GdxSoundDriver.this));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return null;
-        }
-
-		@Override
-		public OutputStream write(boolean overwrite) {
-			return null;
-		}
 	}
 
 	static class WavFileInputStream extends InputStream {
