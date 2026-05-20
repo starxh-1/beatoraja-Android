@@ -55,20 +55,6 @@ local property = {
 			slim = {name = "Slim", op = 907},
 		}
 	},
-	scoreGraphPosition = {
-		name = "Score Graph Position",
-		item = {
-			near = {name = "Near", op = 910},
-			far = {name = "Far", op = 911},
-		}
-	},
-	scoreGraphLowerArea = {
-		name = "Score Graph Lower Area",
-		item = {
-			playinfo = {name = "Play Info", op = 970},
-			graphinfo = {name = "Graph Info", op = 971},
-		}
-	},
 	judgeDetail = {
 		name = "Judge Detail",
 		item = {
@@ -108,14 +94,6 @@ local property = {
 			red = {name = "Red When Losing", op = 931},
 		}
 	},
-	playInfo = {
-		name = "Play Info",
-		item = {
-			off = {name = "Off", op = 932},
-			normal = {name = "Normal", op = 933},
-			slim = {name = "Slim", op = 934},
-		}
-	},
 	notesGraph = {
 		name = "Notes Graph",
 		item = {
@@ -151,33 +129,6 @@ local property = {
 			horizontalClose = {name = "Horizontal Close", op = 962},
 		}
 	},
-	fullscreenBga = {
-		name = "Fullscreen BGA",
-		item = {
-			off = {name = "Off", op = 975},
-			on = {name = "On", op = 976},
-		}
-	},
-	-- レーンを画面中央に配置する。レーン位置の基準はレーンの中心になる(absolutePositioningのOn/Offに関わらず)。
-	-- on_bga_leftの時、ScoreGraphは1P側表示、bgaarea内の表示(PlayInfo、NotesGraph、TimingVisualizer、BGA Header)は2P側表示になる。on_bga_rightはそれぞれ反転。
-	-- プレイヤーサイドによって変化するのは、レーンの表示向きのみ。
-	-- スコアグラフのNear/Farはどちらを選んでも位置がレーン側面になる。
-	laneCentering = {
-		name = "Lane Centering",
-		item = {
-			off = {name = "Off", op = 979},
-			on_bga_left = {name = "On(L:BGA,R:ScoreGraph)", op = 980},
-			on_bga_right = {name = "On(L:ScoreGraph,R:BGA)", op = 981},
-		}
-	},
-	-- レーン、スコアグラフ、BGAの位置が、レーン幅やスコアグラフ配置等によって相対的に調整されなくなる。スコアグラフのNear/Farはどちらを選んでもNear固定になる。
-	absolutePositioning = {
-		name = "Absolute Positioning",
-		item = {
-			off = {name = "Off", op = 977},
-			on = {name = "On", op = 978},
-		}
-	},
 	-- laneborderwhiteline,musicprogressbar,BGA,BPM,playinfoが対象 STAGEFILEは非対象
 	hideFrames = {
 		name = "Hide Frames",
@@ -209,28 +160,22 @@ local property = {
 	},
 }
 local property_order = {
+	"layout",
 	"playSide",
 	"stratchSide",
 	"scoreGraph",
-	"scoreGraphPosition",
-	"scoreGraphLowerArea",
 	"judgeDetail",
 	"judgeDetailPosition",
 	"ghostScore",
 	"ghostScorePosition",
 	"ghostScoreColor",
-	"playInfo",
 	"notesGraph",
 	"timingVisualizer",
 	"lowerLaneArea",
 	"failedAnimation",
-	"fullscreenBga",
-	"laneCentering",
-	"absolutePositioning",
 	"hideFrames",
 	"inGameSpectrum",
-	"total",
-	"layout"
+	"total"
 }
 -- 全itemに、そのオプションが選択中か返すisSelected()をセットする
 for property_key, property_value in pairs(property) do
@@ -285,22 +230,22 @@ local function isScoreGraphSlim()
 	return property.scoreGraph.item.slim.isSelected()
 end
 local function isScoreGraphNear()
-	return property.scoreGraphPosition.item.near.isSelected()
+	return true
 end
 local function isScoreGraphFar()
-	return property.scoreGraphPosition.item.far.isSelected()
+	return false
 end
 local function isLaneCentering()
 	return true  -- force centering
 end
 local function isLaneCenteringBgaLeft()
-	return property.laneCentering.item.on_bga_left.isSelected()
+	return true  -- BGA on left, ScoreGraph on right
 end
 local function isLaneCenteringBgaRight()
-	return property.laneCentering.item.on_bga_right.isSelected()
+	return false
 end
 local function isAbsolutePositioning()
-	return property.absolutePositioning.item.on.isSelected()
+	return false  -- disabled
 end
 
 local function isBgaArea1P()
@@ -1471,7 +1416,7 @@ local function main(keysNumber)
 			local bga_a = 255 + offset.bga.a
 
 			-- frame
-			if property.hideFrames.item.off.isSelected() and property.fullscreenBga.item.off.isSelected() then
+			if property.hideFrames.item.off.isSelected() then
 				append_all(skin.destination, frame_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, bga_a, geo.bga.frame_w, geo.bga.frame_h, {}))
 
 				-- フレームの内側の黒いボーダー
@@ -1494,7 +1439,7 @@ local function main(keysNumber)
 					}}
 				}
 			end
-			if property.fullscreenBga.item.on.isSelected() or true then
+			if true then
 				append_all(skin.destination, bga_dst(0, 0, header.w, header.h, 3))
 			else
 				append_all(skin.destination, bga_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, -1))
@@ -1553,11 +1498,8 @@ local function main(keysNumber)
 		end
 	end
 	-- playinfo (in bga area)
-	if not property.playInfo.item.off.isSelected() then
-		local w = 240
-		if property.playInfo.item.slim.isSelected() then
-			w = 130
-		end
+	if true then
+		local w = 130
 		local x = geo.bga.x + 20
 		if isBgaArea2P() then
 			x = geo.bga.x + geo.bga.w - w - 20
@@ -1569,7 +1511,7 @@ local function main(keysNumber)
 		y = y + offset.playinfo.y
 		--w = w + offset.playinfo.w
 		a = 255 + offset.playinfo.a
-		local p_dst = playinfo_dst(x, y, w, a, property.playInfo.item.slim.isSelected(), {timer = timer})
+		local p_dst = playinfo_dst(x, y, w, a, true, {timer = timer})
 		append_all(skin.destination, p_dst)
 
 		if property.hideFrames.item.off.isSelected() then
@@ -1892,12 +1834,12 @@ local function main(keysNumber)
 		end
 
 		-- playinfo
-		if property.scoreGraphLowerArea.item.playinfo.isSelected() then
+		if true then
 			append_all(skin.destination, playinfo_dst(geo.scoregraph.x, 12, geo.scoregraph.w, 255 + offset.scoregraph.a, isScoreGraphSlim(), {}))
 		end
 
 		-- graphinfo
-		if property.scoreGraphLowerArea.item.graphinfo.isSelected() then
+		if false then
 			local text_img_h = 70 local text_img_w = 368
 			append_all(skin.image, {
 				{id = "graphinfo_text_score", src = "src_scoregraph_info", x = 0, y = 0, w = text_img_w, h = text_img_h},
