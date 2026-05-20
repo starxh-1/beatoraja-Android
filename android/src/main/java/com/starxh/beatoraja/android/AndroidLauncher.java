@@ -58,6 +58,7 @@ public class AndroidLauncher extends AndroidApplication {
     private volatile long lastUserTouchTime = 0;
     private volatile boolean isUserTouching = false;
     private boolean isSimulatingTouch = false;
+    private boolean isWaitingForPermissionResult = false;
 
     private final Runnable keepAliveRunnable = new Runnable() {
         @Override
@@ -659,9 +660,14 @@ public class AndroidLauncher extends AndroidApplication {
             getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
             if (inputMethodManager != null) inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
         }
-        if (pendingInitialization && checkAndRequestStoragePermissions()) {
-            pendingInitialization = false;
-            recreate();
+        if (pendingInitialization) {
+            if (checkAndRequestStoragePermissions()) {
+                // 权限已授予，重新初始化
+                pendingInitialization = false;
+                isWaitingForPermissionResult = false;
+                recreate();
+            }
+            // 如果权限未授予，checkAndRequestStoragePermissions() 会启动 intent
         } else {
             setupSustainedPerformance();
             setupHighRefreshRate();
@@ -696,6 +702,7 @@ public class AndroidLauncher extends AndroidApplication {
             if (!android.os.Environment.isExternalStorageManager()) {
                 android.content.Intent intent = new android.content.Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
                 intent.setData(android.net.Uri.parse("package:" + getPackageName()));
+                isWaitingForPermissionResult = true;
                 startActivityForResult(intent, 100);
                 return false;
             }
@@ -718,6 +725,18 @@ public class AndroidLauncher extends AndroidApplication {
     protected void onPause() {
         stopKeepAlive();
         super.onPause();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        isWaitingForPermissionResult = false;
+        if (requestCode == 100) {
+            // 用户从 MANAGE_APP_ALL_FILES_ACCESS_PERMISSION 设置页面返回
+            // 直接调用 recreate 让 onCreate 重新检查权限状态
+            pendingInitialization = false;
+            recreate();
+        }
     }
 
     private String getDownloadPath() {
