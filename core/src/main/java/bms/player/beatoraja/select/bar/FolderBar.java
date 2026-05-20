@@ -4,10 +4,8 @@ import bms.player.beatoraja.select.MusicSelector;
 import bms.player.beatoraja.song.*;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.utils.Array;
 
 import java.io.File;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -67,7 +65,6 @@ public class FolderBar extends DirectoryBar {
         }
 
         if (childrenLoadState == ChildrenLoadState.LOADED_EMPTY) {
-            Gdx.app.log("FolderBar", "Already loaded as empty folder: " + (folder != null ? folder.getTitle() : "[root]") + ", returning empty");
             return Bar.EMPTY;
         }
 
@@ -83,33 +80,39 @@ public class FolderBar extends DirectoryBar {
             Gdx.app.log("FolderBar", "Loaded " + cachedChildren.length + " song(s) for folder: " + (folder != null ? folder.getTitle() : "[root]"));
         } else {
             String[] bmsroot = songdb.getBmsRoot();
-            cachedChildren = Stream.of(songdb.getFolderDatas("parent", crc)).map(folder -> {
-                String path = folder.getPath();
-                if (path.endsWith(String.valueOf(File.separatorChar))) {
-                    path = path.substring(0, path.length() - 1);
-                }
 
-                // 寻找匹配的 BMS 根目录以确保 CRC 计算一致
+            // 优化：预先规范化所有根目录，避免在 map 循环中重复处理
+            final List<String> normalizedRoots = new ArrayList<>();
+            if (bmsroot != null) {
+                for (String root : bmsroot) {
+                    if (root == null) continue;
+                    String r1 = root.replace('\\', '/');
+                    String r2 = (r1.endsWith("/") && r1.length() > 1) ? r1.substring(0, r1.length() - 1) : r1;
+                    normalizedRoots.add(r2);
+                }
+            }
+            final String[] normalizedRootsArray = normalizedRoots.toArray(new String[0]);
+
+            cachedChildren = Stream.of(songdb.getFolderDatas("parent", crc)).map(folderData -> {
+                String rawPath = folderData.getPath();
+                String path = rawPath.endsWith(File.separator) ? rawPath.substring(0, rawPath.length() - 1) : rawPath;
+
+                // 寻找匹配的 BMS 根目录
+                String normalizedPath = path.replace('\\', '/');
                 String matchingRoot = "";
-                if (bmsroot != null) {
-                    String normalizedPath = path.replace('\\', '/');
-                    for (String root : bmsroot) {
-                        if (root == null) continue;
-                        String r = root.replace('\\', '/');
-                        if (r.endsWith("/")) r = r.substring(0, r.length() - 1);
-                        if (normalizedPath.startsWith(r) && r.length() > matchingRoot.length()) {
-                            matchingRoot = r;
-                        }
+                for (String r : normalizedRootsArray) {
+                    if (normalizedPath.startsWith(r) && r.length() > matchingRoot.length()) {
+                        matchingRoot = r;
                     }
                 }
 
-                String ccrc = SongUtils.crc32(path, bmsroot != null ? bmsroot : new String[0], matchingRoot);
-                return new FolderBar(selector, folder, ccrc);
+                String ccrc = SongUtils.crc32(path, normalizedRootsArray, matchingRoot);
+                return new FolderBar(selector, folderData, ccrc);
             }).toArray(Bar[]::new);
 
             if (cachedChildren.length == 0) {
                 childrenLoadState = ChildrenLoadState.LOADED_EMPTY;
-                Gdx.app.log("FolderBar", "Loaded empty folder (no songs/folders): " + (folder != null ? folder.getTitle() : "[root]"));
+                Gdx.app.log("FolderBar", "Loaded empty folder: " + (folder != null ? folder.getTitle() : "[root]"));
             } else {
                 childrenLoadState = ChildrenLoadState.LOADED;
                 Gdx.app.log("FolderBar", "Loaded " + cachedChildren.length + " subfolder(s) for folder: " + (folder != null ? folder.getTitle() : "[root]"));
@@ -120,11 +123,9 @@ public class FolderBar extends DirectoryBar {
     }
 
     public void updateFolderStatus() {
-        Gdx.app.log("FolderBar", "updateFolderStatus called for: " + (folder != null ? folder.getTitle() : "[root]"));
-
         // 对于根文件夹或子节点已加载的文件夹，从缓存的子节点中提取歌曲数据
         if (childrenLoadState == ChildrenLoadState.LOADED || childrenLoadState == ChildrenLoadState.LOADED_EMPTY) {
-            Gdx.app.log("FolderBar", "Using cached children for status update");
+            if (cachedChildren == null) return;
             // 从缓存的子节点中提取歌曲数据
             List<SongData> songs = new ArrayList<>();
             for (Bar b : cachedChildren) {
@@ -142,14 +143,10 @@ public class FolderBar extends DirectoryBar {
                     }
                 }
             }
-            if (songs.size() > 0) {
-                Gdx.app.log("FolderBar", "Updating folder status with " + songs.size() + " songs");
+            if (!songs.isEmpty()) {
                 updateFolderStatus(songs.toArray(SongData.EMPTY));
-            } else {
-                Gdx.app.log("FolderBar", "No songs found in cache");
             }
         } else {
-            Gdx.app.log("FolderBar", "Children not loaded, triggering load for status update");
             // 如果子节点还没加载，先加载子节点
             getChildren();
             // 然后重试更新

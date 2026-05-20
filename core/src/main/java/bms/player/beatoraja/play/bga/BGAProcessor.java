@@ -215,6 +215,7 @@ public class BGAProcessor {
 								MovieProcessor mm = mpgresource.get(f.path());
 								movies[id] = mm;
 								isMovie = true;
+								Gdx.app.postRunnable(mm::preload);
 								break;
 							} catch (Throwable e) {
 								Logger.getGlobal().warning("BGAファイル読み込み失敗。" + e.getMessage());
@@ -264,7 +265,7 @@ public class BGAProcessor {
 			}
 		}
 
-		// 预加载所有视频文件到内存/缓存，在 STATE_READY 期间完成，
+		// 预加载所有视频文件到内存/缓存，在 STATE_PRELOAD 期间完成，
 		// 这样 Timeline 触发 play() 时不再需要等文件 IO，解决 BGA 播放延迟问题
 		for (MovieProcessor mpg : movies) {
 			if (mpg != null) {

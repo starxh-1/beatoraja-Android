@@ -1,62 +1,66 @@
 package bms.player.beatoraja.song;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.files.FileHandle;
+import java.nio.charset.StandardCharsets;
+import java.util.Objects;
+import java.util.zip.CRC32;
 
 public class SongUtils {
 
-    private static final int Polynomial = 0xEDB88320;
+    private static final String ROOT_CRC = "e2977170";
 
+    /**
+     * 计算路径的 CRC32 值。
+     * 兼容 beatoraja 的路径处理逻辑，同时使用 Java 标准库进行优化。
+     */
     public static String crc32(String path, String[] rootdirs, String bmspath) {
         if (path == null) return "0";
-        path = path.replace('\\', '/');
-        if (path.endsWith("/")) path = path.substring(0, path.length() - 1);
 
-        // 优先检查是否是根目录的父目录，返回特殊的 root CRC
-        for (String s : rootdirs) {
-            if (s == null) continue;
-            String rs = s.replace('\\', '/');
-            if (rs.endsWith("/")) rs = rs.substring(0, rs.length() - 1);
+        // 统一使用正斜杠处理，并去除末尾斜杠
+        final String p1 = path.replace('\\', '/');
+        final String normalizedPath = (p1.endsWith("/") && p1.length() > 1) ? p1.substring(0, p1.length() - 1) : p1;
 
-            int lastIndex = rs.lastIndexOf('/');
-            String parent = (lastIndex == -1) ? "" : rs.substring(0, lastIndex);
+        // 1. 检查是否是根目录的父目录
+        if (rootdirs != null) {
+            for (String s : rootdirs) {
+                if (s == null) continue;
+                final String rs1 = s.replace('\\', '/');
+                final String rs = (rs1.endsWith("/") && rs1.length() > 1) ? rs1.substring(0, rs1.length() - 1) : rs1;
 
-            if (parent.equals(path)) {
-                return "e2977170";
-            }
-        }
+                final int lastIndex = rs.lastIndexOf('/');
+                final String parent = (lastIndex == -1) ? "" : rs.substring(0, lastIndex);
 
-        // 修改逻辑：计算相对于“根目录父目录”的路径，从而保留根目录文件夹名作为唯一标识
-        if (bmspath != null) {
-            bmspath = bmspath.replace('\\', '/');
-            if (bmspath.endsWith("/")) bmspath = bmspath.substring(0, bmspath.length() - 1);
-
-            int lastSlash = bmspath.lastIndexOf('/');
-            String rootParent = (lastSlash == -1) ? "" : bmspath.substring(0, lastSlash);
-
-            if (!rootParent.isEmpty() && path.startsWith(rootParent)) {
-                path = path.substring(rootParent.length());
-                if (path.startsWith("/")) path = path.substring(1);
-            } else if (path.startsWith(bmspath)) {
-                // 如果父目录匹配不上，退回到相对于根目录的逻辑
-                path = path.substring(bmspath.length());
-                if (path.startsWith("/")) path = path.substring(1);
-            }
-        }
-
-        int crc = 0xFFFFFFFF;
-        // 模拟原版的 "\\\0" 结尾和字节处理逻辑
-        String target = path.replace('/', '\\') + "\\\0";
-        for (byte b : target.getBytes()) {
-            crc ^= (b & 0xFF);
-            for (int j = 0; j < 8; j++) {
-                if ((crc & 1) != 0) {
-                    crc = (crc >>> 1) ^ Polynomial;
-                } else {
-                    crc = crc >>> 1;
+                if (Objects.equals(parent, normalizedPath)) {
+                    return ROOT_CRC;
                 }
             }
         }
-        return Integer.toHexString(~crc);
+
+        // 2. 计算相对路径逻辑
+        String targetPath = normalizedPath;
+        if (bmspath != null) {
+            final String bs1 = bmspath.replace('\\', '/');
+            final String normalizedBmsPath = (bs1.endsWith("/") && bs1.length() > 1) ? bs1.substring(0, bs1.length() - 1) : bs1;
+
+            final int lastSlash = normalizedBmsPath.lastIndexOf('/');
+            final String rootParent = (lastSlash == -1) ? "" : normalizedBmsPath.substring(0, lastSlash);
+
+            if (!rootParent.isEmpty() && normalizedPath.startsWith(rootParent)) {
+                String sub = normalizedPath.substring(rootParent.length());
+                targetPath = sub.startsWith("/") ? sub.substring(1) : sub;
+            } else if (normalizedPath.startsWith(normalizedBmsPath)) {
+                String sub = normalizedPath.substring(normalizedBmsPath.length());
+                targetPath = sub.startsWith("/") ? sub.substring(1) : sub;
+            }
+        }
+
+        // 3. 模拟 beatoraja 的结尾处理并计算 CRC
+        // 原逻辑：path.replace('/', '\\') + "\\\0"
+        final String finalTarget = targetPath.replace('/', '\\') + "\\\0";
+
+        final CRC32 crc32 = new CRC32();
+        crc32.update(finalTarget.getBytes(StandardCharsets.UTF_8));
+
+        // beatoraja 使用的是 Integer.toHexString(~crc)，即标准的 32位 hex 字符串
+        return Integer.toHexString((int) crc32.getValue());
     }
 }

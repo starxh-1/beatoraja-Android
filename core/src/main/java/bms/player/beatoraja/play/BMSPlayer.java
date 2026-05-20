@@ -95,6 +95,7 @@ public class BMSPlayer extends MainState {
 
 	private RhythmTimerProcessor rhythm;
 	private long startpressedtime;
+	private boolean bgaPrepared = false;
 
 	public BMSPlayer(MainController main, PlayerResource resource) {
 		super(main);
@@ -535,13 +536,17 @@ public class BMSPlayer extends MainState {
 					}
 				}
 
-				if (resource.mediaLoadFinished() && micronow > (skin.getLoadstart() + skin.getLoadend()) * 1000
+				if (resource.mediaLoadFinished() && !bgaPrepared) {
+					bga.prepare(this);
+					bgaPrepared = true;
+				}
+
+				if (resource.mediaLoadFinished() && bgaPrepared && micronow > (skin.getLoadstart() + skin.getLoadend()) * 1000
 						&& micronow - startpressedtime > 1000000) {
 					if(config.isChartPreview()) {
 						timer.setTimerOff(141);
 						lanerender.init(model);
 					}
-					bga.prepare(this);
 					final long mem = Runtime.getRuntime().freeMemory();
 					System.gc();
 					final long cmem = Runtime.getRuntime().freeMemory();

@@ -377,7 +377,7 @@ public class GdxVideoProcessor implements MovieProcessor {
      */
     @Override
     public void preload() {
-        if (disposed) return;
+        if (disposed || preloaded) return;
 
         try {
             // 1. 初始化 VideoPlayer（在 GL 线程上）

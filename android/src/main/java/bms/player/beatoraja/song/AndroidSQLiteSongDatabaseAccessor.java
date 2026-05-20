@@ -24,12 +24,15 @@ import java.util.concurrent.TimeUnit;
 
 import bms.model.BMSDecoder;
 import bms.model.BMSModel;
+import bms.model.BMSONDecoder;
 import bms.player.beatoraja.song.SongData;
 import bms.player.beatoraja.song.FolderData;
 import bms.player.beatoraja.song.SongInformationAccessor;
+import bms.player.beatoraja.Validatable;
 
 /**
- * Android 原生 SQLite 实现的 SongDatabaseAccessor（初始版，主要支持读取接口）
+ * Android 原生 SQLite 实现的 SongDatabaseAccessor
+ * 对应原版 SQLiteSongDatabaseAccessor
  */
 public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final String TAG = "AndroidSongDB";
@@ -40,6 +43,19 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     // 小于此数量则使用串行处理（避免线程创建开销）
     private static final int PARALLEL_THRESHOLD = 50;
 
+    // 插件扩展机制
+    private List<SongDatabaseAccessorPlugin> plugins = new ArrayList<>();
+
+    // tag/favorite 保持用映射
+    private java.util.Map<String, String> tags = new java.util.HashMap<>();
+    private java.util.Map<String, Integer> favorites = new java.util.HashMap<>();
+
+    // 原版使用 Paths.get(".") 作为 root
+    private final java.nio.file.Path root = java.nio.file.Paths.get(".");
+
+    // SongInformationAccessor for info.update() calls
+    private SongInformationAccessor info;
+
     public AndroidSQLiteSongDatabaseAccessor(Context context, String dbPath, String[] bmsroot) {
         Log.i(TAG, "AndroidSQLiteSongDatabaseAccessor constructor, dbPath: " + dbPath);
         this.helper = new DBHelper(context, dbPath);
@@ -49,6 +65,13 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         // 避免频繁 open/close 引起的锁争用。
         SQLiteDatabase db = helper.getWritableDatabase();
         Log.i(TAG, "Database opened successfully: " + db.getPath());
+    }
+
+    /**
+     * 添加插件
+     */
+    public void addPlugin(SongDatabaseAccessorPlugin plugin) {
+        plugins.add(plugin);
     }
 
     /**
@@ -113,7 +136,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } catch (Throwable t) {
             Log.e(TAG, "getSongDatas failed: " + t.getMessage(), t);
         }
-        return list.toArray(new SongData[0]);
+        return Validatable.removeInvalidElements(list.toArray(new SongData[0]));
     }
 
     @Override
@@ -143,7 +166,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatas by hashes failed", t);
         }
-        return list.toArray(new SongData[0]);
+        SongData[] result = list.toArray(new SongData[0]);
+        // 搜索排列顺序保持（对应原版逻辑）
+        SongData[] sorted = new SongData[hashes.length];
+        for (SongData sd : result) {
+            for (int i = 0; i < hashes.length; i++) {
+                if (hashes[i].equals(sd.getSha256()) || hashes[i].equals(sd.getMd5())) {
+                    if (sorted[i] == null) sorted[i] = sd;
+                    break;
+                }
+            }
+        }
+        List<SongData> finalList = new ArrayList<>();
+        for (SongData sd : sorted) {
+            if (sd != null) finalList.add(sd);
+        }
+        return Validatable.removeInvalidElements(finalList.toArray(new SongData[0]));
     }
 
     /**
@@ -184,12 +222,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         List<SongData> list = new ArrayList<>();
 
         try {
-            // 先读取 score 数据到内存
+            // Android SQLite doesn't support ATTACH DATABASE well in multi-threaded context
+            // Always use in-memory fallback approach (original design)
             java.util.Map<String, ScoreData> scoreMap = new java.util.HashMap<>();
-            // 只有当 SQL 包含 score 表字段时才去读取 score.db，显著提升 Result 界面性能
-            boolean needsScore = sql.toLowerCase().contains("score.") || sql.toLowerCase().contains("score ");
-
-            if (needsScore && score != null && !score.isEmpty() && new File(score).exists()) {
+            if (score != null && !score.isEmpty() && new File(score).exists()) {
                 scoreMap = readScoreDataFromFile(score);
                 Log.i(TAG, "Loaded " + scoreMap.size() + " score records for filtering");
             }
@@ -206,10 +242,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                         list.add(sd);
                     } catch (Throwable ignored) {}
                 }
-                Log.i(TAG, "getSongDatas(sql) direct query succeeded: " + list.size() + " results");
             } catch (Throwable sqlErr) {
                 Log.w(TAG, "getSongDatas(sql) WHERE clause failed: " + sqlErr.getMessage());
-
                 list.clear();
                 try (Cursor c = db.rawQuery(baseSelect, null)) {
                     while (c.moveToNext()) {
@@ -219,7 +253,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                         } catch (Throwable ignored) {}
                     }
                 }
-
                 if (!scoreMap.isEmpty()) {
                     list = filterSongDataList(list, scoreMap, sql);
                 }
@@ -230,7 +263,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatas(sql) failed", t);
         }
-        return list.toArray(new SongData[0]);
+        return Validatable.removeInvalidElements(list.toArray(new SongData[0]));
     }
 
     private java.util.Map<String, ScoreData> readScoreDataFromFile(String scorePath) {
@@ -450,15 +483,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     public SongData[] getSongDatasByText(String text) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        String sql = "SELECT * FROM song WHERE title LIKE ? OR artist LIKE ? OR genre LIKE ?";
-        try (Cursor c = db.rawQuery(sql, new String[]{"%" + text + "%", "%" + text + "%", "%" + text + "%"})) {
+        // 对应原版: rtrim(title||' '||subtitle||' '||artist||' '||subartist||' '||genre) LIKE ?
+        String sql = "SELECT * FROM song WHERE rtrim(title||' '||subtitle||' '||artist||' '||subartist||' '||genre) LIKE ? GROUP BY sha256";
+        try (Cursor c = db.rawQuery(sql, new String[]{"%" + text + "%"})) {
             while (c.moveToNext()) {
                 list.add(cursorToSongData(c));
             }
         } catch (Throwable t) {
             Log.w(TAG, "getSongDatasByText failed", t);
         }
-        return list.toArray(new SongData[0]);
+        return Validatable.removeInvalidElements(list.toArray(new SongData[0]));
     }
 
     @Override
@@ -491,6 +525,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
     @Override
     public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info) {
+        this.info = info;
+        if (info != null) {
+            info.startUpdate();
+        }
         if (updatepath != null) {
             updateSongDatas(new String[]{updatepath}, updateAll);
         } else {
@@ -522,6 +560,28 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             Log.w(TAG, "Failed to get existing song count", t);
         }
         Log.i(TAG, "updateSongDatas: Existing songs in DB: " + existingSongCount + ", forceRefresh: " + forceRefresh);
+
+        // 保持 tag 和 favorite（在删除前读取）
+        tags.clear();
+        favorites.clear();
+        try {
+            SQLiteDatabase dbRead = helper.getReadableDatabase();
+            try (Cursor cursor = dbRead.rawQuery("SELECT sha256, tag, favorite FROM song", null)) {
+                while (cursor.moveToNext()) {
+                    String sha256 = getStringSafe(cursor, "sha256");
+                    String tag = getStringSafe(cursor, "tag");
+                    int favorite = getIntSafe(cursor, "favorite");
+                    if (tag != null && tag.length() > 0) {
+                        tags.put(sha256, tag);
+                    }
+                    if (favorite > 0) {
+                        favorites.put(sha256, favorite);
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to preserve tags/favorites", t);
+        }
 
         // Force create all tables if they don't exist BEFORE scanning
         Log.i(TAG, "updateSongDatas: Force-creating all core tables if not exists...");
@@ -655,6 +715,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             try {
                 db.execSQL("PRAGMA wal_checkpoint(FULL)");
             } catch (Throwable ignored) {}
+            // 对应原版: info.endUpdate()
+            if (info != null) {
+                info.endUpdate();
+            }
         }
     }
 
@@ -664,6 +728,9 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * @param paths Array of root paths to scan for BMS files
      */
     public void updateSongDatas(String[] paths) {
+        if (info != null) {
+            info.startUpdate();
+        }
         updateSongDatas(paths, false);
     }
 
@@ -820,22 +887,40 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
-            BMSModel model = decoder.decode(file);
+            // 解析 BMS/BMSON 文件
+            BMSModel model = null;
+            if (pathName.toLowerCase().endsWith(".bmson")) {
+                BMSONDecoder bmsonDecoder = new BMSONDecoder(BMSModel.LNTYPE_LONGNOTE);
+                try {
+                    model = bmsonDecoder.decode(file);
+                } catch (Exception e) {
+                    Log.w(TAG, "[processBmsFileParallel] bmson decode failed: " + pathName, e);
+                }
+            } else {
+                model = decoder.decode(file);
+            }
             if (model == null) return null;
 
             SongData songData = new SongData(model, false);
             songData.setPath(pathName);
+
+            // 保持 tag/favorite
+            String existingTag = tags.get(songData.getSha256());
+            Integer existingFavorite = favorites.get(songData.getSha256());
+            songData.setTag(existingTag != null ? existingTag : "");
+            songData.setFavorite(existingFavorite != null ? existingFavorite : 0);
+
             songData.setDate(lastModifiedTime);
             songData.setAdddate((int) (System.currentTimeMillis() / 1000));
 
-            // CRC计算
+            // CRC计算 - 使用 root.toString() 作为 bmspath（对应原版逻辑）
             String matchingRoot = findMatchingRoot(pathName);
             if (file.parent() != null) {
                 String parentPath = file.parent().path().replace('\\', '/');
-                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, matchingRoot));
+                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, root.toString()));
                 if (file.parent().parent() != null) {
                     String grandParentPath = file.parent().parent().path().replace('\\', '/');
-                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, matchingRoot));
+                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, root.toString()));
                 }
             }
 
@@ -909,6 +994,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         if (children == null) return false;
 
         boolean containsBms = false;
+        boolean hasTxt = false; // 文件夹是否包含 .txt 文件
+        String previewPath = null; // 预览文件路径
         List<FileHandle> bmsFiles = new ArrayList<>();
         List<FileHandle> subDirs = new ArrayList<>();
         for (FileHandle child : children) {
@@ -916,6 +1003,19 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 subDirs.add(child);
             } else if (isBmsFile(child.name().toLowerCase())) {
                 bmsFiles.add(child);
+            } else {
+                // 检测 .txt 文件
+                String lowerName = child.name().toLowerCase();
+                if (lowerName.endsWith(".txt")) {
+                    hasTxt = true;
+                }
+                // 检测 preview 文件 (对应原版逻辑: preview.*.wav/.ogg/.mp3/.flac)
+                if (previewPath == null && lowerName.startsWith("preview")) {
+                    if (lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") ||
+                        lowerName.endsWith(".mp3") || lowerName.endsWith(".flac")) {
+                        previewPath = child.name();
+                    }
+                }
             }
         }
 
@@ -925,7 +1025,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             db.beginTransactionNonExclusive();
             try {
                 for (FileHandle bmsFile : bmsFiles) {
-                    processBmsFile(bmsFile, decoder, db, fileCount, forceRefresh);
+                    processBmsFile(bmsFile, decoder, db, fileCount, forceRefresh, hasTxt, previewPath);
                 }
                 db.setTransactionSuccessful();
             } finally {
@@ -1043,8 +1143,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * @param db Database
      * @param fileCount Counter for processed files
      * @param forceRefresh Whether to force re-processing (ignores existing records and timestamps)
+     * @param txt Whether the folder contains a .txt file
+     * @param previewPath Preview file path if found in the folder
      */
-    private void processBmsFile(FileHandle file, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger fileCount, boolean forceRefresh) {
+    private void processBmsFile(FileHandle file, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger fileCount, boolean forceRefresh, boolean txt, String previewPath) {
         try {
             // Guard against null file
             if (file == null || !file.exists()) {
@@ -1075,10 +1177,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 Log.i(TAG, "[ProcessBmsFile] Force refreshing file: " + pathName);
             }
 
-            // 解析 BMS 文件
+            // 解析 BMS/BMSON 文件
             Log.d(TAG, "[ProcessBmsFile] Decoding: " + pathName);
             long decodeStart = System.currentTimeMillis();
-            BMSModel model = decoder.decode(file);
+            BMSModel model = null;
+            if (pathName.toLowerCase().endsWith(".bmson")) {
+                // bmson 文件
+                BMSONDecoder bmsonDecoder = new BMSONDecoder(BMSModel.LNTYPE_LONGNOTE);
+                try {
+                    model = bmsonDecoder.decode(file);
+                } catch (Exception e) {
+                    Log.e(TAG, "[ProcessBmsFile] Error decoding bmson: " + pathName, e);
+                }
+            } else {
+                // BMS/BME/BML/PMS 文件
+                model = decoder.decode(file);
+            }
             long decodeElapsed = System.currentTimeMillis() - decodeStart;
 
             if (model == null) {
@@ -1088,8 +1202,19 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             Log.d(TAG, "[ProcessBmsFile] Decoded successfully in " + decodeElapsed + "ms: " + pathName);
 
-            SongData songData = new SongData(model, false);
+            SongData songData = new SongData(model, txt);
             songData.setPath(pathName);
+
+            // 如果没有 preview 且存在 preview 文件，设置为 preview
+            if ((songData.getPreview() == null || songData.getPreview().length() == 0) && previewPath != null) {
+                songData.setPreview(previewPath);
+            }
+
+            // 保持 tag/favorite
+            String existingTag = tags.get(songData.getSha256());
+            Integer existingFavorite = favorites.get(songData.getSha256());
+            songData.setTag(existingTag != null ? existingTag : "");
+            songData.setFavorite(existingFavorite != null ? existingFavorite : 0);
 
             // 自动寻找匹配的根目录，确保多根目录下的 CRC 计算正确
             String matchingRoot = findMatchingRoot(pathName);
@@ -1107,6 +1232,59 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             } else {
                 songData.setFolder("");
                 songData.setParent("");
+            }
+
+            // 自动难度检测（对应原版逻辑）
+            if (songData.getDifficulty() == 0) {
+                String fulltitle = (songData.getTitle() + songData.getSubtitle()).toLowerCase();
+                String diffname = songData.getSubtitle().toLowerCase();
+                if (diffname.contains("beginner")) {
+                    songData.setDifficulty(1);
+                } else if (diffname.contains("normal")) {
+                    songData.setDifficulty(2);
+                } else if (diffname.contains("hyper")) {
+                    songData.setDifficulty(3);
+                } else if (diffname.contains("another")) {
+                    songData.setDifficulty(4);
+                } else if (diffname.contains("insane") || diffname.contains("leggendaria")) {
+                    songData.setDifficulty(5);
+                } else {
+                    if (fulltitle.contains("beginner")) {
+                        songData.setDifficulty(1);
+                    } else if (fulltitle.contains("normal")) {
+                        songData.setDifficulty(2);
+                    } else if (fulltitle.contains("hyper")) {
+                        songData.setDifficulty(3);
+                    } else if (fulltitle.contains("another")) {
+                        songData.setDifficulty(4);
+                    } else if (fulltitle.contains("insane") || fulltitle.contains("leggendaria")) {
+                        songData.setDifficulty(5);
+                    } else {
+                        // 按 notes 数量推断难度
+                        int notes = songData.getNotes();
+                        if (notes < 250) {
+                            songData.setDifficulty(1);
+                        } else if (notes < 600) {
+                            songData.setDifficulty(2);
+                        } else if (notes < 1000) {
+                            songData.setDifficulty(3);
+                        } else if (notes < 2000) {
+                            songData.setDifficulty(4);
+                        } else {
+                            songData.setDifficulty(5);
+                        }
+                    }
+                }
+            }
+
+            // 插件处理
+            for (SongDatabaseAccessorPlugin plugin : plugins) {
+                plugin.update(model, songData);
+            }
+
+            // 更新 SongInformation (对应原版 info.update(model))
+            if (info != null) {
+                info.update(model);
             }
 
             songData.setDate((int) lastModifiedTime);
@@ -1225,7 +1403,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
     private static class DBHelper extends SQLiteOpenHelper {
         private final String path;
-        private static final int DATABASE_VERSION = 2; // Incremented to trigger migration for playcount column
+        private static final int DATABASE_VERSION = 3; // Updated for sha256 primary key migration
 
         DBHelper(Context ctx, String path) {
             super(ctx, path, null, DATABASE_VERSION);
@@ -1386,6 +1564,74 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     Log.e(TAG, "Failed to add playcount column: " + e.getMessage(), e);
                 }
             }
+
+            // Version 3: Migrate to sha256 primary key (对应原版的 createTable 迁移逻辑)
+            if (oldVersion < 3) {
+                try {
+                    // 检查 song 表是否有 sha256 列且是主键
+                    boolean hasSha256Pk = false;
+                    try (Cursor cursor = db.rawQuery("PRAGMA table_info(song)", null)) {
+                        while (cursor.moveToNext()) {
+                            String columnName = getStringSafe(cursor, "name");
+                            int pk = cursor.getInt(cursor.getColumnIndex("pk"));
+                            if ("sha256".equals(columnName) && pk == 1) {
+                                hasSha256Pk = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!hasSha256Pk) {
+                        Log.i(TAG, "Migrating song table to sha256 primary key");
+                        // 重命名旧表
+                        db.execSQL("ALTER TABLE song RENAME TO old_song");
+                        // 创建新表（sha256 为主键）
+                        db.execSQL("CREATE TABLE song ("
+                                + "md5 TEXT, "
+                                + "sha256 TEXT PRIMARY KEY, "
+                                + "title TEXT, "
+                                + "subtitle TEXT, "
+                                + "genre TEXT, "
+                                + "artist TEXT, "
+                                + "subartist TEXT, "
+                                + "tag TEXT, "
+                                + "path TEXT, "
+                                + "folder TEXT, "
+                                + "stagefile TEXT, "
+                                + "banner TEXT, "
+                                + "backbmp TEXT, "
+                                + "preview TEXT, "
+                                + "parent TEXT, "
+                                + "level INTEGER, "
+                                + "difficulty INTEGER, "
+                                + "maxbpm INTEGER, "
+                                + "minbpm INTEGER, "
+                                + "length INTEGER, "
+                                + "mode INTEGER, "
+                                + "judge INTEGER, "
+                                + "feature INTEGER, "
+                                + "content INTEGER, "
+                                + "date INTEGER, "
+                                + "favorite INTEGER, "
+                                + "adddate INTEGER, "
+                                + "notes INTEGER, "
+                                + "playcount INTEGER, "
+                                + "charthash TEXT)");
+                        // 迁移数据，按 path 分组保留 max(adddate) 的记录
+                        db.execSQL("INSERT INTO song SELECT "
+                                + "md5, sha256, title, subtitle, genre, artist, subartist, tag, path,"
+                                + "folder, stagefile, banner, backbmp, preview, parent, level, difficulty,"
+                                + "maxbpm, minbpm, length, mode, judge, feature, content,"
+                                + "date, favorite, notes, adddate, playcount, charthash "
+                                + "FROM old_song GROUP BY path HAVING MAX(adddate)");
+                        // 删除旧表
+                        db.execSQL("DROP TABLE old_song");
+                        Log.i(TAG, "Migration to sha256 primary key completed");
+                    }
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to migrate to sha256 primary key: " + e.getMessage(), e);
+                }
+            }
         }
         @Override
         public void onConfigure(SQLiteDatabase db) {
@@ -1405,6 +1651,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 Log.w(TAG, "Failed to set busy_timeout on " + db.getPath() + ": " + t.getMessage());
             }
         }
+    }
+
+    /**
+     * 插件接口 - 对应原版 SongDatabaseAccessorPlugin
+     * 允许在解析BMS模型后、自定义字段更新前拦截并修改SongData
+     */
+    public interface SongDatabaseAccessorPlugin {
+        void update(BMSModel model, SongData song);
     }
 }
 
