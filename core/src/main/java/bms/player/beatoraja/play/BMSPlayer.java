@@ -989,6 +989,8 @@ public class BMSPlayer extends MainState {
 			touchKeyMapper.dispose();
 			touchKeyMapper = null;
 		}
+		// 退出游戏界面，关闭持续渲染，降低功耗
+		Gdx.graphics.setContinuousRendering(false);
 		Logger.getGlobal().info("システム描画のリソース解放");
 	}
 

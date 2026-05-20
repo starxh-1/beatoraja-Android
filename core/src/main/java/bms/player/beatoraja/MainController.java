@@ -972,9 +972,9 @@ public class MainController {
                 }
             }
 
-            // 第二阶段：剩余 1ms 内用 yield 提高响应性
+            // 第二阶段：剩余 1ms 内用 parkNanos 微秒级睡眠，真正让出 CPU
             while (nextFrameTimeNanos - System.nanoTime() > 200_000) {
-                Thread.yield();
+                LockSupport.parkNanos(200_000);
             }
 
             // 第三阶段：最后 200µs 用忙等保证精度
