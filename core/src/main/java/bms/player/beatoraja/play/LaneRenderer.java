@@ -225,6 +225,56 @@ public class LaneRenderer {
 		resetHispeed(basebpm);
 	}
 
+	/**
+	 * Computes alpha for constant fade-in effect.
+	 * @param tl The current timeline
+	 * @param targetTime The target time (microtime + baseduration * 1000)
+	 * @param alphaLimit The fade-in time limit in ms
+	 * @return Alpha value (0.0 to 1.0), or -1.0f to signal skip (note should be hidden)
+	 */
+	private float computeConstantFadeAlpha(TimeLine tl, long targetTime, float alphaLimit) {
+		final long timeDifference = tl.getMicroTime() - targetTime;
+		if (alphaLimit >= 0) {
+			if (tl.getMicroTime() >= targetTime) {
+				if (timeDifference < alphaLimit) {
+					return (alphaLimit - timeDifference) / alphaLimit;
+				} else {
+					return -1.0f;
+				}
+			}
+			return 1.0f;
+		} else {
+			if (tl.getMicroTime() >= targetTime) {
+				return -1.0f;
+			} else {
+				if (timeDifference > alphaLimit) {
+					return 1.0f - (alphaLimit - timeDifference) / alphaLimit;
+				}
+				return 1.0f;
+			}
+		}
+	}
+
+	/**
+	 * Computes the delta to add to notePos for a single timeline.
+	 * @param tl The current timeline
+	 * @param prevtl The previous timeline (null if i == 0)
+	 * @param microtime Current playback time in microseconds
+	 * @param rxhs The pixel-per-section factor
+	 * @return The delta value to add to notePos
+	 */
+	private double computeNotePosDelta(TimeLine tl, TimeLine prevtl, long microtime, double rxhs) {
+		if (prevtl == null) {
+			return tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+		}
+		if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
+			return (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+		}
+		return (tl.getSection() - prevtl.getSection()) * prevtl.getScroll()
+				* (tl.getMicroTime() - microtime)
+				/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+	}
+
 	public void setEnableLanecover(boolean b) {
 		playconfig.setEnablelanecover(b);
 	}
@@ -494,58 +544,14 @@ public class LaneRenderer {
 			if (tl.getMicroTime() >= microtime) {
 				if (enableConstant) {
 					final long targetTime = microtime + (baseduration * 1000);
-					final long timeDifference = tl.getMicroTime() - targetTime;
-					if(alphaLimit >= 0) {
-						if (tl.getMicroTime() >= targetTime) {
-						    if (timeDifference < alphaLimit) {
-						    	// フェードイン処理
-						        sprite.setColor(1f, 1f, 1f, (alphaLimit - timeDifference) / alphaLimit);
-						    } else {
-						    	// ノーツ非表示
-						        continue;
-						    }
-						} else {
-						    sprite.setColor(Color.WHITE);
-						}
-					} else {
-						if (tl.getMicroTime() >= targetTime) {
-					    	// ノーツ非表示
-							continue;
-						} else {
-						    if (timeDifference > alphaLimit) {
-						    	// フェードイン処理
-						        sprite.setColor(1f, 1f, 1f, 1f - (alphaLimit - timeDifference) / alphaLimit);
-						    } else {
-						    sprite.setColor(Color.WHITE);
-						    }
-						}
+					float alpha = computeConstantFadeAlpha(tl, targetTime, alphaLimit);
+					if (alpha < 0) {
+						continue;
 					}
+					sprite.setColor(1f, 1f, 1f, alpha);
 				}
 
-				if (i > 0) {
-					final TimeLine prevtl = timelines[i - 1];
-					if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
-						if (isPortrait) {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
-						} else {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
-						}
-					} else {
-						if (isPortrait) {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
-						} else {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
-						}
-					}
-				} else {
-					if (isPortrait) {
-						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
-					} else {
-						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
-					}
-				}
+				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
@@ -649,59 +655,15 @@ public class LaneRenderer {
 			sprite.setColor(1f, 1f, 1f, 1f);
 			if (enableConstant) {
 				final long targetTime = microtime + (baseduration * 1000);
-				final long timeDifference = tl.getMicroTime() - targetTime;
-				if(alphaLimit >= 0) {
-					if (tl.getMicroTime() >= targetTime) {
-					    if (timeDifference < alphaLimit) {
-					    	// フェードイン処理
-					        sprite.setColor(1f, 1f, 1f, (alphaLimit - timeDifference) / alphaLimit);
-					    } else {
-					    	// ノーツ非表示 - we already reset alpha so next timeline won't be affected
-					        continue;
-					    }
-					} else {
-					    sprite.setColor(Color.WHITE);
-					}
-				} else {
-					if (tl.getMicroTime() >= targetTime) {
-				    	// ノーツ非表示 - we already reset alpha so next timeline won't be affected
-						continue;
-					} else {
-					    if (timeDifference > alphaLimit) {
-					    	// フェードイン処理
-					        sprite.setColor(1f, 1f, 1f, 1f - (alphaLimit - timeDifference) / alphaLimit);
-					    } else {
-					    sprite.setColor(Color.WHITE);
-					    }
-					}
+				float alpha = computeConstantFadeAlpha(tl, targetTime, alphaLimit);
+				if (alpha < 0) {
+					continue;
 				}
+				sprite.setColor(1f, 1f, 1f, alpha);
 			}
 
 			if (tl.getMicroTime() >= microtime) {
-				if (i > 0) {
-					final TimeLine prevtl = timelines[i - 1];
-					if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
-						if (isPortrait) {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
-						} else {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
-						}
-					} else {
-						if (isPortrait) {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
-						} else {
-							notePos += (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * (tl.getMicroTime() - microtime)
-									/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
-						}
-					}
-				} else {
-					if (isPortrait) {
-						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
-					} else {
-						notePos += tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
-					}
-				}
+				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
 			}
 			// ノート描画
 			for (int lane = 0; lane < lanes.length; lane++) {
@@ -721,8 +683,7 @@ public class LaneRenderer {
 						// Align leading edge (original Bottom) exactly with notePos.
 						dstx = (float) notePos - (dstw - dsth) / 2f;
 						dsty = lanes[lane].region.y + offsetY + (dstw - dsth) / 2f;
-					}
- else {
+					} else {
 						// Landscape: notes fall vertically (y increases from bottom to top)
 						dstx = lanes[lane].region.x + offsetX;
 						dsty = (float) notePos + offsetY - offsetH / 2;
