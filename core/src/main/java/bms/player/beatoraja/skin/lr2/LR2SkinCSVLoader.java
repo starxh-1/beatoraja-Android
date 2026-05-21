@@ -2,8 +2,6 @@ package bms.player.beatoraja.skin.lr2;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.function.BiConsumer;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
@@ -215,7 +213,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 				if (exists) {
 					LR2FontLoader font = new LR2FontLoader(usecim);
 					try {
-						SkinTextImage.SkinTextImageSource source = font.loadFont(actualFile.toPath());
+						SkinTextImage.SkinTextImageSource source = font.loadFont(actualFile);
 						fontlist.add(source);
 					} catch (IOException e) {
 						Logger.getGlobal().warning("LR2FONT load failed: " + e.getMessage() + " path: " + actualPath);
@@ -797,11 +795,11 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		});
 	}
 
-	protected void loadSkin(Skin skin, Path f, MainState state) throws IOException {
+	protected void loadSkin(Skin skin, File f, MainState state) throws IOException {
 		this.loadSkin(skin, f, state, new IntIntMap());
 	}
 
-	protected void loadSkin(Skin skin, Path f, MainState state, IntIntMap option) throws IOException {
+	protected void loadSkin(Skin skin, File f, MainState state, IntIntMap option) throws IOException {
 		this.loadSkin0(skin, f, state, option);
 	}
 
@@ -830,7 +828,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		skin.setOffset(offset);
 
 		op.putAll(option);
-		this.loadSkin0(skin, skin.header.getPath(), state, op);
+		this.loadSkin0(skin, new File(skin.header.getPath()), state, op);
 
 		return skin;
 	}
@@ -854,9 +852,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
 	int stretch = -1;
 
-	protected void loadSkin0(Skin skin, Path f, MainState state, IntIntMap option) throws IOException {
+	protected void loadSkin0(Skin skin, File f, MainState state, IntIntMap option) throws IOException {
 
-		String path = f.toString().replace("\\", "/");
+		String path = f.getPath().replace("\\", "/");
 		com.badlogic.gdx.files.FileHandle handle = com.badlogic.gdx.Gdx.files.internal(path);
 		if (!handle.exists()) handle = com.badlogic.gdx.Gdx.files.absolute(path);
 

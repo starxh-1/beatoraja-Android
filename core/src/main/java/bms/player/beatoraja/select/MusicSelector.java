@@ -3,7 +3,7 @@ package bms.player.beatoraja.select;
 import static bms.player.beatoraja.skin.SkinProperty.*;
 import static bms.player.beatoraja.SystemSoundManager.SoundType.*;
 
-import java.nio.file.*;
+import java.io.File;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -369,13 +369,13 @@ public final class MusicSelector extends MainState {
 				readRandomCourse(play);
 			} else if (current instanceof DirectoryBar) {
 				if(play.mode == BMSPlayerMode.Mode.AUTOPLAY) {
-					final Path[] paths = Stream.of(((DirectoryBar) current).getChildren())
+					final String[] paths = Stream.of(((DirectoryBar) current).getChildren())
 						.filter(bar -> (bar instanceof SongBar && ((SongBar) bar).getSongData() != null && ((SongBar) bar).getSongData().getPath() != null))
-						.map(bar -> Paths.get(((SongBar) bar).getSongData().getPath())).toArray(Path[]::new);
+						.map(bar -> ((SongBar) bar).getSongData().getPath()).toArray(String[]::new);
 					if(paths.length > 0) {
 						resource.clear();
 					FileHandle[] fhs = new FileHandle[paths.length];
-					for(int i=0;i<paths.length;i++) fhs[i] = Gdx.files.absolute(paths[i].toString());
+					for(int i=0;i<paths.length;i++) fhs[i] = Gdx.files.absolute(paths[i]);
 					resource.setAutoPlaySongs(fhs, false);
 						if(resource.nextSong()) {
 							main.changeState(MainStateType.DECIDE);
@@ -559,9 +559,9 @@ public final class MusicSelector extends MainState {
 	private boolean _readCourse(BMSPlayerMode mode, GradeBar gradeBar) {
 		resource.clear();
 		final SongData[] songs = gradeBar.getSongDatas();
-		final Path[] files = Stream.of(songs).map(song -> Paths.get(song.getPath())).toArray(Path[]::new);
+		final String[] files = Stream.of(songs).map(song -> song.getPath()).toArray(String[]::new);
 		FileHandle[] fhs = new FileHandle[files.length];
-		for(int i=0;i<files.length;i++) fhs[i] = Gdx.files.absolute(files[i].toString());
+		for(int i=0;i<files.length;i++) fhs[i] = Gdx.files.absolute(files[i]);
 		if (resource.setCourseBMSFiles(fhs)) {
 			if (mode.mode == BMSPlayerMode.Mode.PLAY || mode.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 				for (CourseData.CourseDataConstraint constraint : gradeBar.getCourseData().getConstraint()) {
@@ -605,7 +605,7 @@ public final class MusicSelector extends MainState {
 			}
 			gradeBar.getCourseData().setSong(resource.getCourseBMSModels());
 			resource.setCourseData(gradeBar.getCourseData());
-			resource.setBMSFile(Gdx.files.absolute(files[0].toString()), mode);
+			resource.setBMSFile(Gdx.files.absolute(files[0]), mode);
 			playedcourse = gradeBar.getCourseData();
 
 			if(main.getIRStatus().length > 0 && currentir == null) {

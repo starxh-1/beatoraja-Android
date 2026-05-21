@@ -876,12 +876,17 @@ local function main(keysNumber)
 	do
 		local offset_x, num_space = 0, 0
 		local between_space = 10
-		local path = string.match(skin_config.get_path("customize/judge/" .. skin_config.file_path["Judge"]), "(.+)%.png$") .. ".lua"
-		local exist, setting = pcall(dofile, path)
-		if exist and setting then
-			if setting.offset_x then offset_x = setting.offset_x end
-			if setting.num_space then num_space = setting.num_space end
-			if setting.between_space then between_space = setting.between_space end
+		local judge_path = skin_config.file_path["Judge"]
+		if judge_path then
+			local path = string.match(skin_config.get_path("customize/judge/" .. judge_path), "(.+)%.png$")
+			if path then
+				local exist, setting = pcall(dofile, path .. ".lua")
+				if exist and setting then
+					if setting.offset_x then offset_x = setting.offset_x end
+					if setting.num_space then num_space = setting.num_space end
+					if setting.between_space then between_space = setting.between_space end
+				end
+			end
 		end
 
 		local f_w = 227
@@ -2807,13 +2812,18 @@ local function main(keysNumber)
 		local divx = 4 local divy = 4
 
 		-- get bomb settings from <bomb_image_filename>.lua
-		local path = string.match(skin_config.get_path("customize/bomb/" .. skin_config.file_path["Bomb"]), "(.+)%.png$") .. ".lua"
-		local exist, setting = pcall(dofile, path)
-		if exist and setting then
-			if setting.w then w = setting.w end
-			if setting.h then h = setting.h end
-			if setting.divx then divx = setting.divx end
-			if setting.divy then divy = setting.divy end
+		local bomb_path = skin_config.file_path["Bomb"]
+		if bomb_path then
+			local path = string.match(skin_config.get_path("customize/bomb/" .. bomb_path), "(.+)%.png$")
+			if path then
+				local exist, setting = pcall(dofile, path .. ".lua")
+				if exist and setting then
+					if setting.w then w = setting.w end
+					if setting.h then h = setting.h end
+					if setting.divx then divx = setting.divx end
+					if setting.divy then divy = setting.divy end
+				end
+			end
 		end
 		local isFastSlowBomb = divx == 16 and divy >= 3 and w and h
 

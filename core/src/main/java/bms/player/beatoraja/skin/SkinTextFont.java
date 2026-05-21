@@ -79,7 +79,7 @@ public final class SkinTextFont extends SkinText {
             // 规范化路径，处理 .. 和 . 等相对路径符号，确保 Android AssetManager 能解析
             String normalizedPath = fontpath;
             try {
-                String tmp = java.nio.file.Paths.get(fontpath).normalize().toString().replace("\\", "/");
+                String tmp = normalizePath(fontpath);
                 // Android上绝对路径规范化后不应丢失开头的 /
                 if (fontpath.startsWith("/") && !tmp.startsWith("/")) {
                     Gdx.app.error("FontDebug", "normalize() broke absolute path: " + fontpath + " -> " + tmp + ", keeping original");
@@ -366,5 +366,24 @@ public final class SkinTextFont extends SkinText {
     	font = null;
     	generator = null;
     	setDisposed();
+    }
+
+    private static String normalizePath(String path) {
+        if (path == null) return null;
+        String[] parts = path.replace("\\", "/").split("/");
+        java.util.ArrayList<String> result = new java.util.ArrayList<>();
+        for (String p : parts) {
+            if (p.equals("..") && !result.isEmpty() && !result.get(result.size()-1).equals("..")) {
+                result.remove(result.size() - 1);
+            } else if (!p.isEmpty() && !p.equals(".")) {
+                result.add(p);
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < result.size(); i++) {
+            if (i > 0) sb.append("/");
+            sb.append(result.get(i));
+        }
+        return sb.toString();
     }
 }

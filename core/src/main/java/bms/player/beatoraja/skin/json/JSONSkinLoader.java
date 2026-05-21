@@ -3,7 +3,6 @@ package bms.player.beatoraja.skin.json;
 import static bms.player.beatoraja.Resolution.*;
 
 import java.io.*;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -80,11 +79,11 @@ public class JSONSkinLoader extends SkinLoader {
 		lua.exportUtilities(state);
 	}
 
-	public Skin loadSkin(Path p, SkinType type, SkinConfig.Property property) {
+	public Skin loadSkin(File p, SkinType type, SkinConfig.Property property) {
 		return load(p, type, property);
 	}
 
-	public SkinHeader loadHeader(Path p) {
+	public SkinHeader loadHeader(File p) {
 		serializer = new JsonSkinSerializer(lua, path -> getPath(path, filemap));
 		SkinHeader header = null;
 		try {
@@ -100,7 +99,7 @@ public class JSONSkinLoader extends SkinLoader {
 				}
 				sk = json.fromJson(JsonSkin.Skin.class, handle.reader());
 			} else {
-				sk = json.fromJson(JsonSkin.Skin.class, new java.io.InputStreamReader(new java.io.FileInputStream(p.toFile()), java.nio.charset.StandardCharsets.UTF_8));
+				sk = json.fromJson(JsonSkin.Skin.class, new java.io.InputStreamReader(new java.io.FileInputStream(p), java.nio.charset.StandardCharsets.UTF_8));
 			}
 			header = loadJsonSkinHeader(sk, p);
 		} catch (Exception e) {
@@ -110,7 +109,7 @@ public class JSONSkinLoader extends SkinLoader {
 		return header;
 	}
 
-	protected SkinHeader loadJsonSkinHeader(JsonSkin.Skin sk, Path p) {
+	protected SkinHeader loadJsonSkinHeader(JsonSkin.Skin sk, File p) {
 		SkinHeader header = null;
 		try {
 			if (sk.type != -1) {
@@ -118,7 +117,7 @@ public class JSONSkinLoader extends SkinLoader {
 				header.setSkinType(SkinType.getSkinTypeById(sk.type));
 				header.setName(sk.name != null ? sk.name : "");
 				header.setAuthor(sk.author != null ? sk.author : "");
-				header.setPath(p);
+				header.setPath(p.toString());
 				header.setType(SkinHeader.TYPE_BEATORJASKIN);
 
 				ObjectMap<JsonSkin.Category, SkinHeader.CustomItem[]> categories = new ObjectMap<JsonSkin.Category, SkinHeader.CustomItem[]>();
@@ -151,7 +150,7 @@ public class JSONSkinLoader extends SkinLoader {
 				SkinHeader.CustomFile[] files = new SkinHeader.CustomFile[sk.filepath.length];
 				for (int i = 0; i < sk.filepath.length; i++) {
 					JsonSkin.Filepath pr = sk.filepath[i];
-					files[i] = new SkinHeader.CustomFile(pr.name, p.getParent().toString() + "/" + pr.path, pr.def);
+					files[i] = new SkinHeader.CustomFile(pr.name, p.getParentFile().toString() + "/" + pr.path, pr.def);
 					for(JsonSkin.Category category : sk.category) {
 						for(int index = 0;index < category.item.length;index++) {
 							if(category.item[index].equals(pr.category)) {
@@ -221,7 +220,7 @@ public class JSONSkinLoader extends SkinLoader {
 		return header;
 	}
 
-	public Skin load(Path p, SkinType type, SkinConfig.Property property) {
+	public Skin load(File p, SkinType type, SkinConfig.Property property) {
 		serializer = new JsonSkinSerializer(lua, path -> getPath(path, filemap));
 		Skin skin = null;
 		SkinHeader header = loadHeader(p);
@@ -244,7 +243,7 @@ public class JSONSkinLoader extends SkinLoader {
 			}
 
 			lua.exportSkinProperty(header, property, (String path) -> {
-				return getPath(p.getParent().toString() + "/" + path, filemap).getPath();
+				return getPath(p.getParentFile().toString() + "/" + path, filemap).getPath();
 			});
 
 			// Android上尝试使用absolute路径（因为assets已复制到文件系统）
@@ -273,7 +272,7 @@ public class JSONSkinLoader extends SkinLoader {
 		return enabledOptions;
 	}
 
-	protected Skin loadJsonSkin(SkinHeader header, JsonSkin.Skin sk, SkinType type, SkinConfig.Property property, Path p){
+	protected Skin loadJsonSkin(SkinHeader header, JsonSkin.Skin sk, SkinType type, SkinConfig.Property property, File p){
 		Skin skin = null;
 		try {
 			Resolution src = HD;
@@ -472,7 +471,7 @@ public class JSONSkinLoader extends SkinLoader {
 		}
 	}
 
-	protected Object getSource(String srcid, Path p) {
+	protected Object getSource(String srcid, File p) {
 		if(srcid == null) {
 			return null;
 		}
@@ -492,7 +491,7 @@ public class JSONSkinLoader extends SkinLoader {
 		if (data.path.startsWith("skin/")) {
 			fullPath = data.path;
 		} else {
-			fullPath = p.getParent().toString() + "/" + data.path;
+			fullPath = p.getParentFile().toString() + "/" + data.path;
 		}
 		File imagefile = getPath(fullPath, filemap);
 		boolean exists = false;

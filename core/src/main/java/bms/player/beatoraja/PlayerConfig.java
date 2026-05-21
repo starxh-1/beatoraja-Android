@@ -2,7 +2,6 @@ package bms.player.beatoraja;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -29,16 +28,16 @@ public final class PlayerConfig {
 	/**
 	 * 旧コンフィグパス。そのうち削除
 	 */
-	static Path configpath_old = Paths.get("config.json");
+	static String configpath_old = "config.json";
 	/**
 	 * コンフィグパス(UTF-8)
 	 */
-	static Path configpath = Paths.get(System.getProperty("user.dir", "."), "config_player.json");
+	static String configpath = "config_player.json";
 
 	public static void updateConfigPath() {
+		// configpath 只存储文件名，不存储完整路径
 		String root = System.getProperty("beatoraja.root", System.getProperty("user.dir", "."));
-		configpath = Paths.get(root, "config_player.json");
-		configpath_old = Paths.get(root, "config.json");
+		// 仅用于 Desktop 端的默认值，Android 端使用绝对路径
 	}
 
 	private String id;
@@ -928,18 +927,21 @@ public final class PlayerConfig {
 				create(config.getPlayerpath(), "player1");
 				// スコアデータコピー（Desktop only）
 				if (com.badlogic.gdx.Gdx.app.getType() != com.badlogic.gdx.Application.ApplicationType.Android) {
-					if(Files.exists(Paths.get("playerscore.db"))) {
-						Files.copy(Paths.get("playerscore.db"), Paths.get(config.getPlayerpath() + "/player1/score.db"));
+					java.io.File scoreSrc = new java.io.File("playerscore.db");
+					if(scoreSrc.exists()) {
+						copyFile(scoreSrc, new java.io.File(config.getPlayerpath() + "/player1/score.db"));
 					}
 					// リプレイデータコピー
-					Files.createDirectory(Paths.get(config.getPlayerpath() + "/player1/replay"));
-					if(Files.exists(Paths.get("replay"))) {
-						try (DirectoryStream<Path> paths = Files.newDirectoryStream(Paths.get("replay"))) {
-							for (Path p : paths) {
-								Files.copy(p, Paths.get(config.getPlayerpath() + "/player1/replay").resolve(p.getFileName()));
+					java.io.File replayDir = new java.io.File(config.getPlayerpath() + "/player1/replay");
+					if (!replayDir.exists()) {
+						replayDir.mkdirs();
+					}
+					java.io.File replaySrc = new java.io.File("replay");
+					if(replaySrc.exists() && replaySrc.isDirectory()) {
+						for (java.io.File f : replaySrc.listFiles()) {
+							if (f.isFile()) {
+								copyFile(f, new java.io.File(replayDir, f.getName()));
 							}
-						} catch(Throwable e) {
-							e.printStackTrace();
 						}
 					}
 				} else {
@@ -951,7 +953,7 @@ public final class PlayerConfig {
 				}
 				config.setPlayername("player1");
 			}
-		} catch (IOException e) {
+		} catch (Exception e) {
 			com.badlogic.gdx.Gdx.app.error("PlayerConfig", "Failed to init PlayerConfig", e);
 		}
 	}
@@ -965,11 +967,11 @@ public final class PlayerConfig {
 					dir.mkdirs();
 				}
 			} else {
-				Path p = Paths.get(playerpath + "/" + playerid);
-				if(Files.exists(p)) {
+				java.io.File p = new java.io.File(playerpath + "/" + playerid);
+				if(p.exists()) {
 					return;
 				}
-				Files.createDirectory(p);
+				p.mkdirs();
 			}
 			PlayerConfig player = new PlayerConfig();
 			player.setId(playerid);
@@ -1001,10 +1003,11 @@ public final class PlayerConfig {
 					}
 				}
 			} else {
-				try (DirectoryStream<Path> paths = Files.newDirectoryStream(Paths.get(playerpath))) {
-					for (Path p : paths) {
-						if(Files.isDirectory(p)) {
-							l.add(p.getFileName().toString());
+				java.io.File dir = new java.io.File(playerpath);
+				if(dir.exists() && dir.isDirectory()) {
+					for (java.io.File f : dir.listFiles()) {
+						if(f.isDirectory()) {
+							l.add(f.getName());
 						}
 					}
 				}
@@ -1020,8 +1023,8 @@ public final class PlayerConfig {
 		try {
 			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
 				// Android 端路径是绝对路径，使用 absolute() 确保正确访问外部存储
-				String filePath = playerpath + "/" + playerid + "/" + configpath.getFileName().toString();
-				String filePathOld = playerpath + "/" + playerid + "/" + configpath_old.getFileName().toString();
+				String filePath = playerpath + "/" + playerid + "/" + configpath;
+				String filePathOld = playerpath + "/" + playerid + "/" + configpath_old;
 				com.badlogic.gdx.files.FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(filePath);
 				if (fh.exists()) {
 					try (Reader reader = new InputStreamReader(fh.read(), StandardCharsets.UTF_8)) {
@@ -1058,27 +1061,27 @@ public final class PlayerConfig {
 				}
 			} else {
 				// 其他平台保持原逻辑
-				final Path path = Paths.get(playerpath, playerid, configpath.getFileName().toString());
-				final Path path_old = Paths.get(playerpath, playerid, configpath_old.getFileName().toString());
+				final File path = new File(playerpath, playerid + "/" + configpath);
+				final File path_old = new File(playerpath, playerid + "/" + configpath_old);
 
-				if (Files.exists(path)) {
-			try (Reader reader = new InputStreamReader(new FileInputStream(path.toFile()), StandardCharsets.UTF_8)) {
+				if (path.exists()) {
+			try (Reader reader = new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8)) {
 				Json json = new Json();
 				json.setIgnoreUnknownFields(true);
 				player = json.fromJson(PlayerConfig.class, reader);
 			} catch (SerializationException e) {
 				Logger.getGlobal().warning("PlayerConfigの読み込み失敗 - Path : " + path.toString() + " , Log : " + e.getMessage());
 				try {
-					Files.copy(path, Paths.get(playerpath + "/" + playerid + "/config_backup.json"));
-				} catch (IOException e1) {
-//					e1.printStackTrace();
+					copyFile(path, new File(playerpath + "/" + playerid + "/config_backup.json"));
+				} catch (Exception e1) {
+					//					e1.printStackTrace();
 				}
 			} catch(Throwable e) {
 				e.printStackTrace();
 			}
-		} else if(Files.exists(path_old)) {
+		} else if(path_old.exists()) {
 			// 旧コンフィグ読み込み。そのうち削除
-			try (FileReader reader = new FileReader(path_old.toFile())) {
+			try (FileReader reader = new FileReader(path_old)) {
 				Json json = new Json();
 				json.setIgnoreUnknownFields(true);
 				player = json.fromJson(PlayerConfig.class, reader);
@@ -1103,7 +1106,7 @@ public final class PlayerConfig {
 		try {
 			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
 				// Android 端路径是绝对路径，使用 absolute() 确保正确写入外部存储
-				String filePath = playerpath + "/" + player.getId() + "/" + configpath.getFileName().toString();
+				String filePath = playerpath + "/" + player.getId() + "/" + configpath;
 				com.badlogic.gdx.files.FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(filePath);
 
 				// 确保目录存在
@@ -1120,7 +1123,7 @@ public final class PlayerConfig {
 			} else {
 				// 其他平台保持原样
 				try (Writer writer = new OutputStreamWriter(
-						new FileOutputStream(Paths.get(playerpath, player.getId(), configpath.getFileName().toString()).toFile()), StandardCharsets.UTF_8)) {
+						new FileOutputStream(new File(playerpath + "/" + player.getId() + "/" + configpath)), StandardCharsets.UTF_8)) {
 					Json json = new Json();
 					json.setOutputType(JsonWriter.OutputType.json);
 					json.setUsePrototypes(false);
@@ -1218,4 +1221,20 @@ public final class PlayerConfig {
 	public void setTouchKeyOffsetW(int v) { this.touchKeyOffsetW = v; }
 	public int getTouchKeyOffsetH() { return touchKeyOffsetH; }
 	public void setTouchKeyOffsetH(int v) { this.touchKeyOffsetH = v; }
+
+	/**
+	 * Helper method to copy files using java.io APIs (API 21 compatible)
+	 */
+	private static void copyFile(java.io.File src, java.io.File dest) {
+		try (java.io.InputStream in = new java.io.FileInputStream(src);
+			 java.io.OutputStream out = new java.io.FileOutputStream(dest)) {
+			byte[] buf = new byte[8192];
+			int len;
+			while ((len = in.read(buf)) > 0) {
+				out.write(buf, 0, len);
+			}
+		} catch (Throwable e) {
+			e.printStackTrace();
+		}
+	}
 }

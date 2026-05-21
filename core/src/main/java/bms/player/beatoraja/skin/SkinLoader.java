@@ -11,7 +11,7 @@ import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.ObjectMap;
 
 import java.io.File;
-import java.nio.file.*;
+import java.io.IOException;
 
 /**
  * スキンローダー
@@ -55,17 +55,17 @@ public abstract class SkinLoader {
             String pathStr = sc.getPath().replace("\\", "/");
             if (pathStr.endsWith(".json")) {
                 JSONSkinLoader sl = new JSONSkinLoader(state, resource.getConfig());
-                Skin skin = sl.loadSkin(Paths.get(sc.getPath()), skinType, sc.getProperties());
+                Skin skin = sl.loadSkin(new File(sc.getPath()), skinType, sc.getProperties());
                 SkinLoader.resource.disposeOld();
                 return skin;
             } else if (pathStr.endsWith(".luaskin")) {
                 LuaSkinLoader loader = new LuaSkinLoader(state, resource.getConfig());
-                Skin skin = loader.loadSkin(Paths.get(sc.getPath()), skinType, sc.getProperties());
+                Skin skin = loader.loadSkin(new File(sc.getPath()), skinType, sc.getProperties());
                 SkinLoader.resource.disposeOld();
                 return skin;
             } else {
                 LR2SkinHeaderLoader loader = new LR2SkinHeaderLoader(resource.getConfig());
-                SkinHeader header = loader.loadSkin(Paths.get(sc.getPath()), state, sc.getProperties());
+                SkinHeader header = loader.loadSkin(new File(sc.getPath()), state, sc.getProperties());
                 LR2SkinCSVLoader dloader = LR2SkinCSVLoader.getSkinLoader(skinType,  header.getResolution(), resource.getConfig());
                 header.setSourceResolution(dloader.src);
                 header.setDestinationResolution(dloader.dst);
@@ -87,33 +87,37 @@ public abstract class SkinLoader {
     }
 
     public static File getPath(String imagepath, ObjectMap<String, String> filemap) {
-        imagepath = imagepath.replace("\\", "/");
-        // Normalize ".." parent references for Android AssetManager compatibility
-        // (Android assets do not resolve ".." in paths)
+        imagepath = imagepath.replace("\\", "/").replaceAll("/+", "/");
+        if (imagepath.startsWith("/")) imagepath = imagepath.substring(1);
+
         try {
-            String normalized = Paths.get(imagepath).normalize().toString().replace("\\", "/");
+            String normalized = normalizePath(imagepath).replace("\\", "/");
             if (!normalized.isEmpty()) {
                 imagepath = normalized;
             }
-        } catch (Exception e) {
-            // fallback: keep original path
-        }
+        } catch (Exception e) {}
+
         File imagefile = new File(imagepath);
+        String currentPath = imagepath;
         for (String key : filemap.keys()) {
-            if (imagepath.startsWith(key)) {
-                String foot = imagepath.substring(key.length());
-                int lastAsterisk = imagepath.lastIndexOf('*');
-                if (lastAsterisk != -1) {
-                    imagefile = new File(
-                            imagepath.substring(0, lastAsterisk) + filemap.get(key) + foot);
-                } else {
-                    imagefile = new File(filemap.get(key) + foot);
+            if (currentPath.equalsIgnoreCase(key) || currentPath.toLowerCase().endsWith("/" + key.toLowerCase())) {
+                String value = filemap.get(key);
+                if ("Random".equalsIgnoreCase(value)) {
+                    break;
                 }
-                // System.out.println(imagefile.getPath());
+
+                int lastAsterisk = currentPath.lastIndexOf('*');
+                if (lastAsterisk != -1) {
+                    imagefile = new File(currentPath.substring(0, lastAsterisk) + value);
+                } else {
+                    imagefile = new File(value);
+                }
+                // Cleared imagepath to prevent fallback random logic
                 imagepath = "";
                 break;
             }
         }
+
         if (imagepath.contains("*")) {
             String ext = imagepath.substring(imagepath.lastIndexOf("*") + 1).toLowerCase();
             if(imagepath.contains("|")) {
@@ -126,8 +130,15 @@ public abstract class SkinLoader {
             ext = ext.toLowerCase();
 
             String dirPath = imagepath.substring(0, imagepath.lastIndexOf('/'));
-            com.badlogic.gdx.files.FileHandle dirHandle = Gdx.files.internal(dirPath);
-            if (!dirHandle.exists()) dirHandle = Gdx.files.absolute(dirPath);
+            com.badlogic.gdx.files.FileHandle dirHandle;
+
+            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !dirPath.startsWith("/")) {
+                String root = System.getProperty("beatoraja.root", ".");
+                dirHandle = Gdx.files.absolute(new File(root, dirPath).getAbsolutePath());
+            } else {
+                dirHandle = Gdx.files.internal(dirPath);
+                if (!dirHandle.exists()) dirHandle = Gdx.files.absolute(dirPath);
+            }
 
             if (dirHandle.exists() && dirHandle.isDirectory()) {
                 Array<com.badlogic.gdx.files.FileHandle> l = new Array<>();
@@ -157,7 +168,7 @@ public abstract class SkinLoader {
         long modifiedtime = 0;
         try {
             if (com.badlogic.gdx.Gdx.app.getType() != com.badlogic.gdx.Application.ApplicationType.Android) {
-                modifiedtime = java.nio.file.Files.getLastModifiedTime(java.nio.file.Paths.get(path)).toMillis() / 1000;
+                modifiedtime = new File(path).lastModified() / 1000;
             }
         } catch (Exception e) {
         }
@@ -168,22 +179,25 @@ public abstract class SkinLoader {
                 return pixmap != null ? new Texture(pixmap, useMipMaps) : null;
             }
 
-            if (Files.exists(Paths.get(cim))) {
+            if (new File(cim).exists()) {
                 Pixmap pixmap = resource.get(cim);
                 return pixmap != null ? new Texture(pixmap, useMipMaps) : null;
             } else if(usecim){
                 Pixmap pixmap = resource.get(path);
 
-                try (DirectoryStream<Path> paths = Files.newDirectoryStream(Paths.get(path).getParent())) {
-                    for (Path p : paths) {
-                        final String filename = p.toString();
-                        if(filename.startsWith(path.substring(0, path.lastIndexOf('.')) + "__") && filename.endsWith(".cim")) {
-                            Files.deleteIfExists(p);
-                            break;
+                File parentDir = new File(path).getParentFile();
+                if (parentDir != null && parentDir.isDirectory()) {
+                    File[] files = parentDir.listFiles();
+                    if (files != null) {
+                        String prefix = path.substring(0, path.lastIndexOf('.')) + "__";
+                        for (File f : files) {
+                            String fname = f.getName();
+                            if (fname.startsWith(prefix) && fname.endsWith(".cim")) {
+                                f.delete();
+                                break;
+                            }
                         }
                     }
-                } catch(Throwable e) {
-                    e.printStackTrace();
                 }
                 if (pixmap != null) {
                     PixmapIO.writeCIM(Gdx.files.local(cim), pixmap);
@@ -200,5 +214,27 @@ public abstract class SkinLoader {
             e.printStackTrace();
         }
         return null;
+    }
+
+    public static String normalizePath(String path) {
+        if (path == null || path.isEmpty()) return path;
+        File f = new File(path);
+        String abs = f.getAbsolutePath();
+        // 简单的 ".." 处理
+        String[] parts = abs.replace("\\", "/").split("/");
+        java.util.ArrayList<String> result = new java.util.ArrayList<>();
+        for (String p : parts) {
+            if (p.equals("..") && result.size() > 0 && !result.get(result.size()-1).equals("..")) {
+                result.remove(result.size() - 1);
+            } else if (!p.isEmpty()) {
+                result.add(p);
+            }
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < result.size(); i++) {
+            if (i > 0) sb.append("/");
+            sb.append(result.get(i));
+        }
+        return sb.toString();
     }
 }

@@ -1,7 +1,6 @@
 package bms.player.beatoraja;
 
 import com.badlogic.gdx.files.FileHandle;
-import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.logging.Logger;
 

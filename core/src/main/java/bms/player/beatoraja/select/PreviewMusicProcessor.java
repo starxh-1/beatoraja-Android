@@ -115,8 +115,7 @@ public class PreviewMusicProcessor {
             String p = song.getPreview();
             // 验证预览路径是否有效
             if (p != null && p.length() > 0) {
-                java.nio.file.Path path = java.nio.file.Paths.get(p);
-                java.io.File file = path.toFile();
+                java.io.File file = new java.io.File(p);
                 if (!file.exists()) {
                     java.util.logging.Logger.getGlobal().warning("Preview file does not exist: " + p);
                     p = ""; // 回退到默认音乐

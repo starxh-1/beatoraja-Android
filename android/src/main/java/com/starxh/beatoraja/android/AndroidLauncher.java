@@ -706,17 +706,17 @@ public class AndroidLauncher extends AndroidApplication {
                 startActivityForResult(intent, 100);
                 return false;
             }
+            // RECORD_AUDIO is NOT requested here for Android 11+ to avoid unnecessary dialogs
             return true;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // ONLY READ/WRITE storage are mandatory. RECORD_AUDIO is removed from this list.
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.RECORD_AUDIO}, 1);
+                Log.i(TAG, "Requesting mandatory storage permissions");
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
                 return false;
             }
-            if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 2);
-                return false;
-            }
+            // App will proceed without even checking RECORD_AUDIO
         }
         return true;
     }

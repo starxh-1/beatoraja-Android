@@ -13,17 +13,17 @@ import bms.player.beatoraja.skin.json.JSONSkinLoader;
 import bms.player.beatoraja.skin.lr2.LR2SkinHeaderLoader;
 import bms.player.beatoraja.skin.lua.LuaSkinLoader;
 
+import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
-import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.stream.Stream;
 
 /**
  * スキンコンフィグ
- * 
+ *
  * @author excln
  */
 public class SkinConfiguration extends MainState {
@@ -74,15 +74,15 @@ public class SkinConfiguration extends MainState {
 			customOptionOffset = Math.max(0, Math.min(customOptionOffsetMax, customOptionOffset + mov));
 		}
 	}
-	
+
 	public SkinType getSkinType() {
 		return type;
 	}
 
 	public float getSkinSelectPosition() {
-		return (float)customOptionOffset / customOptionOffsetMax;		
+		return (float)customOptionOffset / customOptionOffsetMax;
 	}
-	
+
 	public void setSkinSelectPosition(float value) {
 		if (value >= 0 && value < 1) {
 			customOptionOffset = (int) (customOptionOffsetMax * value);
@@ -93,16 +93,16 @@ public class SkinConfiguration extends MainState {
 		if (customOptions != null && index + customOptionOffset < customOptions.size()) {
 			return customOptions.get(index + customOptionOffset).getCategoryName();
 		}
-		return "";		
+		return "";
 	}
-	
+
 	public String getDisplayValue(int index) {
 		if (customOptions != null && index + customOptionOffset < customOptions.size()) {
 			return customOptions.get(index + customOptionOffset).getDisplayValue();
 		}
-		return "";		
+		return "";
 	}
-	
+
 	public SkinHeader getSelectedSkinHeader() {
 		return selectedSkinHeader;
 	}
@@ -163,7 +163,7 @@ public class SkinConfiguration extends MainState {
 			int index = -1;
 			for (int i = 0; i < availableSkins.size(); i++) {
 				SkinHeader header = availableSkins.get(i);
-				if (header != null && header.getPath().equals(Paths.get(config.getPath()))) {
+				if (header != null && config.getPath().equals(header.getPath())) {
 					index = i;
 				}
 			}
@@ -191,7 +191,7 @@ public class SkinConfiguration extends MainState {
 		}
 
 		int index = selectedSkinIndex < 0 ? 0 : (selectedSkinIndex + indexDiff + availableSkins.size()) % availableSkins.size();
-		config.setPath(availableSkins.get(index).getPath().toString());
+		config.setPath(availableSkins.get(index).getPath());
 		config.setProperties(new SkinConfig.Property());
 		selectSkin(index);
 	}
@@ -296,24 +296,58 @@ public class SkinConfiguration extends MainState {
 
 	private void updateCustomFiles() {
 		for (SkinHeader.CustomFile file : selectedSkinHeader.getCustomFiles()) {
-			String name = file.path.substring(file.path.lastIndexOf('/') + 1);
+			String nameValue = file.path.substring(file.path.lastIndexOf('/') + 1);
 			if(file.path.contains("|")) {
 				if(file.path.length() > file.path.lastIndexOf('|') + 1) {
-					name = file.path.substring(file.path.lastIndexOf('/') + 1, file.path.indexOf('|')) + file.path.substring(file.path.lastIndexOf('|') + 1);
+					nameValue = file.path.substring(file.path.lastIndexOf('/') + 1, file.path.indexOf('|')) + file.path.substring(file.path.lastIndexOf('|') + 1);
 				} else {
-					name = file.path.substring(file.path.lastIndexOf('/') + 1, file.path.indexOf('|'));
+					nameValue = file.path.substring(file.path.lastIndexOf('/') + 1, file.path.indexOf('|'));
 				}
 			}
-			final Path dirpath = Paths.get(file.path.substring(0, file.path.lastIndexOf('/')));
-			if (!Files.exists(dirpath)) {
+			final String name = nameValue;
+			final String dirStr = file.path.substring(0, file.path.lastIndexOf('/'));
+			File dirpath;
+			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !dirStr.startsWith("/")) {
+				String root = System.getProperty("beatoraja.root", ".");
+				dirpath = new File(root, dirStr);
+			} else {
+				dirpath = new File(dirStr);
+			}
+
+			if (!dirpath.exists()) {
+				java.util.logging.Logger.getGlobal().warning("SkinConfiguration: custom file directory does NOT exist: " + dirpath + " (from " + file.path + ")");
 				continue;
 			}
-			try (DirectoryStream<Path> paths = Files.newDirectoryStream(dirpath,
-					"{" + name.toLowerCase() + "," + name.toUpperCase() + "}")) {
+			try {
+				String[] files = dirpath.list(new FilenameFilter() {
+					@Override
+					public boolean accept(File dir, String filename) {
+						String lowerFilename = filename.toLowerCase();
+						if (name.contains("|")) {
+							String[] patterns = name.split("\\|");
+							for (String p : patterns) {
+								if (p.startsWith("*")) {
+									if (lowerFilename.endsWith(p.substring(1).toLowerCase())) return true;
+								} else {
+									if (filename.equalsIgnoreCase(p)) return true;
+								}
+							}
+							return false;
+						}
+						if (name.startsWith("*")) {
+							String ext = name.substring(1).toLowerCase();
+							return lowerFilename.endsWith(ext);
+						}
+						return filename.equalsIgnoreCase(name.toLowerCase()) || filename.equalsIgnoreCase(name.toUpperCase());
+					}
+				});
 
 				List<String> items = new ArrayList<>();
-				for (Path path : paths) {
-					items.add(path.getFileName().toString());
+				if (files != null) {
+					Arrays.sort(files, String.CASE_INSENSITIVE_ORDER);
+					for (String filename : files) {
+						items.add(filename);
+					}
 				}
 				items.add("Random");
 				String selection = null;
@@ -336,15 +370,23 @@ public class SkinConfiguration extends MainState {
 							break;
 						}
 					}
-					setFilePath(file.name, selection);
+				}
+				if (selection == null) {
+					// default.png 優先選択逻辑
+					for (String item : items) {
+						if (item.equalsIgnoreCase("default.png") || item.equalsIgnoreCase("default.bmp")) {
+							selection = item;
+							break;
+						}
+					}
 				}
 				if (selection == null) {
 					selection = items.get(0);
-					setFilePath(file.name, selection);
 				}
+				setFilePath(file.name, selection);
 				CustomFileItem item = new CustomFileItem(file.name, items, selection);
 				customOptions.add(item);
-			} catch (IOException e) {
+			} catch (Throwable e) {
 				e.printStackTrace();
 			}
 		}
@@ -453,23 +495,23 @@ public class SkinConfiguration extends MainState {
 	private void loadAllSkins() {
 		java.util.logging.Logger.getGlobal().info("SkinConfiguration: loadAllSkins starting...");
 		allSkins = new ArrayList<SkinHeader>();
-		List<Path> skinPaths = new ArrayList<>();
+		List<File> skinPaths = new ArrayList<>();
 
 		// Android平台适配：使用正确的皮肤目录路径
-		Path skinDir;
+		File skinDir;
 		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
 			// Android上使用绝对路径
 			String root = System.getProperty("beatoraja.root", ".");
-			skinDir = Paths.get(root, "skin");
+			skinDir = new File(root, "skin");
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: Android detected, root=" + root + ", skinDir=" + skinDir);
 		} else {
 			// 桌面端使用相对路径
-			skinDir = Paths.get("skin");
+			skinDir = new File("skin");
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: Desktop detected, skinDir=" + skinDir);
 		}
 
 		// 检查skinDir是否存在
-		if (!java.nio.file.Files.exists(skinDir)) {
+		if (!skinDir.exists()) {
 			java.util.logging.Logger.getGlobal().severe("SkinConfiguration: skin directory does NOT exist: " + skinDir);
 		} else {
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: skin directory exists: " + skinDir);
@@ -479,7 +521,7 @@ public class SkinConfiguration extends MainState {
 			scanSkins(skinDir, skinPaths);
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: scanSkins found " + skinPaths.size() + " skin files");
 
-			for (Path path : skinPaths) {
+			for (File path : skinPaths) {
 				java.util.logging.Logger.getGlobal().info("SkinConfiguration: processing: " + path);
 				try {
 					String pathString = path.toString().toLowerCase();
@@ -542,19 +584,18 @@ public class SkinConfiguration extends MainState {
 		}
 	}
 
-	private void scanSkins(Path path, List<Path> paths) {
-		if (Files.isDirectory(path)) {
+	private void scanSkins(File path, List<File> paths) {
+		if (path.isDirectory()) {
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: scanning directory: " + path);
-			try (Stream<Path> sub = Files.list(path)) {
-				sub.forEach((Path t) -> {
-					scanSkins(t, paths);
-				});
-			} catch (IOException e) {
-				java.util.logging.Logger.getGlobal().warning("SkinConfiguration: failed to list directory: " + path + ", error=" + e.getMessage());
+			File[] sub = path.listFiles();
+			if (sub != null) {
+				for (File f : sub) {
+					scanSkins(f, paths);
+				}
 			}
-		} else if (path.getFileName().toString().toLowerCase().endsWith(".lr2skin")
-				|| path.getFileName().toString().toLowerCase().endsWith(".luaskin")
-				|| path.getFileName().toString().toLowerCase().endsWith(".json")) {
+		} else if (path.getName().toLowerCase().endsWith(".lr2skin")
+				|| path.getName().toLowerCase().endsWith(".luaskin")
+				|| path.getName().toLowerCase().endsWith(".json")) {
 			paths.add(path);
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration: found skin file: " + path);
 		}
@@ -636,15 +677,10 @@ public class SkinConfiguration extends MainState {
 			displayValues = new ArrayList<String>();
 			int i=0;
 			for (String path : paths) {
-				int point = path.lastIndexOf('.');
-				if (point >= 0) {
-					displayValues.add(path.substring(0, point));
-				} else {
-					displayValues.add(path);
-				}
+				displayValues.add(path); // 修改：直接显示完整文件名，方便识别 default.png
 				if (path.equals(selection)) {
 					this.value = i;
-					this.displayValue = displayValues.get(i);
+					this.displayValue = path;
 				}
 				i++;
 			}
@@ -652,8 +688,8 @@ public class SkinConfiguration extends MainState {
 
 		public void setValue(int i) {
 			value = i;
-			displayValue = displayValues.get(value);
-			setFilePath(categoryName, actualValues.get(value));
+			displayValue = actualValues.get(i);
+			setFilePath(categoryName, actualValues.get(i));
 		}
 	}
 

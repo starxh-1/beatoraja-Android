@@ -1,8 +1,6 @@
 package bms.player.beatoraja;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.*;
 import java.util.logging.Logger;
@@ -501,11 +499,11 @@ public final class PlayDataAccessor {
 
 	public boolean existsReplayData(BMSModel model, int lnmode, int index) {
 		boolean ln = model.containsUndefinedLongNote();
-		return Files.exists(Paths.get(this.getReplayDataFilePath(model.getSHA256(), ln, lnmode, index) + ".brd"));
+		return new File(this.getReplayDataFilePath(model.getSHA256(), ln, lnmode, index) + ".brd").exists();
 	}
 
 	public boolean existsReplayData(String hash, boolean ln, int lnmode, int index) {
-		return Files.exists(Paths.get(this.getReplayDataFilePath(hash, ln, lnmode, index) + ".brd"));
+		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index) + ".brd").exists();
 	}
 
 	public boolean existsReplayData(BMSModel[] models, int lnmode, int index,
@@ -517,12 +515,12 @@ public final class PlayDataAccessor {
 			hash[i] = model.getSHA256();
 			ln |= model.containsUndefinedLongNote();
 		}
-		return Files.exists(Paths.get(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd"));
+		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd").exists();
 	}
 
 	public boolean existsReplayData(String[] hash, boolean ln, int lnmode, int index,
 			CourseData.CourseDataConstraint[] constraint) {
-		return Files.exists(Paths.get(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd"));
+		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd").exists();
 	}
 
 	/**
@@ -541,9 +539,10 @@ public final class PlayDataAccessor {
 			try {
 				String path = this.getReplayDataFilePath(model, lnmode, index);
 				ReplayData result = null;
-				if (Files.exists(Paths.get(path + ".brd"))) {
+				File brdFile = new File(path + ".brd");
+				if (brdFile.exists()) {
 					result =  json.fromJson(ReplayData.class, new BufferedInputStream(
-							new GZIPInputStream(Files.newInputStream(Paths.get(path + ".brd")))));
+							new GZIPInputStream(new FileInputStream(brdFile))));
 				}
 				if(result != null && result.validate()) {
 					return result;
@@ -614,9 +613,10 @@ public final class PlayDataAccessor {
 			try {
 				String path = this.getReplayDataFilePath(hash, ln, lnmode, index, constraint);
 				ReplayData[] result = null;
-				if (Files.exists(Paths.get(path + ".brd"))) {
+				File brdFile = new File(path + ".brd");
+				if (brdFile.exists()) {
 					result = json.fromJson(ReplayData[].class, new BufferedInputStream(
-							new GZIPInputStream(Files.newInputStream(Paths.get(path + ".brd")))));
+							new GZIPInputStream(new FileInputStream(brdFile))));
 				}
 				if(result != null) {
 					for(ReplayData rd : result) {
@@ -676,11 +676,7 @@ public final class PlayDataAccessor {
 
 	public void deleteReplayData(BMSModel model, int lnmode, int index) {
 		if (existsReplayData(model, lnmode, index)) {
-			try {
-				Files.deleteIfExists(Paths.get(this.getReplayDataFilePath(model, lnmode, index) + ".brd"));
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			new File(this.getReplayDataFilePath(model, lnmode, index) + ".brd").delete();
 		}
 	}
 

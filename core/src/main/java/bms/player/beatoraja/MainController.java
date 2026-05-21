@@ -1,7 +1,6 @@
 package bms.player.beatoraja;
 
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Logger;
@@ -85,7 +84,7 @@ public class MainController {
     private RivalDataAccessor rivals = new RivalDataAccessor();
     private RankingDataCache ircache = new RankingDataCache();
     private SpriteBatch sprite;
-    private Path bmsfile;
+    private File bmsfile;
     private BMSPlayerInputProcessor input;
     private boolean showfps;
     private PlayDataAccessor playdata;
@@ -118,7 +117,7 @@ public class MainController {
 
     private int detectedRefreshRate = 120; // 记录检测到的原始刷新率
 
-    public MainController(Path f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
+    public MainController(File f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
         this.auto = auto;
@@ -143,10 +142,10 @@ public class MainController {
         this.bmsfile = f;
 
         if (config.isEnableIpfs()) {
-            Path ipfspath = Paths.get("ipfs").toAbsolutePath();
-            if (!ipfspath.toFile().exists()) ipfspath.toFile().mkdirs();
+            File ipfspath = new File("ipfs").getAbsoluteFile();
+            if (!ipfspath.exists()) ipfspath.mkdirs();
             List<String> roots = new ArrayList<>(Arrays.asList(getConfig().getBmsroot()));
-            if (ipfspath.toFile().exists() && !roots.contains(ipfspath.toString())) {
+            if (ipfspath.exists() && !roots.contains(ipfspath.toString())) {
                 roots.add(ipfspath.toString());
                 getConfig().setBmsroot(roots.toArray(new String[roots.size()]));
             }
@@ -941,10 +940,10 @@ public class MainController {
         }
 
         if (doFrameLimit) {
-            // Android 优化：大幅增加 API 刷新频率（每 10 帧一次），对抗系统的 DynamicFPS 降频逻辑
+            // Android 优化：大幅增加 API 刷新频率（每 60 帧一次）
             if (isAndroid) {
                 lastFrameRateUpdate++;
-                if (lastFrameRateUpdate > 10) {
+                if (lastFrameRateUpdate > 60) {
                     updateFrameRateAPI(detectedRefreshRate);
                     lastFrameRateUpdate = 0;
                 }

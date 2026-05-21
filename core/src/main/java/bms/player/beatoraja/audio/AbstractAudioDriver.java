@@ -3,9 +3,7 @@ package bms.player.beatoraja.audio;
 import bms.model.*;
 import bms.player.beatoraja.ResourcePool;
 
-import java.nio.file.InvalidPathException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -70,7 +68,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 *            音源データのパス
 	 * @return 音源データ
 	 */
-	protected abstract T getKeySound(Path p);
+	protected abstract T getKeySound(File p);
 
 	/**
 	 * PCMオブジェクトで指定されたキー音の音源データを取得する
@@ -176,7 +174,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		AudioElement<T> sound = soundmap.get(p);
 		if (!soundmap.containsKey(p)) {
 			try {
-				sound = new AudioElement(getKeySound(Paths.get(p)));
+				sound = new AudioElement(getKeySound(new File(p)));
 				sound = sound.audio != null ? sound : null;
 				soundmap.put(p, sound);
 			} catch (Exception e) {
@@ -251,7 +249,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		progress = new AtomicInteger();
 		noteMapSize = 0;
 		// BMS格納ディレクトリ
-		Path dpath = Paths.get(model.getPath()).getParent();
+		File dpath = new File(model.getPath()).getParentFile();
 
 		if (model.getVolwav() > 0 && model.getVolwav() < 100) {
 			volume = model.getVolwav() / 100f;
@@ -303,17 +301,17 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 				return;
 			}
 			try {
-				Path p;
+				File p;
 				if (wavid < wavcount) {
-					p = dpath.resolve(wavlist[wavid]).toAbsolutePath();
+					p = new File(dpath, wavlist[wavid]).getAbsoluteFile();
 				} else {
-					p = Paths.get("defaultsound/landmine.wav").toAbsolutePath();
+					p = new File("defaultsound/landmine.wav").getAbsoluteFile();
 				}
 				for (Note note : waventry.getValue()) {
 					// 音切りあり・なし両方のデータが必要になるケースがある
 					if (note.getMicroStarttime() == 0 && note.getMicroDuration() == 0) {
 						// 音切りなしのケース
-						wavmap[wavid] = cache.get(new AudioKey(p.toString(), note));
+						wavmap[wavid] = cache.get(new AudioKey(p.getPath(), note));
 						if (wavmap[wavid] == null) {
 							break;
 						}
@@ -330,7 +328,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 							}
 						}
 						if (b) {
-							T sliceaudio = cache.get(new AudioKey(p.toString(), note));
+							T sliceaudio = cache.get(new AudioKey(p.getPath(), note));
 							if (sliceaudio != null) {
 								slicesound[note.getWav()].add(new SliceWav<T>(note, sliceaudio));
 							} else {
@@ -339,7 +337,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 						}
 					}
 				}
-			} catch (InvalidPathException e) {
+			} catch (Exception e) {
 				Logger.getGlobal().warning(e.getMessage());
 			}
 			progress.incrementAndGet();
@@ -624,7 +622,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		    Logger.getGlobal().fine("音源ファイルを読み込む中：" + key.path);
 
 		    T sound = key.start == 0 && key.duration == 0
-                    ? getKeySound(Paths.get(key.path)) // 音切りなしのケース
+                    ? getKeySound(new File(key.path)) // 音切りなしのケース
                     : loadSlice(key);
 
 		    if (sound == null) {

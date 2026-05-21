@@ -2,10 +2,7 @@ package bms.player.beatoraja.skin.lr2;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.function.BiConsumer;
-import java.util.stream.Stream;
 
 import bms.player.beatoraja.skin.SkinTextImage;
 import bms.player.beatoraja.skin.lr2.LR2SkinLoader.Command;
@@ -23,7 +20,7 @@ public class LR2FontLoader extends LR2SkinLoader {
 	/**
 	 * lr2fontファイルパス
 	 */
-	Path path;
+	File path;
 
 	private final boolean usecim;
 	
@@ -32,16 +29,16 @@ public class LR2FontLoader extends LR2SkinLoader {
 		addCommandWord(FontCommand.values());
 	}
 
-	protected SkinTextImage.SkinTextImageSource loadFont(Path p) throws IOException {
+	protected SkinTextImage.SkinTextImageSource loadFont(File p) throws IOException {
 		textimage = new SkinTextImage.SkinTextImageSource(usecim);
 		this.path = p;
 
 //		long l = System.nanoTime();
-		try (Stream<String> lines = Files.lines(p, Charset.forName("MS932"))) {
-			lines.forEach(line -> {
-				processLine(line, null);				
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(p), "MS932"))) {
+			br.lines().forEach(line -> {
+				processLine(line, null);
 			});
-		};
+		}
 //		System.out.println(p.toString() + " -> " + (System.nanoTime() - l));
 
 		return textimage;
@@ -71,7 +68,7 @@ enum FontCommand implements Command<LR2FontLoader> {
 	}),
 	// texture
 	T ((loader, str) -> {
-		File imagefile = loader.path.getParent().resolve(str[2]).toFile();
+		File imagefile = new File(loader.path.getParent(), str[2]);
 		// System.out.println("Font image loading : " +
 		// imagefile.getPath());
 		if (imagefile.exists()) {

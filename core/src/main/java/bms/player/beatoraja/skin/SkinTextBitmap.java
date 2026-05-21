@@ -1,8 +1,8 @@
 package bms.player.beatoraja.skin;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
-import java.nio.file.Path;
 
 import bms.player.beatoraja.skin.property.StringProperty;
 import bms.player.beatoraja.skin.property.StringPropertyFactory;
@@ -122,7 +122,7 @@ public final class SkinTextBitmap extends SkinText {
 
 		private boolean usecim;
 		private boolean useMipMaps;
-		private Path fontPath;
+		private File fontPath;
 		private BitmapFont.BitmapFontData fontData;
 		private Array<TextureRegion> regions;
 		private BitmapFont font;
@@ -131,11 +131,11 @@ public final class SkinTextBitmap extends SkinText {
 		private float pageWidth;
 		private float pageHeight;
 
-		public SkinTextBitmapSource(Path fontPath, boolean usecim) {
+		public SkinTextBitmapSource(File fontPath, boolean usecim) {
 			this(fontPath, usecim, true);
 		}
 
-		public SkinTextBitmapSource(Path fontPath, boolean usecim, boolean useMipMaps) {
+		public SkinTextBitmapSource(File fontPath, boolean usecim, boolean useMipMaps) {
 			this.usecim = usecim;
 			this.useMipMaps = useMipMaps;
 			this.fontPath = fontPath;
@@ -146,8 +146,8 @@ public final class SkinTextBitmap extends SkinText {
 		 * On Android, relative paths need to be resolved via internal (assets) or absolute (external storage).
 		 * On Desktop, the original File-based approach works fine.
 		 */
-		private static FileHandle resolveFileHandle(Path fontPath) {
-			String pathStr = fontPath.toString().replace("\\", "/");
+		private static FileHandle resolveFileHandle(File fontPath) {
+			String pathStr = fontPath.getPath().replace("\\", "/");
 
 			if (Gdx.app.getType() == Application.ApplicationType.Android) {
 				// 1. If path is already absolute, try absolute FileHandle directly
@@ -189,11 +189,11 @@ public final class SkinTextBitmap extends SkinText {
 				return Gdx.files.internal(pathStr);
 			} else {
 				// Desktop: original behavior
-				return new FileHandle(fontPath.toFile());
+				return new FileHandle(fontPath);
 			}
 		}
 
-		public CacheableBitmapFont createCacheableFont(Path _fontPath, int _type) {
+		public CacheableBitmapFont createCacheableFont(File _fontPath, int _type) {
 			BitmapFont.BitmapFontData _fontData = null;
 			Array<TextureRegion> _regions = null;
 			BitmapFont _font = null;

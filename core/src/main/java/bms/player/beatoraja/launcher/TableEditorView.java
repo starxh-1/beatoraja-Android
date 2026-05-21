@@ -2,7 +2,6 @@ package bms.player.beatoraja.launcher;
 
 import bms.player.beatoraja.song.SongDatabaseAccessor;
 import bms.player.beatoraja.song.SongData;
-import java.nio.file.Path;
 
 /**
  * Android 空实现

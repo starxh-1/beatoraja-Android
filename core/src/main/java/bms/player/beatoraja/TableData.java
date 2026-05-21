@@ -2,13 +2,13 @@ package bms.player.beatoraja;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -97,13 +97,14 @@ public class TableData implements Validatable {
 		return folder.length + course.length > 0;
 	}
 	
-	public static TableData read(Path p) {
+	public static TableData read(File f) {
 		try {
 			InputStream is = null;
-			if (p.toString().endsWith(".bmt")) {
-				is = new GZIPInputStream(Files.newInputStream(p));
-			} else if(p.toString().endsWith(".json")) {
-				is = Files.newInputStream(p);			
+			String name = f.getName();
+			if (name.endsWith(".bmt")) {
+				is = new GZIPInputStream(new FileInputStream(f));
+			} else if(name.endsWith(".json")) {
+				is = new FileInputStream(f);
 			}
 
 			if(is != null) {
@@ -113,7 +114,7 @@ public class TableData implements Validatable {
 				if(td == null || !td.validate()) {
 					td = null;
 				}
-				return td;				
+				return td;
 			}
 		} catch(Throwable e) {
 
@@ -121,16 +122,17 @@ public class TableData implements Validatable {
 		return null;
 	}
 	
-	public static void write(Path p, TableData td) {
+	public static void write(File f, TableData td) {
 		try {
 			td.shrink();
 			OutputStream os = null;
-			if(p.toString().endsWith(".bmt")) {
-				os = new GZIPOutputStream(new FileOutputStream(p.toFile()));
-			} else if(p.toString().endsWith(".json")) {
-				os = new FileOutputStream(p.toFile());
+			String name = f.getName();
+			if(name.endsWith(".bmt")) {
+				os = new GZIPOutputStream(new FileOutputStream(f));
+			} else if(name.endsWith(".json")) {
+				os = new FileOutputStream(f);
 			}
-			
+
 			if(os != null) {
 				Json json = new Json();
 				json.setElementType(TableData.class, "folder", ArrayList.class);
@@ -141,7 +143,7 @@ public class TableData implements Validatable {
 				OutputStreamWriter fw = new OutputStreamWriter(new BufferedOutputStream(os), "UTF-8");
 				fw.write(json.prettyPrint(td));
 				fw.flush();
-				fw.close();				
+				fw.close();
 			}
 		} catch (IOException e) {
 			e.printStackTrace();

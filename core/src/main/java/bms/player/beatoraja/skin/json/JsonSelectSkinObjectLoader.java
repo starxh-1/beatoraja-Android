@@ -1,6 +1,6 @@
 package bms.player.beatoraja.skin.json;
 
-import java.nio.file.Path;
+import java.io.File;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
@@ -28,7 +28,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 	}
 
 	@Override
-	public SkinObject loadSkinObject(MusicSelectSkin skin, JsonSkin.Skin sk, JsonSkin.Destination dst, Path p) {
+	public SkinObject loadSkinObject(MusicSelectSkin skin, JsonSkin.Skin sk, JsonSkin.Destination dst, File p) {
 		SkinObject obj =super.loadSkinObject(skin, sk, dst, p);
 		if(obj != null) {
 			return obj;

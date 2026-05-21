@@ -14,7 +14,7 @@ import org.luaj.vm2.lib.OneArgFunction;
 import org.luaj.vm2.lib.ResourceFinder;
 import org.luaj.vm2.lib.jse.JsePlatform;
 
-import java.nio.file.Path;
+import java.io.File;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
@@ -380,8 +380,8 @@ public class SkinLuaAccessor {
 		return globals.load(script).call();
 	}
 
-	public LuaValue execFile(Path path) {
-		String p = path.toString().replace("\\", "/");
+	public LuaValue execFile(File path) {
+		String p = path.getPath().replace("\\", "/");
 		try {
 			FileHandle fh = null;
 			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
@@ -430,8 +430,8 @@ public class SkinLuaAccessor {
 		}
 	}
 
-	public void setDirectory(Path path) {
-		String p = path.toString().replace("\\", "/");
+	public void setDirectory(File path) {
+		String p = path.getPath().replace("\\", "/");
 		LuaTable pkg = globals.get("package").checktable();
 		// 将当前目录加入 Lua 搜索路径
 		pkg.set("path", pkg.get("path").tojstring() + ";" + p + "/?.lua");

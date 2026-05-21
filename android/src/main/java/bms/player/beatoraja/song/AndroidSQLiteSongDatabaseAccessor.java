@@ -15,12 +15,15 @@ import com.badlogic.gdx.files.FileHandle;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import bms.model.BMSDecoder;
 import bms.model.BMSModel;
@@ -50,8 +53,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private java.util.Map<String, String> tags = new java.util.HashMap<>();
     private java.util.Map<String, Integer> favorites = new java.util.HashMap<>();
 
-    // 原版使用 Paths.get(".") 作为 root
-    private final java.nio.file.Path root = java.nio.file.Paths.get(".");
+    // CRC计算用的 root 路径（对应原版的 Paths.get(".").toString()）
+    private final String rootpath = "";
 
     // SongInformationAccessor for info.update() calls
     private SongInformationAccessor info;
@@ -662,20 +665,41 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     }
                 }
 
-                db.beginTransactionNonExclusive();
+                // 并行化文件存在性检查
+                Log.i(TAG, "Deletion Sync: Checking " + existingPaths.size() + " files with " + PARALLEL_THREAD_COUNT + " threads...");
+                long delCheckStart = System.currentTimeMillis();
+                Set<String> toDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
+                ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
+                for (final String path : existingPaths) {
+                    executor.submit(() -> {
+                        if (!Gdx.files.absolute(path).exists()) {
+                            toDelete.add(path);
+                        }
+                    });
+                }
+                executor.shutdown();
                 try {
-                    for (String path : existingPaths) {
-                        FileHandle file = Gdx.files.absolute(path);
-                        if (!file.exists()) {
+                    executor.awaitTermination(120, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Log.w(TAG, "Deletion Sync: Executor interrupted", e);
+                }
+                long delCheckElapsed = System.currentTimeMillis() - delCheckStart;
+                Log.i(TAG, "Deletion Sync: Found " + toDelete.size() + " missing files in " + delCheckElapsed + "ms");
+
+                // 批量删除
+                if (!toDelete.isEmpty()) {
+                    db.beginTransactionNonExclusive();
+                    try {
+                        for (String path : toDelete) {
                             db.delete("song", "path = ?", new String[]{path});
                             deleteCount++;
                         }
+                        db.setTransactionSuccessful();
+                    } finally {
+                        db.endTransaction();
                     }
-                    db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
-                    db.setTransactionSuccessful();
-                } finally {
-                    db.endTransaction();
                 }
+                db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
                 Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and cleared folder table");
             }
 
@@ -913,14 +937,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             songData.setDate(lastModifiedTime);
             songData.setAdddate((int) (System.currentTimeMillis() / 1000));
 
-            // CRC计算 - 使用 root.toString() 作为 bmspath（对应原版逻辑）
+            // CRC计算 - 使用 rootpath 作为 bmspath（对应原版逻辑）
             String matchingRoot = findMatchingRoot(pathName);
             if (file.parent() != null) {
                 String parentPath = file.parent().path().replace('\\', '/');
-                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, root.toString()));
+                songData.setFolder(bms.player.beatoraja.song.SongUtils.crc32(parentPath, bmsroot, rootpath));
                 if (file.parent().parent() != null) {
                     String grandParentPath = file.parent().parent().path().replace('\\', '/');
-                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, root.toString()));
+                    songData.setParent(bms.player.beatoraja.song.SongUtils.crc32(grandParentPath, bmsroot, rootpath));
                 }
             }
 

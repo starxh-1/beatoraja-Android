@@ -16,15 +16,15 @@ import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
 
+import java.io.File;
 import java.lang.reflect.Array;
-import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
 /**
  * Luaスキンローダー
- * 
+ *
  * @author excln
  */
 public class LuaSkinLoader extends JSONSkinLoader {
@@ -38,12 +38,12 @@ public class LuaSkinLoader extends JSONSkinLoader {
 	}
 
 	@Override
-	public SkinHeader loadHeader(Path p) {
+	public SkinHeader loadHeader(File p) {
 		java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: starting for " + p);
 		SkinHeader header = null;
 		try {
-			lua.setDirectory(p.getParent());
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: directory set to " + p.getParent());
+			lua.setDirectory(p.getParentFile());
+			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: directory set to " + p.getParentFile());
 			LuaValue value = lua.execFile(p);
 			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: execFile done, value.istable=" + value.istable());
 			// Lua皮肤标准格式: return { header = ..., main = function() ... end }
@@ -72,12 +72,12 @@ public class LuaSkinLoader extends JSONSkinLoader {
 	}
 
 	@Override
-	public Skin loadSkin(Path p, SkinType type, SkinConfig.Property property) {
+	public Skin loadSkin(File p, SkinType type, SkinConfig.Property property) {
 		return load(p, type, property);
 	}
 
 	@Override
-	public Skin load(Path p, SkinType type, SkinConfig.Property property) {
+	public Skin load(File p, SkinType type, SkinConfig.Property property) {
 		Skin skin = null;
 		SkinHeader header = loadHeader(p);
 		if(header == null) {
@@ -90,20 +90,23 @@ public class LuaSkinLoader extends JSONSkinLoader {
 			filemap = new ObjectMap<>();
 			for(SkinHeader.CustomFile customFile : header.getCustomFiles()) {
 				if(customFile.getSelectedFilename() != null) {
-					filemap.put(customFile.path, customFile.getSelectedFilename());
+					// 归一化 filemap 的 Key，确保与加载贴图时的 imagePath 格式一致
+					String normalizedKey = customFile.path.replace("\\", "/").replaceAll("/+", "/");
+					if (normalizedKey.startsWith("/")) normalizedKey = normalizedKey.substring(1);
+					normalizedKey = normalizePath(normalizedKey);
+
+					filemap.put(normalizedKey, customFile.getSelectedFilename());
+					java.util.logging.Logger.getGlobal().info("LuaSkinLoader: filemap mapping: " + normalizedKey + " -> " + customFile.getSelectedFilename());
 				}
 			}
 
 			lua.exportSkinProperty(header, property, (String path) -> {
-				String rawPath = p.getParent().toString() + "/" + path;
-				rawPath = rawPath.replace("\\", "/");
+				String rawPath = p.getParent() + "/" + path;
+				rawPath = rawPath.replace("\\", "/").replaceAll("/+", "/");
+				if (rawPath.startsWith("/")) rawPath = rawPath.substring(1);
 				// Normalize ".." parent references for Android AssetManager compatibility
 				// (Android assets do not resolve ".." in paths)
-				try {
-					rawPath = java.nio.file.Paths.get(rawPath).normalize().toString().replace("\\", "/");
-				} catch (Exception e) {
-					// fallback: keep original path
-				}
+				rawPath = SkinLoader.normalizePath(rawPath);
 				return getPath(rawPath, filemap).getPath();
 			});
 			java.util.logging.Logger.getGlobal().info("LuaSkinLoader: Starting full skin load, p=" + p.toString());

@@ -1,7 +1,7 @@
 package bms.player.beatoraja.play.bga;
 
+import java.io.File;
 import java.nio.IntBuffer;
-import java.nio.file.*;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
@@ -140,7 +140,7 @@ public class BGAProcessor {
 			}
 
 			// BMS格納ディレクトリ
-			Path dpath = Paths.get(model.getPath()).getParent();
+			File dpath = new File(model.getPath()).getParentFile();
 
 			movies = new MovieProcessor[model.getBgaList().length];
 			for (String name : model.getBgaList()) {
@@ -149,7 +149,7 @@ public class BGAProcessor {
 				}
 				FileHandle f = null;
 				try {
-					FileHandle baseHandle = Gdx.files.absolute(dpath.resolve(name).toString());
+					FileHandle baseHandle = Gdx.files.absolute(new File(dpath, name).getPath());
 					if (FileCache.exists(baseHandle)) {
 						final int index = name.lastIndexOf('.');
 						String fex = null;
@@ -160,7 +160,7 @@ public class BGAProcessor {
 							if (Arrays.asList(mov_extension).contains(fex)){
 								name = name.substring(0, index);
 								for (String mov : mov_extension) {
-									final FileHandle mpgfile = Gdx.files.absolute(dpath.resolve(name + "." + mov).toString());
+									final FileHandle mpgfile = Gdx.files.absolute(new File(dpath, name + "." + mov).getPath());
 									if (FileCache.exists(mpgfile)) {
 										f = mpgfile;
 										break;
@@ -169,7 +169,7 @@ public class BGAProcessor {
 							}else if (Arrays.asList(BGImageProcessor.pic_extension).contains(fex)){
 								name = name.substring(0, index);
 								for (String pic : BGImageProcessor.pic_extension) {
-									final FileHandle picfile = Gdx.files.absolute(dpath.resolve(name + "." + pic).toString());
+									final FileHandle picfile = Gdx.files.absolute(new File(dpath, name + "." + pic).getPath());
 									if (FileCache.exists(picfile)) {
 										f = picfile;
 										break;
@@ -186,7 +186,7 @@ public class BGAProcessor {
 							name = name.substring(0, index);
 						}
 						for (String mov : mov_extension) {
-							final FileHandle mpgfile = Gdx.files.absolute(dpath.resolve(name + "." + mov).toString());
+							final FileHandle mpgfile = Gdx.files.absolute(new File(dpath, name + "." + mov).getPath());
 							if (FileCache.exists(mpgfile)) {
 								f = mpgfile;
 								break;
@@ -194,7 +194,7 @@ public class BGAProcessor {
 						}
 						if (f == null) {
 							for (String mov : BGImageProcessor.pic_extension) {
-								final FileHandle picfile = Gdx.files.absolute(dpath.resolve(name + "." + mov).toString());
+								final FileHandle picfile = Gdx.files.absolute(new File(dpath, name + "." + mov).getPath());
 								if (FileCache.exists(picfile)) {
 									f = picfile;
 									break;
@@ -225,7 +225,7 @@ public class BGAProcessor {
 						}
 					}
 					if(!isMovie) {
-						cache.put(id, Paths.get(f.path()));
+						cache.put(id, f.path());
 					}
 				}
 

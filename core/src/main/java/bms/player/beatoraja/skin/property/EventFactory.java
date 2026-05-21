@@ -17,16 +17,13 @@ import com.badlogic.gdx.math.MathUtils;
 
 import static bms.player.beatoraja.SystemSoundManager.SoundType.OPTION_CHANGE;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.function.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 
 /**
  * EventのFactoryクラス
@@ -147,12 +144,14 @@ public class EventFactory {
 				return;
 			}
 			if(state instanceof MusicSelector selector && selector.getBarManager().getSelected() instanceof SongBar songbar && songbar.existsSong()) {
-				try (Stream<Path> paths = Files.list(Paths.get(songbar.getSongData().getPath()).getParent())) {
-					paths.filter(p -> !Files.isDirectory(p) && p.toString().toLowerCase().endsWith(".txt")).forEach(p -> {
-						openFile(p.toFile());
-					});
-				} catch (Throwable e) {
-					e.printStackTrace();
+				File parent = new File(songbar.getSongData().getPath()).getParentFile();
+				File[] files = parent.listFiles();
+				if (files != null) {
+					for (File f : files) {
+						if (f.isFile() && f.getName().toLowerCase().endsWith(".txt")) {
+							openFile(f);
+						}
+					}
 				}
 			}
 		}),
@@ -290,7 +289,7 @@ public class EventFactory {
 				} else if (selected instanceof SongBar) {
 					final String path = ((SongBar) selected).getSongData().getPath();
 					if (path != null) {
-						selector.main.updateSong(Paths.get(path).getParent().toString());
+						selector.main.updateSong(new File(path).getParentFile().getAbsolutePath());
 					}
 				}				
 			}
@@ -304,14 +303,14 @@ public class EventFactory {
 				if (isDesktopSupported()) {
 					if (current instanceof SongBar songbar) {
 						if (songbar.existsSong()) {
-							openFile(Paths.get(songbar.getSongData().getPath()).getParent().toFile());
+							openFile(new File(songbar.getSongData().getPath()).getParentFile());
 						} else if (songbar.getSongData() != null && songbar.getSongData().getOrg_md5() != null) {
 							String[] md5 = songbar.getSongData().getOrg_md5()
 									.toArray(new String[songbar.getSongData().getOrg_md5().size()]);
 							SongData[] songdata = selector.getSongDatabase().getSongDatas(md5);
 							for (SongData sd : songdata) {
 								if (sd.getPath() != null) {
-									openFile(Paths.get(sd.getPath()).getParent().toFile());
+									openFile(new File(sd.getPath()).getParentFile());
 									break;
 								}
 							}
@@ -321,14 +320,14 @@ public class EventFactory {
 								SongData[] songdata = selector.getSongDatabase().getSongDatasByText(m.group());
 								for (SongData sd : songdata) {
 									if (sd.getPath() != null) {
-										openFile(Paths.get(sd.getPath()).getParent().toFile());
+										openFile(new File(sd.getPath()).getParentFile());
 										break;
 									}
 								}
 							}
 						}
 					} else if (current instanceof FolderBar) {
-						openFile(Paths.get(((FolderBar) current).getFolderData().getPath()).toFile());
+						openFile(new File(((FolderBar) current).getFolderData().getPath()));
 					}
 				}				
 			}

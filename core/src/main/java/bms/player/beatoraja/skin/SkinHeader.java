@@ -2,16 +2,16 @@ package bms.player.beatoraja.skin;
 
 import bms.player.beatoraja.Resolution;
 import bms.player.beatoraja.SkinConfig;
+import com.badlogic.gdx.Gdx;
 
 import static bms.player.beatoraja.skin.SkinProperty.OPTION_RANDOM_VALUE;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.*;
 
 /**
  * スキンのヘッダ情報
- * 
+ *
  * @author exch
  */
 public class SkinHeader {
@@ -31,7 +31,7 @@ public class SkinHeader {
 	/**
 	 * スキンファイルのパス
 	 */
-	private Path path;
+	private String path;
 	/**
 	 * スキンタイプ
 	 */
@@ -66,21 +66,21 @@ public class SkinHeader {
 	private Resolution resolution = Resolution.SD;
 
 	private Resolution sourceResolution;
-	
+
 	private Resolution destinationResolution;
-	
+
 	public SkinType getSkinType() {
 		return mode;
 	}
-	
+
 	public void setSkinType(SkinType mode) {
 		this.mode = mode;
 	}
-	
+
 	public String getName() {
 		return name;
 	}
-	
+
 	public void setName(String name) {
 		this.name = name;
 	}
@@ -96,7 +96,7 @@ public class SkinHeader {
 	public CustomOption[] getCustomOptions() {
 		return options;
 	}
-	
+
 	public void setCustomOptions(CustomOption[] options) {
 		this.options = options;
 	}
@@ -104,16 +104,16 @@ public class SkinHeader {
 	public CustomFile[] getCustomFiles() {
 		return files;
 	}
-	
+
 	public void setCustomFiles(CustomFile[] files) {
 		this.files = files;
 	}
 
-	public Path getPath() {
+	public String getPath() {
 		return path;
 	}
 
-	public void setPath(Path path) {
+	public void setPath(String path) {
 		this.path = path;
 	}
 
@@ -148,7 +148,7 @@ public class SkinHeader {
 	public void setCustomCategories(CustomCategory[] categories) {
 		this.categories = categories;
 	}
-	
+
 	public void setSkinConfigProperty(SkinConfig.Property property) {
 		for (SkinHeader.CustomOption customOption : getCustomOptions()) {
 			int op = customOption.getDefaultOption();
@@ -168,9 +168,9 @@ public class SkinHeader {
 				if(customOption.option[i] == op) {
 					customOption.selectedIndex = i;
 				}
-			}	
+			}
 		}
-		
+
 		for (SkinHeader.CustomFile customFile : getCustomFiles()) {
 			for (SkinConfig.FilePath file : property.getFile()) {
 				if (customFile.name.equals(file.name)) {
@@ -186,7 +186,14 @@ public class SkinHeader {
 							}
 						}
 						final int slashindex = customFile.path.lastIndexOf('/');
-						File dir = slashindex != -1 ? new File(customFile.path.substring(0, slashindex)) : new File(customFile.path);
+						String dirStr = slashindex != -1 ? customFile.path.substring(0, slashindex) : ".";
+						File dir;
+						if (Gdx.app != null && Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !dirStr.startsWith("/")) {
+							String root = System.getProperty("beatoraja.root", ".");
+							dir = new File(root, dirStr);
+						} else {
+							dir = new File(dirStr);
+						}
 						if (dir.exists() && dir.isDirectory()) {
 							List<File> l = new ArrayList<File>();
 							for (File subfile : dir.listFiles()) {
@@ -203,7 +210,7 @@ public class SkinHeader {
 				}
 			}
 		}
-		
+
 		for (SkinHeader.CustomOffset of : getCustomOffsets()) {
 			SkinConfig.Offset off = null;
 			for(SkinConfig.Offset off2 : property.getOffset()) {
@@ -238,7 +245,7 @@ public class SkinHeader {
 
 	/**
 	 * ユーザーが選択可能な項目
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static abstract class CustomItem {
@@ -247,15 +254,15 @@ public class SkinHeader {
 		 * カスタムファイル名称
 		 */
 		public final String name;
-		
+
 		public CustomItem(String name) {
 			this.name = name;
 		}
 	}
-	
+
 	/**
 	 * 選択可能なオプション
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class CustomOption extends CustomItem {
@@ -274,7 +281,7 @@ public class SkinHeader {
 		 * デフォルトオプション名
 		 */
 		public final String def;
-		
+
 		private int selectedIndex = -1;
 
 		public CustomOption(String name, int[] option, String[] contents) {
@@ -298,7 +305,7 @@ public class SkinHeader {
 			}
 			return option.length > 0 ? option[0] : SkinProperty.OPTION_RANDOM_VALUE;
 		}
-		
+
 		public int getSelectedOption() {
 			return (selectedIndex >= 0 && selectedIndex < option.length) ? option[selectedIndex] : SkinProperty.OPTION_RANDOM_VALUE;
 		}
@@ -306,7 +313,7 @@ public class SkinHeader {
 
 	/**
 	 * 選択可能なファイル
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class CustomFile extends CustomItem {
@@ -321,23 +328,23 @@ public class SkinHeader {
 		 * デフォルトファイル名
 		 */
 		public final String def;
-		
+
 		private String filename;
-		
+
 		public CustomFile(String name, String path, String def) {
 			super(name);
 			this.path = path;
 			this.def = def;
 		}
-		
+
 		public String getSelectedFilename() {
 			return filename;
 		}
 	}
-	
+
 	/**
 	 * 選択可能なオフセット
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class CustomOffset extends CustomItem {
@@ -348,7 +355,7 @@ public class SkinHeader {
 		 * オフセットID
 		 */
 		public final int id;
-		
+
 		/**
 		 * それぞれの値の変更を許可するかどうか
 		 */
@@ -358,9 +365,9 @@ public class SkinHeader {
 		public final boolean h;
 		public final boolean r;
 		public final boolean a;
-		
+
 		private SkinConfig.Offset offset;
-		
+
 		public CustomOffset(String name, int id, boolean x, boolean y, boolean w, boolean h,boolean r,boolean a) {
 			super(name);
 			this.id = id;
@@ -371,21 +378,21 @@ public class SkinHeader {
 			this.r = r;
 			this.a = a;
 		}
-		
+
 		public SkinConfig.Offset getOffset() {
 			return offset;
 		}
 	}
-	
+
 	/**
 	 * カテゴリー
-	 * 
+	 *
 	 * @author exch
 	 */
 	public static class CustomCategory {
-	
+
 		public static final CustomCategory[] EMPTY_ARRAY = new CustomCategory[0];
-		
+
 		/**
 		 * カテゴリー名
 		 */
@@ -394,7 +401,7 @@ public class SkinHeader {
 		 * カテゴリーのカスタムアイテム
 		 */
 		public final CustomItem[] items;
-		
+
 		public CustomCategory(String name, CustomItem[] items) {
 			this.name = name;
 			this.items = items;

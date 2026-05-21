@@ -6,8 +6,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.ScreenUtils;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.io.File;
 import bms.player.beatoraja.Config;
 import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.BMSPlayerMode;
@@ -22,7 +21,7 @@ import bms.player.beatoraja.result.CourseResult;
 public class BeatorajaGame extends ApplicationAdapter {
     private MainController controller;
     private SideSpectrumRenderer spectrumRenderer;
-    private Path rootPath;
+    private File rootPath;
     private Config bmsConfig;
     private PlayerConfig playerConfig;
     private BMSPlayerMode mode;
@@ -31,7 +30,7 @@ public class BeatorajaGame extends ApplicationAdapter {
     public BeatorajaGame() {
     }
 
-    public BeatorajaGame(Path rootPath, Config bmsConfig, PlayerConfig playerConfig, BMSPlayerMode mode, boolean useAudio) {
+    public BeatorajaGame(File rootPath, Config bmsConfig, PlayerConfig playerConfig, BMSPlayerMode mode, boolean useAudio) {
         this.rootPath = rootPath;
         this.bmsConfig = bmsConfig;
         this.playerConfig = playerConfig;
@@ -106,16 +105,26 @@ public class BeatorajaGame extends ApplicationAdapter {
                     // 读取 skin 目录下的 spectrumconfig.json 作为辅助配置
                     float configX = 0, configY = 0, configW = 0, configH = 0;
                     try {
-                        java.nio.file.Path configPath = null;
+                        File configFile = null;
                         if (sc != null && sc.getPath() != null) {
-                            configPath = java.nio.file.Paths.get(sc.getPath()).getParent().resolve("spectrumconfig.json");
+                            File parent = new File(sc.getPath()).getParentFile();
+                            if (parent != null) {
+                                configFile = new File(parent, "spectrumconfig.json");
+                            }
                         }
-                        if (configPath == null || !java.nio.file.Files.exists(configPath)) {
+                        if (configFile == null || !configFile.exists()) {
                             // 尝试从 skin header 的 path 获取
-                            configPath = skin.header.getPath().getParent().resolve("spectrumconfig.json");
+                            String headerPath = skin.header.getPath();
+                            if (headerPath != null) {
+                                File headerParent = new File(headerPath).getParentFile();
+                                if (headerParent != null) {
+                                    configFile = new File(headerParent, "spectrumconfig.json");
+                                }
+                            }
                         }
-                        if (java.nio.file.Files.exists(configPath)) {
-                            String json = new String(java.nio.file.Files.readAllBytes(configPath));
+                        if (configFile != null && configFile.exists()) {
+                            byte[] data = readFile(configFile);
+                            String json = new String(data, java.nio.charset.StandardCharsets.UTF_8);
                             com.badlogic.gdx.utils.JsonValue jsonValue = new com.badlogic.gdx.utils.JsonReader().parse(json);
                             if (jsonValue != null) {
                                 if (jsonValue.has("x")) configX = jsonValue.getFloat("x");
@@ -213,6 +222,14 @@ public class BeatorajaGame extends ApplicationAdapter {
         if (spectrumRenderer != null) {
             spectrumRenderer.dispose();
         }
+    }
+
+    private static byte[] readFile(File file) throws java.io.IOException {
+        java.io.FileInputStream fis = new java.io.FileInputStream(file);
+        byte[] data = new byte[(int) file.length()];
+        fis.read(data);
+        fis.close();
+        return data;
     }
 
     /**

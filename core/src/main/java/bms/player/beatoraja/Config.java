@@ -4,9 +4,6 @@ import static bms.player.beatoraja.Resolution.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.io.Serializable;
 
 import com.badlogic.gdx.files.FileHandle;
@@ -24,16 +21,16 @@ public class Config implements Validatable, Serializable {
 	/**
 	 * 旧コンフィグパス。そのうち削除
 	 */
-	static Path configpath_old = Paths.get("config.json");
+	static String configpath_old = "config.json";
 	/**
 	 * コンフィグパス(UTF-8)
 	 */
-	static Path configpath = Paths.get(System.getProperty("user.dir", "."), "config_sys.json");
+	static String configpath = new java.io.File(System.getProperty("user.dir", "."), "config_sys.json").getPath();
 
 	public static void updateConfigPath() {
 		String root = System.getProperty("beatoraja.root", System.getProperty("user.dir", "."));
-		configpath = Paths.get(root, "config_sys.json");
-		configpath_old = Paths.get(root, "config.json");
+		configpath = new java.io.File(root, "config_sys.json").getPath();
+		configpath_old = new java.io.File(root, "config.json").getPath();
 	}
 
 	/**
@@ -677,7 +674,7 @@ public class Config implements Validatable, Serializable {
 	public static Config read() {
 		Config config = null;
 		// 统一使用 absolute() 访问 beatoraja.root 下的绝对路径（Android 和 Desktop 均正确）
-		FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(configpath.toString());
+		FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(configpath);
 		if (fh.exists()) {
 			Json json = new Json();
 			json.setIgnoreUnknownFields(true);
@@ -690,7 +687,7 @@ public class Config implements Validatable, Serializable {
 		}
 		// 旧路径兼容：如果新路径不存在，尝试旧路径
 		if (config == null) {
-			FileHandle fhOld = com.badlogic.gdx.Gdx.files.absolute(configpath_old.toString());
+			FileHandle fhOld = com.badlogic.gdx.Gdx.files.absolute(configpath_old);
 			if (fhOld.exists()) {
 				com.badlogic.gdx.Gdx.app.log("Config", "Trying old config path: " + fhOld.path());
 				Json json = new Json();
@@ -719,7 +716,7 @@ public class Config implements Validatable, Serializable {
 		json.setUsePrototypes(false);
 		json.setOutputType(OutputType.json);
 		// 统一使用 absolute() 写入 beatoraja.root 下的绝对路径
-		FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(configpath.toString());
+		FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(configpath);
 		// 确保父目录存在
 		FileHandle parent = fh.parent();
 		if (!parent.exists()) {

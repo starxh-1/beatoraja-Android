@@ -1,6 +1,5 @@
 package bms.player.beatoraja.play.bga;
 
-import java.nio.file.Path;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -120,8 +119,8 @@ public class BGImageProcessor {
 		};
 	}
 
-	public void put(int id, Path path) {
-		Pixmap pixmap = cache.get(path.toString());
+	public void put(int id, String path) {
+		Pixmap pixmap = cache.get(path);
 		if(id >= bgamap.length) {
 			bgamap = Arrays.copyOf(bgamap, id + 1);
 		}

@@ -1,7 +1,6 @@
 package bms.player.beatoraja.play;
 
 import java.io.*;
-import java.nio.file.*;
 import java.util.function.*;
 import java.util.logging.Logger;
 
@@ -68,11 +67,11 @@ public final class PracticeConfiguration {
 	public void create(BMSModel model, MainController main) {
 		property.judgerank = model.getJudgerank();
 		property.endtime = model.getLastTime() + 1000;
-		Path p = Paths.get("practice/" + model.getSHA256() + ".json");
-		if (Files.exists(p)) {
+		File p = new File("practice/" + model.getSHA256() + ".json");
+		if (p.exists()) {
 			Json json = new Json();
 			try {
-				property = json.fromJson(PracticeProperty.class, new FileReader(p.toFile()));
+				property = json.fromJson(PracticeProperty.class, new FileReader(p));
 			} catch (FileNotFoundException | SerializationException e) {
 				e.printStackTrace();
 			}
@@ -94,10 +93,7 @@ public final class PracticeConfiguration {
 	}
 
 	public void saveProperty() {
-		try {
-			Files.createDirectory(Paths.get("practice"));
-		} catch (IOException e1) {
-		}
+		new File("practice").mkdirs();
 		try (FileWriter fw = new FileWriter("practice/" + model.getSHA256() + ".json")) {
 			Json json = new Json();
 			fw.write(json.prettyPrint(property));

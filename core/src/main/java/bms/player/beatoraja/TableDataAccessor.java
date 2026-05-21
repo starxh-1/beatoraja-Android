@@ -1,12 +1,10 @@
 package bms.player.beatoraja;
 
 import java.io.*;
-import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import bms.model.BMSDecoder;
@@ -54,26 +52,30 @@ public class TableDataAccessor {
 	}
 
 	private Set<String> getLocalTableFilenames() {
-		try (Stream<Path> paths = Files.list(Paths.get(tabledir))) {
-			return paths.map(p -> p.getFileName().toString())
-					.filter(s -> s.toLowerCase().endsWith(".bmt")).collect(Collectors.toSet());
-		} catch (IOException e) {
-			return null;
+		File dir = new File(tabledir);
+		File[] files = dir.listFiles();
+		if (files == null) return null;
+		Set<String> result = new HashSet<>();
+		for (File f : files) {
+			String name = f.getName();
+			if (name.toLowerCase().endsWith(".bmt")) {
+				result.add(name);
+			}
 		}
+		return result;
 	}
 
 	public HashMap<String,String> readLocalTableNames(String[] urls) {
 		HashMap<String,String> fileNameToTableNameMap = new HashMap<>();
-		try (DirectoryStream<Path> paths = Files.newDirectoryStream(Paths.get(tabledir))) {
-			for (Path p : paths) {
-				String fileName = p.getFileName().toString();
-				if (!fileName.endsWith(".bmt")) continue;
-				TableData td = TableData.read(p);
-				if (td == null) continue;
-				fileNameToTableNameMap.put(fileName, td.getName());
-			}
-		} catch (IOException e) {
-			return null;
+		File dir = new File(tabledir);
+		File[] files = dir.listFiles();
+		if (files == null) return null;
+		for (File f : files) {
+			String fileName = f.getName();
+			if (!fileName.endsWith(".bmt")) continue;
+			TableData td = TableData.read(f);
+			if (td == null) continue;
+			fileNameToTableNameMap.put(fileName, td.getName());
 		}
 		HashMap<String,String> urlToTableNameMap = new HashMap<>();
 		for (String url : urls) {
@@ -88,11 +90,11 @@ public class TableDataAccessor {
 	 * @param td 難易度表データ
 	 */
 	public void write(TableData td) {
-		TableData.write(Paths.get(tabledir + "/" + getFileName(td.getUrl()) + ".bmt"), td);
+		TableData.write(new File(tabledir, getFileName(td.getUrl()) + ".bmt"), td);
 	}
 
 	public void write(TableData td, String filename) {
-		TableData.write(Paths.get(tabledir + "/" + filename), td);
+		TableData.write(new File(tabledir, filename), td);
 	}
 
 	/**
@@ -101,12 +103,15 @@ public class TableDataAccessor {
 	 * @return 全てのキャッシュされた難易度表データ
 	 */
 	public TableData[] readAll() {
-		try (Stream<Path> paths = Files.list(Paths.get(tabledir))) {
-			return paths.map(p -> TableData.read(p)).filter(Objects::nonNull).toArray(TableData[]::new);
-		} catch (IOException e) {
-			e.printStackTrace();
+		File dir = new File(tabledir);
+		File[] files = dir.listFiles();
+		if (files == null) return new TableData[0];
+		List<TableData> result = new ArrayList<>();
+		for (File f : files) {
+			TableData td = TableData.read(f);
+			if (td != null) result.add(td);
 		}
-		return new TableData[0];
+		return result.toArray(new TableData[0]);
 	}
 
 	/**
@@ -116,17 +121,20 @@ public class TableDataAccessor {
 	 * @return キャッシュされた難易度表データ。存在しない場合はnull
 	 */
 	public TableData readCache(String url) {
-		TableData td = null;
-		try (Stream<Path> paths = Files.list(Paths.get(tabledir))) {
-			return paths.filter(p -> p.getFileName().toString().equals(getFileName(url) + ".bmt")).findFirst()
-					.map(p -> TableData.read(p)).orElse(null);
-		} catch (IOException e) {
-			return null;
+		String targetName = getFileName(url) + ".bmt";
+		File dir = new File(tabledir);
+		File[] files = dir.listFiles();
+		if (files == null) return null;
+		for (File f : files) {
+			if (f.getName().equals(targetName)) {
+				return TableData.read(f);
+			}
 		}
+		return null;
 	}
 	
 	public TableData read(String filename) {
-		return TableData.read(Paths.get(tabledir + "/" + filename));
+		return TableData.read(new File(tabledir, filename));
 	}
 
 	private String getFileName(String name) {

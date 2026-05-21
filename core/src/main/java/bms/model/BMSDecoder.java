@@ -1,8 +1,6 @@
 package bms.model;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -63,8 +61,8 @@ public class BMSDecoder extends ChartDecoder {
 		return null;
 	}
 
-	public BMSModel decode(Path f) {
-		return decode(com.badlogic.gdx.Gdx.files.absolute(f.toString()));
+	public BMSModel decode(File f) {
+		return decode(com.badlogic.gdx.Gdx.files.absolute(f.getPath()));
 	}
 
 	public BMSModel decode(ChartInformation info) {
@@ -429,7 +427,7 @@ public class BMSDecoder extends ChartDecoder {
 			}
 
 			model.setChartInformation(new ChartInformation(handle, lntype, selectedRandom));
-			printLog(handle != null ? java.nio.file.Paths.get(handle.path()) : null);
+			printLog(handle != null ? handle.path() : null);
 			return model;
 		} catch (IOException e) {
 			log.add(new DecodeLog(ERROR, "BMS文件访问失败"));

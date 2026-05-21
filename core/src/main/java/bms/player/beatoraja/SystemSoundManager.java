@@ -1,9 +1,7 @@
 package bms.player.beatoraja;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -24,19 +22,19 @@ public class SystemSoundManager {
 	/**
 	 * 検出されたBGMセットのディレクトリパス
 	 */
-	private Array<Path> bgms = new Array<Path>();
+	private Array<File> bgms = new Array<File>();
 	/**
 	 * 現在のBGMセットのディレクトリパス
 	 */
-	private Path currentBGMPath;
+	private File currentBGMPath;
 	/**
 	 * 検出された効果音セットのディレクトリパス
 	 */
-	private Array<Path> sounds = new Array<Path>();
+	private Array<File> sounds = new Array<File>();
 	/**
 	 * 現在の効果音セットのディレクトリパス
 	 */
-	private Path currentSoundPath;
+	private File currentSoundPath;
 
 	private ObjectMap<SoundType, String> soundmap = new ObjectMap<>();
 
@@ -44,10 +42,10 @@ public class SystemSoundManager {
 		this.main = main;
 		Config config = main.getConfig();
 		if(config.getBgmpath() != null && config.getBgmpath().length() > 0) {
-			scan(Paths.get(config.getBgmpath()).toAbsolutePath(), bgms, "select");
+			scan(new File(config.getBgmpath()).getAbsoluteFile(), bgms, "select");
 		}
 		if(config.getSoundpath() != null && config.getSoundpath().length() > 0) {
-			scan(Paths.get(config.getSoundpath()).toAbsolutePath(), sounds, "clear");
+			scan(new File(config.getSoundpath()).getAbsoluteFile(), sounds, "clear");
 		}
 		Logger.getGlobal().info("検出されたBGM Set : " + bgms.size + " Sound Set : " + sounds.size);
 	}
@@ -62,8 +60,8 @@ public class SystemSoundManager {
 		Logger.getGlobal().info("BGM Set : " + currentBGMPath + " Sound Set : " + currentSoundPath);
 
 		for(SoundType sound : SoundType.values()) {
-			for(Path p :getSoundPaths(sound)) {
-				String newpath = p.toString();
+			for(File p :getSoundPaths(sound)) {
+				String newpath = p.getPath();
 				String oldpath = soundmap.get(sound);
 				if (newpath.equals(oldpath)) {
 					break;
@@ -78,23 +76,23 @@ public class SystemSoundManager {
 		}
 	}
 
-	public Path getBGMPath() {
+	public File getBGMPath() {
 		return currentBGMPath;
 	}
 
-	public Path getSoundPath() {
+	public File getSoundPath() {
 		return currentSoundPath;
 	}
 
-	private void scan(Path p, Array<Path> paths, String name) {
+	private void scan(File p, Array<File> paths, String name) {
 		// 在 Android 上，使用 File 类检查目录更为可靠
-		java.io.File dir = p.toFile();
+		java.io.File dir = p;
 		if (dir.isDirectory()) {
 			try {
 				java.io.File[] subFiles = dir.listFiles();
 				if (subFiles != null) {
 					for (java.io.File sub : subFiles) {
-						scan(sub.toPath(), paths, name);
+						scan(sub, paths, name);
 					}
 				}
 				// 检查该目录下是否存在音效文件
@@ -116,16 +114,16 @@ public class SystemSoundManager {
 		}
 	}
 
-	public Path[] getSoundPaths(SoundType type) {
-		Path p = type.isBGM ? currentBGMPath : currentSoundPath;
+	public File[] getSoundPaths(SoundType type) {
+		File p = type.isBGM ? currentBGMPath : currentSoundPath;
 
-		Array<Path> paths = new Array<Path>();
+		Array<File> paths = new Array<File>();
 		if(p != null) {
-			for(FileHandle fh : AudioDriver.getPaths(p.resolve(type.path).toString())) {
-				paths.add(Paths.get(fh.path()));
+			for(FileHandle fh : AudioDriver.getPaths(new File(p, type.path).getPath())) {
+				paths.add(new File(fh.path()));
 			}
 		}
-		
+
 		// 修复Android上默认sound路径问题
 		// Android: 音效文件在 APK 的 assets 中，使用内部资源路径
 		// Desktop: 使用当前工作目录
@@ -133,7 +131,7 @@ public class SystemSoundManager {
 			// Android: 使用内部资源路径 (assets/sound/default/)
 			String internalPath = "sound/default/" + type.path;
 			for(FileHandle fh : AudioDriver.getPaths(internalPath)) {
-				paths.add(Paths.get(fh.path()));
+				paths.add(new File(fh.path()));
 			}
 		} else {
 			// Desktop: 使用 beatoraja.root 系统属性或当前工作目录
@@ -141,19 +139,20 @@ public class SystemSoundManager {
 			if (soundRoot.isEmpty()) {
 				soundRoot = com.badlogic.gdx.Gdx.files.getLocalStoragePath();
 			}
-			String defaultPath = Paths.get(soundRoot).resolve("sound").resolve("default").resolve(type.path).toString();
+			String defaultPath = new File(new File(new File(soundRoot), "sound"), "default").getPath();
+			defaultPath = new File(new File(defaultPath), type.path).getPath();
 			for(FileHandle fh : AudioDriver.getPaths(defaultPath)) {
-				paths.add(Paths.get(fh.path()));
+				paths.add(new File(fh.path()));
 			}
 		}
-		
+
 		if (paths.size > 0) {
 			Logger.getGlobal().info("Found sound path for " + type + ": " + paths.get(0));
 		} else {
 			Logger.getGlobal().warning("No sound path found for " + type);
 		}
-		
-		return paths.toArray(Path.class);
+
+		return paths.toArray(File.class);
 	}
 
 	public String getSound(SoundType sound) {

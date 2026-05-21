@@ -17,7 +17,6 @@ import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 
 import java.io.File;
-import java.nio.file.Path;
 
 /**
  * JSONスキンオブジェクトローダー
@@ -36,7 +35,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 
 	public abstract S getSkin(SkinHeader header);
 
-	public SkinObject loadSkinObject(S skin, JsonSkin.Skin sk, JsonSkin.Destination dst, Path p) {
+	public SkinObject loadSkinObject(S skin, JsonSkin.Skin sk, JsonSkin.Destination dst, File p) {
 		SkinObject obj = null;
 
 		for (JsonSkin.Image img : sk.image) {
@@ -581,7 +580,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		return obj;
 	}
 
-	protected Texture getTexture(String srcid, Path p) {
+	protected Texture getTexture(String srcid, File p) {
 		if(srcid == null) {
 			java.util.logging.Logger.getGlobal().severe("JsonSkinObjectLoader: srcid is null");
 			return null;
@@ -603,8 +602,20 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		if (data.path.startsWith("skin/")) {
 			imagePath = data.path;
 		} else {
-			imagePath = p.getParent().toString() + "/" + data.path;
+			imagePath = p.getParentFile().getPath() + "/" + data.path;
 		}
+
+		// 统一使用 normalizePath 确保路径格式一致（移除 .. 和多余的 /），提高 filemap 匹配成功率
+		imagePath = imagePath.replace("\\", "/").replaceAll("/+", "/");
+		try {
+			// 这里调用 SkinLoader 的私有方法不太方便，但由于 JsonSkinObjectLoader 也在同一个包或子包下，
+			// 如果 normalizePath 是 public 的就好了。实际上它是 public 的。
+			String normalized = SkinLoader.normalizePath(imagePath);
+			if (!normalized.isEmpty()) {
+				imagePath = normalized;
+			}
+		} catch (Exception e) {}
+
 		Gdx.app.log("TextureDebug", "Attempting to load note texture srcid=" + srcid + ", fullPath=" + imagePath);
 
 		// Android 大小写敏感问题修复：如果文件找不到，尝试忽略大小写查找 (same logic as JSONSkinLoader.getSource)
@@ -662,7 +673,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		return (Texture) data.data;
 	}
 
-	protected SkinSource[] getNoteTexture(String[] images, Path p) {
+	protected SkinSource[] getNoteTexture(String[] images, File p) {
 		SkinSource[] noteimages = new SkinSource[images.length];
 		for(int i = 0;i < images.length;i++) {
 			boolean found = false;
@@ -719,17 +730,17 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		return SkinLoader.getTexture(path, loader.usecim);
 	}
 
-	protected SkinText createText(JsonSkin.Text text, Path skinPath) {
+	protected SkinText createText(JsonSkin.Text text, File skinPath) {
 		for (JsonSkin.Font font : loader.sk.font) {
 			if (font.id.equals(text.font)) {
 				// 智能处理字体路径
-				Path path;
+				File path;
 				String fontPathStr = font.path.replace("\\", "/");
 
 				// Android 上，skin 文件在外部存储而非 assets，所以始终相对于 skinPath.getParent() 来解析
 				// 这样 font/fnt/main.fnt 会被解析为 /storage/emulated/0/.../skin/ModernChic/Select/font/fnt/main.fnt
-				path = skinPath.getParent().resolve(font.path).normalize();
-				
+				path = new File(skinPath.getParentFile(), font.path);
+
 				// [DEBUG] 记录 font.path 解析结果以便排查路径问题
 				com.badlogic.gdx.Gdx.app.log("FontDebug", "createText: font.id=" + font.id
 						+ ", font.path=" + font.path
@@ -782,7 +793,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		}
 	}
 
-	protected File getSrcIdPath(String srcid, Path p) {
+	protected File getSrcIdPath(String srcid, File p) {
 		if(srcid == null) {
 			return null;
 		}
@@ -792,7 +803,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 			return null;
 		}
 
-		return SkinLoader.getPath(p.getParent().toString() + "/" + data.path, loader.filemap);
+		return SkinLoader.getPath(p.getParentFile().getPath() + "/" + data.path, loader.filemap);
 	}
 
 	protected void setDestination(Skin skin, SkinObject obj, JsonSkin.Destination dst) {

@@ -2,8 +2,6 @@ package bms.player.beatoraja;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.logging.Logger;
 
 import com.badlogic.gdx.utils.*;

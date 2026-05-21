@@ -1,7 +1,6 @@
 package bms.player.beatoraja;
 
 import java.io.File;
-import java.nio.file.*;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
@@ -83,8 +82,8 @@ public final class RivalDataAccessor {
 					
 					// ライバルスコアデータベース作成
 					// TODO 別のクラスに移動
-					if(!Files.exists(Paths.get("rival"))) {
-						Files.createDirectory(Paths.get("rival"));
+					if(!new File("rival").exists()) {
+						new File("rival").mkdirs();
 					}
 
 					// ライバルキャッシュ作成
@@ -125,11 +124,12 @@ public final class RivalDataAccessor {
 						}
 					}
 					
-					try (DirectoryStream<Path> paths = Files.newDirectoryStream(Paths.get("rival"))) {
-						for (Path p : paths) {
+					File[] files = new File("rival").listFiles();
+					if(files != null) {
+						for (File p : files) {
 							boolean exists = false;
 							for(PlayerInformation info : rivals) {
-								if(p.getFileName().toString().equals(main.getIRStatus()[0].config.getIrname() + info.getId() + ".db")) {
+								if(p.getName().equals(main.getIRStatus()[0].config.getIrname() + info.getId() + ".db")) {
 									exists = true;
 									break;
 								}
@@ -137,9 +137,9 @@ public final class RivalDataAccessor {
 							if(exists) {
 								continue;
 							}
-							
-							if(p.toString().endsWith(".db")) {
-								final ScoreDatabaseAccessor scoredb = new ScoreDatabaseAccessor(p.toString());
+
+							if(p.getName().endsWith(".db")) {
+								final ScoreDatabaseAccessor scoredb = new ScoreDatabaseAccessor(p.getPath());
 								PlayerInformation info = scoredb.getInformation();
 								if(info != null) {
 									rivals.add(info);
@@ -163,8 +163,6 @@ public final class RivalDataAccessor {
 								}
 							}
 						}
-					} catch (Throwable e) {
-						e.printStackTrace();
 					}
 					this.rivals = rivals.toArray(PlayerInformation.class);
 					this.rivalcaches = rivalcaches.toArray(ScoreDataCache.class);

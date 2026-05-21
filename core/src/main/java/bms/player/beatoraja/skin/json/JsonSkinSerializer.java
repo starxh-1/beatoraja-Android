@@ -14,7 +14,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.lang.reflect.Array;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -31,7 +30,7 @@ public class JsonSkinSerializer {
 		this.pathGetter = pathGetter;
 	}
 
-	public void setSerializers(Json json, HashSet<Integer> enabledOptions, Path path) {
+	public void setSerializers(Json json, HashSet<Integer> enabledOptions, File path) {
 		Class[] classes = {
 				JsonSkin.Property.class,
 				JsonSkin.Filepath.class,
@@ -105,9 +104,9 @@ public class JsonSkinSerializer {
 	private abstract class Serializer<T> extends Json.ReadOnlySerializer<T> {
 
 		HashSet<Integer> options;
-		Path path;
+		File path;
 
-		public Serializer(HashSet<Integer> op, Path path) {
+		public Serializer(HashSet<Integer> op, File path) {
 			this.options = op != null ? op : new HashSet<>();
 			this.path = path;
 		}
@@ -157,7 +156,7 @@ public class JsonSkinSerializer {
 
 	private class ObjectSerializer<T> extends Serializer<T> {
 
-		public ObjectSerializer(HashSet<Integer> op, Path path) {
+		public ObjectSerializer(HashSet<Integer> op, File path) {
 			super(op, path);
 		}
 
@@ -177,9 +176,10 @@ public class JsonSkinSerializer {
 			} else if (jsonValue.isObject() && jsonValue.has("include")) {
 				Json subJson = new Json();
 				subJson.setIgnoreUnknownFields(true);
-				File file = pathGetter.apply(path.getParent().toString() + "/" + jsonValue.get("include").asString());
+				File parentDir = path.getParentFile();
+				File file = pathGetter.apply(parentDir.getPath() + "/" + jsonValue.get("include").asString());
 				if (file.exists()) {
-					setSerializers(subJson, this.options, file.toPath());
+					setSerializers(subJson, this.options, file);
 					try {
 						return (T)subJson.fromJson(cls, new FileReader(file));
 					} catch (FileNotFoundException e) {
@@ -215,7 +215,7 @@ public class JsonSkinSerializer {
 
 	private class ArraySerializer<T> extends Serializer<T[]> {
 
-		public ArraySerializer(HashSet<Integer> op, Path path) {
+		public ArraySerializer(HashSet<Integer> op, File path) {
 			super(op, path);
 		}
 
@@ -270,9 +270,10 @@ public class JsonSkinSerializer {
 		private void includeArray(Json json, JsonValue jsonValue, Class cls, ArrayList<T> items) {
 			Json subJson = new Json();
 			subJson.setIgnoreUnknownFields(true);
-			File file = pathGetter.apply(path.getParent().toString() + "/" + jsonValue.get("include").asString());
+			File parentDir = path.getParentFile();
+				File file = pathGetter.apply(parentDir.getPath() + "/" + jsonValue.get("include").asString());
 			if (file.exists()) {
-				setSerializers(subJson, this.options, file.toPath());
+				setSerializers(subJson, this.options, file);
 				try {
 					T[] array = (T[])subJson.fromJson(cls, new FileReader(file));
 					Collections.addAll(items, array);

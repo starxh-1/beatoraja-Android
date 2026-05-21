@@ -2,7 +2,6 @@ package bms.model;
 
 import com.badlogic.gdx.files.FileHandle;
 import java.io.File;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
@@ -26,7 +25,7 @@ public abstract class ChartDecoder {
 	 * @return 変換したBMSModel。失敗した場合はnull
 	 */
 	public BMSModel decode(File file) {
-		return decode(file.toPath());
+		return decode(new ChartInformation(file.getAbsolutePath(), lntype, null));
 	}
 
 	public BMSModel decode(FileHandle file) {
@@ -40,7 +39,7 @@ public abstract class ChartDecoder {
 	 *            譜面ファイルのパス
 	 * @return 変換したBMSModel。失敗した場合はnull
 	 */
-	public BMSModel decode(Path path) {
+	public BMSModel decode(String path) {
 		return decode(new ChartInformation(path, lntype, null));
 	}
 
@@ -62,17 +61,17 @@ public abstract class ChartDecoder {
 	 *            譜面ファイルのパス
 	 * @return 対応するChartDecoder。存在しない場合はnull
 	 */
-	public static ChartDecoder getDecoder(Path p) {
-		if (p == null) return null;
-		return getDecoder(p.getFileName().toString());
+	public static ChartDecoder getDecoder(String path) {
+		if (path == null) return null;
+		return getDecoderByName(new File(path).getName());
 	}
 
 	public static ChartDecoder getDecoder(FileHandle fh) {
 		if (fh == null) return null;
-		return getDecoder(fh.name());
+		return getDecoderByName(fh.name());
 	}
 
-	private static ChartDecoder getDecoder(String filename) {
+	private static ChartDecoder getDecoderByName(String filename) {
 		final String s = filename.toLowerCase();
 		if (s.endsWith(".bms") || s.endsWith(".bme") || s.endsWith(".bml") || s.endsWith(".pms")) {
 			return new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
@@ -168,7 +167,7 @@ public abstract class ChartDecoder {
 		return new String(sb.reverse());
 	}
 
-	protected void printLog(Path path) {
+	protected void printLog(String path) {
 		log.forEach(log -> {
 			switch(log.getState()) {
 			case INFO:

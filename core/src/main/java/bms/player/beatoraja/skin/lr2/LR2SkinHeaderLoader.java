@@ -1,12 +1,13 @@
 package bms.player.beatoraja.skin.lr2;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.*;
 import java.util.function.BiConsumer;
-import java.util.stream.Stream;
 
 import com.badlogic.gdx.utils.Array;
 
@@ -24,51 +25,51 @@ import static bms.player.beatoraja.Resolution.*;
 
 /**
  * LR2スキンヘッダファイル(lr2skin)のローダー
- * 
+ *
  * @author exch
  */
 public class LR2SkinHeaderLoader extends LR2SkinLoader {
-	
+
 	SkinHeader header = new SkinHeader();
 	Array<CustomFile> files = new Array<CustomFile>();
 	Array<CustomOption> options = new Array<CustomOption>();
 	Array<CustomOffset> offsets = new Array<CustomOffset>();
-	
+
 	final String skinpath;
 
 	public LR2SkinHeaderLoader(Config c) {
 		addCommandWord(HeaderCommand.values());
 		skinpath = c.getSkinpath();
 	}
-	
-	public SkinHeader loadSkin(Path f, MainState state) throws IOException {
+
+	public SkinHeader loadSkin(File f, MainState state) throws IOException {
 		return this.loadSkin(f, state, new SkinConfig.Property());
 	}
-	
-	public SkinHeader loadSkin(Path f, MainState state, SkinConfig.Property property) throws IOException {
+
+	public SkinHeader loadSkin(File f, MainState state, SkinConfig.Property property) throws IOException {
 		// TODO header読み込みに失敗したらnullを返す
 		header = new SkinHeader();
 		files.clear();
 		options.clear();
 		offsets.clear();
 
-		header.setPath(f);
+		header.setPath(f.getPath());
 
-		try (Stream<String> lines = Files.lines(f, Charset.forName("MS932"))) {
-			lines.forEach(line -> {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(f), Charset.forName("MS932")))) {
+			reader.lines().forEach(line -> {
 				try {
-					processLine(line, state);				
+					processLine(line, state);
 				} catch(Throwable e) {
 					e.printStackTrace();
 				}
 			});
-		};
+		}
 		header.setCustomOptions(options.toArray(CustomOption.class));
 		header.setCustomFiles(files.toArray(CustomFile.class));
 		header.setCustomOffsets(offsets.toArray(CustomOffset.class));
-		
+
 		header.setSkinConfigProperty(property);
-		
+
 		for (CustomOption option : header.getCustomOptions()) {
 			for(int i = 0;i < option.option.length;i++) {
 				op.put(option.option[i], option.getSelectedOption() == option.option[i] ? 1 : 0);
@@ -76,7 +77,7 @@ public class LR2SkinHeaderLoader extends LR2SkinLoader {
 		}
 
 		return header;
-	}	
+	}
 }
 
 enum HeaderCommand implements Command<LR2SkinHeaderLoader> {
@@ -150,13 +151,13 @@ enum HeaderCommand implements Command<LR2SkinHeaderLoader> {
 	}),
 	INCLUDE ((loader, str) -> {
 	});
-	
+
 	public final BiConsumer<LR2SkinHeaderLoader, String[]> function;
-	
+
 	private HeaderCommand(BiConsumer<LR2SkinHeaderLoader, String[]> function) {
 		this.function = function;
 	}
-	
+
 	public void execute(LR2SkinHeaderLoader loader, String[] str) {
 		function.accept(loader, str);
 	}

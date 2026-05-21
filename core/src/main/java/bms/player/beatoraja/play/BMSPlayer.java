@@ -4,7 +4,7 @@ import static bms.player.beatoraja.CourseData.CourseDataConstraint.*;
 import static bms.player.beatoraja.skin.SkinProperty.*;
 import static bms.player.beatoraja.SystemSoundManager.SoundType.*;
 
-import java.nio.file.Path;
+import java.io.File;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -455,10 +455,10 @@ public class BMSPlayer extends MainState {
 		final SystemSoundManager.SoundType[] guideses = {GUIDESE_PG,GUIDESE_GR,GUIDESE_GD,GUIDESE_BD,GUIDESE_PR,GUIDESE_MS};
 		for(int i = 0;i < 6;i++) {
 			if(config.isGuideSE()) {
-				Path[] paths = main.getSoundManager().getSoundPaths(guideses[i]);
+				File[] paths = main.getSoundManager().getSoundPaths(guideses[i]);
 				if(paths.length > 0) {
-					main.getAudioProcessor().setAdditionalKeySound(i, true, paths[0].toString());
-					main.getAudioProcessor().setAdditionalKeySound(i, false, paths[0].toString());
+					main.getAudioProcessor().setAdditionalKeySound(i, true, paths[0].getPath());
+					main.getAudioProcessor().setAdditionalKeySound(i, false, paths[0].getPath());
 				}
 			} else {
 				main.getAudioProcessor().setAdditionalKeySound(i, true, null);

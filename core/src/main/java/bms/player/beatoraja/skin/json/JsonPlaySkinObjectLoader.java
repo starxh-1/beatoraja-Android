@@ -4,7 +4,6 @@ import static bms.player.beatoraja.skin.SkinProperty.OFFSET_HIDDEN_COVER;
 import static bms.player.beatoraja.skin.SkinProperty.OFFSET_LIFT;
 
 import java.io.File;
-import java.nio.file.Path;
 import java.util.Arrays;
 
 import com.badlogic.gdx.graphics.Texture;
@@ -27,7 +26,7 @@ public class JsonPlaySkinObjectLoader extends JsonSkinObjectLoader<PlaySkin> {
 	}
 
 	@Override
-	public SkinObject loadSkinObject(PlaySkin skin, JsonSkin.Skin sk, JsonSkin.Destination dst, Path p) {
+	public SkinObject loadSkinObject(PlaySkin skin, JsonSkin.Skin sk, JsonSkin.Destination dst, File p) {
 		SkinObject obj =super.loadSkinObject(skin, sk, dst, p);
 		if(obj != null) {
 			return obj;

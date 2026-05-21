@@ -4,8 +4,6 @@ import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.JsonWriter;
 
 import java.io.*;
-import java.nio.file.*;
-import java.util.stream.Stream;
 
 /**
  * コースデータへのアクセス
@@ -18,14 +16,11 @@ public class CourseDataAccessor {
 
     public CourseDataAccessor(String path) {
         coursedir = path;
-        try {
-            Path p = Paths.get(coursedir);
-            if (!p.isAbsolute()) {
-                p = Paths.get(System.getProperty("beatoraja.root", "."), coursedir);
-            }
-            Files.createDirectories(p);
-        } catch (IOException e) {
+        File dir = new File(coursedir);
+        if (!dir.isAbsolute()) {
+            dir = new File(System.getProperty("beatoraja.root", "."), coursedir);
         }
+        dir.mkdirs();
     }
 
     /**
@@ -34,43 +29,65 @@ public class CourseDataAccessor {
      * @return 全てのキャッシュされた難易度表データ
      */
     public CourseData[] readAll() {
-        return Stream.of(readAllNames()).flatMap(name -> Stream.of(read(name))).toArray(CourseData[]::new);
+        String[] names = readAllNames();
+        java.util.List<CourseData> result = new java.util.ArrayList<>();
+        for (String name : names) {
+            for (CourseData cd : read(name)) {
+                result.add(cd);
+            }
+        }
+        return result.toArray(new CourseData[0]);
     }
 
     public String[] readAllNames() {
-        Path p = Paths.get(coursedir);
-        if (!p.isAbsolute()) {
-            p = Paths.get(System.getProperty("beatoraja.root", "."), coursedir);
+        File dir = new File(coursedir);
+        if (!dir.isAbsolute()) {
+            dir = new File(System.getProperty("beatoraja.root", "."), coursedir);
         }
-        try (Stream<Path> paths = Files.list(p)) {
-            return paths.map(path -> path.getFileName().toString().substring(0, path.getFileName().toString().lastIndexOf('.'))).toArray(String[]::new);
-        } catch (IOException e) {
-            // Fallback to internal assets if it's a relative path and doesn't exist in filesystem
-            try {
-                com.badlogic.gdx.files.FileHandle[] files = com.badlogic.gdx.Gdx.files.internal(coursedir).list();
-                if (files != null && files.length > 0) {
-                    java.util.List<String> names = new java.util.ArrayList<>();
-                    for (com.badlogic.gdx.files.FileHandle file : files) {
-                        if (file.extension().equals("json")) {
-                            names.add(file.nameWithoutExtension());
-                        }
-                    }
-                    return names.toArray(new String[0]);
+        String[] files = dir.list();
+        if (files != null) {
+            java.util.List<String> result = new java.util.ArrayList<>();
+            for (String f : files) {
+                if (f.endsWith(".json")) {
+                    result.add(f.substring(0, f.lastIndexOf('.')));
                 }
-            } catch (Exception ex) {}
-            return new String[0];
+            }
+            return result.toArray(new String[0]);
         }
+        // Fallback to internal assets if it's a relative path and doesn't exist in filesystem
+        try {
+            com.badlogic.gdx.files.FileHandle[] internalFiles = com.badlogic.gdx.Gdx.files.internal(coursedir).list();
+            if (internalFiles != null && internalFiles.length > 0) {
+                java.util.List<String> names = new java.util.ArrayList<>();
+                for (com.badlogic.gdx.files.FileHandle file : internalFiles) {
+                    if (file.extension().equals("json")) {
+                        names.add(file.nameWithoutExtension());
+                    }
+                }
+                return names.toArray(new String[0]);
+            }
+        } catch (Exception ex) {}
+        return new String[0];
     }
 
     public CourseData[] read(String name) {
-        Path p = Paths.get(coursedir + "/" + name + ".json");
+        File file = new File(coursedir + "/" + name + ".json");
         boolean isList = false;
         try {
             Json json = new Json();
 			json.setIgnoreUnknownFields(true);
             CourseData[] courses =  json.fromJson(CourseData[].class,
-                    new BufferedInputStream(Files.newInputStream(p)));
-            return Stream.of(courses).filter(CourseData::validate).toArray(CourseData[]::new);
+                    new BufferedInputStream(new FileInputStream(file)));
+            CourseData[] result = new CourseData[courses.length];
+            int count = 0;
+            for (CourseData c : courses) {
+                if (c.validate()) {
+                    result[count++] = c;
+                }
+            }
+            CourseData[] trimmed = new CourseData[count];
+            System.arraycopy(result, 0, trimmed, 0, count);
+            return trimmed;
         } catch(Throwable e) {
 
         }
@@ -79,7 +96,7 @@ public class CourseDataAccessor {
                 Json json = new Json();
 				json.setIgnoreUnknownFields(true);
                 CourseData course = json.fromJson(CourseData.class,
-                        new BufferedInputStream(Files.newInputStream(p)));
+                        new BufferedInputStream(new FileInputStream(file)));
             	if(course.validate()) {
             		return new CourseData[]{course};
             	}
@@ -95,7 +112,7 @@ public class CourseDataAccessor {
      */
     public void write(String name, CourseData[] cd) {
         try {
-        	Stream.of(cd).forEach(CourseData::shrink);
+        	for (CourseData c : cd) { c.shrink(); }
             Json json = new Json();
             json.setOutputType(JsonWriter.OutputType.json);
             OutputStreamWriter fw = new OutputStreamWriter(new BufferedOutputStream(

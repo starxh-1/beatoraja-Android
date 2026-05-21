@@ -1,9 +1,9 @@
 package bms.player.beatoraja.audio;
 
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
-import java.nio.file.*;
 import java.util.Locale;
 import java.util.logging.Logger;
 
@@ -42,8 +42,8 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 	}
 
 	@Override
-	protected Sound getKeySound(Path p) {
-		for(FileHandle handle : AudioDriver.getPaths(p.toString())) {
+	protected Sound getKeySound(File path) {
+		for(FileHandle handle : AudioDriver.getPaths(path.getPath())) {
 			final String filename = handle.path();
 			final int dotIndex = filename.lastIndexOf('.');
 			if (dotIndex < 0) continue;

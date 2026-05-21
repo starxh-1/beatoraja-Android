@@ -1,8 +1,6 @@
 package bms.model;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -69,8 +67,8 @@ public class BMSONDecoder extends ChartDecoder {
 	}
 
 	@Override
-	public BMSModel decode(Path f) {
-		return decode(com.badlogic.gdx.Gdx.files.absolute(f.toString()));
+	public BMSModel decode(File f) {
+		return decode(com.badlogic.gdx.Gdx.files.absolute(f.getPath()));
 	}
 
 	private BMSModel decodeBmson(Bmson bmson, String path, long currnttime, FileHandle f) {
@@ -461,7 +459,7 @@ public class BMSONDecoder extends ChartDecoder {
 		if (f != null) {
 			model.setChartInformation(new ChartInformation(f, lntype, null));
 		}
-		printLog(f != null ? java.nio.file.Paths.get(f.path()) : null);
+		printLog(f != null ? f.path() : null);
 		return model;
 	}
 

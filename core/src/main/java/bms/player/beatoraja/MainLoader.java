@@ -1,6 +1,6 @@
 package bms.player.beatoraja;
 
-import java.nio.file.Path;
+import java.io.File;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -16,7 +16,7 @@ public class MainLoader {
 
     private static SongDatabaseAccessor songdb;
     private static final Set<String> illegalSongs = new HashSet<String>();
-    private static Path bmsPath;
+    private static File bmsPath;
     private static VersionChecker version;
 
     // 移除了 main() 和 start() 方法，因为 Android 的启动入口是 AndroidLauncher.java
@@ -57,7 +57,7 @@ public class MainLoader {
         }
     }
 
-    public static Path getBMSPath() {
+    public static File getBMSPath() {
         return bmsPath;
     }
 
