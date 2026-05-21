@@ -407,9 +407,6 @@ local function main()
 		{id = "judgems-1pg", src = 13, x = 0, y = 60, w = 120, h = 40, divx = 12, divy = 2, digit = 4, ref = 525}
 	}
 	append_all(skin.value, play_parts.judge_count_sources("judge-count-", 5))
-	skin.text = {
-		{id = "song-title", font = 0, size = 24, align = geometry.title_align, ref = 12}
-	}
 	skin.slider = {
 		{id = "musicprogress", src = 0, x = 0, y = 289, w = 14, h = 20, angle = 2, range = geometry.progress_h - 20,type = 6},
 		{id = "musicprogress-fin", src = 0, x = 15, y = 289, w = 14, h = 20, angle = 2, range = geometry.progress_h - 20,type = 6},
@@ -678,11 +675,6 @@ local function main()
 		}},
 		{id = "timing", dst = {
 			{time = 0, x = geometry.timing_x, y = geometry.timing_y, w = geometry.timing_w, h = geometry.timing_h}
-		}},
-		{id = "song-title", dst = {
-			{time = 0, x = geometry.title_x, y = 674, w = 24, h = 24},
-			{time = 1000, a = 0},
-			{time = 2000, a = 255}
 		}},
 		{id = "load-progress", loop = 0, op = {80}, dst = {
 			{time = 0, x = geometry.lanes_x, y = 440, w = geometry.lanes_w, h = 4},

@@ -1194,7 +1194,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                                     + " (DB date: " + recordDate + ", File date: " + lastModifiedTime + ")");
                         }
                     } else {
-                        Log.i(TAG, "[ProcessBmsFile] New file, need to add: " + pathName);
+                        // Log.i(TAG, "[ProcessBmsFile] New file, need to add: " + pathName);
                     }
                 }
             } else {
@@ -1202,7 +1202,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             }
 
             // 解析 BMS/BMSON 文件
-            Log.d(TAG, "[ProcessBmsFile] Decoding: " + pathName);
+            // Log.d(TAG, "[ProcessBmsFile] Decoding: " + pathName);
             long decodeStart = System.currentTimeMillis();
             BMSModel model = null;
             if (pathName.toLowerCase().endsWith(".bmson")) {
@@ -1352,7 +1352,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     Log.e(TAG, "[ProcessBmsFile] INSERT failed for: " + file.path() + " (result=-1)");
                 } else {
                     fileCount.incrementAndGet();
-                    Log.d(TAG, "[ProcessBmsFile] Successfully inserted/updated: " + songData.getTitle() + " (" + pathName + ")");
+                    // Log.d(TAG, "[ProcessBmsFile] Successfully inserted/updated: " + songData.getTitle() + " (" + pathName + ")");
                 }
             } catch (android.database.SQLException e) {
                 Log.e(TAG, "================================================================================");
