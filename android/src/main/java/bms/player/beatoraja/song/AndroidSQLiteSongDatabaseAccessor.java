@@ -1112,7 +1112,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                                 + " (DB date: " + recordDate + ", Folder date: " + lastModified + ")");
                     }
                 } else {
-                    Log.i(TAG, "New folder, need to add: " + path);
+                    // Log.i(TAG, "New folder, need to add: " + path);
                 }
             }
 
