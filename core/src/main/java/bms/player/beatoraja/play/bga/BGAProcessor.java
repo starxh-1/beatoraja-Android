@@ -93,6 +93,12 @@ public class BGAProcessor {
 	private boolean rbga;
 	private boolean rlayer;
 
+	private boolean isPortrait = false;
+
+	public void setPortrait(boolean portrait) {
+		this.isPortrait = portrait;
+	}
+
 	public BGAProcessor(Config config, PlayerConfig player) {
 		this.config = config;
 		this.player = player;
@@ -445,11 +451,31 @@ public class BGAProcessor {
 	 * Modify the aspect ratio and draw BGA
 	 */
 	private void drawBGAFixRatio(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r, Texture bga){
-		tmpRect.set(r);
 		image.setTexture(bga);
 		image.setRegion(0, 0, bga.getWidth(), bga.getHeight());
-		dst.getStretch().stretchRect(tmpRect, image, image);
-		sprite.draw(image, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
+		if (isPortrait) {
+			// In portrait, the target area 'r' is in Landscape buffer space.
+			// 'r.width' is the length of the lane, 'r.height' is the width of the lane (1080).
+			// We want to fill 'r' with the BGA rotated 270 degrees.
+			// The BGA's "width" will align with 'r.height' and BGA's "height" with 'r.width'.
+			tmpRect.set(0, 0, r.height, r.width);
+			dst.getStretch().stretchRect(tmpRect, image, image);
+
+			// To fill the area, we need to draw it at the center of 'r'.
+			float centerX = r.x + r.width / 2f;
+			float centerY = r.y + r.height / 2f;
+
+			// Note: LibGDX draw with rotation uses (x, y) as the bottom-left of the UNROTATED rectangle.
+			// tmpRect.width/height are the dimensions of the BGA after stretch fitting into (1080 x lane_length).
+			// After 270 deg rotation (around center):
+			// Unrotated width (tmpRect.width) becomes vertical height.
+			// Unrotated height (tmpRect.height) becomes horizontal width.
+			sprite.draw(image, centerX - tmpRect.width / 2f, centerY - tmpRect.height / 2f, tmpRect.width, tmpRect.height, 0.5f, 0.5f, 270f);
+		} else {
+			tmpRect.set(r);
+			dst.getStretch().stretchRect(tmpRect, image, image);
+			sprite.draw(image, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
+		}
 	}
 
 	/**
@@ -548,11 +574,19 @@ public class BGAProcessor {
 	}
 
 	private void drawBGAFixRatioToRect(SpriteBatch batch, Rectangle r, Texture bga, StretchType stretch) {
-		tmpRect.set(r);
 		image.setTexture(bga);
 		image.setRegion(0, 0, bga.getWidth(), bga.getHeight());
-		stretch.stretchRect(tmpRect, image, image);
-		batch.draw(image, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
+		if (isPortrait) {
+			tmpRect.set(0, 0, r.height, r.width);
+			stretch.stretchRect(tmpRect, image, image);
+			float centerX = r.x + r.width / 2f;
+			float centerY = r.y + r.height / 2f;
+			batch.draw(image, centerX - tmpRect.height / 2f, centerY - tmpRect.width / 2f, tmpRect.height / 2f, tmpRect.width / 2f, tmpRect.width, tmpRect.height, 1f, 1f, 270f);
+		} else {
+			tmpRect.set(r);
+			stretch.stretchRect(tmpRect, image, image);
+			batch.draw(image, tmpRect.x, tmpRect.y, tmpRect.width, tmpRect.height);
+		}
 	}
 
 	/**

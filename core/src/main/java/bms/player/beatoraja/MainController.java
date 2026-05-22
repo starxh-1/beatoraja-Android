@@ -284,12 +284,18 @@ public class MainController {
     public void changeState(MainStateType state) {
         // 在切换状态时，再次积极请求高刷新率
         if (isAndroid) {
-            // 32位ARM设备：MusicSelector界面限制为30FPS（降低GPU负载）
             if (is32BitARM && state == MainStateType.MUSICSELECT) {
+                // 32位设备：MusicSelector界面限制为30FPS（降低GPU负载）
                 currentTargetFPS = 30;
                 config.setMaxFramePerSecond(30);
+            } else if (state == MainStateType.MUSICSELECT) {
+                // 64位设备：MusicSelector界面不限帧
+                currentTargetFPS = 1000;
+                config.setMaxFramePerSecond(1000);
             } else {
+                // 其他界面：恢复检测到的硬件原始刷新率
                 currentTargetFPS = detectedRefreshRate;
+                config.setMaxFramePerSecond(detectedRefreshRate);
             }
             updateFrameRateAPI(currentTargetFPS);
             // 针对 PLAY 界面，额外启动一个短时延时任务，防止系统在场景切换完成后降频
@@ -299,6 +305,7 @@ public class MainController {
                     @Override
                     public void run() {
                         currentTargetFPS = detectedRefreshRate;
+                        config.setMaxFramePerSecond(detectedRefreshRate);
                         updateFrameRateAPI(playTargetFPS);
                         Gdx.app.log("beatoraja", "Delayed FrameRate API refresh executed");
                     }

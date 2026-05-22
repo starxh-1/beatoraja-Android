@@ -32,6 +32,7 @@ import bms.player.beatoraja.BMSPlayerMode;
 
 public class AndroidLauncher extends AndroidApplication {
     private static final String TAG = "AndroidLauncher";
+    private static AndroidLauncher instance;
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
     private OboeAudio oboeAudio;
@@ -96,6 +97,22 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        instance = this;
+
+        // 检测设备架构并设置系统属性，供core模块使用
+        boolean is64Bit = false;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            is64Bit = android.os.Process.is64Bit();
+        } else if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            is64Bit = android.os.Build.SUPPORTED_64_BIT_ABIS != null && android.os.Build.SUPPORTED_64_BIT_ABIS.length > 0;
+        }
+
+        if (!is64Bit) {
+            System.setProperty("beatoraja.32bit", "true");
+            Log.i(TAG, "Detected 32-bit device, using 30FPS limit for MusicSelect and low-precision timer");
+        } else {
+            Log.i(TAG, "Detected 64-bit device, unlimited FPS and high-precision timer enabled");
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             android.window.OnBackInvokedCallback callback = () -> {
@@ -137,7 +154,11 @@ public class AndroidLauncher extends AndroidApplication {
         try {
             File configFile = new File(filesDir, "config_sys.json");
             if (configFile.exists()) {
-                String content = new String(java.nio.file.Files.readAllBytes(configFile.toPath()), "UTF-8");
+                FileInputStream fis = new FileInputStream(configFile);
+                byte[] bytes = new byte[(int) configFile.length()];
+                fis.read(bytes);
+                fis.close();
+                String content = new String(bytes, "UTF-8");
                 int nameIndex = content.indexOf("\"playername\"");
                 if (nameIndex >= 0) {
                     int colonIndex = content.indexOf(":", nameIndex);
@@ -429,6 +450,16 @@ public class AndroidLauncher extends AndroidApplication {
                 zip.delete();
                 Log.i(TAG, "Deleted song zip after extract: " + zip.getName());
             }
+        }
+    }
+
+    /**
+     * 公开方法，供外部调用检测并解压 songs 目录下的 zip 文件
+     * 可被 core 模块通过反射调用
+     */
+    public static void checkAndExtractSongZips() {
+        if (instance != null) {
+            instance.ensureExternalSongZip();
         }
     }
 

@@ -21,6 +21,7 @@ import bms.player.beatoraja.pattern.*;
 import bms.player.beatoraja.pattern.LaneShuffleModifier.*;
 import bms.player.beatoraja.play.PracticeConfiguration.PracticeProperty;
 import bms.player.beatoraja.play.bga.BGAProcessor;
+import bms.player.beatoraja.skin.Skin;
 import bms.player.beatoraja.skin.SkinType;
 
 /**
@@ -446,6 +447,29 @@ public class BMSPlayer extends MainState {
 		}
 
 		loadSkin(getSkinType());
+
+		// 根据皮肤配置检测是否为竖屏模式，并同步给 BGA 处理器
+		if (resource.getBGAManager() != null) {
+			boolean isPortrait = false;
+			Skin currentSkin = getSkin();
+			if (currentSkin != null && currentSkin.header != null) {
+				for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : currentSkin.header.getCustomOptions()) {
+					if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
+						isPortrait = true;
+						break;
+					}
+				}
+			}
+			if (!isPortrait && currentSkin != null && currentSkin.getOption() != null) {
+				for (com.badlogic.gdx.utils.IntIntMap.Entry e : currentSkin.getOption()) {
+					if (e.value == 1101) {
+						isPortrait = true;
+						break;
+					}
+				}
+			}
+			resource.getBGAManager().setPortrait(isPortrait);
+		}
 
 		// 根据 skin 的 laneregion 更新触摸按键区域（仅 Android 平台）
 		if (touchKeyMapper != null) {

@@ -5,11 +5,20 @@ import java.util.Arrays;
 import bms.player.beatoraja.skin.SkinProperty;
 
 /**
- * タイマー管理用クラス
- * 
- * @author exch
+ * 低端32位设备优化：用System.currentTimeMillis替代System.nanoTime，
+ * 避免可能的syscall开销。在高端设备或非32位ARM上仍使用nanoTime保持高精度。
  */
 public class TimerManager {
+
+    private static final boolean USE_MILLIS_FOR_LOW_POWER;
+
+    static {
+        // 通过系统属性检测32位ARM设备（AndroidLauncher会设置beatoraja.32bit）
+        // 纯Desktop或其他环境编译时直接读取系统属性
+        USE_MILLIS_FOR_LOW_POWER = "true".equals(System.getProperty("beatoraja.32bit"));
+    }
+
+    private static final long INVALID_TIMER = Long.MIN_VALUE;
 
 	/**
 	 * 状態の開始時間
@@ -100,13 +109,23 @@ public class TimerManager {
 	
 	public void setMainState(MainState current) {
 		this.current = current;
-		
-		Arrays.fill(timer, Long.MIN_VALUE);
-		starttime = System.nanoTime();
-		nowmicrotime = ((System.nanoTime() - starttime) / 1000);
+
+		Arrays.fill(timer, INVALID_TIMER);
+		if (USE_MILLIS_FOR_LOW_POWER) {
+			starttime = System.currentTimeMillis();
+			nowmicrotime = 0;
+		} else {
+			starttime = System.nanoTime();
+			nowmicrotime = 0;
+		}
 	}
 	
 	public void update() {
-		nowmicrotime = ((System.nanoTime() - starttime) / 1000);
+		if (USE_MILLIS_FOR_LOW_POWER) {
+			long elapsed = System.currentTimeMillis() - starttime;
+			nowmicrotime = elapsed * 1000;
+		} else {
+			nowmicrotime = ((System.nanoTime() - starttime) / 1000);
+		}
 	}
 }

@@ -461,11 +461,20 @@ local function main(keysNumber)
 		geo.scoregrapharea = {}
 		geo.scoregrapharea.w = 0
 
-		-- BGA - hidden in portrait
+		-- BGA - fills the rest of the area
 		geo.bgaarea = {}
-		geo.bgaarea.w = 0
-		geo.bgaarea.x = 0
-		geo.bga = {w = 0, h = 0, x = 0, y = 0, center_x = 0, center_y = 0}
+		geo.bgaarea.x = geo.lane.x + geo.lane.judgeline_h + 5
+		geo.bgaarea.w = 1920 - geo.bgaarea.x
+		geo.bgaarea.y = 0
+		geo.bgaarea.h = 1080
+		geo.bga = {
+			x = geo.bgaarea.x,
+			y = geo.bgaarea.y,
+			w = geo.bgaarea.w,
+			h = geo.bgaarea.h,
+			center_x = geo.bgaarea.x + geo.bgaarea.w / 2,
+			center_y = geo.bgaarea.y + geo.bgaarea.h / 2
+		}
 
 		-- Lanearea
 		geo.lanearea = {}
@@ -1042,7 +1051,7 @@ local function main(keysNumber)
 
 		local f_x, f_y, f_angle, f_cx, f_cy
 		if isPortraitLayout() then
-			f_x = 400
+			f_x = geo.lane.x + 320 -- Distance from judgment line
 			f_y = 540
 			f_angle = 270 -- Correct upright orientation for GREAT in portrait
 			f_cx = 0.5
@@ -1065,9 +1074,9 @@ local function main(keysNumber)
 
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then
-			n_x = -65
-			n_y = 0
-			n_angle = 270 -- Same for numbers
+			n_x = 0 -- Relative to judge_f's center
+			n_y = -100 -- Distance along the falling direction (Buffer X)
+			n_angle = 270 -- Rotated to match judge_f
 			n_cx = 0.5
 			n_cy = 0.5
 		else
@@ -1987,10 +1996,20 @@ local function main(keysNumber)
 	-- lane border white line レーン周りの白線
 	if property.hideFrames.item.off.isSelected() then
 		local w = 3
-		-- constrain border width to not exceed header.w
-		local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.visual_x - w))
-		append_all(skin.destination, border_dst(geo.lane.visual_x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
-		append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
+		if isPortraitLayout() then
+			-- In portrait, visual_x is lane.x
+			local border_x = geo.lane.x
+			local border_y = geo.lane.y
+			local border_w = geo.lane.judgeline_h
+			local border_h = geo.lane.h
+			append_all(skin.destination, border_dst(border_x - w, border_y - w, border_w + w * 2, border_h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
+			append_all(skin.destination, border_dst(border_x, border_y, border_w, border_h, {r = 200, g = 200, b = 200}, 255, w, w))
+		else
+			-- constrain border width to not exceed header.w
+			local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.visual_x - w))
+			append_all(skin.destination, border_dst(geo.lane.visual_x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
+			append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
+		end
 	end
 	-- glow
 	if isPortraitLayout() then
@@ -2281,8 +2300,8 @@ local function main(keysNumber)
 			local x, y, angle
 			if pos_property.typeA.isSelected() then
 				if isPortraitLayout() then
-					x = geo.lane.x + 280
-					y = 540
+					x = geo.lane.x + 320
+					y = 540 - 150 -- Align with judge's X (Buffer Y) but offset on Y (Buffer X)
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
