@@ -502,7 +502,7 @@ local function main(keysNumber)
 	geo.lane = {}
 	geo.lane.separateline_w = 3
 	geo.lane.y = 226
-	geo.lane.h = header.h - geo.lane.y
+	geo.lane.h = header.h - geo.lane.y + 18
 	geo.lane.w = lane_w
 	geo.lane.fivekeycover_w = note_white_w + note_black_w + geo.lane.separateline_w * 2
 	geo.lane.judgeline_h = 10
