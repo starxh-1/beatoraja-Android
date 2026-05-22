@@ -59,7 +59,7 @@ public interface SongDatabaseAccessor {
 
 	/**
 	 * データベースを更新する
-	 * 
+	 *
 	 * @param updatepath
 	 *            更新するフォルダのパス。全更新する場合はnull
 	 * @param updateAll
@@ -68,8 +68,32 @@ public interface SongDatabaseAccessor {
 	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info);
 
 	/**
+	 * データベースを更新する（進捗報告付き）
+	 *
+	 * @param updatepath
+	 *            更新するフォルダのパス。全更新する場合はnull
+	 * @param updateAll
+	 *            更新の必要がないものも更新するかどうか
+	 * @param progress
+	 *            進捗コールバック。スキャン開始時と各ファイル完了時に呼び出される
+	 */
+	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info, SongScanProgress progress);
+
+	/**
 	 * Get the BMS root directories used by this accessor.
 	 * @return Array of BMS root paths
 	 */
 	public String[] getBmsRoot();
+
+	/**
+	 * 歌曲扫描进度回调接口
+	 */
+	public interface SongScanProgress {
+		/**
+		 * 每完成一个文件扫描时调用
+		 * @param scanned 已扫描的文件数
+		 * @param total 预估总文件数（-1表示未知）
+		 */
+		void onFileScanned(int scanned, int total);
+	}
 }

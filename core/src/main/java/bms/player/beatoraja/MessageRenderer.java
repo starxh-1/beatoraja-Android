@@ -80,6 +80,10 @@ public class MessageRenderer implements Disposable  {
 		private final Color color;
 		private final int type;
 
+		// Progress support
+		private int scanned = -1;
+		private int total = -1;
+
 		public Message(String text, long time, Color color, int type) {
 			this.time = time + System.currentTimeMillis();
 			this.text = text;
@@ -99,6 +103,11 @@ public class MessageRenderer implements Disposable  {
 			this.text = text;
 		}
 
+		public void setProgress(int scanned, int total) {
+			this.scanned = scanned;
+			this.total = total;
+		}
+
 		public void stop() {
 			time = -1;
 		}
@@ -106,7 +115,13 @@ public class MessageRenderer implements Disposable  {
 		public void draw(MainState state, SpriteBatch sprite, int x, int y) {
 			if(type != 1 || state instanceof MusicSelector) {
 				font.setColor(color.r, color.g, color.b, MathUtils.sinDeg((System.currentTimeMillis() % 1440) / 4.0f) * 0.3f + 0.7f);
-				font.draw(sprite, text, x, y);
+				if (scanned >= 0 && total > 0) {
+					font.draw(sprite, text + " " + scanned + "/" + total, x, y);
+				} else if (scanned >= 0) {
+					font.draw(sprite, text + " " + scanned, x, y);
+				} else {
+					font.draw(sprite, text, x, y);
+				}
 			}
 		}
 

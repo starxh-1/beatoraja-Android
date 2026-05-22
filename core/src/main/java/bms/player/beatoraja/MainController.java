@@ -1331,8 +1331,19 @@ public class MainController {
                     // Non-Android platform or reflection failed, ignore
                 }
 
+                // 创建进度回调，通过 postRunnable 更新 Message（确保在 GL 线程更新）
+                bms.player.beatoraja.song.SongDatabaseAccessor.SongScanProgress progress =
+                    new bms.player.beatoraja.song.SongDatabaseAccessor.SongScanProgress() {
+                        @Override
+                        public void onFileScanned(int scanned, int total) {
+                            Gdx.app.postRunnable(() -> {
+                                messageObj.setProgress(scanned, total);
+                            });
+                        }
+                    };
+
                 // 执行扫描 - 这是阻塞调用，会等待扫描完成
-                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase());
+                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase(), progress);
 
                 long elapsed = System.currentTimeMillis() - threadStartTime;
                 Logger.getGlobal().info("================================================================================");

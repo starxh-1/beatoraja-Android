@@ -528,14 +528,19 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
     @Override
     public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info) {
+        updateSongDatas(updatepath, bmsroot, updateAll, info, null);
+    }
+
+    @Override
+    public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info, SongScanProgress progress) {
         this.info = info;
         if (info != null) {
             info.startUpdate();
         }
         if (updatepath != null) {
-            updateSongDatas(new String[]{updatepath}, updateAll);
+            updateSongDatas(new String[]{updatepath}, updateAll, progress);
         } else {
-            updateSongDatas(bmsroot, updateAll);
+            updateSongDatas(bmsroot, updateAll, progress);
         }
     }
 
@@ -546,12 +551,36 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      *
      * @param paths Array of root paths to scan for BMS files
      * @param forceRefresh Whether to force a full re-scan (ignores existing records and timestamps)
+     * @param progress Progress callback (can be null)
      */
-    public void updateSongDatas(String[] paths, boolean forceRefresh) {
+    public void updateSongDatas(String[] paths, boolean forceRefresh, SongScanProgress progress) {
         long startTime = System.currentTimeMillis();
-        final AtomicInteger fileCount = new AtomicInteger(0);
+        final AtomicInteger updatedCount = new AtomicInteger(0);
+        final AtomicInteger scannedCount = new AtomicInteger(0);
         BMSDecoder decoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
         SQLiteDatabase db = helper.getWritableDatabase();
+
+        // 阶段 0: 预扫描计算总文件数，以便 UI 显示进度
+        int totalFiles = 0;
+        long preScanStart = System.currentTimeMillis();
+        for (String path : paths) {
+            if (path == null || path.trim().isEmpty()) continue;
+            try {
+                FileHandle rootDir = Gdx.files.absolute(path.trim());
+                if (rootDir.exists()) {
+                    totalFiles += countBmsFiles(rootDir);
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "Pre-scan failed for path: " + path, t);
+            }
+        }
+        long preScanElapsed = System.currentTimeMillis() - preScanStart;
+        Log.i(TAG, "updateSongDatas: Pre-scan found " + totalFiles + " BMS files in " + preScanElapsed + "ms");
+
+        // 初始化进度
+        if (progress != null) {
+            progress.onFileScanned(0, totalFiles);
+        }
 
         // 检查数据库中已有多少歌曲记录，用于统计
         int existingSongCount = 0;
@@ -705,7 +734,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             // Step 2: forceRefresh 为 true 时使用并行扫描
             if (forceRefresh) {
-                updateSongDatasParallel(paths, forceRefresh);
+                updateSongDatasParallel(paths, forceRefresh, progress);
                 return;
             }
 
@@ -716,7 +745,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 if (scanDir.exists()) {
                     Log.i(TAG, "Starting recursive scan of: " + scanDir.path());
                     // Each folder handles its own transaction
-                    scanFolderRecursively(scanDir, decoder, db, fileCount, forceRefresh);
+                    scanFolderRecursively(scanDir, decoder, db, scannedCount, updatedCount, totalFiles, forceRefresh, progress);
                 }
             }
 
@@ -728,7 +757,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             } catch (Throwable ignored) {}
 
-            Log.i(TAG, "updateSongDatas completed: " + fileCount.get() + " files processed/updated, "
+            Log.i(TAG, "updateSongDatas completed: " + scannedCount.get() + " files scanned, "
+                    + updatedCount.get() + " files updated, "
                     + deleteCount + " files deleted, "
                     + "total songs now: " + newSongCount
                     + " in " + (endTime - startTime) + "ms");
@@ -752,10 +782,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * @param paths Array of root paths to scan for BMS files
      */
     public void updateSongDatas(String[] paths) {
-        if (info != null) {
-            info.startUpdate();
-        }
-        updateSongDatas(paths, false);
+        updateSongDatas(paths, false, null);
     }
 
     /**
@@ -763,13 +790,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * 适用于大量文件的场景
      */
     private void updateSongDatasParallel(String[] paths, boolean forceRefresh) {
+        updateSongDatasParallel(paths, forceRefresh, null);
+    }
+
+    private void updateSongDatasParallel(String[] paths, boolean forceRefresh, SongScanProgress progress) {
         long startTime = System.currentTimeMillis();
         Log.i(TAG, "updateSongDatasParallel: Starting with " + paths.length + " root paths, forceRefresh=" + forceRefresh);
 
         // 阶段1: 收集所有BMS文件路径（单线程遍历）
         long collectStart = System.currentTimeMillis();
         List<FileHandle> allFiles = new ArrayList<>();
-        BMSDecoder decoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
 
         for (String pathToScan : paths) {
             if (pathToScan == null || pathToScan.trim().isEmpty()) continue;
@@ -781,22 +811,41 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         long collectElapsed = System.currentTimeMillis() - collectStart;
         Log.i(TAG, "updateSongDatasParallel: Phase1 collected " + allFiles.size() + " BMS files in " + collectElapsed + "ms");
 
+        int totalFiles = allFiles.size();
+        if (progress != null) {
+            progress.onFileScanned(0, totalFiles);
+        }
+
         if (allFiles.isEmpty()) {
             Log.i(TAG, "updateSongDatasParallel: No BMS files found, skipping");
             return;
         }
 
-        // 阶段2: 并行解码（多线程）
+        // 阶段2: 多线程解码
+        Log.i(TAG, "updateSongDatasParallel: Phase2 starting decoding with " + PARALLEL_THREAD_COUNT + " threads...");
         long decodeStart = System.currentTimeMillis();
+        final AtomicInteger processedCount = new AtomicInteger(0);
         ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
         List<Future<DecodeResult>> futures = new ArrayList<>();
 
         for (final FileHandle file : allFiles) {
-            futures.add(executor.submit(() -> processBmsFileParallel(file, decoder, forceRefresh)));
+            futures.add(executor.submit(() -> {
+                // 每个线程创建自己的解码器，确保线程安全
+                BMSDecoder localDecoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
+                DecodeResult result = processBmsFileParallel(file, localDecoder, forceRefresh);
+
+                // 无论是否跳过，都上报进度
+                int current = processedCount.incrementAndGet();
+                if (progress != null) {
+                    progress.onFileScanned(current, totalFiles);
+                }
+                return result;
+            }));
         }
 
         List<DecodeResult> results = new ArrayList<>();
         int successCount = 0;
+        int scannedCount = 0;
         for (Future<DecodeResult> f : futures) {
             try {
                 DecodeResult result = f.get(30, TimeUnit.SECONDS);
@@ -804,8 +853,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     results.add(result);
                     successCount++;
                 }
+                scannedCount++;
+                if (progress != null) {
+                    progress.onFileScanned(scannedCount, totalFiles);
+                }
             } catch (Exception e) {
                 Log.w(TAG, "updateSongDatasParallel: Decode failed", e);
+                scannedCount++;
+                if (progress != null) {
+                    progress.onFileScanned(scannedCount, totalFiles);
+                }
             }
         }
 
@@ -846,6 +903,29 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         long writeElapsed = System.currentTimeMillis() - writeStart;
         long totalElapsed = System.currentTimeMillis() - startTime;
         Log.i(TAG, "updateSongDatasParallel: Phase3 wrote " + results.size() + " songs in " + writeElapsed + "ms, total: " + totalElapsed + "ms");
+    }
+
+    /**
+     * 计算目录下 BMS 文件总数（轻量预扫描）
+     */
+    private int countBmsFiles(FileHandle folder) {
+        int count = 0;
+        try {
+            if (!folder.exists() || !folder.isDirectory()) return 0;
+            FileHandle[] children = folder.list();
+            if (children == null) return 0;
+
+            for (FileHandle child : children) {
+                if (child.isDirectory()) {
+                    count += countBmsFiles(child);
+                } else if (isBmsFile(child.name().toLowerCase())) {
+                    count++;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "countBmsFiles: Failed to scan " + folder.path(), e);
+        }
+        return count;
     }
 
     /**
@@ -999,11 +1079,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      * @param folder The folder to scan
      * @param decoder BMS decoder instance
      * @param db Database connection
-     * @param fileCount Counter for processed files
+     * @param scannedCount Counter for all found BMS files (for progress)
+     * @param updatedCount Counter for actually updated files (for logging)
+     * @param totalFiles Total files pre-calculated (for progress)
      * @param forceRefresh Whether to force a full re-scan (ignores existing records and timestamps)
+     * @param progress Progress callback (can be null)
      * @return true if this folder or any subfolder contains at least one BMS file
      */
-    private boolean scanFolderRecursively(FileHandle folder, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger fileCount, boolean forceRefresh) {
+    private boolean scanFolderRecursively(FileHandle folder, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger scannedCount, AtomicInteger updatedCount, int totalFiles, boolean forceRefresh, SongScanProgress progress) {
         if (!folder.exists() || !folder.isDirectory()) {
             return false;
         }
@@ -1049,7 +1132,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             db.beginTransactionNonExclusive();
             try {
                 for (FileHandle bmsFile : bmsFiles) {
-                    processBmsFile(bmsFile, decoder, db, fileCount, forceRefresh, hasTxt, previewPath);
+                    processBmsFile(bmsFile, decoder, db, scannedCount, updatedCount, totalFiles, forceRefresh, hasTxt, previewPath, progress);
                 }
                 db.setTransactionSuccessful();
             } finally {
@@ -1059,7 +1142,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
         // 2. 递归扫描子目录
         for (FileHandle subDir : subDirs) {
-            if (scanFolderRecursively(subDir, decoder, db, fileCount, forceRefresh)) {
+            if (scanFolderRecursively(subDir, decoder, db, scannedCount, updatedCount, totalFiles, forceRefresh, progress)) {
                 containsBms = true;
             }
         }
@@ -1160,17 +1243,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     /**
-     * Process a single BMS file: parse it, map to SongData, insert into database.
+     * Process a single BMS file: decode it and insert/update its data in the database.
      *
-     * @param file The BMS file to process
+     * @param file The BMS/BMSON file to process
      * @param decoder BMS decoder instance
-     * @param db Database
-     * @param fileCount Counter for processed files
+     * @param db Database connection
+     * @param scannedCount Counter for all found BMS files (for progress)
+     * @param updatedCount Counter for actually updated files (for logging)
+     * @param totalFiles Total files pre-calculated (for progress)
      * @param forceRefresh Whether to force re-processing (ignores existing records and timestamps)
      * @param txt Whether the folder contains a .txt file
      * @param previewPath Preview file path if found in the folder
+     * @param progress Progress callback (can be null)
      */
-    private void processBmsFile(FileHandle file, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger fileCount, boolean forceRefresh, boolean txt, String previewPath) {
+    private void processBmsFile(FileHandle file, BMSDecoder decoder, SQLiteDatabase db, AtomicInteger scannedCount, AtomicInteger updatedCount, int totalFiles, boolean forceRefresh, boolean txt, String previewPath, SongScanProgress progress) {
         try {
             // Guard against null file
             if (file == null || !file.exists()) {
@@ -1180,6 +1266,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             String pathName = file.path().replace('\\', '/');
             long lastModifiedTime = file.lastModified() / 1000;
+
+            // 无论是否跳过，都增加扫描计数并上报进度
+            int currentScanned = scannedCount.incrementAndGet();
+            if (progress != null) {
+                progress.onFileScanned(currentScanned, totalFiles);
+            }
 
             // 检查是否需要增量更新
             if (!forceRefresh) {
@@ -1351,8 +1443,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 if (result == -1) {
                     Log.e(TAG, "[ProcessBmsFile] INSERT failed for: " + file.path() + " (result=-1)");
                 } else {
-                    fileCount.incrementAndGet();
-                    // Log.d(TAG, "[ProcessBmsFile] Successfully inserted/updated: " + songData.getTitle() + " (" + pathName + ")");
+                    updatedCount.incrementAndGet();
                 }
             } catch (android.database.SQLException e) {
                 Log.e(TAG, "================================================================================");
@@ -1364,8 +1455,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 throw e;
             }
 
-            if (fileCount.get() % 100 == 0) {
-                Log.i(TAG, "Processed " + fileCount.get() + " BMS files...");
+            if (updatedCount.get() % 100 == 0) {
+                Log.i(TAG, "Updated " + updatedCount.get() + " BMS files...");
             }
         } catch (Exception e) {
             Log.e(TAG, "================================================================================");
