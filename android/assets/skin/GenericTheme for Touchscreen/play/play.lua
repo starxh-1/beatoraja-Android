@@ -2756,6 +2756,12 @@ local function main(keysNumber)
 		)
 
 		local x = geo.gauge.x local y = 11 local w = geo.gauge.w local h = 80
+		local angle = 0
+		if isPortraitLayout() then
+			y = 500
+			w = 1080
+			angle = 270
+		end
 		local lla_id
 		if property.lowerLaneArea.item.notesGraphNotesType.isSelected() then
 			lla_id = "lla_notesgraph_notestype"
@@ -2772,13 +2778,13 @@ local function main(keysNumber)
 		end
 		table.insert(skin.destination,
 			{id = lla_id, dst = {
-				{x = x, y = y, w = w, h = h},
+				{x = x, y = y, w = w, h = h, angle = angle},
 			}}
 		)
 		if string.match(lla_id, "notesgraph") then
 			table.insert(skin.destination,
 				{id = "bpmgraph", op = {177}, dst = {
-					{x = x, y = y, w = w, h = h},
+					{x = x, y = y, w = w, h = h, angle = angle},
 				}}
 			)
 		end
@@ -2789,7 +2795,7 @@ local function main(keysNumber)
 		end
 		table.insert(skin.destination,
 			{id = -110, dst = {
-				{x = x, y = y, w = w, h = h, a = darkness_a + offset.lowerlanearea_darkness.a},
+				{x = x, y = y, w = w, h = h, a = darkness_a + offset.lowerlanearea_darkness.a, angle = angle},
 			}}
 		)
 	end
