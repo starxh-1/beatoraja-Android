@@ -290,7 +290,6 @@ public class MainController {
                 config.setMaxFramePerSecond(30);
             } else {
                 currentTargetFPS = detectedRefreshRate;
-                config.setMaxFramePerSecond(detectedRefreshRate);
             }
             updateFrameRateAPI(currentTargetFPS);
             // 针对 PLAY 界面，额外启动一个短时延时任务，防止系统在场景切换完成后降频
@@ -300,7 +299,6 @@ public class MainController {
                     @Override
                     public void run() {
                         currentTargetFPS = detectedRefreshRate;
-                        config.setMaxFramePerSecond(detectedRefreshRate);
                         updateFrameRateAPI(playTargetFPS);
                         Gdx.app.log("beatoraja", "Delayed FrameRate API refresh executed");
                     }
