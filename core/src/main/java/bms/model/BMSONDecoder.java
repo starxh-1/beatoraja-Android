@@ -41,7 +41,7 @@ public class BMSONDecoder extends ChartDecoder {
 		if (info.fileHandle != null) {
 			return decode(info.fileHandle);
 		}
-		return decode(info.path);
+		return decode(com.badlogic.gdx.Gdx.files.absolute(info.path));
 	}
 
 	public BMSModel decode(FileHandle f) {
@@ -63,7 +63,7 @@ public class BMSONDecoder extends ChartDecoder {
 			return null;
 		}
 
-		return decodeBmson(bmson, f.path(), currnttime, null);
+		return decodeBmson(bmson, f.path(), currnttime, f);
 	}
 
 	@Override
