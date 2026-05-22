@@ -2517,11 +2517,16 @@ local function main(keysNumber)
 	end
 
 	-- gaugearea - aligned with lane
-	local gauge_bg_h = header.h - geo.lane.h - 4
+	local gauge_bg_h = geo.lane.y
 	if isPortraitLayout() then gauge_bg_h = header.h end
 	table.insert(skin.destination, {id = -110, dst = {
-		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w, h = gauge_bg_h, a = 240},
+		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 240},
 	}})
+	if not isPortraitLayout() then
+		table.insert(skin.destination, {id = -110, dst = {
+			{x = 0, y = 0, w = header.w, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 240},
+		}})
+	end
 	-- gauge
 	do
 		local x = geo.gauge.x local w = geo.gauge.w
