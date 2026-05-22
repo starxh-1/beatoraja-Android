@@ -957,6 +957,8 @@ public class MainController {
             if (isAndroid) {
                 lastFrameRateUpdate++;
                 if (lastFrameRateUpdate > 60) {
+                    // 32位设备：Surface API用currentTargetFPS(30)配合帧率限制器maxFPS(30)
+                    // 64位设备：Surface API用maxFPS(120)，帧率限制器按maxFPS工作（maxFPS>=60时不限制）
                     updateFrameRateAPI(maxFPS);
                     lastFrameRateUpdate = 0;
                 }
