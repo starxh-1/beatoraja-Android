@@ -32,13 +32,6 @@ local function deepcopy(original)
 end
 
 local property = {
-	playSide = {
-		name = "Play Side",
-		item = {
-			_1p = {name = "1P", op = 900},
-			_2p = {name = "2P", op = 901},
-		}
-	},
 	stratchSide = {
 		name = "Scratch Side",
 		item = {
@@ -161,7 +154,6 @@ local property = {
 }
 local property_order = {
 	"layout",
-	"playSide",
 	"stratchSide",
 	"scoreGraph",
 	"judgeDetail",
@@ -207,18 +199,18 @@ local function isPortraitLayout()
 end
 
 local function is1P()
-	return property.playSide.item._1p.isSelected()
+	return true
 end
 local function is2P()
-	return property.playSide.item._2p.isSelected()
+	return false
 end
 local function isLeftScratch()
 	return property.stratchSide.item.left.isSelected() or
-		(property.playSide.item._1p.isSelected() and not property.stratchSide.item.right.isSelected())
+		(not property.stratchSide.item.right.isSelected())
 end
 local function isRightScratch()
 	return property.stratchSide.item.right.isSelected() or
-		(property.playSide.item._2p.isSelected() and not property.stratchSide.item.left.isSelected())
+		(not property.stratchSide.item.left.isSelected())
 end
 local function isScoreGraph()
 	return not property.scoreGraph.item.off.isSelected()
