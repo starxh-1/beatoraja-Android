@@ -112,10 +112,14 @@ public class MainController {
     private boolean glThreadPrioritySet = false;
     /** 缓存平台类型，避免每帧调用 Gdx.app.getType() */
     private final boolean isAndroid = com.badlogic.gdx.Gdx.app != null ? com.badlogic.gdx.Gdx.app.getType() == Application.ApplicationType.Android : false;
+    /** 缓存32位ARM设备标记，避免每帧重复检测 */
+    private final boolean is32BitARM = "true".equals(System.getProperty("beatoraja.32bit"));
 
     private final Array<MainStateListener> stateListener = new Array<MainStateListener>();
 
     private int detectedRefreshRate = 120; // 记录检测到的原始刷新率
+    /** 当前实际目标帧率（会被 changeState 等处修改） */
+    private int currentTargetFPS = 120;
 
     public MainController(File f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
         Config.updateConfigPath();
@@ -280,13 +284,21 @@ public class MainController {
     public void changeState(MainStateType state) {
         // 在切换状态时，再次积极请求高刷新率
         if (isAndroid) {
-            updateFrameRateAPI(detectedRefreshRate);
+            // 32位ARM设备：MusicSelector界面限制为30FPS（降低GPU负载）
+            if (is32BitARM && state == MainStateType.MUSICSELECT) {
+                currentTargetFPS = 30;
+            } else {
+                currentTargetFPS = detectedRefreshRate;
+            }
+            updateFrameRateAPI(currentTargetFPS);
             // 针对 PLAY 界面，额外启动一个短时延时任务，防止系统在场景切换完成后降频
             if (state == MainStateType.PLAY) {
+                final int playTargetFPS = detectedRefreshRate;
                 com.badlogic.gdx.utils.Timer.schedule(new com.badlogic.gdx.utils.Timer.Task() {
                     @Override
                     public void run() {
-                        updateFrameRateAPI(detectedRefreshRate);
+                        currentTargetFPS = detectedRefreshRate;
+                        updateFrameRateAPI(playTargetFPS);
                         Gdx.app.log("beatoraja", "Delayed FrameRate API refresh executed");
                     }
                 }, 1.5f); // 延迟 1.5 秒执行
@@ -944,7 +956,7 @@ public class MainController {
             if (isAndroid) {
                 lastFrameRateUpdate++;
                 if (lastFrameRateUpdate > 60) {
-                    updateFrameRateAPI(detectedRefreshRate);
+                    updateFrameRateAPI(maxFPS);
                     lastFrameRateUpdate = 0;
                 }
             }
@@ -1301,6 +1313,14 @@ public class MainController {
             Message messageObj = messageRenderer.addMessage(this.messageStr, Color.CYAN, 1);
 
             try {
+                // 在扫描前检测并解压 songs 目录下的 zip 文件（Android only）
+                try {
+                    Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AndroidLauncher");
+                    clazz.getMethod("checkAndExtractSongZips").invoke(null);
+                } catch (Exception e) {
+                    // Non-Android platform or reflection failed, ignore
+                }
+
                 // 执行扫描 - 这是阻塞调用，会等待扫描完成
                 getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase());
 
