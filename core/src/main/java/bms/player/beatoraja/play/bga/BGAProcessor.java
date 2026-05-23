@@ -131,6 +131,16 @@ public class BGAProcessor {
 	public synchronized void setModel(BMSModel model) {
 		progress = 0;
 
+		// 停止上一首歌的所有BGA视频播放器，释放硬件解码器
+		for (MovieProcessor mp : movies) {
+			if (mp != null) {
+				mp.stop();
+			}
+		}
+		// 先清理旧资源再加载新资源，避免新旧BGA/视频解码器同时驻留导致OOM
+		cache.disposeOld();
+		Gdx.app.postRunnable(() -> mpgresource.disposeOld());
+
 		cache.clear();
 		resetCurrentlyPlayingBGA();
 

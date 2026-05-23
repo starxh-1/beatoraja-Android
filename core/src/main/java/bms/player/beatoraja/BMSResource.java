@@ -20,8 +20,8 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 public class BMSResource {
 
  	/**
-	 * 選曲中のBMS
-	 */
+		 * 選曲中のBMS
+		 */
 	private BMSModel model;
 	/**
 	 * BMSの音源リソース
@@ -116,6 +116,12 @@ public class BMSResource {
 			Thread bgaloader = new Thread(() -> {
 				try {
 					bga.abort();
+					// 等待上一个BGA加载线程完全退出后再开始，防止硬件解码器堆积
+					synchronized(bgaloaders) {
+						while(!bgaloaders.isEmpty() && bgaloaders.getLast().isAlive()) {
+							bgaloaders.getLast().join(100);
+						}
+					}
 					bga.setModel(bgamodel);
 				} catch (Throwable e) {
 					Logger.getGlobal().severe(e.getClass().getName() + " : " + e.getMessage());
@@ -127,6 +133,12 @@ public class BMSResource {
 			Thread audioloader = new Thread(() -> {
 				try {
 					audio.abort();
+					// 等待上一个音频加载线程完全退出后再开始
+					synchronized(audioloaders) {
+						while(!audioloaders.isEmpty() && audioloaders.getLast().isAlive()) {
+							audioloaders.getLast().join(100);
+						}
+					}
 					audio.setModel(model);
 				} catch (Throwable e) {
 					Logger.getGlobal().severe(e.getClass().getName() + " : " + e.getMessage());

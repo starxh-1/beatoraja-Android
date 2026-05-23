@@ -253,6 +253,10 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 */
 	public synchronized void setModel(BMSModel model) {
 		Logger.getGlobal().info("音源ファイル読み込み開始。");
+
+		// 先释放上一首歌的音频缓存，避免新旧音频同时驻留内存导致OOM
+		cache.disposeOld();
+
 		String[] wavlist = model.getWavList();
 		final int wavcount = wavlist.length;
 		boolean use_defaultsound = false;
