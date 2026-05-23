@@ -31,7 +31,7 @@ import bms.player.beatoraja.song.SongData;
 public class MusicResult extends AbstractResult {
 
 	private ResultKeyProperty property;
-	
+
 	private List<IRSendStatus> irSendStatus = new ArrayList<IRSendStatus>();
 
 	public MusicResult(MainController main) {
@@ -41,7 +41,7 @@ public class MusicResult extends AbstractResult {
 	public void create() {
 		for(int i = 0;i < REPLAY_SIZE;i++) {
 			saveReplay[i] = main.getPlayDataAccessor().existsReplayData(resource.getBMSModel(),
-					resource.getPlayerConfig().getLnmode(), i) ? ReplayStatus.EXIST : ReplayStatus.NOT_EXIST ;			
+					resource.getPlayerConfig().getLnmode(), i) ? ReplayStatus.EXIST : ReplayStatus.NOT_EXIST ;
 		}
 
 		property = ResultKeyProperty.get(resource.getBMSModel().getMode());
@@ -64,12 +64,12 @@ public class MusicResult extends AbstractResult {
 			resource.addCourseReplay(resource.getReplayData());
 			resource.addCourseGauge(resource.getGauge());
 		}
-		
+
 		gaugeType = resource.getGrooveGauge().getType();
 
 		loadSkin(SkinType.RESULT);
 	}
-	
+
 	public void prepare() {
 		state = STATE_OFFLINE;
 		final ScoreData newscore = getNewScore();
@@ -80,7 +80,7 @@ public class MusicResult extends AbstractResult {
 		final IRStatus[] ir = main.getIRStatus();
 		if (ir.length > 0 && resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
 			state = STATE_IR_PROCESSING;
-			
+
         	for(IRStatus irc : ir) {
     			boolean send = resource.isUpdateScore();
     			switch(irc.config.getIrsend()) {
@@ -94,12 +94,12 @@ public class MusicResult extends AbstractResult {
 	    						|| newscore.getCombo() > oldscore.getCombo() || newscore.getMinbp() < oldscore.getMinbp());
 	    			}
     			}
-    			
+
     			if(send) {
     				irSendStatus.add(new IRSendStatus(irc.connection, resource.getSongdata(), newscore));
     			}
         	}
-			
+
 			Thread irprocess = new Thread(() -> {
 				int irsend = 0;
 				boolean succeed = true;
@@ -233,7 +233,7 @@ public class MusicResult extends AbstractResult {
 							&& key == ResultKeyProperty.ResultKey.REPLAY_SAME) {
 						// 同じ譜面でリプレイ
 						if(resource.isUpdateScore()) {
-							Logger.getGlobal().info("同じ譜面でリプレイ");							
+							Logger.getGlobal().info("同じ譜面でリプレイ");
 						} else {
 							Logger.getGlobal().info("アシストモード時は同じ譜面でリプレイできません");
 							resource.getReplayData().randomoptionseed = -1;
@@ -297,13 +297,13 @@ public class MusicResult extends AbstractResult {
 				}
 
 				if(inputProcessor.isControlKeyPressed(ControlKeys.NUM1)) {
-					saveReplayData(0);				
+					saveReplayData(0);
 				} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM2)) {
-					saveReplayData(1);				
+					saveReplayData(1);
 				} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM3)) {
-					saveReplayData(2);				
+					saveReplayData(2);
 				} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM4)) {
-					saveReplayData(3);				
+					saveReplayData(3);
 				}
 
 				if(inputProcessor.isActivated(KeyCommand.OPEN_IR)) {
@@ -441,8 +441,20 @@ public class MusicResult extends AbstractResult {
 		}
 
 		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
-			main.getPlayDataAccessor().writeScoreData(resource.getScoreData(), resource.getBMSModel(),
-					resource.getPlayerConfig().getLnmode(), resource.isUpdateScore());
+			final ScoreData scoreToSave = resource.getScoreData();
+			final BMSModel modelToSave = resource.getBMSModel();
+			final int lnModeToSave = resource.getPlayerConfig().getLnmode();
+			final boolean isUpdateScore = resource.isUpdateScore();
+
+			// Run database write in a background thread to prevent UI hangs if SQLite is locked.
+			new Thread(() -> {
+				try {
+					main.getPlayDataAccessor().writeScoreData(scoreToSave, modelToSave, lnModeToSave, isUpdateScore);
+				} catch (Exception e) {
+					Logger.getGlobal().severe("Failed to save score: " + e.getMessage());
+					e.printStackTrace();
+				}
+			}, "ScoreWriteThread").start();
 		} else {
 			Logger.getGlobal().info("プレイモードが" + resource.getPlayMode().mode.name() + "のため、スコア登録はされません");
 		}
@@ -472,13 +484,13 @@ public class MusicResult extends AbstractResult {
 		public final SongData song;
 		public final ScoreData score;
 		public int retry = 0;
-		
+
 		public IRSendStatus(IRConnection ir, SongData song, ScoreData score) {
 			this.ir = ir;
 			this.song = song;
 			this.score = score;
 		}
-		
+
 		public boolean send() {
 			Logger.getGlobal().info("IRへスコア送信中 : " + song.getTitle());
             IRResponse<Object> send1 = ir.sendPlayData(new IRChartData(song), new bms.player.beatoraja.ir.IRScoreData(score));

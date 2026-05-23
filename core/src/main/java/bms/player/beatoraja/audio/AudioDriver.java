@@ -143,7 +143,7 @@ public interface AudioDriver extends Disposable {
 	 * @return 音源ファイルのパス (FileHandle 形式)
 	 */
 	public static FileHandle[] getPaths(String path) {
-		final String[] exts = { ".wav", ".ogg", ".mp3"};
+		final String[] exts = { ".wav", ".ogg", ".mp3", ".flac"};
 
 		List<FileHandle> result = new ArrayList<FileHandle>();
 		final int index = path.lastIndexOf('.');

@@ -179,7 +179,7 @@ public class FloatingMenu implements InputProcessor {
     }
 
     private void updateIconPosition() {
-        iconX = logicW - ICON_SIZE - ICON_MARGIN;
+        iconX = (logicW - ICON_SIZE) / 2; // 居中
         iconY = logicH - ICON_SIZE - ICON_MARGIN;
     }
 
@@ -362,8 +362,8 @@ public class FloatingMenu implements InputProcessor {
         float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
         float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
 
-        // 面板位于图标左下方
-        float panelX = iconX + ICON_SIZE - panelW;
+        // 面板位于图标下方，居中对齐
+        float panelX = iconX + (ICON_SIZE - panelW) / 2;
         float panelY = iconY - panelH - 4;
 
         // 面板背景
@@ -672,7 +672,7 @@ public class FloatingMenu implements InputProcessor {
         int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
         float pageBarHeight = (totalPages > 1) ? 36 : 0;
         float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
-        float panelX = iconX + ICON_SIZE - panelW;
+        float panelX = iconX + (ICON_SIZE - panelW) / 2;
         float panelY = iconY - panelH - 4;
 
         if (tx < panelX || tx > panelX + panelW || ty < panelY || ty > panelY + panelH) {

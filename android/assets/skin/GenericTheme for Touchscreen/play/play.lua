@@ -35,7 +35,7 @@ local property = {
 	stratchSide = {
 		name = "Scratch Side",
 		item = {
-			default = {name = "Default", op = 902},
+			default = {name = "1P", op = 902},
 			left = {name = "Left", op = 903},
 			right = {name = "Right", op = 904}
 		}
@@ -206,11 +206,11 @@ local function is2P()
 end
 local function isLeftScratch()
 	return property.stratchSide.item.left.isSelected() or
-		(not property.stratchSide.item.right.isSelected())
+		(is1P() and property.stratchSide.item.default.isSelected())
 end
 local function isRightScratch()
 	return property.stratchSide.item.right.isSelected() or
-		(not property.stratchSide.item.left.isSelected())
+		(is2P() and property.stratchSide.item.default.isSelected())
 end
 local function isScoreGraph()
 	return not property.scoreGraph.item.off.isSelected()

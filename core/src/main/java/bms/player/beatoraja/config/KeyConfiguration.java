@@ -169,6 +169,8 @@ public class KeyConfiguration extends MainState {
 		if (keyinput) {
 			if (keyinput && input.getKeyBoardInputProcesseor().getLastPressedKey() != -1) {
 				setKeyboardKeyAssign(currentKeysa[cursorpos]);
+				// 消费按键状态，防止同一按键在 keyinput=false 后触发 NUM 控制功能
+				keyboard.consumeKeyPress(input.getKeyBoardInputProcesseor().getLastPressedKey());
 				// System.out.println(input.getKeyBoardInputProcesseor().getLastPressedKey());
 				keyinput = false;
 			}

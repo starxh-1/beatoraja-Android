@@ -25,7 +25,14 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 	@Override
 	protected Pixmap load(String path) {
 		final Pixmap pixmap = loadPicture(path);
-		return pixmap != null ? convert(pixmap) : null;
+		if (pixmap != null) {
+			Pixmap converted = convert(pixmap);
+			if (converted != pixmap) {
+				pixmap.dispose();
+			}
+			return scaleDown(converted);
+		}
+		return null;
 	}
 
 	/**
@@ -41,6 +48,28 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 	@Override
 	protected void dispose(Pixmap resource) {
 		resource.dispose();
+	}
+
+	private static float getDownscaleFactor() {
+		String prop = System.getProperty("beatoraja.downscale");
+		if (prop == null || prop.isEmpty()) return 1.0f;
+		try {
+			return Float.parseFloat(prop);
+		} catch (NumberFormatException e) {
+			return 1.0f;
+		}
+	}
+
+	private static Pixmap scaleDown(Pixmap original) {
+		float scale = getDownscaleFactor();
+		if (scale >= 1.0f || original == null) return original;
+		int newW = Math.max(1, Math.round(original.getWidth() * scale));
+		int newH = Math.max(1, Math.round(original.getHeight() * scale));
+		if (newW == original.getWidth() && newH == original.getHeight()) return original;
+		Pixmap scaled = new Pixmap(newW, newH, original.getFormat());
+		scaled.drawPixmap(original, 0, 0, original.getWidth(), original.getHeight(), 0, 0, newW, newH);
+		original.dispose();
+		return scaled;
 	}
 
 	/**

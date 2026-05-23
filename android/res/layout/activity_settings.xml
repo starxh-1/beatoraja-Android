@@ -541,6 +541,52 @@
                 android:background="#333333"/>
         </LinearLayout>
 
+        <!-- ENABLE LANECOVER -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="ENABLE LANECOVER"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Switch
+                android:id="@+id/enableLanecoverSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:checked="true" />
+        </LinearLayout>
+
+        <!-- ENABLE LIFT -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="ENABLE LIFT"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Switch
+                android:id="@+id/enableLiftSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:checked="false" />
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

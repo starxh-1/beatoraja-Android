@@ -90,7 +90,11 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 		this.resolution = resolution;
 
 		reserved = new IntArray();
-		Arrays.stream(ControlKeys.values()).forEach(keys -> reserved.add(keys.keycode));
+		// Reserve non-numeric ControlKeys so they can't be assigned as gameplay keys.
+		// NUM0-NUM9 (number row) are excluded so users can bind them in keyconfig.
+		Arrays.stream(ControlKeys.values())
+			.filter(k -> k.keycode < Keys.NUM_0 || k.keycode > Keys.NUM_9)
+			.forEach(keys -> reserved.add(keys.keycode));
 
 		Arrays.fill(keytime, Long.MIN_VALUE);
 	}
@@ -374,6 +378,17 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
     public boolean touchCancelled(int screenX, int screenY, int pointer, int button) {
         return false;
     }
+	/**
+	 * 消费指定按键的按下状态，使其在后续帧中不会被 isKeyPressed/isControlKeyPressed 检测到，
+	 * 直到该按键被物理释放并重新按下。
+	 * 用于防止在 KeyConfig 中分配按键后，同一按键触发了 NUM 控制功能。
+	 */
+	public void consumeKeyPress(int keycode) {
+		if (keycode >= 0 && keycode < keytime.length) {
+			keytime[keycode] = Long.MIN_VALUE;
+		}
+	}
+
 	public int getLastPressedKey() {
 		return lastPressedKey;
 	}

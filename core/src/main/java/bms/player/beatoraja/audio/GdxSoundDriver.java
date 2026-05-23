@@ -64,6 +64,7 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 				return getKeySound(handle);
 			case ".ogg":
 			case ".mp3":
+			case ".flac":
 				return getKeySound(handle);
 		}
 		return null;

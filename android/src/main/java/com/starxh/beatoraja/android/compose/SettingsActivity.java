@@ -58,6 +58,8 @@ public class SettingsActivity extends Activity {
     private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
     private int selectedGreenNumber = 0;
     private int selectedHispeedFix = 3;
+    private boolean selectedEnableLanecover = true;
+    private boolean selectedEnableLift = false;
     private int selectedBga = 0;  // 0=On, 1=Auto, 2=Off
     private int selectedBgaExpand = 1;  // 0=Full, 1=Keep Aspect Ratio, 2=Off
 
@@ -185,7 +187,18 @@ public class SettingsActivity extends Activity {
                 selectedGreenNumber = findJsonIntValue(json, "greenNumber", 0);
                 selectedHispeedFix = findJsonIntValue(json, "hispeedFix", 3);
 
-                Log.d("SettingsActivity", "Read play options from player config - GAS: " + selectedGaugeAutoShift);
+                // 解析嵌套在 mode7.playconfig 中的 enablelanecover 和 enablelift
+                int mode7Start = json.indexOf("\"mode7\"");
+                if (mode7Start >= 0) {
+                    int playconfigStart = json.indexOf("\"playconfig\"", mode7Start);
+                    if (playconfigStart >= 0) {
+                        selectedEnableLanecover = findJsonBooleanValueFrom(json, "enablelanecover", playconfigStart, true);
+                        selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
+                    }
+                }
+
+                Log.d("SettingsActivity", "Read play options from player config - GAS: " + selectedGaugeAutoShift
+                    + ", LANECOVER: " + selectedEnableLanecover + ", LIFT: " + selectedEnableLift);
             } else {
                 Log.d("SettingsActivity", "Player config file not found, using defaults");
             }
@@ -363,6 +376,33 @@ public class SettingsActivity extends Activity {
     private boolean findJsonBooleanValue(String json, String key, boolean defaultValue) {
         try {
             int keyStart = json.indexOf("\"" + key + "\"");
+            if (keyStart < 0) return defaultValue;
+
+            int colonPos = json.indexOf(":", keyStart);
+            if (colonPos < 0) return defaultValue;
+
+            int start = colonPos + 1;
+            while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) {
+                start++;
+            }
+            String value = json.substring(start, Math.min(start + 6, json.length())).trim().toLowerCase();
+            if (value.startsWith("true")) {
+                return true;
+            } else if (value.startsWith("false")) {
+                return false;
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return defaultValue;
+    }
+
+    /**
+     * 从指定位置开始查找布尔值
+     */
+    private boolean findJsonBooleanValueFrom(String json, String key, int fromIndex, boolean defaultValue) {
+        try {
+            int keyStart = json.indexOf("\"" + key + "\"", fromIndex);
             if (keyStart < 0) return defaultValue;
 
             int colonPos = json.indexOf(":", keyStart);
@@ -684,6 +724,14 @@ public class SettingsActivity extends Activity {
         hispeedFixSpinner.setAdapter(hsfAdapter);
         hispeedFixSpinner.setSelection(Math.min(selectedHispeedFix, hispeedFixOptions.size() - 1));
 
+        // Play Options - ENABLE LANECOVER
+        Switch enableLanecoverSwitch = findViewById(R.id.enableLanecoverSwitch);
+        enableLanecoverSwitch.setChecked(selectedEnableLanecover);
+
+        // Play Options - ENABLE LIFT
+        Switch enableLiftSwitch = findViewById(R.id.enableLiftSwitch);
+        enableLiftSwitch.setChecked(selectedEnableLift);
+
         // Buttons
         Button saveButton = findViewById(R.id.saveButton);
         saveButton.setOnClickListener(v -> {
@@ -702,6 +750,9 @@ public class SettingsActivity extends Activity {
             }
             // HI-SPEED Fix
             selectedHispeedFix = hispeedFixSpinner.getSelectedItemPosition();
+            // ENABLE LANECOVER / LIFT
+            selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
+            selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
             saveConfigToJson();
             Toast.makeText(this, "Settings saved", Toast.LENGTH_SHORT).show();
             launchGame();
@@ -1157,6 +1208,23 @@ public class SettingsActivity extends Activity {
             existingConfig.put("autosavereplay", autoSaveReplayArray);
             existingConfig.put("greenNumber", selectedGreenNumber);
             existingConfig.put("hispeedFix", selectedHispeedFix);
+
+            // 将 enablelanecover 和 enablelift 写入所有 mode 的 playconfig
+            String[] modeKeys = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
+            for (String modeKey : modeKeys) {
+                org.json.JSONObject modeObj = existingConfig.optJSONObject(modeKey);
+                if (modeObj == null) {
+                    modeObj = new org.json.JSONObject();
+                }
+                org.json.JSONObject playconfig = modeObj.optJSONObject("playconfig");
+                if (playconfig == null) {
+                    playconfig = new org.json.JSONObject();
+                }
+                playconfig.put("enablelanecover", selectedEnableLanecover);
+                playconfig.put("enablelift", selectedEnableLift);
+                modeObj.put("playconfig", playconfig);
+                existingConfig.put(modeKey, modeObj);
+            }
 
             // Ensure player directory exists
             File playerDir = new File(filesDir, "player/" + selectedPlayerName);
@@ -1737,6 +1805,8 @@ public class SettingsActivity extends Activity {
             selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString());
         } catch (Exception e) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
+        selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
+        selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
     }
 
     /**
@@ -1772,6 +1842,16 @@ public class SettingsActivity extends Activity {
             EditText greenNumberInput = findViewById(R.id.greenNumberInput);
             if (greenNumberInput != null) {
                 greenNumberInput.setText(String.valueOf(selectedGreenNumber));
+            }
+
+            Switch enableLanecoverSwitch = findViewById(R.id.enableLanecoverSwitch);
+            if (enableLanecoverSwitch != null) {
+                enableLanecoverSwitch.setChecked(selectedEnableLanecover);
+            }
+
+            Switch enableLiftSwitch = findViewById(R.id.enableLiftSwitch);
+            if (enableLiftSwitch != null) {
+                enableLiftSwitch.setChecked(selectedEnableLift);
             }
 
             Log.d("SettingsActivity", "Updated play options UI for player: " + selectedPlayerName);

@@ -41,7 +41,8 @@ public class DatabaseUtils {
                 } catch (SQLException ignore) {}
             }
             conn = DriverManager.getConnection(url);
-            try { conn.createStatement().execute("PRAGMA busy_timeout = 15000"); } catch (SQLException ignore) {}
+            // Reduce busy_timeout from 15s to 2s to prevent UI thread from hanging too long.
+            try { conn.createStatement().execute("PRAGMA busy_timeout = 2000"); } catch (SQLException ignore) {}
             try { conn.createStatement().execute("PRAGMA journal_mode = WAL"); } catch (SQLException ignore) {}
             sharedConnections.put(url, conn);
             return conn;

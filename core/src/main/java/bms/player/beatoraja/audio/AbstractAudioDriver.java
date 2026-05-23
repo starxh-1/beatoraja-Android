@@ -12,7 +12,7 @@ import com.badlogic.gdx.utils.*;
 
 /**
  * 抽象オーディオドライバー
- * 
+ *
  * @author exch
  *
  * @param <T>
@@ -24,6 +24,12 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 * 効果音マップ
 	 */
 	private ObjectMap<String, AudioElement<T>> soundmap = new ObjectMap<String, AudioElement<T>>();
+
+	/**
+	 * 加载失败的音频缓存，避免重复尝试不存在的文件。
+	 */
+	private java.util.Set<String> failedLoads = java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
 	/**
 	 * キー音マップ(音切りなし)
 	 */
@@ -32,7 +38,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 * キー音マップ(音切りあり)
 	 */
 	private SliceWav<T>[][] slicesound = new SliceWav[0][0];
-	
+
 	private T[][] additionalKeySounds = (T[][]) new Object[6][2];
 	/**
 	 * キー音読み込み進捗状況
@@ -54,7 +60,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 * オーディオキャッシュデータ
 	 */
 	private final AudioCache cache;
-	
+
 	private int sampleRate;
 	int channels;
 
@@ -63,7 +69,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	}
 	/**
 	 * パスで指定された効果音ファイルの音源データを取得する
-	 * 
+	 *
 	 * @param p
 	 *            音源データのパス
 	 * @return 音源データ
@@ -72,7 +78,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * PCMオブジェクトで指定されたキー音の音源データを取得する
-	 * 
+	 *
 	 * @param pcm
 	 * @return
 	 */
@@ -80,7 +86,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * 音源データを開放する
-	 * 
+	 *
 	 * @param pcm
 	 *            開放する音源データ
 	 */
@@ -88,7 +94,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * キー音を再生する
-	 * 
+	 *
 	 * @param wav
 	 *            音源データ
 	 * @param channel
@@ -102,7 +108,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * 効果音を再生する
-	 * 
+	 *
 	 * @param id
 	 *            音源データ
 	 * @param volume
@@ -111,10 +117,10 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 *            ループ再生するかどうか
 	 */
 	protected abstract void play(AudioElement<T> id, float volume, boolean loop);
-	
+
 	/**
 	 * 効果音のボリュームを設定する。再生中も可能
-	 * 
+	 *
 	 * @param id
 	 *            音源データ
 	 * @param volume
@@ -124,7 +130,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * 音源データが再生されていれば停止する
-	 * 
+	 *
 	 * @param id
 	 *            音源データ
 	 */
@@ -132,7 +138,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * 音源データが再生されていれば停止する
-	 * 
+	 *
 	 * @param id
 	 *            音源データ
 	 */
@@ -166,21 +172,27 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			play(sound, volume, loop);
 		}
 	}
-	
+
 	private AudioElement<T> getSound(String p) {
-		if (p == null || p.length() == 0) {
+		if (p == null || p.length() == 0 || failedLoads.contains(p)) {
 			return null;
 		}
 		AudioElement<T> sound = soundmap.get(p);
 		if (!soundmap.containsKey(p)) {
 			try {
 				sound = new AudioElement(getKeySound(new File(p)));
-				sound = sound.audio != null ? sound : null;
-				soundmap.put(p, sound);
+				if (sound.audio != null) {
+					soundmap.put(p, sound);
+				} else {
+					failedLoads.add(p);
+					sound = null;
+				}
 			} catch (Exception e) {
 				Logger.getGlobal().warning("音源読み込み失敗。" + e.getMessage());
+				failedLoads.add(p);
+				sound = null;
 			}
-		}		
+		}
 		return sound;
 	}
 
@@ -208,11 +220,11 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	public int getSampleRate() {
 		return sampleRate;
 	}
-	
+
 	protected void setSampleRate(int sampleRate) {
 		this.sampleRate = sampleRate;
 	}
-	
+
 	public void stop(String p) {
 		if (p == null || p.length() == 0) {
 			return;
@@ -358,14 +370,14 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 		progress.set(noteMapSize);
 	}
-	
+
 	public void setAdditionalKeySound(int judge, boolean fast, String p) {
 		if(judge < 0 || judge >= additionalKeySounds.length) {
 			return;
 		}
-		
+
 		final AudioElement<T> sound = getSound(p);
-		additionalKeySounds[judge][fast ? 0 : 1] = sound != null ? sound.audio : null;		
+		additionalKeySounds[judge][fast ? 0 : 1] = sound != null ? sound.audio : null;
 	}
 
 	private void addNoteList(IntMap<List<Note>> notemap, Note n) {
@@ -410,7 +422,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		}
 
 	}
-	
+
 	private int channel(int id, int pitch) {
 		return id * 256 + pitch + 128;
 	}
@@ -561,7 +573,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	/**
 	 * 音切りデータ
-	 * 
+	 *
 	 * @author exch
 	 *
 	 * @param <T>
@@ -631,7 +643,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			return sound;
 		}
 
-		
+
 		@Override
 		public synchronized void disposeOld() {
 			pcmMap.clear();
@@ -644,22 +656,22 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			disposeKeySound(resource);
 		}
 	}
-	
+
 	static class AudioElement<T> {
 		public long id;
 		/**
 		 * 音源データ
 		 */
 		public final T audio;
-		
+
 		public AudioElement(T audio) {
 			this.audio = audio;
-		}		
+		}
 	}
-	
+
 	/**
 	 * AudioCache Key
-	 * 
+	 *
 	 * @author exch
 	 */
 	private static class AudioKey {
@@ -689,7 +701,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			}
 			return false;
 		}
-		
+
 		public int hashCode() {
 			return java.util.Objects.hash(path, start, duration);
 		}
