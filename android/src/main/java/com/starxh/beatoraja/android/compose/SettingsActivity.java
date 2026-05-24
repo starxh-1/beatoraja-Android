@@ -64,7 +64,6 @@ public class SettingsActivity extends Activity {
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
     private int selectedSampleRate = 48000;
-    private String selectedLanguage = "en";
 
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
@@ -72,21 +71,10 @@ public class SettingsActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        readConfigDirectly();
-        applyLanguage(selectedLanguage);
         super.onCreate(savedInstanceState);
+        readConfigDirectly();
         setContentView(R.layout.activity_settings);
         initViews();
-    }
-
-    private void applyLanguage(String lang) {
-        Locale locale = new Locale(lang);
-        if (lang.equals("zh")) locale = Locale.SIMPLIFIED_CHINESE;
-        Locale.setDefault(locale);
-        Resources resources = getResources();
-        Configuration config = resources.getConfiguration();
-        config.setLocale(locale);
-        resources.updateConfiguration(config, resources.getDisplayMetrics());
     }
 
     private void readConfigDirectly() {
@@ -116,18 +104,15 @@ public class SettingsActivity extends Activity {
                 selectedSampleRate = findJsonIntValueInSection(json, "audio", "sampleRate", 48000);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
-                selectedLanguage = findJsonStringValue(json, "language", "en");
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
             } else {
                 String defaultBmsPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
                 bmsPaths.add(defaultBmsPath);
                 tableUrls.add("");
-                selectedLanguage = "en";
             }
         } catch (Exception e) {
             Log.e("SettingsActivity", "Read config fail", e);
-            selectedLanguage = "en";
         }
         readPlayOptionsFromPlayerConfig();
     }
@@ -336,33 +321,6 @@ public class SettingsActivity extends Activity {
     }
 
     private void initViews() {
-        // Language Selection
-        Spinner languageSpinner = findViewById(R.id.languageSpinner);
-        final String[] languageCodes = {"en", "zh", "ja"};
-        String[] languageNames = getResources().getStringArray(R.array.language_options);
-        ArrayAdapter<String> langAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, languageNames);
-        langAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        languageSpinner.setAdapter(langAdapter);
-
-        int langIndex = 0;
-        for (int i = 0; i < languageCodes.length; i++) {
-            if (languageCodes[i].equals(selectedLanguage)) { langIndex = i; break; }
-        }
-        languageSpinner.setSelection(langIndex);
-        languageSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                String newLang = languageCodes[position];
-                if (!newLang.equals(selectedLanguage)) {
-                    selectedLanguage = newLang;
-                    readAllOptionsFromUI();
-                    saveConfigToJson();
-                    recreate();
-                }
-            }
-            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-
         // Volume
         TextView volumePercent = findViewById(R.id.volumePercent);
         volumePercent.setText(selectedVolume + "%");
@@ -733,7 +691,15 @@ public class SettingsActivity extends Activity {
             config.put("showAudioSpectrum", showAudioSpectrum);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
-            config.put("language", selectedLanguage);
+
+            // 自动同步当前系统语言给游戏内核
+            String currentLang = Locale.getDefault().getLanguage();
+            if (currentLang.equals("zh") || currentLang.equals("ja")) {
+                config.put("language", currentLang);
+            } else {
+                config.put("language", "en");
+            }
+
             org.json.JSONArray bmsroot = new org.json.JSONArray();
             for (String p : bmsPaths) bmsroot.put(p);
             config.put("bmsroot", bmsroot);
@@ -962,8 +928,6 @@ public class SettingsActivity extends Activity {
         if (sr != null) selectedSampleRate = Integer.parseInt(sr);
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
         selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
-        Spinner ls = findViewById(R.id.languageSpinner);
-        if (ls != null) selectedLanguage = (new String[]{"en", "zh", "ja"})[ls.getSelectedItemPosition()];
     }
 
     private void updatePlayOptionsUI() {
