@@ -30,7 +30,7 @@ public class BMSResource {
 	/**
 	 * 音源読み込みタスク
 	 */
-	private ArrayDeque<Thread> audioloaders = new ArrayDeque<Thread>();
+	private final ArrayDeque<Thread> audioloaders = new ArrayDeque<Thread>();
 	/**
 	 * BMSのBGAリソース
 	 */
@@ -40,7 +40,7 @@ public class BMSResource {
 	/**
 	 * BGA読み込みタスク
 	 */
-	private ArrayDeque<Thread> bgaloaders = new ArrayDeque<Thread>();
+	private final ArrayDeque<Thread> bgaloaders = new ArrayDeque<Thread>();
 	/**
 	 * backbmp
 	 */
@@ -100,11 +100,15 @@ public class BMSResource {
 		}
 
 		this.model = model;
-		while(!audioloaders.isEmpty() && !audioloaders.getFirst().isAlive()) {
-			audioloaders.removeFirst();
+		synchronized(audioloaders) {
+			while(!audioloaders.isEmpty() && !audioloaders.getFirst().isAlive()) {
+				audioloaders.removeFirst();
+			}
 		}
-		while(!bgaloaders.isEmpty() && !bgaloaders.getFirst().isAlive()) {
-			bgaloaders.removeFirst();
+		synchronized(bgaloaders) {
+			while(!bgaloaders.isEmpty() && !bgaloaders.getFirst().isAlive()) {
+				bgaloaders.removeFirst();
+			}
 		}
 
 		if(MainLoader.getIllegalSongCount() == 0) {
@@ -113,14 +117,16 @@ public class BMSResource {
 			// bgaon を同期的に設定する（Skin.prepare() が静的条件として評価するため、
 			// 後台スレッド内で設定すると競態条件で SkinBGA が永久に削除される可能性がある）
 			bgaon = bgamodel != null;
+			final Thread prevBgaloader;
+			synchronized(bgaloaders) {
+				prevBgaloader = bgaloaders.peekLast();
+			}
 			Thread bgaloader = new Thread(() -> {
 				try {
 					bga.abort();
 					// 等待上一个BGA加载线程完全退出后再开始，防止硬件解码器堆积
-					synchronized(bgaloaders) {
-						while(!bgaloaders.isEmpty() && bgaloaders.getLast().isAlive()) {
-							bgaloaders.getLast().join(100);
-						}
+					if (prevBgaloader != null && prevBgaloader.isAlive()) {
+						prevBgaloader.join();
 					}
 					bga.setModel(bgamodel);
 				} catch (Throwable e) {
@@ -128,16 +134,20 @@ public class BMSResource {
 					e.printStackTrace();
 				}
 			});
-			bgaloaders.addLast(bgaloader);
+			synchronized(bgaloaders) {
+				bgaloaders.addLast(bgaloader);
+			}
 			bgaloader.start();
+			final Thread prevAudioloader;
+			synchronized(audioloaders) {
+				prevAudioloader = audioloaders.peekLast();
+			}
 			Thread audioloader = new Thread(() -> {
 				try {
 					audio.abort();
 					// 等待上一个音频加载线程完全退出后再开始
-					synchronized(audioloaders) {
-						while(!audioloaders.isEmpty() && audioloaders.getLast().isAlive()) {
-							audioloaders.getLast().join(100);
-						}
+					if (prevAudioloader != null && prevAudioloader.isAlive()) {
+						prevAudioloader.join();
 					}
 					audio.setModel(model);
 				} catch (Throwable e) {
@@ -145,7 +155,9 @@ public class BMSResource {
 					e.printStackTrace();
 				}
 			});
-			audioloaders.addLast(audioloader);
+			synchronized(audioloaders) {
+				audioloaders.addLast(audioloader);
+			}
 			audioloader.start();
 		}
 		return true;
@@ -164,11 +176,15 @@ public class BMSResource {
 	}
 
 	public boolean mediaLoadFinished() {
-		if(!audioloaders.isEmpty() && audioloaders.getLast().isAlive()) {
-			return false;
+		synchronized(audioloaders) {
+			if(!audioloaders.isEmpty() && audioloaders.getLast().isAlive()) {
+				return false;
+			}
 		}
-		if(!bgaloaders.isEmpty() && bgaloaders.getLast().isAlive()) {
-			return false;
+		synchronized(bgaloaders) {
+			if(!bgaloaders.isEmpty() && bgaloaders.getLast().isAlive()) {
+				return false;
+			}
 		}
 		return true;
 	}

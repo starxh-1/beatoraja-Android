@@ -62,6 +62,7 @@ public class SettingsActivity extends Activity {
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;  // 0=On, 1=Auto, 2=Off
     private int selectedBgaExpand = 1;  // 0=Full, 1=Keep Aspect Ratio, 2=Off
+    private int selectedSampleRate = 48000;
 
     // UI containers
     private LinearLayout bmsPathContainer;
@@ -129,6 +130,9 @@ public class SettingsActivity extends Activity {
 
                 // 解析 showAudioSpectrum
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
+
+                // 解析 audio.sampleRate
+                selectedSampleRate = findJsonIntValueInSection(json, "audio", "sampleRate", 48000);
 
                 // 解析 bga
                 selectedBga = findJsonIntValue(json, "bga", 0);
@@ -454,6 +458,34 @@ public class SettingsActivity extends Activity {
         return result;
     }
 
+    private int findJsonIntValueInSection(String json, String section, String key, int defaultValue) {
+        try {
+            int sectionStart = json.indexOf("\"" + section + "\"");
+            if (sectionStart < 0) return defaultValue;
+
+            int keyStart = json.indexOf("\"" + key + "\"", sectionStart);
+            if (keyStart < 0) return defaultValue;
+
+            int colonPos = json.indexOf(":", keyStart);
+            if (colonPos < 0) return defaultValue;
+
+            int start = colonPos + 1;
+            while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) {
+                start++;
+            }
+            int end = start;
+            while (end < json.length() && json.charAt(end) >= '0' && json.charAt(end) <= '9') {
+                end++;
+            }
+            if (end > start) {
+                return Integer.parseInt(json.substring(start, end));
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return defaultValue;
+    }
+
     private int findJsonFloatValueAsInt(String json, String section, String key, int defaultValue) {
         try {
             int sectionStart = json.indexOf("\"" + section + "\"");
@@ -570,6 +602,23 @@ public class SettingsActivity extends Activity {
             public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
             @Override
             public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
+        });
+
+        // Sample Rate
+        Spinner sampleRateSpinner = findViewById(R.id.sampleRateSpinner);
+        List<String> sampleRateOptions = Arrays.asList("32000", "36000", "44100", "48000");
+        ArrayAdapter<String> sampleRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, sampleRateOptions);
+        sampleRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        sampleRateSpinner.setAdapter(sampleRateAdapter);
+        int sampleRateIndex = sampleRateOptions.indexOf(String.valueOf(selectedSampleRate));
+        sampleRateSpinner.setSelection(sampleRateIndex >= 0 ? sampleRateIndex : 3);
+        sampleRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                selectedSampleRate = Integer.parseInt(sampleRateOptions.get(position));
+            }
+            @Override
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
         // Player Spinner
@@ -1135,6 +1184,7 @@ public class SettingsActivity extends Activity {
             audio.put("systemvolume", String.format("%.2f", selectedVolume / 100f));
             audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
+            audio.put("sampleRate", selectedSampleRate);
             existingConfig.put("audio", audio);
 
             // showAudioSpectrum
@@ -1805,6 +1855,8 @@ public class SettingsActivity extends Activity {
             selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString());
         } catch (Exception e) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
+        String sampleRateStr = (String) ((Spinner) findViewById(R.id.sampleRateSpinner)).getSelectedItem();
+        if (sampleRateStr != null) selectedSampleRate = Integer.parseInt(sampleRateStr);
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
         selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
     }

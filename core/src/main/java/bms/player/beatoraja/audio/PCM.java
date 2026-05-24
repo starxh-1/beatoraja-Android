@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.BufferUtils;
+import java.lang.reflect.Method;
 
 
 /**
@@ -118,6 +119,22 @@ public abstract class PCM<T> {
                     }
                     pcm.put(temp);
                     pcm.flip();
+                }
+            } else if (ext.equals("ogg") || ext.equals("mp3") || ext.equals("flac")) {
+                try {
+                    Method decodeMethod = Gdx.audio.getClass().getMethod("decodeToPCM", String.class);
+                    short[] data = (short[]) decodeMethod.invoke(Gdx.audio, file.path());
+                    if (data != null) {
+                        channels = 2; // OboeAudio 强制转换为双声道
+                        sampleRate = ((AbstractAudioDriver)driver).getSampleRate(); // 动态获取当前音频驱动采样率
+                        if (sampleRate == 0) sampleRate = 48000; // 兜底
+                        bitsPerSample = 16;
+                        pcm = getDirectByteBuffer(data.length * 2);
+                        pcm.asShortBuffer().put(data);
+                        pcm.flip();
+                    }
+                } catch (Exception e) {
+                    Logger.getGlobal().warning("Native decode failed for " + file.path() + ": " + e.getMessage());
                 }
             }
 

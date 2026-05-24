@@ -2750,6 +2750,7 @@ local function main(keysNumber)
 		local x = geo.gauge.x local y = 11 local w = geo.gauge.w local h = 80
 		local angle = 0
 		if isPortraitLayout() then
+			x = -500
 			y = 500
 			w = 1080
 			angle = 270

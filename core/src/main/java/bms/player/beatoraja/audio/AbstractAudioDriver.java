@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.*;
 
 /**
@@ -317,17 +318,23 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 				return;
 			}
 			try {
-				File p;
+				String p = null;
 				if (wavid < wavcount) {
-					p = new File(dpath, wavlist[wavid]).getAbsoluteFile();
+					File rawPath = new File(dpath, wavlist[wavid]);
+					FileHandle[] paths = AudioDriver.getPaths(rawPath.getPath());
+					if (paths.length > 0) {
+						p = paths[0].path();
+					} else {
+						p = rawPath.getAbsolutePath();
+					}
 				} else {
-					p = new File("defaultsound/landmine.wav").getAbsoluteFile();
+					p = new File("defaultsound/landmine.wav").getAbsolutePath();
 				}
 				for (Note note : waventry.getValue()) {
 					// 音切りあり・なし両方のデータが必要になるケースがある
 					if (note.getMicroStarttime() == 0 && note.getMicroDuration() == 0) {
 						// 音切りなしのケース
-						wavmap[wavid] = cache.get(new AudioKey(p.getPath(), note));
+						wavmap[wavid] = cache.get(new AudioKey(p, note));
 						if (wavmap[wavid] == null) {
 							break;
 						}
@@ -344,7 +351,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 							}
 						}
 						if (b) {
-							T sliceaudio = cache.get(new AudioKey(p.getPath(), note));
+							T sliceaudio = cache.get(new AudioKey(p, note));
 							if (sliceaudio != null) {
 								slicesound[note.getWav()].add(new SliceWav<T>(note, sliceaudio));
 							} else {
