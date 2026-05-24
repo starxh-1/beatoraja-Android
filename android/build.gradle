@@ -40,7 +40,7 @@ android {
     versionCode 1
     versionName "2.0"
 
-    resConfigs "en", "zh"
+    resConfigs "en", "zh", "ja"
   }
   compileOptions {
     sourceCompatibility "17"

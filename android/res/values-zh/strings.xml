@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">Beatoraja 设置</string>
-    <string name="audio_powered_by">Android 音频由 Oboe 驱动</string>
+    <string name="audio_powered_by">Android audio powered by Oboe</string>
     <string name="section_audio">音频</string>
     <string name="system_volume">系统音量</string>
     <string name="key_volume">按键音量</string>
@@ -85,7 +85,7 @@
     <string name="dialog_delete_player">删除玩家</string>
     <string name="msg_delete_confirm">确定要删除玩家 \'%1$s\' 吗？这将删除所有玩家数据，包括分数。</string>
     <string name="msg_settings_saved">设置已保存</string>
-    <string name="msg_table_updated">易难表更新成功</string>
+    <string name="msg_table_updated">难度表更新成功</string>
     <string name="msg_update_failed">更新失败: %1$s</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>

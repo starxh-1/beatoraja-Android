@@ -132,6 +132,9 @@ public class SongData implements Validatable, IpfsInformation {
 
 	public void setBMSModel(BMSModel model) {
 		if(model == null) {
+			this.model = null;
+			this.timelines = null;
+			this.info = null;
 			return;
 		}
 		this.model = model;

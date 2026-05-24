@@ -439,7 +439,7 @@ local function main(keysNumber)
 
 		geo.gauge = {}
 		geo.gauge.x = 226 / 2 -- Position on the phone's height axis (Buffer X)
-		geo.gauge.y = 940     -- Position on the phone's width axis (Buffer Y)
+		geo.gauge.y = 1040    -- Move to the edge (Landscape Y=1040)
 		geo.gauge.w = 1000    -- Length (Buffer X in landscape, width in portrait)
 		geo.gauge.h = 35      -- Thickness
 
@@ -872,8 +872,8 @@ local function main(keysNumber)
 				local d = {}
 				for i = 1, keysNumber + 1 do
 					if isPortraitLayout() then
-						-- In portrait, w is track length, h is lane thickness
-						d[i] = {x = geo.lane.x, y = geo.lane.each_y[i], w = geo.lane.w, h = geo.lane.each_w[i]}
+						-- Area starts 40px behind judgment line. Offset in LaneRenderer.java compensates hit pos.
+						d[i] = {x = geo.lane.x - 40, y = geo.lane.each_y[i], w = geo.lane.w + 40, h = geo.lane.each_w[i]}
 					else
 						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 18, w = geo.lane.each_w[i], h = geo.lane.h}
 					end
@@ -933,14 +933,18 @@ local function main(keysNumber)
 			skin.note.hcnbodyReactive = {"hcnr_w", "hcnr_b", "hcnr_w", "hcnr_b", "hcnr_w", "hcnr_s"}
 			skin.note.mine = {"mine_w", "mine_b", "mine_w", "mine_b", "mine_w", "mine_s"}
 
-			skin.note.dst = {
-				{x = geo.lane.each_x[1], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[2], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[3], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[4], y = geo.lane.y - 18, w = geo.note.black_w, h = geo.lane.h},
-				{x = geo.lane.each_x[5], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h},
-				{x = geo.lane.each_x[6], y = geo.lane.y - 18, w = geo.note.scratch_w, h = geo.lane.h},
-			}
+			skin.note.dst = (function()
+				local d = {}
+				for i = 1, 6 do
+					if isPortraitLayout() then
+						-- Area starts 40px behind judgment line. Offset in LaneRenderer.java compensates hit pos.
+						d[i] = {x = geo.lane.x - 40, y = geo.lane.each_y[i], w = geo.lane.w + 40, h = geo.lane.each_w[i]}
+					else
+						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h}
+					end
+				end
+				return d
+			end)()
 			skin.note.size = {72, 72, 72, 72, 72, 72}
 		end
 	end
@@ -1067,7 +1071,7 @@ local function main(keysNumber)
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then
 			n_x = 0 -- Relative to judge_f's center
-			n_y = -100 -- Distance along the falling direction (Buffer X)
+			n_y = -200 -- Offset in Landscape Y (Horizontal in portrait)
 			n_angle = 270 -- Rotated to match judge_f
 			n_cx = 0.5
 			n_cy = 0.5
@@ -2293,7 +2297,7 @@ local function main(keysNumber)
 			if pos_property.typeA.isSelected() then
 				if isPortraitLayout() then
 					x = geo.lane.x + 320
-					y = 540 - 150 -- Align with judge's X (Buffer Y) but offset on Y (Buffer X)
+					y = 540 - 300 -- Large offset in Landscape Y (Horizontal in portrait)
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
@@ -2485,27 +2489,54 @@ local function main(keysNumber)
 			{id = "image_finish", src = "src_ready_finish", x = 0, y = image_h, w = image_w, h = image_h}
 		})
 
-		local x = geo.lane.center_x - image_w / 2
-		local ready_y = geo.lane.y + 200
-		local finish_y = geo.lane.y + 350 -- fullcombo textと同じ
+		local x, y, ready_y, finish_y, angle, cx, cy
 		local w = image_w local h = image_h
-		append_all(skin.destination, {
-			{id = "image_ready", timer = 40, loop = -1, dst = {
-				-- 透明から現れて、落ちて消える
-				{time = 0, x = x, y = ready_y, w = w, h = h, a = 0},
-				{time = 200, a = 255},
-				{time = 500},
-				{time = 1000, y = ready_y - 40, a = 0}
-			}},
-			{id = "image_finish", timer = 143,
-				draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
-				-- 透明から現れて横長に消える
-				{time = 0, x = x, y = finish_y, w = w, h = h, a = 0},
-				{time = 200, a = 255},
-				{time = 1000},
-				{time = 1250, x = x - 100, y = finish_y + h * 0.25, w = w + 100 * 2, h = h * 0.5, a = 0}
-			}},
-		})
+		if isPortraitLayout() then
+			y = 540
+			ready_y = geo.lane.x + 200
+			finish_y = geo.lane.x + 350
+			angle = 270
+			cx = 0.5
+			cy = 0.5
+			append_all(skin.destination, {
+				{id = "image_ready", timer = 40, loop = -1, dst = {
+					-- 透明から現れて、落ちて消える
+					{time = 0, x = ready_y, y = y, w = w, h = h, a = 0, angle = angle, cx = cx, cy = cy},
+					{time = 200, a = 255},
+					{time = 500},
+					{time = 1000, x = ready_y - 40, a = 0}
+				}},
+				{id = "image_finish", timer = 143,
+					draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
+					-- 透明から現れて横长に消える
+					{time = 0, x = finish_y, y = y, w = w, h = h, a = 0, angle = angle, cx = cx, cy = cy},
+					{time = 200, a = 255},
+					{time = 1000},
+					{time = 1250, w = w + 100 * 2, h = h * 0.5, a = 0}
+				}},
+			})
+		else
+			x = geo.lane.center_x - image_w / 2
+			ready_y = geo.lane.y + 200
+			finish_y = geo.lane.y + 350 -- fullcombo textと同じ
+			append_all(skin.destination, {
+				{id = "image_ready", timer = 40, loop = -1, dst = {
+					-- 透明から現れて、落ちて消える
+					{time = 0, x = x, y = ready_y, w = w, h = h, a = 0},
+					{time = 200, a = 255},
+					{time = 500},
+					{time = 1000, y = ready_y - 40, a = 0}
+				}},
+				{id = "image_finish", timer = 143,
+					draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
+					-- 透明から現れて横長に消える
+					{time = 0, x = x, y = finish_y, w = w, h = h, a = 0},
+					{time = 200, a = 255},
+					{time = 1000},
+					{time = 1250, x = x - 100, y = finish_y + h * 0.25, w = w + 100 * 2, h = h * 0.5, a = 0}
+				}},
+			})
+		end
 	end
 
 	-- gaugearea - aligned with lane
@@ -3009,25 +3040,48 @@ local function main(keysNumber)
 				{id = "fullcombo_text_combo", src = "src_fullcombo_text", x = 0, y = text_h, w = text_w, h = text_h}
 			})
 
-			local text_y = geo.lane.y + 350 local text_base_x = geo.lane.center_x - text_w / 2
 			local move_x = 300
 			local appear_time = 500
-			append_all(skin.destination, {
-				{id = "fullcombo_text_full", timer = 48, loop = -1, filter = 1, dst = {
-					{time = 0, x = text_base_x - move_x, y = text_y + text_h, w = text_w, h = text_h, a = 0},
-					{time = appear_time},
-					{time = appear_time + 300, x = text_base_x - 10, a = 255},
-					{time = appear_time + 1300, x = text_base_x + 10},
-					{time = appear_time + 1600, x = text_base_x + move_x, a = 0}
-				}},
-				{id = "fullcombo_text_combo", timer = 48, loop = -1, filter = 1, dst = {
-					{time = 0, x = text_base_x + move_x, y = text_y, w = text_w, h = text_h, a = 0},
-					{time = appear_time},
-					{time = appear_time + 300, x = text_base_x + 10, a = 255},
-					{time = appear_time + 1300, x = text_base_x - 10},
-					{time = appear_time + 1600, x = text_base_x - move_x, a = 0}
-				}},
-			})
+			if isPortraitLayout() then
+				local text_base_y = 540
+				local text_x = geo.lane.x + 350
+				local angle = 270
+				local cx, cy = 0.5, 0.5
+				append_all(skin.destination, {
+					{id = "fullcombo_text_full", timer = 48, loop = -1, filter = 1, dst = {
+						{time = 0, x = text_x + text_h, y = text_base_y - move_x, w = text_w, h = text_h, a = 0, angle = angle, cx = cx, cy = cy},
+						{time = appear_time},
+						{time = appear_time + 300, y = text_base_y - 10, a = 255},
+						{time = appear_time + 1300, y = text_base_y + 10},
+						{time = appear_time + 1600, y = text_base_y + move_x, a = 0}
+					}},
+					{id = "fullcombo_text_combo", timer = 48, loop = -1, filter = 1, dst = {
+						{time = 0, x = text_x, y = text_base_y + move_x, w = text_w, h = text_h, a = 0, angle = angle, cx = cx, cy = cy},
+						{time = appear_time},
+						{time = appear_time + 300, y = text_base_y + 10, a = 255},
+						{time = appear_time + 1300, y = text_base_y - 10},
+						{time = appear_time + 1600, y = text_base_y - move_x, a = 0}
+					}},
+				})
+			else
+				local text_y = geo.lane.y + 350 local text_base_x = geo.lane.center_x - text_w / 2
+				append_all(skin.destination, {
+					{id = "fullcombo_text_full", timer = 48, loop = -1, filter = 1, dst = {
+						{time = 0, x = text_base_x - move_x, y = text_y + text_h, w = text_w, h = text_h, a = 0},
+						{time = appear_time},
+						{time = appear_time + 300, x = text_base_x - 10, a = 255},
+						{time = appear_time + 1300, x = text_base_x + 10},
+						{time = appear_time + 1600, x = text_base_x + move_x, a = 0}
+					}},
+					{id = "fullcombo_text_combo", timer = 48, loop = -1, filter = 1, dst = {
+						{time = 0, x = text_base_x + move_x, y = text_y, w = text_w, h = text_h, a = 0},
+						{time = appear_time},
+						{time = appear_time + 300, x = text_base_x + 10, a = 255},
+						{time = appear_time + 1300, x = text_base_x - 10},
+						{time = appear_time + 1600, x = text_base_x - move_x, a = 0}
+					}},
+				})
+			end
 		end
 	end
 

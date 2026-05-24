@@ -28,7 +28,7 @@
     <string name="enable_lanecover">レーンカバーを有効にする</string>
     <string name="enable_lift">LIFTを有効にする</string>
     <string name="section_tables">難易度表</string>
-    <string name="update_all">全て更新</string>
+    <string name="update_all">すべて更新</string>
     <string name="start_game">スタート</string>
 
     <string-array name="sample_rate_options">

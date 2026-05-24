@@ -385,9 +385,10 @@ public class LaneRenderer {
 					if (isPortrait) {
 						// Portrait: horizontal falling - x decreases from right to left
 						// Judgment line at left (hl), spawn at right (hu)
-						// Include LIFT in hl calculation to match landscape behavior
+						// Add 40px offset to hl to allow drawing note heads behind the judgment line
+						// without shifting the actual hit timing relative to the visual lane.
 						final float trackWidth = lanes[0].region.width;
-						hl = playconfig.isEnablelift() ? lanes[0].region.x + trackWidth * playconfig.getLift() : lanes[0].region.x;
+						hl = (playconfig.isEnablelift() ? lanes[0].region.x + trackWidth * playconfig.getLift() : lanes[0].region.x) + 40;
 						hu = lanes[0].region.x + trackWidth;
 						rxhs = (hu - hl) * hispeed;
 						notePosStart = hl;  // Distance logic: hl + distance
@@ -555,8 +556,7 @@ public class LaneRenderer {
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
-							// Shift line ahead (left) by 95 pixels to align with notes
-							line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
+							line.draw(sprite, time, main, (int) (notePos - hl), 0);
 						} else {
 							line.draw(sprite, time, main, 0, (int) (notePos - hl - 80));
 						}
@@ -577,7 +577,7 @@ public class LaneRenderer {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
+								line.draw(sprite, time, main, (int) (notePos - hl), 0);
 							} else {
 								line.draw(sprite, time, main, 0, (int) (notePos - hl));
 							}
@@ -597,7 +597,7 @@ public class LaneRenderer {
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
+								line.draw(sprite, time, main, (int) (notePos - hl), 0);
 							} else {
 								line.draw(sprite, time, main, 0, (int) (notePos - hl));
 							}
@@ -615,11 +615,10 @@ public class LaneRenderer {
 					}
 
 				}
-				// 小節線描画
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
 						if (isPortrait) {
-							line.draw(sprite, time, main, (int) (notePos - hl - 95), 0);
+							line.draw(sprite, time, main, (int) (notePos - hl), 0);
 						} else {
 							line.draw(sprite, time, main, 0, (int) (notePos - hl));
 						}
@@ -680,8 +679,8 @@ public class LaneRenderer {
 						dsth = scale + offsetW;
 
 						// Compensation for 270 CCW rotation around center:
-						// Align leading edge (original Bottom) exactly with notePos.
-						dstx = (float) notePos - (dstw - dsth) / 2f;
+						// Center sprite exactly on notePos.
+						dstx = (float) notePos - dstw / 2f;
 						dsty = lanes[lane].region.y + offsetY + (dstw - dsth) / 2f;
 					} else {
 						// Landscape: notes fall vertically (y increases from bottom to top)
@@ -738,8 +737,8 @@ public class LaneRenderer {
 								sprite.setColor(1, 1, 1, 1f);
 								if (s != null) {
 									if (isPortrait) {
-										sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
-									} else {
+									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
+								} else {
 										sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 									}
 								}
@@ -751,8 +750,8 @@ public class LaneRenderer {
 							sprite.setColor(1, 1, 1, 1f);
 							if (s != null) {
 								if (isPortrait) {
-									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
-								} else {
+								sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
+							} else {
 									sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 								}
 							}
@@ -785,7 +784,7 @@ public class LaneRenderer {
 							}
 					if (dy > 0) {
 						if (isPortrait) {
-							// Pass raw notePos and lane Y to drawLongNote for stable origin calculation
+							// Draw centered on notePos for perfect alignment with visual judge line
 							this.drawLongNote(sprite, lanes[lane].longImage, (float) notePos, lanes[lane].region.y + offsetY, dstw, (float) dy, scale, lane, ln, isPortrait);
 						} else {
 							final float dscale = (dsth > scale ? (dsth - scale) / 2 : 0);
@@ -950,16 +949,16 @@ public class LaneRenderer {
 							boolean drawCondition = ((note.getState() == 0 || note.getState() >= 4) && tl.getMicroTime() <= microtime) && (isPortrait ? notePos <= orgNotePos2 : notePos >= orgNotePos2);
 							if (drawCondition) {
 								sprite.setColor(1, 1, 1, 1f);
-								if (isPortrait) {
-									// Align leading edge to notePos and rotate around center
-									float poorX = (float) notePos - (dstw - dsth) / 2f;
-									float poorY = dsty + (dstw - dsth) / 2f;
-									if (notePos < orgNotePos) {
-										if (s != null) sprite.draw(s, (float) notePos - (dstw - dsth) / 2f, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
-									} else if (s != null) {
-										sprite.draw(s, poorX, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
-									}
-								} else {
+									if (isPortrait) {
+										// Align leading edge to notePos and rotate around center
+										float poorX = (float) notePos - dstw / 2f;
+										float poorY = dsty + (dstw - dsth) / 2f;
+										if (notePos < orgNotePos) {
+											if (s != null) sprite.draw(s, (float) notePos - dstw / 2f, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
+										} else if (s != null) {
+											sprite.draw(s, poorX, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
+										}
+									} else {
 									if (notePos > orgNotePos) {
 										if (s != null) sprite.draw(s, dstx, (float) (orgNotePos - (dsth - scale) / 2), dstw, dsth);
 									} else if (s != null) {
@@ -1017,25 +1016,24 @@ public class LaneRenderer {
 
 		if (isPortrait) {
 			// Portrait mode: notes fall horizontally (x decreases from right to left)
-			// Rotate 270 CCW around center. Origin at (0.5, 0) for body, (0.5, 0.5) for head/tail.
-			// Body: leading edge stays fixed at notePos (no diagonal drift)
+			// Rotate 270 CCW around center. Origin at (0.5, 0.5) for everything.
 			float W = width;
 			float H = height;
 			float headH = scale;
 
-			// Draw Body: rotate 270 CCW around (0.5, 0)
+			// Draw Body: centered on x, base at x
 			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
 				sprite.draw(longImage[bodyIdx], x - 0.5f * W, y + 0.5f * W, W, H, 0.5f, 0, 270.0f);
 			}
 
-			// Draw Head at start position
+			// Draw Head: centered on x
 			if (headIdx < longImage.length && longImage[headIdx] != null) {
-				sprite.draw(longImage[headIdx], x - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
+				sprite.draw(longImage[headIdx], x - 0.5f * W, y + 0.5f * W, W, headH, 0.5f, 0.5f, 270.0f);
 			}
 
-			// Draw Tail at end position
+			// Draw Tail: centered on x + H
 			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
-				sprite.draw(longImage[tailIdx], x + H - 0.5f * (W - headH), y + 0.5f * (W - headH), W, headH, 0.5f, 0.5f, 270.0f);
+				sprite.draw(longImage[tailIdx], x + H - 0.5f * W, y + 0.5f * W, W, headH, 0.5f, 0.5f, 270.0f);
 			}
 		} else {
 			// Landscape mode: notes fall vertically (y increases from bottom to top)

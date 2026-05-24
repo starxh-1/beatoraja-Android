@@ -83,16 +83,29 @@ public class SettingsActivity extends Activity {
     private void updateContextLanguage() {
         Locale systemLocale = Locale.getDefault();
         String lang = systemLocale.getLanguage();
+        String country = systemLocale.getCountry();
+        Log.i("SettingsActivity", "System Locale: " + systemLocale.toString() + " (lang: " + lang + ", country: " + country + ")");
 
-        // 仅在我们的支持范围内强制应用，否则默认
-        if (lang.equals("ja") || lang.equals("zh")) {
+        // 支持 ja, jp, zh
+        if (lang.equalsIgnoreCase("ja") || lang.equalsIgnoreCase("jp") || lang.equalsIgnoreCase("zh")) {
+            Locale targetLocale = lang.equalsIgnoreCase("zh") ? Locale.SIMPLIFIED_CHINESE : Locale.JAPANESE;
+
             Resources res = getResources();
-            Configuration config = res.getConfiguration();
-            config.setLocale(systemLocale);
+            Configuration config = new Configuration(res.getConfiguration());
+            config.setLocale(targetLocale);
+
+            // 针对 API 17+ 的更新方式
             res.updateConfiguration(config, res.getDisplayMetrics());
-            Log.i("SettingsActivity", "Forced UI language to: " + lang);
-        } else {
-            Log.i("SettingsActivity", "Using system default language: " + lang);
+
+            // 同时更新 Application 级别的配置
+            if (getApplicationContext() != null) {
+                Resources appRes = getApplicationContext().getResources();
+                Configuration appConfig = new Configuration(appRes.getConfiguration());
+                appConfig.setLocale(targetLocale);
+                appRes.updateConfiguration(appConfig, appRes.getDisplayMetrics());
+            }
+
+            Log.i("SettingsActivity", "Forced UI language to target locale: " + targetLocale.toString());
         }
     }
 
@@ -394,18 +407,22 @@ public class SettingsActivity extends Activity {
 
         // Sample Rate
         Spinner sampleRateSpinner = findViewById(R.id.sampleRateSpinner);
-        final String[] sampleRateOptions = {"32000", "36000", "44100", "48000"};
+        final String[] sampleRateOptions = getResources().getStringArray(R.array.sample_rate_options);
         ArrayAdapter<String> sampleRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, sampleRateOptions);
         sampleRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         sampleRateSpinner.setAdapter(sampleRateAdapter);
         int sampleRateIndex = -1;
         for (int i = 0; i < sampleRateOptions.length; i++) {
-            if (sampleRateOptions[i].equals(String.valueOf(selectedSampleRate))) { sampleRateIndex = i; break; }
+            if (sampleRateOptions[i].startsWith(String.valueOf(selectedSampleRate))) { sampleRateIndex = i; break; }
         }
-        sampleRateSpinner.setSelection(sampleRateIndex >= 0 ? sampleRateIndex : 3);
+        sampleRateSpinner.setSelection(sampleRateIndex >= 0 ? sampleRateIndex : (sampleRateOptions.length - 1));
         sampleRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                selectedSampleRate = Integer.parseInt(sampleRateOptions[position]);
+                try {
+                    selectedSampleRate = Integer.parseInt(sampleRateOptions[position].split(" ")[0]);
+                } catch (Exception e) {
+                    Log.e("SettingsActivity", "Parse sample rate fail: " + sampleRateOptions[position]);
+                }
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
@@ -961,7 +978,13 @@ public class SettingsActivity extends Activity {
         try { selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString()); } catch (Exception ignored) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
         String sr = (String) ((Spinner) findViewById(R.id.sampleRateSpinner)).getSelectedItem();
-        if (sr != null) selectedSampleRate = Integer.parseInt(sr);
+        if (sr != null) {
+            try {
+                selectedSampleRate = Integer.parseInt(sr.split(" ")[0]);
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "Parse sample rate fail from UI: " + sr);
+            }
+        }
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
         selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
     }
