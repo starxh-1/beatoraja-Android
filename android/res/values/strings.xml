@@ -37,6 +37,13 @@
         <item>日本語</item>
     </string-array>
 
+    <string-array name="sample_rate_options">
+        <item>32000</item>
+        <item>36000</item>
+        <item>44100</item>
+        <item>48000 (default)</item>
+    </string-array>
+
     <string-array name="bga_display_options">
         <item>On</item>
         <item>Auto</item>

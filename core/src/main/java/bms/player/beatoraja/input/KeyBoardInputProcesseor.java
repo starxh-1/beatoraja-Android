@@ -404,7 +404,7 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 	 * デフォルトで50msの猶予を持たせる。
 	 */
 	private final long[] pendingPressDeadline = new long[256];
-	private static final long SIMULATED_KEY_DURATION = 50000; // 50ms (microseconds)
+	private static final long SIMULATED_KEY_DURATION = 150000; // 150ms (microseconds)
 
 	/**
 	 * キー押下をシミュレート。

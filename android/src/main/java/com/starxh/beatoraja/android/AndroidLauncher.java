@@ -736,6 +736,13 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         lastUserTouchTime = SystemClock.uptimeMillis();
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            // Android 5.1 及以下版本增强拦截
+            if (instance != null) {
+                setAndroidBackPressedFlag();
+                return true; // 强制消费掉，不给系统处理
+            }
+        }
         return super.onKeyDown(keyCode, event);
     }
 

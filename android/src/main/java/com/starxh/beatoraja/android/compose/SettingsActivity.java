@@ -71,10 +71,29 @@ public class SettingsActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // 在加载视图之前，强制刷新当前上下文的语言环境
+        updateContextLanguage();
+
         super.onCreate(savedInstanceState);
         readConfigDirectly();
         setContentView(R.layout.activity_settings);
         initViews();
+    }
+
+    private void updateContextLanguage() {
+        Locale systemLocale = Locale.getDefault();
+        String lang = systemLocale.getLanguage();
+
+        // 仅在我们的支持范围内强制应用，否则默认
+        if (lang.equals("ja") || lang.equals("zh")) {
+            Resources res = getResources();
+            Configuration config = res.getConfiguration();
+            config.setLocale(systemLocale);
+            res.updateConfiguration(config, res.getDisplayMetrics());
+            Log.i("SettingsActivity", "Forced UI language to: " + lang);
+        } else {
+            Log.i("SettingsActivity", "Using system default language: " + lang);
+        }
     }
 
     private void readConfigDirectly() {
@@ -129,12 +148,12 @@ public class SettingsActivity extends Activity {
                 String json = content.toString();
                 selectedGaugeAutoShift = findJsonIntValue(json, "gaugeAutoShift", 0);
                 selectedAutoSaveReplay = findJsonIntArray(json, "autosavereplay", 4);
-                selectedGreenNumber = findJsonIntValue(json, "greenNumber", 0);
-                selectedHispeedFix = findJsonIntValue(json, "hispeedFix", 3);
+                // 从 mode7.playconfig 解析 hispeedFix
                 int mode7Start = json.indexOf("\"mode7\"");
                 if (mode7Start >= 0) {
                     int playconfigStart = json.indexOf("\"playconfig\"", mode7Start);
                     if (playconfigStart >= 0) {
+                        selectedHispeedFix = findJsonIntValueFrom(json, "fixhispeed", playconfigStart, 3);
                         selectedEnableLanecover = findJsonBooleanValueFrom(json, "enablelanecover", playconfigStart, true);
                         selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
                     }
@@ -205,6 +224,21 @@ public class SettingsActivity extends Activity {
     private int findJsonIntValue(String json, String key, int defaultValue) {
         try {
             int keyStart = json.indexOf("\"" + key + "\"");
+            if (keyStart < 0) return defaultValue;
+            int colonPos = json.indexOf(":", keyStart);
+            if (colonPos < 0) return defaultValue;
+            int start = colonPos + 1;
+            while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) start++;
+            int end = start;
+            while (end < json.length() && json.charAt(end) >= '0' && json.charAt(end) <= '9') end++;
+            if (end > start) return Integer.parseInt(json.substring(start, end));
+        } catch (Exception ignored) {}
+        return defaultValue;
+    }
+
+    private int findJsonIntValueFrom(String json, String key, int fromIndex, int defaultValue) {
+        try {
+            int keyStart = json.indexOf("\"" + key + "\"", fromIndex);
             if (keyStart < 0) return defaultValue;
             int colonPos = json.indexOf(":", keyStart);
             if (colonPos < 0) return defaultValue;
@@ -728,12 +762,14 @@ public class SettingsActivity extends Activity {
             for (int val : selectedAutoSaveReplay) asr.put(val);
             config.put("autosavereplay", asr);
             config.put("greenNumber", selectedGreenNumber);
+            // 写入 PlayConfig 的字段名是 fixhispeed
             config.put("hispeedFix", selectedHispeedFix);
             String[] modes = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
             for (String m : modes) {
                 org.json.JSONObject mo = config.optJSONObject(m); if (mo == null) mo = new org.json.JSONObject();
                 org.json.JSONObject pc = mo.optJSONObject("playconfig"); if (pc == null) pc = new org.json.JSONObject();
                 pc.put("enablelanecover", selectedEnableLanecover); pc.put("enablelift", selectedEnableLift);
+                pc.put("fixhispeed", selectedHispeedFix);
                 mo.put("playconfig", pc); config.put(m, mo);
             }
             File pDir = configFile.getParentFile(); if (!pDir.exists()) pDir.mkdirs();

@@ -19,53 +19,60 @@
     <string name="tap_to_remove">点击以移除</string>
     <string name="section_play_options">游玩选项</string>
     <string name="show_audio_spectrum">显示音频频谱</string>
-    <string name="bga_display">BGA 显示</string>
-    <string name="bga_expand">BGA 扩展</string>
-    <string name="gauge_auto_shift">血条自动切换</string>
-    <string name="auto_save_replay">自动保存重放</string>
-    <string name="green_number">绿值 (Green Number)</string>
-    <string name="hispeed_fix">高速固定 (HI-SPEED Fix)</string>
+    <string name="bga_display">BGA Display</string>
+    <string name="bga_expand">BGA Expand</string>
+    <string name="gauge_auto_shift">Gauge Auto Shift</string>
+    <string name="auto_save_replay">Auto Save Replay</string>
+    <string name="green_number">Green Number</string>
+    <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
     <string name="enable_lift">启用抬高 (LIFT)</string>
     <string name="section_tables">难易度表</string>
     <string name="update_all">全部更新</string>
     <string name="start_game">开始游戏</string>
 
+    <string-array name="sample_rate_options">
+        <item>32000</item>
+        <item>36000</item>
+        <item>44100</item>
+        <item>48000 (默认)</item>
+    </string-array>
+
     <string-array name="bga_display_options">
-        <item>开启</item>
-        <item>自动</item>
-        <item>关闭</item>
+        <item>On</item>
+        <item>Auto</item>
+        <item>Off</item>
     </string-array>
     <string-array name="bga_expand_options">
-        <item>全屏</item>
-        <item>保持比例</item>
-        <item>关闭</item>
+        <item>Full</item>
+        <item>Keep Aspect Ratio</item>
+        <item>Off</item>
     </string-array>
     <string-array name="gauge_auto_shift_options">
-        <item>无</item>
-        <item>继续</item>
+        <item>None</item>
+        <item>Continue</item>
         <item>Survival→Groove</item>
-        <item>最佳过歌</item>
-        <item>选择→低于</item>
+        <item>Best Clear</item>
+        <item>Select→Under</item>
     </string-array>
     <string-array name="auto_save_options">
-        <item>不保存</item>
-        <item>分数更新</item>
-        <item>分数&gt;=</item>
-        <item>Miss更新</item>
+        <item>Nothing</item>
+        <item>Score Update</item>
+        <item>Score&gt;=</item>
+        <item>Miss Update</item>
         <item>Miss&lt;=</item>
-        <item>Combo更新</item>
+        <item>Combo Update</item>
         <item>Combo&gt;=</item>
-        <item>Clear更新</item>
+        <item>Clear Update</item>
         <item>Clear&gt;=</item>
-        <item>最佳过歌</item>
+        <item>Best Clear</item>
     </string-array>
     <string-array name="hispeed_fix_options">
-        <item>关闭</item>
-        <item>起始 BPM</item>
-        <item>最大 BPM</item>
-        <item>主 BPM</item>
-        <item>最小 BPM</item>
+        <item>OFF</item>
+        <item>Start BPM</item>
+        <item>Max BPM</item>
+        <item>Main BPM</item>
+        <item>Min BPM</item>
     </string-array>
 
     <string name="dialog_new_player">新建玩家</string>
