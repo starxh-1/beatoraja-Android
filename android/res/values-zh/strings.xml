@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">beatoraja-Android</string>
+    <string name="settings_title">Beatoraja 设置</string>
+    <string name="audio_powered_by">Android 音频由 Oboe 驱动</string>
+    <string name="section_audio">音频</string>
+    <string name="system_volume">系统音量</string>
+    <string name="key_volume">按键音量</string>
+    <string name="bgm_volume">BGM 音量</string>
+    <string name="sample_rate">采样率</string>
+    <string name="section_player">玩家</string>
+    <string name="select_player">选择玩家</string>
+    <string name="new_player">+ 新建玩家</string>
+    <string name="delete">删除</string>
+    <string name="export">导出</string>
+    <string name="import_score_db">导入 Score.db</string>
+    <string name="section_bms_path">BMS 路径</string>
+    <string name="add">+ 添加</string>
+    <string name="tap_to_remove">点击以移除</string>
+    <string name="section_play_options">游玩选项</string>
+    <string name="show_audio_spectrum">显示音频频谱</string>
+    <string name="bga_display">BGA 显示</string>
+    <string name="bga_expand">BGA 扩展</string>
+    <string name="gauge_auto_shift">血条自动切换</string>
+    <string name="auto_save_replay">自动保存重放</string>
+    <string name="green_number">绿值 (Green Number)</string>
+    <string name="hispeed_fix">高速固定 (HI-SPEED Fix)</string>
+    <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
+    <string name="enable_lift">启用抬高 (LIFT)</string>
+    <string name="section_tables">难易度表</string>
+    <string name="update_all">全部更新</string>
+    <string name="start_game">开始游戏</string>
+
+    <string-array name="bga_display_options">
+        <item>开启</item>
+        <item>自动</item>
+        <item>关闭</item>
+    </string-array>
+    <string-array name="bga_expand_options">
+        <item>全屏</item>
+        <item>保持比例</item>
+        <item>关闭</item>
+    </string-array>
+    <string-array name="gauge_auto_shift_options">
+        <item>无</item>
+        <item>继续</item>
+        <item>Survival→Groove</item>
+        <item>最佳过歌</item>
+        <item>选择→低于</item>
+    </string-array>
+    <string-array name="auto_save_options">
+        <item>不保存</item>
+        <item>分数更新</item>
+        <item>分数&gt;=</item>
+        <item>Miss更新</item>
+        <item>Miss&lt;=</item>
+        <item>Combo更新</item>
+        <item>Combo&gt;=</item>
+        <item>Clear更新</item>
+        <item>Clear&gt;=</item>
+        <item>最佳过歌</item>
+    </string-array>
+    <string-array name="hispeed_fix_options">
+        <item>关闭</item>
+        <item>起始 BPM</item>
+        <item>最大 BPM</item>
+        <item>主 BPM</item>
+        <item>最小 BPM</item>
+    </string-array>
+
+    <string name="dialog_new_player">新建玩家</string>
+    <string name="hint_player_name">玩家名称</string>
+    <string name="btn_create">创建</string>
+    <string name="btn_cancel">取消</string>
+    <string name="msg_player_created">玩家 \'%1$s\' 已创建</string>
+    <string name="msg_player_empty">玩家名称不能为空</string>
+    <string name="msg_player_exists">玩家已存在</string>
+    <string name="dialog_delete_player">删除玩家</string>
+    <string name="msg_delete_confirm">确定要删除玩家 \'%1$s\' 吗？这将删除所有玩家数据，包括分数。</string>
+    <string name="msg_settings_saved">设置已保存</string>
+    <string name="msg_table_updated">易难表更新成功</string>
+    <string name="msg_update_failed">更新失败: %1$s</string>
+    <string name="btn_update">更新</string>
+    <string name="btn_remove">X</string>
+    <string name="msg_invalid_url">请输入有效的 URL</string>
+    <string name="msg_score_db_not_found">找不到玩家 %1$s 的分数数据库</string>
+    <string name="msg_score_exported">分数导出成功</string>
+    <string name="msg_export_failed">导出失败: %1$s</string>
+    <string name="msg_import_success">玩家 \'%1$s\' 导入成功</string>
+    <string name="msg_import_failed">导入失败: %1$s</string>
+    <string name="msg_delete_success">玩家已删除</string>
+    <string name="msg_last_player_error">无法删除最后一个玩家</string>
+    <string name="msg_updating_tables">正在更新 %1$d 个难易度表...</string>
+    <string name="msg_tables_updated_summary">已更新 %1$d 个表，%2$d 个失败</string>
+    <string name="msg_no_table_urls">没有需要更新的难易度表 URL</string>
+</resources>

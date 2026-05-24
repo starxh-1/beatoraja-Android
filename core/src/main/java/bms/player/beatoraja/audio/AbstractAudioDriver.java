@@ -65,6 +65,11 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	private int sampleRate;
 	int channels;
 
+	/**
+	 * 上一次加载成功的歌曲 MD5，用于优化重复加载。
+	 */
+	private String lastModelMD5 = "";
+
 	public AbstractAudioDriver(int maxgen) {
 		cache = new AudioCache(Math.max(maxgen, 1));
 	}
@@ -255,8 +260,11 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	public synchronized void setModel(BMSModel model) {
 		Logger.getGlobal().info("音源ファイル読み込み開始。");
 
-		// 先释放上一首歌的音频缓存，避免新旧音频同时驻留内存导致OOM
-		cache.disposeOld();
+		// 如果是同一首歌，跳过缓存释放以加速加载（Retry 优化）
+		if (model.getMD5() == null || !model.getMD5().equals(lastModelMD5)) {
+			cache.disposeOld();
+			lastModelMD5 = model.getMD5() != null ? model.getMD5() : "";
+		}
 
 		String[] wavlist = model.getWavList();
 		final int wavcount = wavlist.length;

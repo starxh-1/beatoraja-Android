@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">beatoraja-Android</string>
+    <string name="settings_title">beatoraja 設定</string>
+    <string name="audio_powered_by">Android audio powered by Oboe</string>
+    <string name="section_audio">オーディオ</string>
+    <string name="system_volume">システム音量</string>
+    <string name="key_volume">キー音量</string>
+    <string name="bgm_volume">BGM音量</string>
+    <string name="sample_rate">サンプリングレート</string>
+    <string name="section_player">プレイヤー</string>
+    <string name="select_player">プレイヤー選択</string>
+    <string name="new_player">+ 新規プレイヤー</string>
+    <string name="delete">削除</string>
+    <string name="export">書き出し</string>
+    <string name="import_score_db">Score.db をインポート</string>
+    <string name="section_bms_path">BMSパス</string>
+    <string name="add">+ 追加</string>
+    <string name="tap_to_remove">タップして削除</string>
+    <string name="section_play_options">プレイオプション</string>
+    <string name="show_audio_spectrum">オーディオスペクトラムを表示</string>
+    <string name="bga_display">BGA表示</string>
+    <string name="bga_expand">BGA拡大</string>
+    <string name="gauge_auto_shift">ゲージオートシフト</string>
+    <string name="auto_save_replay">リプレイ自动保存</string>
+    <string name="green_number">緑数字</string>
+    <string name="hispeed_fix">ハイスピード固定</string>
+    <string name="enable_lanecover">レーンカバーを有効にする</string>
+    <string name="enable_lift">LIFTを有効にする</string>
+    <string name="section_tables">難易度表</string>
+    <string name="update_all">全て更新</string>
+    <string name="start_game">スタート</string>
+
+    <string-array name="bga_display_options">
+        <item>ON</item>
+        <item>自動</item>
+        <item>OFF</item>
+    </string-array>
+    <string-array name="bga_expand_options">
+        <item>フル</item>
+        <item>アスペクト比維持</item>
+        <item>OFF</item>
+    </string-array>
+    <string-array name="gauge_auto_shift_options">
+        <item>なし</item>
+        <item>継続</item>
+        <item>Survival→Groove</item>
+        <item>ベストクリア</item>
+        <item>Select→Under</item>
+    </string-array>
+    <string-array name="auto_save_options">
+        <item>しない</item>
+        <item>スコア更新</item>
+        <item>スコア&gt;=</item>
+        <item>Miss更新</item>
+        <item>Miss&lt;=</item>
+        <item>コンボ更新</item>
+        <item>コンボ&gt;=</item>
+        <item>クリア更新</item>
+        <item>クリア&gt;=</item>
+        <item>ベストクリア</item>
+    </string-array>
+    <string-array name="hispeed_fix_options">
+        <item>OFF</item>
+        <item>開始BPM</item>
+        <item>最大BPM</item>
+        <item>メインBPM</item>
+        <item>最小BPM</item>
+    </string-array>
+
+    <string name="dialog_new_player">新規プレイヤー</string>
+    <string name="hint_player_name">プレイヤー名</string>
+    <string name="btn_create">作成</string>
+    <string name="btn_cancel">キャンセル</string>
+    <string name="msg_player_created">プレイヤー \'%1$s\' を作成しました</string>
+    <string name="msg_player_empty">プレイヤー名を入力してください</string>
+    <string name="msg_player_exists">同名のプレイヤーが既に存在します</string>
+    <string name="dialog_delete_player">プレイヤー削除</string>
+    <string name="msg_delete_confirm">プレイヤー \'%1$s\' を削除してもよろしいですか？スコアを含む全てのデータが削除されます。</string>
+    <string name="msg_settings_saved">設定を保存しました</string>
+    <string name="msg_table_updated">難易度表を更新しました</string>
+    <string name="msg_update_failed">更新失敗: %1$s</string>
+    <string name="btn_update">更新</string>
+    <string name="btn_remove">X</string>
+    <string name="msg_invalid_url">有効な URL を入力してください</string>
+    <string name="msg_score_db_not_found">プレイヤー %1$s のスコアデータベースが見つかりません</string>
+    <string name="msg_score_exported">スコアを書き出しました</string>
+    <string name="msg_export_failed">書き出し失敗: %1$s</string>
+    <string name="msg_import_success">プレイヤー \'%1$s\' をインポートしました</string>
+    <string name="msg_import_failed">インポート失敗: %1$s</string>
+    <string name="msg_delete_success">プレイヤーを削除しました</string>
+    <string name="msg_last_player_error">最後のプレイヤーは削除できません</string>
+    <string name="msg_updating_tables">%1$d 個の難易度表を更新中...</string>
+    <string name="msg_tables_updated_summary">%1$d 個を更新しました（%2$d 個失敗）</string>
+    <string name="msg_no_table_urls">更新する難易度表URLがありません</string>
+</resources>

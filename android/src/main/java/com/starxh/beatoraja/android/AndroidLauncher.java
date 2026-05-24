@@ -25,6 +25,10 @@ import com.starxh.beatoraja.BeatorajaGame;
 import barsoosayque.libgdxoboe.OboeAudio;
 
 import java.io.*;
+import java.util.Locale;
+import android.content.res.Configuration;
+import android.content.res.Resources;
+import org.json.JSONObject;
 
 import bms.player.beatoraja.Config;
 import bms.player.beatoraja.PlayerConfig;
@@ -37,6 +41,7 @@ public class AndroidLauncher extends AndroidApplication {
     private volatile boolean isTextInputActive = false;
     private OboeAudio oboeAudio;
     private int mSampleRate = 48000;
+    private String mLanguage = "en";
 
     @Override
     public AndroidAudio createAudio(Context context, AndroidApplicationConfiguration config) {
@@ -53,6 +58,33 @@ public class AndroidLauncher extends AndroidApplication {
             Log.w(TAG, "OboeAudio initialization failed, falling back to default AndroidAudio: " + t.getMessage());
             return super.createAudio(context, config);
         }
+    }
+
+    private void readConfigForLanguage() {
+        try {
+            File configFile = new File(getExternalFilesDir(null), "config_sys.json");
+            if (configFile.exists()) {
+                StringBuilder content = new StringBuilder();
+                try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) content.append(line);
+                }
+                JSONObject json = new JSONObject(content.toString());
+                mLanguage = json.optString("language", "en");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to read language config", e);
+        }
+    }
+
+    private void applyLanguage(String lang) {
+        Locale locale = new Locale(lang);
+        if (lang.equals("zh")) locale = Locale.SIMPLIFIED_CHINESE;
+        Locale.setDefault(locale);
+        Resources resources = getResources();
+        Configuration config = resources.getConfiguration();
+        config.setLocale(locale);
+        resources.updateConfiguration(config, resources.getDisplayMetrics());
     }
 
     private Object backInvokedCallback;
@@ -74,7 +106,6 @@ public class AndroidLauncher extends AndroidApplication {
                 Window w = getWindow();
                 if (w != null && w.getDecorView() != null) {
                     isSimulatingTouch = true;
-                    // 使用更加频繁且自然的微小滑动，避开屏幕边缘（防止触发系统通知栏/导航栏引起闪烁和分辨率变动）
                     float offsetX = 100f + (float) (Math.random() * 2.0);
                     float offsetY = 100f + (float) (Math.random() * 2.0);
                     MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, offsetX, offsetY, 0);
@@ -97,6 +128,8 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        readConfigForLanguage();
+        applyLanguage(mLanguage);
         super.onCreate(savedInstanceState);
         instance = this;
 
@@ -210,7 +243,7 @@ public class AndroidLauncher extends AndroidApplication {
                         int colonIndex = content.indexOf(":", sampleRateIndex);
                         if (colonIndex >= 0) {
                             int start = colonIndex + 1;
-                            while (start < content.length() && (content.charAt(start) == ' ' || content.charAt(start) == '"')) start++;
+                            while (start < content.length() && (content.charAt(start) == ' ' || start < content.length() && content.charAt(start) == '"')) start++;
                             int end = start;
                             while (end < content.length() && content.charAt(end) >= '0' && content.charAt(end) <= '9') end++;
                             if (end > start) mSampleRate = Integer.parseInt(content.substring(start, end));
@@ -236,8 +269,6 @@ public class AndroidLauncher extends AndroidApplication {
 
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
-        // 捕获 Android 系统的返回键，交由 LibGDX 的 InputProcessor 处理
-        // 必须在 initialize() 之后调用，此时 Gdx.input 才被初始化
         Gdx.input.setCatchKey(Keys.BACK, true);
 
         // initialize 之后立即设置高帧率（此时 Surface 已准备好）
@@ -298,9 +329,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     /**
      * 检测外部 skin 并导入到 skin 目录
-     * 检测 Download/beatoraja/skins/ 下的 zip 和文件夹
-     * zip 解压后删除，文件夹移动后删除
-     * 如果没有外部 skin，则复制内置 assets/skin/
      */
     private void ensureExternalSkinZip(File filesDir) {
         File externalSkinsDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SKINS_FOLDER);
@@ -317,29 +345,23 @@ public class AndroidLauncher extends AndroidApplication {
                     String skinName = zip.getName().replace(".zip", "");
                     File destFile = new File(internalSkinDir, skinName);
 
-                    // 如果已存在同名文件夹，跳过
                     if (destFile.exists() && destFile.list() != null && destFile.list().length > 0) {
                         Log.i(TAG, "Skin already exists, skip: " + destFile.getAbsolutePath());
                     } else if (destFile.exists() && !destFile.isDirectory()) {
-                        // 遗留 bug：之前被 renameTo 成了文件而不是目录，删掉它重新处理
-                        Log.w(TAG, "Found legacy file instead of directory, deleting: " + destFile.getAbsolutePath());
                         destFile.delete();
                     }
 
                     if (!destFile.exists() || !destFile.isDirectory()) {
-                        // 先尝试直接移动到临时 zip 路径
                         File destParent = destFile.getParentFile();
                         if (destParent != null && !destParent.exists()) destParent.mkdirs();
                         File tempZip = new File(internalSkinDir, skinName + ".zip");
                         if (zip.renameTo(tempZip)) {
                             Log.i(TAG, "Moved skin zip to: " + tempZip.getAbsolutePath());
-                            // 然后解压
                             if (extractSkinZip(tempZip, internalSkinDir)) {
                                 tempZip.delete();
                                 Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
                             }
                         } else {
-                            // 移动失败，解压后删除 zip
                             if (extractSkinZip(zip, internalSkinDir)) {
                                 zip.delete();
                                 Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
@@ -355,16 +377,12 @@ public class AndroidLauncher extends AndroidApplication {
             if (skinFolders != null && skinFolders.length > 0) {
                 for (File skinFolder : skinFolders) {
                     File destSkinDir = new File(internalSkinDir, skinFolder.getName());
-
-                    // 如果目标已存在同名文件夹，跳过
                     if (destSkinDir.exists()) {
                         Log.i(TAG, "Skin folder already exists, skip: " + destSkinDir.getAbsolutePath());
                     } else {
-                        // 先尝试直接移动
                         if (skinFolder.renameTo(destSkinDir)) {
                             Log.i(TAG, "Moved skin folder to: " + destSkinDir.getAbsolutePath());
                         } else {
-                            // 移动失败，复制后删除原文件夹
                             try {
                                 copyDirectory(skinFolder, destSkinDir);
                                 deleteRecursive(skinFolder);
@@ -377,42 +395,27 @@ public class AndroidLauncher extends AndroidApplication {
                 }
                 hasProcessed = true;
             }
-
             if (hasProcessed) return;
         }
-
-        // 没有外部 skin，走老路：复制内置 assets/skin/
         ensureSkinAssets(filesDir);
     }
 
-    /**
-     * 解压 skin zip 到目标目录
-     * @return true if extracted successfully
-     */
     private boolean extractSkinZip(File zipFile, File destDir) {
         destDir.mkdirs();
         String skinName = zipFile.getName().replace(".zip", "");
         File skinExtractDir = new File(destDir, skinName);
 
-        // 如果已存在同名文件夹，跳过
         if (skinExtractDir.exists() && skinExtractDir.list() != null && skinExtractDir.list().length > 0) {
             Log.i(TAG, "Skin already extracted, skip: " + skinExtractDir.getAbsolutePath());
             return false;
         }
 
-        Log.i(TAG, "Extracting skin: " + zipFile.getName() + " -> " + skinExtractDir.getAbsolutePath());
         try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
-            // Find and strip common top-level prefix to avoid double-nesting
             String prefixToStrip = findCommonZipPrefix(zip, skinName);
-            if (prefixToStrip != null) {
-                Log.i(TAG, "Stripping top-level prefix: '" + prefixToStrip + "'");
-            }
-
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
                 String entryName = entry.getName();
-                // Strip common prefix if found
                 if (prefixToStrip != null && entryName.startsWith(prefixToStrip)) {
                     entryName = entryName.substring(prefixToStrip.length());
                 }
@@ -431,7 +434,6 @@ public class AndroidLauncher extends AndroidApplication {
                     }
                 }
             }
-            Log.i(TAG, "Skin extracted successfully: " + skinExtractDir.getName());
             return true;
         } catch (IOException e) {
             Log.e(TAG, "Failed to extract skin zip: " + zipFile.getName(), e);
@@ -439,9 +441,6 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
-    /**
-     * 检测并解压 songs 目录下的 zip 文件到 songs 子目录
-     */
     private void ensureExternalSongZip() {
         File songsDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SONGS_FOLDER);
         if (!songsDir.exists() || !songsDir.isDirectory()) return;
@@ -449,52 +448,29 @@ public class AndroidLauncher extends AndroidApplication {
         File[] zipFiles = songsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
         if (zipFiles == null || zipFiles.length == 0) return;
 
-        Log.i(TAG, "Found " + zipFiles.length + " song zip(s) in: " + songsDir.getAbsolutePath());
         for (File zip : zipFiles) {
             String songName = zip.getName().replace(".zip", "");
             File extractDir = new File(songsDir, songName);
-
-            // 只检查目标目录是否存在且有内容，如果已有内容则跳过解压（不删除 zip）
             if (extractDir.exists() && extractDir.isDirectory() && extractDir.list() != null && extractDir.list().length > 0) {
-                Log.i(TAG, "Song already extracted, skip: " + extractDir.getAbsolutePath());
-                // 不再删除 zip，保留以防用户需要重新安装
                 continue;
             }
-
-            Log.i(TAG, "Extracting song zip: " + zip.getName() + " -> " + extractDir.getAbsolutePath());
             if (extractSongZip(zip, extractDir)) {
-                // 解压成功后删除 zip
                 zip.delete();
-                Log.i(TAG, "Deleted song zip after extract: " + zip.getName());
             }
         }
     }
 
-    /**
-     * 公开方法，供外部调用检测并解压 songs 目录下的 zip 文件
-     * 可被 core 模块通过反射调用
-     */
     public static void checkAndExtractSongZips() {
         if (instance != null) {
             instance.ensureExternalSongZip();
         }
     }
 
-    /**
-     * 解压 song zip 到目标目录（通常是 songs/songname/）
-     * @return true if extracted successfully
-     */
     private boolean extractSongZip(File zipFile, File destDir) {
         destDir.mkdirs();
         String zipBaseName = zipFile.getName().replace(".zip", "");
-        Log.i(TAG, "Extracting song: " + zipFile.getName() + " -> " + destDir.getAbsolutePath());
         try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
-            // Find and strip common top-level prefix to avoid double-nesting
             String prefixToStrip = findCommonZipPrefix(zip, zipBaseName);
-            if (prefixToStrip != null) {
-                Log.i(TAG, "Stripping top-level prefix: '" + prefixToStrip + "'");
-            }
-
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
@@ -517,7 +493,6 @@ public class AndroidLauncher extends AndroidApplication {
                     }
                 }
             }
-            Log.i(TAG, "Song extracted successfully: " + destDir.getName());
             return true;
         } catch (IOException e) {
             Log.e(TAG, "Failed to extract song zip: " + zipFile.getName(), e);
@@ -525,11 +500,6 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
-    /**
-     * Find the common top-level folder prefix among all zip entries.
-     * If entries look like "ModernChic/default/..." and no other root, returns "ModernChic/".
-     * Returns null if no common prefix found.
-     */
     private String findCommonZipPrefix(java.util.zip.ZipFile zip, String zipBaseName) {
         java.util.List<String> topLevelFolders = new java.util.ArrayList<>();
         java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
@@ -543,7 +513,6 @@ public class AndroidLauncher extends AndroidApplication {
         }
         if (topLevelFolders.isEmpty()) return null;
 
-        // Find most common top-level folder
         java.util.Map<String, Integer> counts = new java.util.HashMap<>();
         for (String folder : topLevelFolders) {
             counts.put(folder, counts.getOrDefault(folder, 0) + 1);
@@ -556,7 +525,6 @@ public class AndroidLauncher extends AndroidApplication {
                 mostCommon = e.getKey();
             }
         }
-        // If most common folder appears multiple times and matches zip base name, use it
         if (mostCommon != null && maxCount > 1) {
             String candidate = mostCommon.endsWith("/") ? mostCommon.substring(0, mostCommon.length() - 1) : mostCommon;
             if (candidate.equalsIgnoreCase(zipBaseName)) {
@@ -566,46 +534,16 @@ public class AndroidLauncher extends AndroidApplication {
         return null;
     }
 
-    /**
-     * 将外部 skin 文件夹移动到目标目录
-     * @return true if moved successfully
-     */
-    private boolean moveSkinFolder(File skinFolder, File destDir) {
-        destDir.mkdirs();
-        File destSkinDir = new File(destDir, skinFolder.getName());
-
-        // 如果目标已存在同名文件夹，跳过
-        if (destSkinDir.exists()) {
-            Log.i(TAG, "Skin folder already exists, skip: " + destSkinDir.getAbsolutePath());
-            return false;
-        }
-
-        Log.i(TAG, "Moving skin folder: " + skinFolder.getAbsolutePath() + " -> " + destSkinDir.getAbsolutePath());
-        try {
-            copyDirectory(skinFolder, destSkinDir);
-            return true;
-        } catch (IOException e) {
-            Log.e(TAG, "Failed to move skin folder: " + skinFolder.getName(), e);
-            return false;
-        }
-    }
-
-    /**
-     * 递归复制目录
-     */
     private void copyDirectory(File src, File dest) throws IOException {
-        if (!src.exists()) return;
-        if (!src.isDirectory()) return;
-
+        if (!src.exists() || !src.isDirectory()) return;
         dest.mkdirs();
         File[] children = src.listFiles();
         if (children == null) return;
 
         for (File child : children) {
             File destChild = new File(dest, child.getName());
-            if (child.isDirectory()) {
-                copyDirectory(child, destChild);
-            } else {
+            if (child.isDirectory()) copyDirectory(child, destChild);
+            else {
                 try (InputStream is = new FileInputStream(child);
                      OutputStream os = new FileOutputStream(destChild)) {
                     byte[] buf = new byte[8192];
@@ -616,81 +554,52 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
-    /**
-     * 递归删除目录
-     */
     private boolean deleteRecursive(File path) {
         if (path == null || !path.exists()) return false;
         if (path.isDirectory()) {
             File[] children = path.listFiles();
             if (children != null) {
-                for (File child : children) {
-                    deleteRecursive(child);
-                }
+                for (File child : children) deleteRecursive(child);
             }
         }
         return path.delete();
     }
 
-    /**
-     * 将 assets/skin/ 目录复制到外部存储（如果目标不存在）
-     */
     private void ensureSkinAssets(File filesDir) {
         File skinDir = new File(filesDir, "skin");
         if (skinDir.exists()) return;
-
-        Log.i(TAG, "Copying skin assets to: " + skinDir.getAbsolutePath());
         skinDir.mkdirs();
-
-        AssetManager am = getAssets();
-        copyAssetFolder(am, "skin", skinDir);
+        copyAssetFolder(getAssets(), "skin", skinDir);
     }
 
-    /**
-     * 递归复制 assets 目录到目标文件夹
-     */
     private void copyAssetFolder(AssetManager am, String srcPath, File destDir) {
         try {
             String[] assets = am.list(srcPath);
             if (assets == null || assets.length == 0) {
-                // 可能是文件而非目录，创建文件
-                File destFile = new File(destDir, new java.io.File(srcPath).getName());
-                copyAssetFile(am, srcPath, destFile);
+                copyAssetFile(am, srcPath, new File(destDir, new File(srcPath).getName()));
                 return;
             }
             for (String asset : assets) {
                 String src = srcPath + "/" + asset;
                 File destSub = new File(destDir, asset);
                 if (!destSub.exists()) {
-                    if (asset.contains(".") && !asset.endsWith("/")) {
-                        // 文件
-                        copyAssetFile(am, src, destSub);
-                    } else {
-                        // 目录
+                    if (asset.contains(".") && !asset.endsWith("/")) copyAssetFile(am, src, destSub);
+                    else {
                         destSub.mkdirs();
                         copyAssetFolder(am, src, destSub);
                     }
                 }
             }
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to copy asset folder: " + srcPath + " - " + e.getMessage());
-        }
+        } catch (IOException e) { Log.w(TAG, "Asset copy fail: " + srcPath + " - " + e.getMessage()); }
     }
 
-    /**
-     * 复制单个 asset 文件
-     */
     private void copyAssetFile(AssetManager am, String srcPath, File destFile) {
-        try (java.io.InputStream is = am.open(srcPath);
-             java.io.FileOutputStream fos = new java.io.FileOutputStream(destFile)) {
+        try (InputStream is = am.open(srcPath);
+             FileOutputStream fos = new FileOutputStream(destFile)) {
             byte[] buf = new byte[8192];
             int len;
-            while ((len = is.read(buf)) > 0) {
-                fos.write(buf, 0, len);
-            }
-        } catch (IOException e) {
-            Log.w(TAG, "Failed to copy asset file: " + srcPath + " - " + e.getMessage());
-        }
+            while ((len = is.read(buf)) > 0) fos.write(buf, 0, len);
+        } catch (IOException e) { Log.w(TAG, "Asset file copy fail: " + srcPath + " - " + e.getMessage()); }
     }
 
     @Override
@@ -710,12 +619,10 @@ public class AndroidLauncher extends AndroidApplication {
         }
         if (pendingInitialization) {
             if (checkAndRequestStoragePermissions()) {
-                // 权限已授予，重新初始化
                 pendingInitialization = false;
                 isWaitingForPermissionResult = false;
                 recreate();
             }
-            // 如果权限未授予，checkAndRequestStoragePermissions() 会启动 intent
         } else {
             setupSustainedPerformance();
             setupHighRefreshRate();
@@ -754,17 +661,13 @@ public class AndroidLauncher extends AndroidApplication {
                 startActivityForResult(intent, 100);
                 return false;
             }
-            // RECORD_AUDIO is NOT requested here for Android 11+ to avoid unnecessary dialogs
             return true;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            // ONLY READ/WRITE storage are mandatory. RECORD_AUDIO is removed from this list.
             if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                Log.i(TAG, "Requesting mandatory storage permissions");
                 requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, 1);
                 return false;
             }
-            // App will proceed without even checking RECORD_AUDIO
         }
         return true;
     }
@@ -780,8 +683,6 @@ public class AndroidLauncher extends AndroidApplication {
         super.onActivityResult(requestCode, resultCode, data);
         isWaitingForPermissionResult = false;
         if (requestCode == 100) {
-            // 用户从 MANAGE_APP_ALL_FILES_ACCESS_PERMISSION 设置页面返回
-            // 直接调用 recreate 让 onCreate 重新检查权限状态
             pendingInitialization = false;
             recreate();
         }
@@ -803,7 +704,6 @@ public class AndroidLauncher extends AndroidApplication {
                 android.view.Display.Mode bestMode = null;
                 float highestRR = 0;
                 for (android.view.Display.Mode m : modes) {
-                    Log.i(TAG, "Supported mode: " + m.getPhysicalWidth() + "x" + m.getPhysicalHeight() + " @ " + m.getRefreshRate() + "Hz");
                     if (m.getRefreshRate() > highestRR) { highestRR = m.getRefreshRate(); bestMode = m; }
                 }
                 if (bestMode != null) {
@@ -811,22 +711,16 @@ public class AndroidLauncher extends AndroidApplication {
                     params.preferredDisplayModeId = bestMode.getModeId();
                     params.preferredRefreshRate = bestMode.getRefreshRate();
                     window.setAttributes(params);
-                    Log.i(TAG, "High refresh rate requested: " + bestMode.getRefreshRate() + "Hz (modeId=" + bestMode.getModeId() + ")");
                 }
-                // 请求设备的最高刷新率，压制 dynamicfps 的限制 (Android 11+)
-                // 通过 SurfaceControl.setFrameRate 反射调用告知系统使用最高刷新率
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && highestRR > 0) {
                     try {
                         java.lang.reflect.Method getSurfaceControl = android.view.Window.class.getMethod("getSurfaceControl");
                         Object surfaceControl = getSurfaceControl.invoke(window);
                         if (surfaceControl != null) {
                             java.lang.reflect.Method setFrameRate = surfaceControl.getClass().getMethod("setFrameRate", float.class, int.class);
-                            setFrameRate.invoke(surfaceControl, highestRR, 0 /* FRAME_RATE_COMPATIBILITY_DEFAULT */);
-                            Log.i(TAG, "SurfaceControl.setFrameRate(" + highestRR + ") called");
+                            setFrameRate.invoke(surfaceControl, highestRR, 0);
                         }
-                    } catch (Throwable t) {
-                        Log.w(TAG, "SurfaceControl.setFrameRate failed: " + t.getMessage());
-                    }
+                    } catch (Throwable ignored) {}
                 }
             }
         } catch (Throwable t) { Log.e(TAG, "setupHighRefreshRate fail", t); }
@@ -834,8 +728,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     public void setAndroidBackPressedFlag() {
         try {
-            // 在 Android 13+ 的 OnBackInvokedCallback 中，手动触发返回键事件
-            // 让它流向 KeyBoardInputProcesseor.keyDown 进行重映射
             BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
             game.getMainController().getInputProcessor().getKeyBoardInputProcesseor().simulateKeyPress(Keys.ESCAPE);
         } catch (Exception ignored) {}
@@ -844,8 +736,6 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         lastUserTouchTime = SystemClock.uptimeMillis();
-        // 移除旧的 onKeyDown 拦截逻辑，改用 LibGDX 的 setCatchKey(Keys.BACK) 机制
-        // 这样可以确保 keyDown 事件能正常流向 InputProcessor
         return super.onKeyDown(keyCode, event);
     }
 
@@ -877,10 +767,6 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
-    /**
-     * Open a URL in external browser (called from skin events)
-     * If message is provided, show a confirmation dialog first
-     */
     public void openUrl(String url, String message) {
         runOnUiThread(() -> {
             if (message != null && !message.isEmpty()) {
@@ -897,20 +783,12 @@ public class AndroidLauncher extends AndroidApplication {
 
     private boolean isExitDialogShowing = false;
 
-    /**
-     * Check if the exit dialog is currently visible.
-     */
     public boolean isExitDialogShowing() {
         return isExitDialogShowing;
     }
 
-    /**
-     * Show a native Android confirmation dialog before exiting the game.
-     * Called via reflection from MusicSelectInputProcessor.
-     */
     public void showNativeExitDialog() {
         if (isExitDialogShowing) return;
-
         runOnUiThread(() -> {
             isExitDialogShowing = true;
             new android.app.AlertDialog.Builder(this)
@@ -935,9 +813,7 @@ public class AndroidLauncher extends AndroidApplication {
             android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url));
             intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
             startActivity(intent);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to open URL: " + url, e);
-        }
+        } catch (Exception e) { Log.e(TAG, "Failed to open URL: " + url, e); }
     }
 
     @Override

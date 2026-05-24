@@ -10,11 +10,39 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- Header -->
+        <!-- Language Selection -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Language / 言語 / 语言"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp" />
+
+            <Spinner
+                android:id="@+id/languageSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333333"
+            android:layout_marginBottom="16dp"/>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Beatoraja Settings"
+            android:text="@string/settings_title"
             android:textSize="28sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
@@ -23,7 +51,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Android audio powered by Oboe"
+            android:text="@string/audio_powered_by"
             android:textSize="14sp"
             android:textColor="#888888"
             android:layout_marginBottom="32dp"/>
@@ -32,7 +60,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Audio"
+            android:text="@string/section_audio"
             android:textSize="20sp"
             android:textColor="#4FC3F7"
             android:layout_marginBottom="16dp"/>
@@ -47,7 +75,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="System Volume"
+                android:text="@string/system_volume"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -82,7 +110,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Key Volume"
+                android:text="@string/key_volume"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -119,7 +147,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
-                android:text="BGM Volume"
+                android:text="@string/bgm_volume"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
 
@@ -153,7 +181,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Sample Rate"
+                android:text="@string/sample_rate"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -175,7 +203,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Player"
+            android:text="@string/section_player"
             android:textSize="20sp"
             android:textColor="#4FC3F7"
             android:layout_marginBottom="16dp"/>
@@ -190,7 +218,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Select Player"
+                android:text="@string/select_player"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -212,7 +240,7 @@
                 android:id="@+id/newPlayerBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:text="+ New Player"
+                android:text="@string/new_player"
                 android:textSize="12sp"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
@@ -222,7 +250,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:layout_marginStart="12dp"
-                android:text="Delete"
+                android:text="@string/delete"
                 android:textSize="12sp"
                 android:backgroundTint="#AA3333"
                 android:textColor="#FFFFFF"/>
@@ -232,7 +260,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
                 android:layout_marginStart="12dp"
-                android:text="Export"
+                android:text="@string/export"
                 android:textSize="12sp"
                 android:backgroundTint="#4CAF50"
                 android:textColor="#FFFFFF"/>
@@ -248,7 +276,7 @@
                 android:id="@+id/importPlayerBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:text="Import Score.db"
+                android:text="@string/import_score_db"
                 android:textSize="12sp"
                 android:backgroundTint="#FF9800"
                 android:textColor="#FFFFFF"/>
@@ -272,7 +300,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="BMS Paths"
+                android:text="@string/section_bms_path"
                 android:textSize="20sp"
                 android:textColor="#4FC3F7"/>
 
@@ -280,7 +308,7 @@
                 android:id="@+id/addBmsPathBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:text="+ Add"
+                android:text="@string/add"
                 android:textSize="12sp"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
@@ -289,7 +317,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Tap to remove"
+            android:text="@string/tap_to_remove"
             android:textSize="12sp"
             android:textColor="#888888"
             android:layout_marginBottom="8dp"/>
@@ -311,7 +339,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Play Options"
+            android:text="@string/section_play_options"
             android:textSize="20sp"
             android:textColor="#4FC3F7"
             android:layout_marginBottom="16dp"/>
@@ -328,7 +356,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:gravity="center_vertical"
-                android:text="Show Audio Spectrum"
+                android:text="@string/show_audio_spectrum"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp" />
 
@@ -350,7 +378,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="BGA Display"
+                android:text="@string/bga_display"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -373,7 +401,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="BGA Expand"
+                android:text="@string/bga_expand"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -395,7 +423,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Gauge Auto Shift"
+                android:text="@string/gauge_auto_shift"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -417,7 +445,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Auto Save Replay"
+                android:text="@string/auto_save_replay"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:layout_marginBottom="8dp"/>
@@ -522,7 +550,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Green Number"
+                android:text="@string/green_number"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -551,7 +579,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="HI-SPEED Fix"
+                android:text="@string/hispeed_fix"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -574,7 +602,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="ENABLE LANECOVER"
+                android:text="@string/enable_lanecover"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -597,7 +625,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="ENABLE LIFT"
+                android:text="@string/enable_lift"
                 android:textColor="#FFFFFF"
                 android:textSize="16sp"
                 android:gravity="center_vertical"/>
@@ -628,7 +656,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="Difficulty Tables"
+                android:text="@string/section_tables"
                 android:textSize="20sp"
                 android:textColor="#4FC3F7"/>
 
@@ -636,7 +664,7 @@
                 android:id="@+id/addTableUrlBtn"
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
-                android:text="+ Add"
+                android:text="@string/add"
                 android:textSize="12sp"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
@@ -646,7 +674,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="36dp"
                 android:layout_marginStart="8dp"
-                android:text="Update All"
+                android:text="@string/update_all"
                 android:textSize="12sp"
                 android:backgroundTint="#FF9800"
                 android:textColor="#000000"/>
@@ -655,7 +683,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Tap to remove"
+            android:text="@string/tap_to_remove"
             android:textSize="12sp"
             android:textColor="#888888"
             android:layout_marginBottom="8dp"/>
@@ -688,7 +716,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:backgroundTint="#4FC3F7"
-                android:text="スタート"
+                android:text="@string/start_game"
                 android:textColor="#000000" />
         </LinearLayout>
 
