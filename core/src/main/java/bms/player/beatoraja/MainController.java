@@ -195,9 +195,12 @@ public class MainController {
             // 改进：遍历所有显示模式，找到硬件支持的最高刷新率，而不是当前刷新率
             // 防止启动瞬间系统限制在 90Hz 导致检测值偏低
             int maxRR = 60;
-            Graphics.DisplayMode[] modes = Gdx.graphics.getDisplayModes();
-            for (Graphics.DisplayMode mode : modes) {
-                if (mode.refreshRate > maxRR) maxRR = mode.refreshRate;
+            try {
+                Class<?> launcher = Class.forName("com.starxh.beatoraja.android.AndroidLauncher");
+                java.lang.reflect.Field maxRefreshRateField = launcher.getField("maxRefreshRate");
+                maxRR = (int) maxRefreshRateField.getFloat(null);
+            } catch (Exception e) {
+                maxRR = 60;
             }
             this.detectedRefreshRate = maxRR;
             Gdx.app.log("beatoraja", "Hardware max refresh rate detected: " + detectedRefreshRate + "Hz");
@@ -298,18 +301,20 @@ public class MainController {
                 config.setMaxFramePerSecond(detectedRefreshRate);
             }
             updateFrameRateAPI(currentTargetFPS);
-            // 针对 PLAY 界面，额外启动一个短时延时任务，防止系统在场景切换完成后降频
-            if (state == MainStateType.PLAY) {
+            // 针对 PLAY 界面，启动重复定时任务对抗系统 DynamicFPS 降频
+            // MIUI 等系统会在 1-2 秒内自动降低刷新率，需要持续重新请求高刷新率
+            if (state == MainStateType.PLAY && detectedRefreshRate > 60) {
                 final int playTargetFPS = detectedRefreshRate;
                 com.badlogic.gdx.utils.Timer.schedule(new com.badlogic.gdx.utils.Timer.Task() {
                     @Override
                     public void run() {
-                        currentTargetFPS = detectedRefreshRate;
-                        config.setMaxFramePerSecond(detectedRefreshRate);
-                        updateFrameRateAPI(playTargetFPS);
-                        Gdx.app.log("beatoraja", "Delayed FrameRate API refresh executed");
+                        if (current instanceof BMSPlayer) {
+                            updateFrameRateAPI(playTargetFPS);
+                        } else {
+                            cancel();
+                        }
                     }
-                }, 1.5f); // 延迟 1.5 秒执行
+                }, 1.5f, 2.0f);
             }
         }
 
@@ -321,6 +326,7 @@ public class MainController {
             case DECIDE: newState = decide; break;
             case PLAY:
                 if (bmsplayer != null) { bmsplayer.dispose(); }
+                System.gc();
                 bmsplayer = new BMSPlayer(this, resource);
                 newState = bmsplayer;
                 break;
@@ -959,18 +965,17 @@ public class MainController {
             doFrameLimit = !config.isVsync() && maxFPS > 0;
         }
 
-        if (doFrameLimit) {
-            // Android 优化：大幅增加 API 刷新频率（每 60 帧一次）
-            if (isAndroid) {
-                lastFrameRateUpdate++;
-                if (lastFrameRateUpdate > 60) {
-                    // 32位设备：Surface API用currentTargetFPS(30)配合帧率限制器maxFPS(30)
-                    // 64位设备：Surface API用maxFPS(120)，帧率限制器按maxFPS工作（maxFPS>=60时不限制）
-                    updateFrameRateAPI(maxFPS);
-                    lastFrameRateUpdate = 0;
-                }
+        // Android：周期性重新请求高刷新率，对抗系统 DynamicFPS 降频
+        // 放在 doFrameLimit 之外，确保在任何配置下都能持续请求高帧率
+        if (isAndroid && maxFPS > 60) {
+            lastFrameRateUpdate++;
+            if (lastFrameRateUpdate > 30) {
+                updateFrameRateAPI(maxFPS);
+                lastFrameRateUpdate = 0;
             }
+        }
 
+        if (doFrameLimit) {
             final long frameIntervalNanos = 1_000_000_000L / maxFPS;
             final long now = System.nanoTime();
 

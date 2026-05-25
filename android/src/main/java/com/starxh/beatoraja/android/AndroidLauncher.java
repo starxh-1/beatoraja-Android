@@ -35,6 +35,9 @@ import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.BMSPlayerMode;
 
 public class AndroidLauncher extends AndroidApplication {
+
+	/** 硬件最大刷新率，MainController 通过反射读取 */
+	public static float maxRefreshRate = 60f;
     private static final String TAG = "AndroidLauncher";
     private static AndroidLauncher instance;
     private InputMethodManager inputMethodManager;
@@ -712,15 +715,8 @@ public class AndroidLauncher extends AndroidApplication {
                     params.preferredRefreshRate = bestMode.getRefreshRate();
                     window.setAttributes(params);
                 }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && highestRR > 0) {
-                    try {
-                        java.lang.reflect.Method getSurfaceControl = android.view.Window.class.getMethod("getSurfaceControl");
-                        Object surfaceControl = getSurfaceControl.invoke(window);
-                        if (surfaceControl != null) {
-                            java.lang.reflect.Method setFrameRate = surfaceControl.getClass().getMethod("setFrameRate", float.class, int.class);
-                            setFrameRate.invoke(surfaceControl, highestRR, 0);
-                        }
-                    } catch (Throwable ignored) {}
+                if (highestRR > 60f) {
+                    maxRefreshRate = highestRR;
                 }
             }
         } catch (Throwable t) { Log.e(TAG, "setupHighRefreshRate fail", t); }

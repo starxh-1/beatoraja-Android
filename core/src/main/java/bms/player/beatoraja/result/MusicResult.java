@@ -39,9 +39,9 @@ public class MusicResult extends AbstractResult {
 	}
 
 	public void create() {
+		// replay存在確認はprepare()に遅延（ファイルIO回避）
 		for(int i = 0;i < REPLAY_SIZE;i++) {
-			saveReplay[i] = main.getPlayDataAccessor().existsReplayData(resource.getBMSModel(),
-					resource.getPlayerConfig().getLnmode(), i) ? ReplayStatus.EXIST : ReplayStatus.NOT_EXIST ;
+			saveReplay[i] = ReplayStatus.NOT_EXIST;
 		}
 
 		property = ResultKeyProperty.get(resource.getBMSModel().getMode());
@@ -71,6 +71,11 @@ public class MusicResult extends AbstractResult {
 	}
 
 	public void prepare() {
+		// create()で遅延したreplay存在確認をここで実行
+		for(int i = 0;i < REPLAY_SIZE;i++) {
+			saveReplay[i] = main.getPlayDataAccessor().existsReplayData(resource.getBMSModel(),
+					resource.getPlayerConfig().getLnmode(), i) ? ReplayStatus.EXIST : ReplayStatus.NOT_EXIST ;
+		}
 		state = STATE_OFFLINE;
 		final ScoreData newscore = getNewScore();
 
@@ -352,27 +357,30 @@ public class MusicResult extends AbstractResult {
 
 		getScoreDataProperty().setTargetScore(oldscore.getExscore(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0, resource.getBMSModel().getTotalNotes());
 		getScoreDataProperty().update(newscore);
-		// duration average
-		int count = 0;
+		// duration average - timingDistributionを非同期計算しGLスレッドのブロックを回避
 		avgduration = newscore.getAvgjudge();
 		timingDistribution.init();
-		BMSModel model = resource.getBMSModel();
+		final BMSModel model = resource.getBMSModel();
 		final int lanes = model.getMode().key;
-		for (TimeLine tl : model.getAllTimeLines()) {
-			for (int i = 0; i < lanes; i++) {
-				Note n = tl.getNote(i);
-				if (n != null && !((model.getLnmode() == 1 || (model.getLnmode() == 0 && model.getLntype() == BMSModel.LNTYPE_LONGNOTE))
-						&& n instanceof LongNote && ((LongNote) n).isEnd())) {
-					int state = n.getState();
-					int time = n.getPlayTime();
-					if (state >= 1) {
-						count++;
-						timingDistribution.add(time);
+		final TimingDistribution td = timingDistribution;
+		new Thread(() -> {
+			int count = 0;
+			for (TimeLine tl : model.getAllTimeLines()) {
+				for (int i = 0; i < lanes; i++) {
+					Note n = tl.getNote(i);
+					if (n != null && !((model.getLnmode() == 1 || (model.getLnmode() == 0 && model.getLntype() == BMSModel.LNTYPE_LONGNOTE))
+							&& n instanceof LongNote && ((LongNote) n).isEnd())) {
+						int state = n.getState();
+						int time = n.getPlayTime();
+						if (state >= 1) {
+							count++;
+							td.add(time);
+						}
 					}
 				}
 			}
-		}
-		timingDistribution.statisticValueCalcuate();
+			td.statisticValueCalcuate();
+		}).start();
 
 		// コースモードの場合はコーススコアに加算・累積する
 		if (resource.getCourseBMSModels() != null) {
