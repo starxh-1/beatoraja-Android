@@ -1,0 +1,376 @@
+2026-05-25 14:29:36.065 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 2s(f:4285 m:10 s:102 k:0 z:2002) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:36.260 20506-20506 MIUIInput               com.starxh.beatoraja                 I  [MotionEvent] ViewRootImpl windowName 'com.starxh.beatoraja/com.starxh.beatoraja.android.AndroidLauncher', { action=ACTION_DOWN, id[0]=0, pointerCount=1, eventTime=689003, downTime=689003, phoneEventTime=14:29:36.257 } moveCount:0
+2026-05-25 14:29:36.308 20506-22567 global                  com.starxh.beatoraja                 W  Eureka - #BASEに無効な数字が定義されています : #BASE 36
+2026-05-25 14:29:36.348 20506-20506 MIUIInput               com.starxh.beatoraja                 I  [MotionEvent] ViewRootImpl windowName 'com.starxh.beatoraja/com.starxh.beatoraja.android.AndroidLauncher', { action=ACTION_UP, id[0]=0, pointerCount=1, eventTime=689089, downTime=689003, phoneEventTime=14:29:36.344 } moveCount:0
+2026-05-25 14:29:36.359 20506-22567 global                  com.starxh.beatoraja                 W  /storage/emulated/0/Download/beatoraja/songs/[sasakure+armytom]eureka/24_eureka_7INSANE.bme : #BASEに無効な数字が定義されています
+2026-05-25 14:29:36.359 20506-22567 global                  com.starxh.beatoraja                 I  /storage/emulated/0/Download/beatoraja/songs/[sasakure+armytom]eureka/24_eureka_7INSANE.bme : #PLAYER定義が1にもかかわらず2P側のノーツ定義が存在します
+2026-05-25 14:29:36.410 20506-22567 global                  com.starxh.beatoraja                 W  BGAファイル読み込み失敗。Couldn't load file: /storage/emulated/0/Download/beatoraja/songs/[sasakure+armytom]eureka path: /storage/emulated/0/Download/beatoraja/songs/[sasakure+armytom]eureka
+2026-05-25 14:29:36.411 20506-22968 global                  com.starxh.beatoraja                 I  音源ファイル読み込み開始。
+2026-05-25 14:29:36.416 20506-22967 global                  com.starxh.beatoraja                 I  BGAファイル読み込み完了。BGA数:2
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  java.nio.file.NoSuchFileException: /storage/emulated/0/Android/data/com.starxh.beatoraja/files/table
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at sun.nio.fs.UnixFileSystemProvider.newDirectoryStream(UnixFileSystemProvider.java:447)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at java.nio.file.Files.newDirectoryStream(Files.java:457)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at java.nio.file.Files.list(Files.java:3451)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.TableDataAccessor.readAll(TableDataAccessor.java:104)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.PlayerResource.setTableinfo(PlayerResource.java:535)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.PlayerResource.setBMSFile(PlayerResource.java:176)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.select.MusicSelector.readChart(MusicSelector.java:436)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.select.MusicSelector.render(MusicSelector.java:351)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.MainController.render(MainController.java:653)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at com.starxh.beatoraja.BeatorajaGame.render(BeatorajaGame.java:55)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at com.badlogic.gdx.backends.android.AndroidGraphics.onDrawFrame(AndroidGraphics.java:503)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at android.opengl.GLSurfaceView$GLThread.guardedRun(GLSurfaceView.java:1577)
+2026-05-25 14:29:36.440 20506-22567 System.err              com.starxh.beatoraja                 W  	at android.opengl.GLSurfaceView$GLThread.run(GLSurfaceView.java:1272)
+2026-05-25 14:29:36.442 20506-22567 SearchTextField         com.starxh.beatoraja                 I  unfocus() called
+2026-05-25 14:29:36.446 20506-20506 ImeTracker              com.starxh.beatoraja                 I  com.starxh.beatoraja:1389d532: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+2026-05-25 14:29:36.447 20506-22567 ImeTracker              com.starxh.beatoraja                 I  com.starxh.beatoraja:b73cec5e: onRequestHide at ORIGIN_CLIENT reason HIDE_SOFT_INPUT fromUser false
+2026-05-25 14:29:36.512 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: starting for skin/default/decide/decide.luaskin
+2026-05-25 14:29:36.512 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: directory set to skin/default/decide
+2026-05-25 14:29:36.543 20506-22489 tarxh.beatoraja         com.starxh.beatoraja                 I  This is non sticky GC, maxfree is 16777216 minfree is 8388608
+2026-05-25 14:29:36.543 20506-22489 tarxh.beatoraja         com.starxh.beatoraja                 I  Background concurrent copying GC freed 13MB AllocSpace bytes, 88(8028KB) LOS objects, 59% free, 16MB/40MB, paused 57us,22us total 108.548ms
+2026-05-25 14:29:36.552 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: execFile done, value.istable=true
+2026-05-25 14:29:36.553 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: calling fromLuaValue
+2026-05-25 14:29:36.558 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: calling loadJsonSkinHeader
+2026-05-25 14:29:36.559 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: success, header=beatoraja default (lua)
+2026-05-25 14:29:36.559 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: Starting full skin load, p=skin/default/decide/decide.luaskin
+2026-05-25 14:29:36.580 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: Conversion complete - source.length=1, image.length=1, note=null? true
+2026-05-25 14:29:36.581 20506-22567 FontDebug               com.starxh.beatoraja                 I  createText: font.id=0, font.path=../VL-Gothic-Regular.ttf, isFullPath=false, skinPath.parent=skin/default/decide, resolved+normalized=skin/default/VL-Gothic-Regular.ttf, text.size=24
+2026-05-25 14:29:36.581 20506-22567 FontDebug               com.starxh.beatoraja                 I  Font file exists (internal): skin/default/VL-Gothic-Regular.ttf
+2026-05-25 14:29:36.582 20506-22567 FontDebug               com.starxh.beatoraja                 I  Trying to load font from: skin/default/VL-Gothic-Regular.ttf, exists: true, size=24
+2026-05-25 14:29:36.582 20506-22567 FontDebug               com.starxh.beatoraja                 I  createText: font.id=0, font.path=../VL-Gothic-Regular.ttf, isFullPath=false, skinPath.parent=skin/default/decide, resolved+normalized=skin/default/VL-Gothic-Regular.ttf, text.size=30
+2026-05-25 14:29:36.583 20506-22567 FontDebug               com.starxh.beatoraja                 I  Font file exists (internal): skin/default/VL-Gothic-Regular.ttf
+2026-05-25 14:29:36.583 20506-22567 FontDebug               com.starxh.beatoraja                 I  Trying to load font from: skin/default/VL-Gothic-Regular.ttf, exists: true, size=30
+2026-05-25 14:29:36.584 20506-22567 FontDebug               com.starxh.beatoraja                 I  createText: font.id=0, font.path=../VL-Gothic-Regular.ttf, isFullPath=false, skinPath.parent=skin/default/decide, resolved+normalized=skin/default/VL-Gothic-Regular.ttf, text.size=24
+2026-05-25 14:29:36.598 20506-22567 FontDebug               com.starxh.beatoraja                 I  Font file exists (internal): skin/default/VL-Gothic-Regular.ttf
+2026-05-25 14:29:36.598 20506-22567 FontDebug               com.starxh.beatoraja                 I  Trying to load font from: skin/default/VL-Gothic-Regular.ttf, exists: true, size=24
+2026-05-25 14:29:36.601 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: loadJsonSkin complete, skin=success
+2026-05-25 14:29:36.601 20506-22567 global                  com.starxh.beatoraja                 I  描画されないことが確定しているSkinObject削除 : 0 / 5
+2026-05-25 14:29:37.065 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 3s(f:4285 m:10 s:102 k:0 z:3002) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:38.066 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 4s(f:4285 m:10 s:102 k:0 z:4002) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:39.065 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 5s(f:4285 m:10 s:102 k:0 z:5002) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:39.283 20506-22968 global                  com.starxh.beatoraja                 I  音源ファイル読み込み完了。音源数:1097
+2026-05-25 14:29:39.286 20506-22968 global                  com.starxh.beatoraja                 I  AudioCache容量 : 1046 開放 : 0
+2026-05-25 14:29:40.066 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 6s(f:4285 m:10 s:102 k:0 z:6002) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:40.133 20506-22567 global                  com.starxh.beatoraja                 I  譜面オプション設定
+2026-05-25 14:29:40.136 20506-22567 global                  com.starxh.beatoraja                 I  譜面オプション(1P) :  0, Seed : 229548
+2026-05-25 14:29:40.136 20506-22567 global                  com.starxh.beatoraja                 I  ゲージ設定
+2026-05-25 14:29:40.148 20506-22567 global                  com.starxh.beatoraja                 I  アシストレベル : 0 - スコア保存 : true
+2026-05-25 14:29:40.238 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  This is non sticky GC, maxfree is 16777216 minfree is 8388608
+2026-05-25 14:29:40.238 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  Explicit concurrent copying GC freed 9293KB AllocSpace bytes, 4(132KB) LOS objects, 62% free, 14MB/38MB, paused 44us,25us total 41.418ms
+2026-05-25 14:29:40.239 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:40.239 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:40.239 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:40.282 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  This is non sticky GC, maxfree is 16777216 minfree is 8388608
+2026-05-25 14:29:40.282 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  Explicit concurrent copying GC freed 35KB AllocSpace bytes, 0(0B) LOS objects, 62% free, 14MB/38MB, paused 31us,24us total 43.463ms
+2026-05-25 14:29:40.337 20506-22567 BMSPlayer               com.starxh.beatoraja                 I  Platform type: Android
+2026-05-25 14:29:40.337 20506-22567 BMSPlayer               com.starxh.beatoraja                 I  Initializing touch key mapper for Android...
+2026-05-25 14:29:40.339 20506-22567 BMSPlayer               com.starxh.beatoraja                 I  Touch key mapper initialized successfully, enabled: false
+2026-05-25 14:29:40.359 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: starting for skin/default/play/play7.luaskin
+2026-05-25 14:29:40.359 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: directory set to skin/default/play
+2026-05-25 14:29:40.443 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: execFile done, value.istable=true
+2026-05-25 14:29:40.443 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: calling fromLuaValue
+2026-05-25 14:29:40.446 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: calling loadJsonSkinHeader
+2026-05-25 14:29:40.446 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader.loadHeader: success, header=beatoraja default (lua)
+2026-05-25 14:29:40.446 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: Starting full skin load, p=skin/default/play/play7.luaskin
+2026-05-25 14:29:40.447 20506-22567 System.out              com.starxh.beatoraja                 I  Loading play7main...
+2026-05-25 14:29:40.506 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: Conversion complete - source.length=14, image.length=103, note=null? false
+2026-05-25 14:29:40.524 20506-22567 TextureDebug            com.starxh.beatoraja                 I  Attempting to load note texture srcid=5, fullPath=skin/default/number.png
+2026-05-25 14:29:40.525 20506-22567 TextureDebug            com.starxh.beatoraja                 I  SUCCESS: Texture loaded srcid=5, path=skin/default/number.png
+2026-05-25 14:29:40.529 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-w
+2026-05-25 14:29:40.529 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-w, src=7
+2026-05-25 14:29:40.529 20506-22567 TextureDebug            com.starxh.beatoraja                 I  Attempting to load note texture srcid=7, fullPath=skin/default/play/notes/default.png
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  SUCCESS: Texture loaded srcid=7, path=skin/default/play/notes/default.png
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=note-s
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=note-s, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-s
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-s, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-b
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-b, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-w
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-w, src=7
+2026-05-25 14:29:40.530 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lne-s
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lne-s, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lnb-s
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lnb-s, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=lna-s
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=lna-s, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcne-s
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcne-s, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcns-s
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcns-s, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-w, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-b
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-b, src=7
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-w
+2026-05-25 14:29:40.531 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnb-s
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnb-s, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcna-s
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcna-s, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnd-s
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnd-s, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-b
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-b, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-w
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-w, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=hcnr-s
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=hcnr-s, src=7
+2026-05-25 14:29:40.532 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-w
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-w, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-b
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-b, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-w
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-w, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-b
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-b, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-w
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-w, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-b
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-b, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-w
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-w, src=7
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Looking for note image id=mine-s
+2026-05-25 14:29:40.533 20506-22567 TextureDebug            com.starxh.beatoraja                 I  getNoteTexture: Found image id=mine-s, src=7
+2026-05-25 14:29:40.533 20506-22576 global                  com.starxh.beatoraja                 I  BMS Search取得完了
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  java.io.FileNotFoundException: /storage/emulated/0/Android/data/com.starxh.beatoraja/files/table/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855.bmt: open failed: ENOENT (No such file or directory)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.IoBridge.open(IoBridge.java:574)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at java.io.FileOutputStream.<init>(FileOutputStream.java:259)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at java.io.FileOutputStream.<init>(FileOutputStream.java:208)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.TableData.write(TableData.java:129)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.TableDataAccessor.write(TableDataAccessor.java:91)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.select.BarManager.lambda$init$12(BarManager.java:196)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at bms.player.beatoraja.select.BarManager$$ExternalSyntheticLambda26.run(D8$$SyntheticClass:0)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at java.lang.Thread.run(Thread.java:1012)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  Caused by: android.system.ErrnoException: open failed: ENOENT (No such file or directory)
+2026-05-25 14:29:40.533 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.Linux.open(Native Method)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.ForwardingOs.open(ForwardingOs.java:563)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.BlockGuardOs.open(BlockGuardOs.java:274)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.ForwardingOs.open(ForwardingOs.java:563)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	at android.app.ActivityThread$AndroidOs.open(ActivityThread.java:9461)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	at libcore.io.IoBridge.open(IoBridge.java:560)
+2026-05-25 14:29:40.534 20506-22576 System.err              com.starxh.beatoraja                 W  	... 7 more
+2026-05-25 14:29:40.549 20506-22567 TextureDebug            com.starxh.beatoraja                 I  Attempting to load note texture srcid=4, fullPath=skin/default/play/judge/judge.png
+2026-05-25 14:29:40.552 20506-22567 TextureDebug            com.starxh.beatoraja                 I  SUCCESS: Texture loaded srcid=4, path=skin/default/play/judge/judge.png
+2026-05-25 14:29:40.554 20506-22567 TextureDebug            com.starxh.beatoraja                 I  Attempting to load note texture srcid=12, fullPath=skin/default/play/lanecover/lanecover1.png
+2026-05-25 14:29:40.559 20506-22567 TextureDebug            com.starxh.beatoraja                 I  SUCCESS: Texture loaded srcid=12, path=skin/default/play/lanecover/lanecover1.png
+2026-05-25 14:29:40.561 20506-22567 TextureDebug            com.starxh.beatoraja                 I  Attempting to load note texture srcid=3, fullPath=skin/default/play/gauge/gauge.png
+2026-05-25 14:29:40.562 20506-22567 TextureDebug            com.starxh.beatoraja                 I  SUCCESS: Texture loaded srcid=3, path=skin/default/play/gauge/gauge.png
+2026-05-25 14:29:40.563 20506-22567 FontDebug               com.starxh.beatoraja                 I  createText: font.id=0, font.path=skin/default/VL-Gothic-Regular.ttf, isFullPath=true, skinPath.parent=skin/default/play, resolved+normalized=skin/default/VL-Gothic-Regular.ttf, text.size=24
+2026-05-25 14:29:40.563 20506-22567 FontDebug               com.starxh.beatoraja                 I  Font file exists (internal): skin/default/VL-Gothic-Regular.ttf
+2026-05-25 14:29:40.564 20506-22567 FontDebug               com.starxh.beatoraja                 I  Trying to load font from: skin/default/VL-Gothic-Regular.ttf, exists: true, size=24
+2026-05-25 14:29:40.582 20506-22567 global                  com.starxh.beatoraja                 I  LuaSkinLoader: loadJsonSkin complete, skin=success
+2026-05-25 14:29:40.591 20506-22567 global                  com.starxh.beatoraja                 I  スコアデータベースからスコア取得
+2026-05-25 14:29:40.592 20506-22567 global                  com.starxh.beatoraja                 I  描画されないことが確定しているSkinObject削除 : 4 / 57
+2026-05-25 14:29:40.592 20506-22567 MainController          com.starxh.beatoraja                 I  PlayTouchKeyMapper registered as InputProcessor (stage touch disabled)
+2026-05-25 14:29:41.066 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][zero] 7s(f:4285 m:10 s:102 k:0 z:7003) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1
+2026-05-25 14:29:41.303 20506-22484 tarxh.beatoraja         com.starxh.beatoraja                 I  Compiler allocated 4744KB to compile void bms.player.beatoraja.play.LaneRenderer.drawLane(bms.player.beatoraja.skin.Skin$SkinObjectRenderer, long, bms.player.beatoraja.play.SkinNote$SkinLane[], bms.player.beatoraja.skin.SkinObject$SkinOffset[], com.badlogic.gdx.math.Rectangle)
+2026-05-25 14:29:41.797 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  This is non sticky GC, maxfree is 16777216 minfree is 8388608
+2026-05-25 14:29:41.797 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  Explicit concurrent copying GC freed 6788KB AllocSpace bytes, 9(1604KB) LOS objects, 62% free, 14MB/38MB, paused 159us,32us total 76.642ms
+2026-05-25 14:29:41.798 20506-22567 global                  com.starxh.beatoraja                 I  current free memory : 24MB , disposed : 8MB
+2026-05-25 14:29:41.798 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:41.798 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:41.798 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:41.798 20506-22491 System                  com.starxh.beatoraja                 W  A resource failed to call close.
+2026-05-25 14:29:41.833 20506-22567 global                  com.starxh.beatoraja                 I  STATE_READYに移行
+2026-05-25 14:29:42.568 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 5s(f:5003 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 1783
+2026-05-25 14:29:42.634 20506-22567 global                  com.starxh.beatoraja                 I  STATE_PLAYに移行
+2026-05-25 14:29:43.745 20506-22567 global                  com.starxh.beatoraja                 I  Video playback started: sync基准已设置 (gameTime=9)
+2026-05-25 14:29:43.764 20506-22567 MediaPlayer             com.starxh.beatoraja                 V  resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+2026-05-25 14:29:43.764 20506-22567 MediaPlayer             com.starxh.beatoraja                 V  cleanDrmObj: mDrmObj=null mDrmSessionId=null
+2026-05-25 14:29:43.924 20506-20506 com.starxh.beatoraja    com.starxh.beatoraja                 W  type=1400 audit(0.0:3924): avc:  denied  { read } for  comm=474C5468726561642031303238 name="u:object_r:vendor_display_prop:s0" dev="tmpfs" ino=444 scontext=u:r:untrusted_app:s0:c184,c258,c512,c768 tcontext=u:object_r:vendor_display_prop:s0 tclass=file permissive=0 app=com.starxh.beatoraja
+2026-05-25 14:29:43.928 20506-22567 libc                    com.starxh.beatoraja                 W  Access denied finding property "vendor.display.enable_optimal_refresh_rate"
+2026-05-25 14:29:44.028 20506-22493 qdgralloc               com.starxh.beatoraja                 D  Falling back to default YUV format - no camera/video specific format defined, usage 0x100
+2026-05-25 14:29:44.048 20506-22493 MediaPlayerNative       com.starxh.beatoraja                 W  info/warning (3, 0)
+2026-05-25 14:29:44.057 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.057 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 W  [SurfaceTexture-0-20506-0] bindTextureImage: clearing GL error: 0x500
+2026-05-25 14:29:44.090 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.125 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.157 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.190 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.223 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.256 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.293 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.324 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.359 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.392 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.430 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.458 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.491 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.525 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.557 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.593 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.624 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.656 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.691 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.723 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.756 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.790 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.822 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.857 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.890 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.923 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:44.990 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:45.024 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:45.060 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:45.091 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:45.123 20506-22567 tarxh.beatoraja         com.starxh.beatoraja                 I  EglImage dataspace changed, need recreate
+2026-05-25 14:29:48.231 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 10s(f:10000 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 6043
+2026-05-25 14:29:53.232 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 15s(f:15001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 5661
+2026-05-25 14:29:58.257 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 20s(f:20000 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 32768
+2026-05-25 14:30:03.517 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 25s(f:25001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 32768
+2026-05-25 14:30:07.606 20506-22567 FontDebug               com.starxh.beatoraja                 I  Skipping draw: color alpha is 0 for text: Eureka [7INSANE]
+2026-05-25 14:30:08.629 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 30s(f:30002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 17591
+2026-05-25 14:30:13.801 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 35s(f:35001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 17781
+2026-05-25 14:30:18.987 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 40s(f:40002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 30832
+2026-05-25 14:30:24.078 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 45s(f:45002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 18735
+2026-05-25 14:30:27.606 20506-22567 FontDebug               com.starxh.beatoraja                 I  Skipping draw: color alpha is 0 for text: Eureka [7INSANE]
+2026-05-25 14:30:29.077 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 50s(f:50002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 29701
+2026-05-25 14:30:34.137 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 55s(f:55000 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 16096
+2026-05-25 14:30:39.785 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 60s(f:60001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 28353
+2026-05-25 14:30:44.789 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 5s(f:5003 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 17636
+2026-05-25 14:30:49.796 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 10s(f:10002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 22969
+2026-05-25 14:30:54.839 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 15s(f:15001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 9681
+2026-05-25 14:30:59.265 20506-22489 tarxh.beatoraja         com.starxh.beatoraja                 I  This is sticky GC, maxfree is 16777216 minfree is 8388608
+2026-05-25 14:30:59.848 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 20s(f:20002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 7590
+2026-05-25 14:31:04.865 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 25s(f:25002 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 21279
+2026-05-25 14:31:09.600 20506-22567 FontDebug               com.starxh.beatoraja                 I  Skipping draw: color alpha is 0 for text: Eureka [7INSANE]
+2026-05-25 14:31:09.865 20506-22575 AudioTrackImpl          com.starxh.beatoraja                 D  [audioTrackData][fine] 30s(f:30001 m:0 s:0 k:0 z:0) : pid 20506 uid 10696 sessionId 169 sr 48000 ch 2 fmt 1 maxAmplitude 10102
