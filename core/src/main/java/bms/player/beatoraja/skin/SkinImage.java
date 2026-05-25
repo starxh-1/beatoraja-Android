@@ -14,11 +14,11 @@ import com.badlogic.gdx.utils.Array;
 
 /**
  * スキンイメージ
- * 
+ *
  * @author exch
  */
 public class SkinImage extends SkinObject {
-	
+
 	/**
 	 * イメージ
 	 */
@@ -32,7 +32,7 @@ public class SkinImage extends SkinObject {
 	private TextureRegion cachedImage;
 
 	private final Array<SkinSource> removedSources = new Array<SkinSource>();
-	
+
 	public SkinImage(int imageid) {
 		this.image = new SkinSource[]{new SkinSourceReference(imageid)};
 		ref = null;
@@ -73,7 +73,7 @@ public class SkinImage extends SkinObject {
 
 	public SkinImage(SkinSourceMovie movie) {
 		this.image = new SkinSource[]{movie};
-		this.setImageType(SkinObjectRenderer.TYPE_FFMPEG);
+		this.setImageType(SkinObjectRenderer.TYPE_LINEAR);
 		ref = null;
 	}
 
@@ -99,7 +99,7 @@ public class SkinImage extends SkinObject {
 		if(image == null) {
 			return false;
 		}
-		
+
 		boolean exist = false;
     	for(int i = 0;i < image.length;i++) {
     		if(image[i] != null) {
@@ -111,7 +111,7 @@ public class SkinImage extends SkinObject {
     			}
     		}
     	}
-    	
+
     	if(!exist) {
     		return false;
     	}
@@ -133,11 +133,11 @@ public class SkinImage extends SkinObject {
 	public void prepare(long time, MainState state) {
         prepare(time, state, 0, 0);
 	}
-	
-	public void prepare(long time, MainState state, float offsetX, float offsetY) {		
+
+	public void prepare(long time, MainState state, float offsetX, float offsetY) {
         prepare(time, state, ref != null ? ref.get(state) : 0, offsetX, offsetY);
 	}
-	
+
 	public void prepare(long time, MainState state, int value, float offsetX, float offsetY) {
         if(image == null || value < 0) {
             draw = false;
@@ -160,18 +160,18 @@ public class SkinImage extends SkinObject {
 	}
 
 	public void draw(SkinObjectRenderer sprite) {
-    	if(image[0] instanceof SkinSourceMovie) {
-    		setImageType(3);
-            draw(sprite, currentImage, region.x, region.y, region.width, region.height);
-    		setImageType(0);
-    	} else {
-            draw(sprite, currentImage, region.x, region.y, region.width, region.height);
-    	}                    				
+		if(image[0] instanceof SkinSourceMovie) {
+			setImageType(((SkinSourceMovie)image[0]).getMovieProcessor().getRenderType());
+			draw(sprite, currentImage, region.x, region.y, region.width, region.height);
+			setImageType(0);
+		} else {
+			draw(sprite, currentImage, region.x, region.y, region.width, region.height);
+		}
 	}
 
 	public void draw(SkinObjectRenderer sprite, float offsetX, float offsetY) {
 		if(image[0] instanceof SkinSourceMovie) {
-			setImageType(3);
+			setImageType(((SkinSourceMovie)image[0]).getMovieProcessor().getRenderType());
 			draw(sprite, currentImage, region.x + offsetX, region.y + offsetY, region.width, region.height);
 			setImageType(0);
 		} else {

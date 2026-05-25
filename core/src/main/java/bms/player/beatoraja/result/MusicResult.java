@@ -317,10 +317,21 @@ public class MusicResult extends AbstractResult {
 		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY && resource.getCourseBMSModels() == null
 				&& resource.getScoreData() != null) {
 			if (saveReplay[index] != ReplayStatus.SAVED && resource.isUpdateScore()) {
-				ReplayData rd = resource.getReplayData();
-				main.getPlayDataAccessor().wrireReplayData(rd, resource.getBMSModel(),
-						resource.getPlayerConfig().getLnmode(), index);
-				saveReplay[index] = ReplayStatus.SAVED;
+				final ReplayData rd = resource.getReplayData();
+				final BMSModel model = resource.getBMSModel();
+				final int lnMode = resource.getPlayerConfig().getLnmode();
+				final int replayIndex = index;
+
+				new Thread(() -> {
+					try {
+						main.getPlayDataAccessor().wrireReplayData(rd, model, lnMode, replayIndex);
+						saveReplay[replayIndex] = ReplayStatus.SAVED;
+						Logger.getGlobal().info("Replay data saved: index " + replayIndex);
+					} catch (Exception e) {
+						Logger.getGlobal().severe("Failed to save replay data: " + e.getMessage());
+						e.printStackTrace();
+					}
+				}, "ReplayWriteThread").start();
 			}
 		}
 	}

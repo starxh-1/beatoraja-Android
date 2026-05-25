@@ -168,9 +168,7 @@ public class PreviewMusicProcessor {
                 // 音效(Sound)不受影响，可以正常播放
                 while(!stop) {
                     try {
-                        if(!commands.isEmpty()) {
-                            commands.removeFirst(); // 丢弃命令，不播放预览音乐
-                        }
+                        commands.pollFirst(); // 使用pollFirst避免竞态条件
                         sleep(50);
                     } catch (InterruptedException e) {
                     }
@@ -190,34 +188,37 @@ public class PreviewMusicProcessor {
             playing = defaultMusic;
             currentVolume = vol;
             while(!stop) {
-                if(!commands.isEmpty()) {
-                    String path = commands.removeFirst();
-                    // 如果路径为空，使用默认音效
-                    if(path == null || path.length() == 0) {
-                        path = defaultMusic;
+                String path = commands.pollFirst();
+                if(path == null) {
+                    try {
+                        sleep(50);
+                    } catch (InterruptedException e) {
                     }
+                    continue;
+                }
+                if(path == null || path.length() == 0) {
+                    path = defaultMusic;
+                }
 
-                    if(!Objects.equals(path, playing)) {
-                        stopPreview(true);
-                        float v = getVolume();
-                        if(!Objects.equals(path, defaultMusic) && path != null) {
-                            // Android平台已禁用，不播放
-                            if (!isAndroid) {
-                                try {
-                                    audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
-                                } catch (Exception e) {
-                                    java.util.logging.Logger.getGlobal().warning("Failed to play preview: " + path + " - " + e.getMessage());
-                                }
-                            }
-                        } else if (defaultMusic != null && !isAndroid) {
+                if(!Objects.equals(path, playing)) {
+                    stopPreview(true);
+                    float v = getVolume();
+                    if(!Objects.equals(path, defaultMusic) && path != null) {
+                        if (!isAndroid) {
                             try {
-                                audio.setVolume(defaultMusic, v);
+                                audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
                             } catch (Exception e) {
-                                java.util.logging.Logger.getGlobal().warning("Failed to set volume: " + e.getMessage());
+                                java.util.logging.Logger.getGlobal().warning("Failed to play preview: " + path + " - " + e.getMessage());
                             }
                         }
-                        playing = path;
+                    } else if (defaultMusic != null && !isAndroid) {
+                        try {
+                            audio.setVolume(defaultMusic, v);
+                        } catch (Exception e) {
+                            java.util.logging.Logger.getGlobal().warning("Failed to set volume: " + e.getMessage());
+                        }
                     }
+                    playing = path;
                 } else if(!Objects.equals(playing, defaultMusic) && !audio.isPlaying(playing)){
                     stopPreview(true);
                     if (defaultMusic != null) {

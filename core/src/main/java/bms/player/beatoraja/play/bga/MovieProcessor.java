@@ -51,10 +51,10 @@ public interface MovieProcessor {
 
 	/**
 	 * 获取渲染类型，用于选择正确的 Shader
-	 * 默认返回 TYPE_FFMPEG(3)，gdx-video 实现返回 TYPE_LINEAR(1)
+	 * 默认返回 TYPE_LINEAR(1)
 	 */
 	default int getRenderType() {
-		return 3; // SkinObjectRenderer.TYPE_FFMPEG
+		return 1; // SkinObjectRenderer.TYPE_LINEAR
 	}
 
 	/**

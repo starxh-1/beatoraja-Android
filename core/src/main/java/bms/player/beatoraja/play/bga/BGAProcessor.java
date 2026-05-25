@@ -71,6 +71,7 @@ public class BGAProcessor {
 	private long layer_start_time = 0;
 
 	private long time;
+	private long lastProcessedTime = -2;
 
 	private BGImageProcessor cache;
 
@@ -225,22 +226,22 @@ public class BGAProcessor {
 				if (f != null) {
 					boolean isMovie = false;
 					String fileName = f.name().toLowerCase();
+					Gdx.app.log("BGAProcessor", "Checking BGA ID " + id + ": " + f.path());
 					for (String mov : mov_extension) {
 						if (fileName.endsWith(mov)) {
 							try {
 								MovieProcessor mm = mpgresource.get(f.path());
 								movies[id] = mm;
 								isMovie = true;
-								Gdx.app.postRunnable(mm::preload);
+								Gdx.app.log("BGAProcessor", "Assigned MovieProcessor to ID " + id);
 								break;
 							} catch (Throwable e) {
 								Logger.getGlobal().warning("BGAファイル読み込み失敗。" + e.getMessage());
-								// 减少过多的 codec 相关日志输出
-								// e.printStackTrace();
 							}
 						}
 					}
 					if(!isMovie) {
+						Gdx.app.log("BGAProcessor", "Assigned Image to ID " + id);
 						cache.put(id, f.path());
 					}
 				}
@@ -250,8 +251,6 @@ public class BGAProcessor {
 			}
 		}
 		timelines = tls.toArray(TimeLine.class);
-
-		disposeOld();
 
 		Logger.getGlobal().info("BGAファイル読み込み完了。BGA数:" + id);
 		progress = 1;
@@ -270,25 +269,23 @@ public class BGAProcessor {
 	 */
 	public void prepare(BMSPlayer player) {
 		pos = 0;
+		resetCurrentlyPlayingBGA();
 		if(cache != null) {
 			cache.prepare(timelines);
 		}
 
-		// 预加载所有视频解码器（不加载视频文件），减少首次播放延迟
+		// 预加载视频解码器，减少首次播放延迟
 		for (MovieProcessor mpg : movies) {
 			if (mpg != null) {
 				mpg.preloadDecoder();
 			}
 		}
-
-		// 预加载所有视频文件到内存/缓存，在 STATE_PRELOAD 期间完成，
-		// 这样 Timeline 触发 play() 时不再需要等文件 IO，解决 BGA 播放延迟问题
+		// 预加载视频文件，在 STATE_PRELOAD 期间完成文件 IO
 		for (MovieProcessor mpg : movies) {
 			if (mpg != null) {
 				mpg.preload();
 			}
 		}
-
 		// 初始化为 -1 而非 0，确保 time=0 的 BGA 事件不会被 prepareBGA() 跳过
 		// （prepareBGA 中 tl.getTime() > this.time 条件：0 > -1 为 true，0 > 0 为 false）
 		time = -1;
@@ -309,10 +306,7 @@ public class BGAProcessor {
 		}
 
 		if(movies[id] != null) {
-			if (!cont) {
-				movies[id].play(time, false);
-			}
-			// 仅获取纹理，不再触发 update() 导致的 GL 状态混乱
+			// 仅获取纹理。play() 和 update() 已在 prepareBGA 逻辑阶段处理。
 			return movies[id].getFrame();
 		}
 		Texture tex = cache != null ? cache.getTexture(id) : null;
@@ -323,8 +317,23 @@ public class BGAProcessor {
 		bgaFramebufferDirty = true;
 		if (time < 0 || timelines == null) {
 			this.time = -1;
+			this.pos = 0;
+			this.lastProcessedTime = -2;
 			return;
 		}
+
+		// Support seeking backwards
+		if (time < this.time) {
+			this.pos = 0;
+			resetCurrentlyPlayingBGA();
+		}
+
+		// Avoid redundant processing if called multiple times in the same frame with same timestamp
+		if (time == lastProcessedTime) {
+			return;
+		}
+		lastProcessedTime = time;
+
 		for (int i = pos; i < timelines.length; i++) {
 			final TimeLine tl = timelines[i];
 			if (tl.getTime() > time) {
@@ -334,10 +343,20 @@ public class BGAProcessor {
 			if (tl.getTime() > this.time) {
 				final int bga = tl.getBGA();
 				if (bga == -2) {
+					if (playingbgaid != -1) Gdx.app.log("BGAProcessor", "BGA ID changed to: -1 (None)");
 					playingbgaid = -1;
 					rbga = false;
 					bga_start_time = 0;
 				} else if (bga >= 0) {
+					if (playingbgaid != bga) {
+						Gdx.app.log("BGAProcessor", "BGA ID changed to: " + bga + " at time: " + time);
+						if (bga < movies.length && movies[bga] != null) {
+							Gdx.app.log("BGAProcessor", "Triggering play() for movie ID " + bga);
+							movies[bga].play(tl.getMilliTime(), false);
+						} else {
+							Gdx.app.log("BGAProcessor", "No movie processor for ID " + bga + " (movies.length=" + movies.length + ")");
+						}
+					}
 					playingbgaid = bga;
 					rbga = false;
 					bga_start_time = tl.getTime();
@@ -345,10 +364,20 @@ public class BGAProcessor {
 
 				final int layer = tl.getLayer();
 				if (layer == -2) {
+					if (playinglayerid != -1) Gdx.app.log("BGAProcessor", "Layer ID changed to: -1 (None)");
 					playinglayerid = -1;
 					rlayer = false;
 					layer_start_time = 0;
 				} else if (layer >= 0) {
+					if (playinglayerid != layer) {
+						Gdx.app.log("BGAProcessor", "Layer ID changed to: " + layer + " at time: " + time);
+						if (layer < movies.length && movies[layer] != null) {
+							Gdx.app.log("BGAProcessor", "Triggering play() for layer movie ID " + layer);
+							movies[layer].play(tl.getMilliTime(), false);
+						} else {
+							Gdx.app.log("BGAProcessor", "No movie processor for layer ID " + layer);
+						}
+					}
 					playinglayerid = layer;
 					rlayer = false;
 					layer_start_time = tl.getTime();
@@ -361,19 +390,18 @@ public class BGAProcessor {
 						misslayer = poor;
 					}
 				}
-			} else {
-				pos++;
+				pos = i;
 			}
 		}
 
 		this.time = time;
 
-		// 在逻辑更新阶段提前驱动视频解码，确保渲染时 GL 状态稳定
+		// 在逻辑更新阶段驱动视频解码，传入绝对游戏时间
 		if (playingbgaid >= 0 && movies[playingbgaid] != null) {
-			movies[playingbgaid].update(time - bga_start_time);
+			movies[playingbgaid].update(time);
 		}
 		if (playinglayerid >= 0 && movies[playinglayerid] != null && playinglayerid != playingbgaid) {
-			movies[playinglayerid].update(time - layer_start_time);
+			movies[playinglayerid].update(time);
 		}
 	}
 

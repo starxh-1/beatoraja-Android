@@ -478,6 +478,7 @@ public class Skin {
 		public static final int TYPE_NORMAL = 0;
 		public static final int TYPE_LINEAR = 1;
 		public static final int TYPE_BILINEAR = 2;
+		@Deprecated
 		public static final int TYPE_FFMPEG = 3;
 		public static final int TYPE_LAYER = 4;
 		public static final int TYPE_DISTANCE_FIELD = 5;
@@ -500,7 +501,6 @@ public class Skin {
 			this.sprite = sprite;
 			this.useNearestFilter = useNearestFilter;
 			shaders[TYPE_BILINEAR] = ShaderManager.getShader("bilinear");
-			shaders[TYPE_FFMPEG] = ShaderManager.getShader("ffmpeg");
 			shaders[TYPE_LAYER] = ShaderManager.getShader("layer");
 			shaders[TYPE_DISTANCE_FIELD] = ShaderManager.getShader("distance_field");
 
@@ -575,7 +575,7 @@ public class Skin {
 		private void setFilter(Texture image) {
 			// 优化：仅在需要 Linear 过滤且尚未设置时才调用 setFilter
 			// 跳过冗余的 bind() + glTexParameteri() GL 调用
-			if(type == TYPE_LINEAR || type == TYPE_FFMPEG || type == TYPE_DISTANCE_FIELD) {
+			if(type == TYPE_LINEAR || type == TYPE_DISTANCE_FIELD) {
 				if (image.getMinFilter() != TextureFilter.Linear || image.getMagFilter() != TextureFilter.Linear) {
 					image.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 				}

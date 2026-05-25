@@ -71,7 +71,7 @@ public class CourseResult extends AbstractResult {
 
 		loadSkin(SkinType.COURSE_RESULT);
 	}
-	
+
 	public void prepare() {
 		state = STATE_OFFLINE;
 		final PlayerConfig config = resource.getPlayerConfig();
@@ -82,7 +82,7 @@ public class CourseResult extends AbstractResult {
 		final IRStatus[] ir = main.getIRStatus();
 		if (ir.length > 0 && resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
 			state = STATE_IR_PROCESSING;
-			
+
 			boolean uln = false;
 			for(BMSModel model : resource.getCourseBMSModels()) {
 				if(model.containsUndefinedLongNote()) {
@@ -91,7 +91,7 @@ public class CourseResult extends AbstractResult {
 				}
 			}
 			final int lnmode = uln ? config.getLnmode() : 0;
-			
+
         	for(IRStatus irc : ir) {
     			boolean send = resource.isUpdateCourseScore() && resource.getCourseData().isRelease();
     			switch(irc.config.getIrsend()) {
@@ -102,10 +102,10 @@ public class CourseResult extends AbstractResult {
 	    			}
 	    			case IRConfig.IR_SEND_UPDATE_SCORE -> {
 	//    				send &= (newscore.getExscore() > oldscore.getExscore() || newscore.getClear() > oldscore.getClear()
-	//					|| newscore.getCombo() > oldscore.getCombo() || newscore.getMinbp() < oldscore.getMinbp());    				
+	//					|| newscore.getCombo() > oldscore.getCombo() || newscore.getMinbp() < oldscore.getMinbp());
 	    			}
     			}
-    			
+
     			if(send) {
     				irSendStatus.add(new IRSendStatus(irc.connection, resource.getCourseData(), lnmode, newscore));
     			}
@@ -208,7 +208,7 @@ public class CourseResult extends AbstractResult {
 
 			if (inputProcessor.isControlKeyPressed(ControlKeys.ESCAPE) || inputProcessor.isControlKeyPressed(ControlKeys.ENTER)) {
 				ok = true;
-			} 
+			}
 
 			if (resource.getScoreData() == null || ok) {
 				if (((CourseResultSkin) getSkin()).getRankTime() != 0 && !timer.isTimerOn(TIMER_RESULT_UPDATESCORE)) {
@@ -224,13 +224,13 @@ public class CourseResult extends AbstractResult {
 			}
 
 			if(inputProcessor.isControlKeyPressed(ControlKeys.NUM1)) {
-				saveReplayData(0);				
+				saveReplayData(0);
 			} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM2)) {
-				saveReplayData(1);				
+				saveReplayData(1);
 			} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM3)) {
-				saveReplayData(2);				
+				saveReplayData(2);
 			} else if(inputProcessor.isControlKeyPressed(ControlKeys.NUM4)) {
-				saveReplayData(3);				
+				saveReplayData(3);
 			}
 
 			if(inputProcessor.isActivated(KeyCommand.OPEN_IR)) {
@@ -269,15 +269,31 @@ public class CourseResult extends AbstractResult {
 				Arrays.asList(resource.getCourseData().getSong()).stream().mapToInt(sd -> sd.getNotes()).sum());
 		getScoreDataProperty().update(newscore);
 
-		main.getPlayDataAccessor().writeScoreData(newscore, models, config.getLnmode(),
-				random, resource.getConstraint(), resource.isUpdateCourseScore());
+		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
+			final ScoreData scoreToSave = newscore;
+			final BMSModel[] modelsToSave = models;
+			final int lnModeToSave = config.getLnmode();
+			final int randomToSave = random;
+			final bms.player.beatoraja.CourseData.CourseDataConstraint[] constraintToSave = resource.getConstraint();
+			final boolean isUpdateScore = resource.isUpdateCourseScore();
 
-
-		Logger.getGlobal().info("スコアデータベース更新完了 ");
+			// Run database write in a background thread to prevent UI hangs if SQLite is locked.
+			new Thread(() -> {
+				try {
+					main.getPlayDataAccessor().writeScoreData(scoreToSave, modelsToSave, lnModeToSave, randomToSave, constraintToSave, isUpdateScore);
+					Logger.getGlobal().info("Course score database update completed ");
+				} catch (Exception e) {
+					Logger.getGlobal().severe("Failed to save course score: " + e.getMessage());
+					e.printStackTrace();
+				}
+			}, "CourseScoreWriteThread").start();
+		} else {
+			Logger.getGlobal().info("プレイモードが" + resource.getPlayMode().mode.name() + "のため、スコア登録はされません");
+		}
 	}
 
 	public int getJudgeCount(int judge, boolean fast) {
-		final ScoreData score = resource.getCourseScoreData();		
+		final ScoreData score = resource.getCourseScoreData();
 		return score != null ? score.getJudgeCount(judge, fast) : 0;
 	}
 
@@ -290,13 +306,25 @@ public class CourseResult extends AbstractResult {
 		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY && resource.getCourseScoreData() != null) {
 			if (saveReplay[index] != ReplayStatus.SAVED && resource.isUpdateCourseScore()) {
 				// 保存されているリプレイデータがない場合は、EASY以上で自動保存
-				ReplayData[] rd = resource.getCourseReplay();
+				final ReplayData[] rd = resource.getCourseReplay();
 				for(int i = 0; i < rd.length; i++) {
 					rd[i].gauge = resource.getPlayerConfig().getGauge();
 				}
-				main.getPlayDataAccessor().wrireReplayData(rd, resource.getCourseBMSModels(),
-						resource.getPlayerConfig().getLnmode(), index, resource.getConstraint());
-				saveReplay[index] = ReplayStatus.SAVED;
+				final BMSModel[] models = resource.getCourseBMSModels();
+				final int lnMode = resource.getPlayerConfig().getLnmode();
+				final int replayIndex = index;
+				final bms.player.beatoraja.CourseData.CourseDataConstraint[] constraint = resource.getConstraint();
+
+				new Thread(() -> {
+					try {
+						main.getPlayDataAccessor().wrireReplayData(rd, models, lnMode, replayIndex, constraint);
+						saveReplay[replayIndex] = ReplayStatus.SAVED;
+						Logger.getGlobal().info("Course replay data saved: index " + replayIndex);
+					} catch (Exception e) {
+						Logger.getGlobal().severe("Failed to save course replay data: " + e.getMessage());
+						e.printStackTrace();
+					}
+				}, "CourseReplayWriteThread").start();
 			}
 		}
 	}
@@ -311,14 +339,14 @@ public class CourseResult extends AbstractResult {
 		public final int lnmode;
 		public final ScoreData score;
 		public int retry = 0;
-		
+
 		public IRSendStatus(IRConnection ir, CourseData course, int lnmode, ScoreData score) {
 			this.ir = ir;
 			this.course = course;
 			this.lnmode = lnmode;
 			this.score = score;
 		}
-		
+
 		public boolean send() {
 			Logger.getGlobal().info("IRへスコア送信中 : " + course.getName());
             IRResponse<Object> send1 = ir.sendCoursePlayData(new IRCourseData(course, lnmode), new bms.player.beatoraja.ir.IRScoreData(score));

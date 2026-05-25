@@ -4,7 +4,6 @@ import static bms.player.beatoraja.skin.SkinProperty.*;
 import static bms.player.beatoraja.SystemSoundManager.SoundType.*;
 
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.logging.Logger;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -75,10 +74,6 @@ public final class MusicSelector extends MainState {
 	 * 楽曲が選択されてからbmsを読み込むまでの時間(ms)
 	 */
 	private final int notesGraphDuration = 350;
-	/**
-	 * BMSモデルの読み込み順キュー（40曲に達したら最古のモデルを解放）
-	 */
-	private final ArrayDeque<SongData> loadedModels = new ArrayDeque<>(40);
 	/**
 	 * 楽曲が選択されてからプレビュー曲を再生するまでの時間(ms)
 	 */
@@ -315,18 +310,8 @@ public final class MusicSelector extends MainState {
 			if (current instanceof SongBar && ((SongBar) current).existsSong()) {
 				SongData song = resource.getSongdata();
 					new Thread(() ->  {
-						BMSModel model = resource.loadBMSModel(Gdx.files.absolute(((SongBar) current).getSongData().getPath()),
-								config.getLnmode());
-						if (model != null) {
-							song.setBMSModel(model);
-							loadedModels.addLast(song);
-							if (loadedModels.size() >= 40) {
-								SongData oldest = loadedModels.pollFirst();
-								if (oldest != null) {
-									oldest.setBMSModel(null);
-								}
-							}
-						}
+						song.setBMSModel(resource.loadBMSModel(Gdx.files.absolute(((SongBar) current).getSongData().getPath()),
+								config.getLnmode()));
 					}).start();;
 			}
 			showNoteGraph = true;

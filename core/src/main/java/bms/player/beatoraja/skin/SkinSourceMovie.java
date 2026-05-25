@@ -66,6 +66,10 @@ public class SkinSourceMovie extends SkinSource {
 		return null;
 	}
 
+	public MovieProcessor getMovieProcessor() {
+		return image;
+	}
+
 	public void dispose() {
     	if(isNotDisposed()) {
     		Optional.ofNullable(image).ifPresent(MovieProcessor::dispose);

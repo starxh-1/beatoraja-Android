@@ -55,7 +55,11 @@ public class GdxVideoProcessor implements MovieProcessor {
      */
     private final IntBuffer glStateBuffer = BufferUtils.newIntBuffer(16);
 
+    private static int instanceCounter = 0;
+    private final int instanceId = ++instanceCounter;
+
     public GdxVideoProcessor() {
+        Gdx.app.log("GdxVideoProcessor", "Instance created: #" + instanceId);
     }
 
     /**
@@ -123,6 +127,10 @@ public class GdxVideoProcessor implements MovieProcessor {
             Gdx.gl20.glGetIntegerv(0x8B8D, glStateBuffer); // GL_CURRENT_PROGRAM
             int lastProgram = glStateBuffer.get(0);
 
+            // 4. 保存当前 Active Texture
+            Gdx.gl20.glGetIntegerv(GL20.GL_ACTIVE_TEXTURE, glStateBuffer);
+            int lastActiveTexture = glStateBuffer.get(0);
+
             // ─── 环境清理 ───
             // 解绑纹理，防止 updateTexImage 冲突。移除 glFlush 以提升触控响应性能。
             Gdx.gl20.glBindTexture(GL20.GL_TEXTURE_2D, 0);
@@ -133,14 +141,17 @@ public class GdxVideoProcessor implements MovieProcessor {
                 if (tex != null) {
                     currentTexture = tex;
                 }
+            } else {
+                // 如果返回 false，可能视频已结束或解码停滞
             }
 
             // ─── 现场恢复 ───
+            Gdx.gl20.glActiveTexture(lastActiveTexture);
             Gdx.gl20.glUseProgram(lastProgram);
             Gdx.gl20.glBindFramebuffer(GL20.GL_FRAMEBUFFER, lastFbo);
             Gdx.gl20.glViewport(vx, vy, vw, vh);
         } catch (Exception e) {
-            // 静默失败
+            Gdx.app.log("GdxVideoProcessor", "Update error: " + e.getMessage());
         }
     }
 
@@ -158,8 +169,12 @@ public class GdxVideoProcessor implements MovieProcessor {
      * @param gameTime 当前游戏时间（毫秒）
      */
     private void synchronizeVideo(long gameTime) {
-        // 计算视频应该播放到的位置
+        // gameTime 现在是绝对游戏时间
+        // 计算视频应该播放到的位置（距离视频开始触发的时间差）
         long targetVideoTime = gameTime - gameStartTime;
+
+        // 如果还没到开始时间，不处理同步
+        if (targetVideoTime < 0) return;
 
         // 处理循环播放
         if (loop && videoDuration > 0 && targetVideoTime > videoDuration) {
@@ -167,23 +182,26 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
 
         // 获取视频当前播放位置
-        // 注意：VideoPlayer API 可能没有直接获取当前时间的方法
-        // 这里使用系统时间作为近似值，未来接入 FFmpeg 可替换为精确帧时间
+        // 注意：gdx-video Android 实现使用 MediaPlayer.getCurrentPosition()
+        // 这里我们优先信任 VideoPlayer 提供的时间（如果有 API），
+        // 否则使用系统时间差作为近似值。
         long currentVideoTime = (startTime > 0) ? (System.currentTimeMillis() - startTime) : 0;
 
-        // 计算时间差（视频时间 - 目标时间）
+        // 计算时间差（视频当前实际位置 - 理论应在位置）
         // 正值 = 视频超前，负值 = 视频滞后
         long drift = currentVideoTime - targetVideoTime;
 
+        if (syncCorrectionCount % 100 == 0) {
+            Gdx.app.log("GdxVideoProcessor", "Sync: target=" + targetVideoTime + "ms, current=" + currentVideoTime + "ms, drift=" + drift + "ms");
+        }
+        syncCorrectionCount++;
+
         // 根据时间差进行同步修正
         if (Math.abs(drift) > SYNC_THRESHOLD_FAST) {
-            // 较大偏差：需要快速修正
             handleFastSync(drift, targetVideoTime);
         } else if (Math.abs(drift) > SYNC_THRESHOLD_SMOOTH) {
-            // 中等偏差：平滑微调（主要通过跳过 update 或连续 update）
             handleSmoothSync(drift);
         }
-        // 小偏差：保持现状，不做处理，避免抖动
     }
 
     /**
@@ -235,28 +253,31 @@ public class GdxVideoProcessor implements MovieProcessor {
 
     @Override
     public void play(long time, boolean loop) {
-        if (disposed) return;
+        if (disposed) {
+            disposed = false;
+            initialized = false;
+            preloaded = false;
+        }
+        Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video play requested: " + filepath + " (preloaded=" + preloaded + ", time=" + time + ")");
         try {
             if (!ensureInitialized()) {
-                // 初始化失败 → 优雅降级，仅显示黑屏/静态底图
+                Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video play failed: ensureInitialized returned false");
                 return;
             }
 
-            // 如果已经预加载过，就不需要重新 load()
-            // 只需要设置循环模式并播放即可
             videoPlayer.setLooping(loop);
             this.loop = loop;
 
-            // 如果没有预加载过，需要先加载视频文件
             if (!preloaded) {
                 FileHandle fh = Gdx.files.absolute(filepath);
                 if (!fh.exists()) {
-                    Logger.getGlobal().warning("Video file not found: " + filepath);
+                    Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video file not found: " + filepath);
                     return;
                 }
+                Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Loading video: " + filepath);
                 boolean loaded = videoPlayer.load(fh);
                 if (!loaded) {
-                    Logger.getGlobal().warning("GdxVideoProcessor load failed: " + filepath);
+                    Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video load failed: " + filepath);
                     safeDispose();
                     return;
                 }
@@ -270,13 +291,9 @@ public class GdxVideoProcessor implements MovieProcessor {
             gameStartTime = time;
             syncCorrectionCount = 0;
 
-            Logger.getGlobal().info("Video playback started: sync基准已设置 (gameTime=" + time + ")");
-        } catch (FileNotFoundException e) {
-            Logger.getGlobal().warning("Video file not found: " + filepath);
-            safeDispose();
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video playback started successfully (gameStartTime=" + time + ")");
         } catch (Exception e) {
-            // 格式不支持的优雅降级：静默销毁播放器，不崩溃
-            Logger.getGlobal().warning("GdxVideoProcessor play failed (格式可能不受支持): " + e.getMessage());
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video play exception: " + e.getMessage());
             playing = false;
             safeDispose();
         }
@@ -346,6 +363,8 @@ public class GdxVideoProcessor implements MovieProcessor {
      */
     private void safeDispose() {
         disposed = true;
+        initialized = false;
+        preloaded = false;
         playing = false;
         startTime = -1;
         gameStartTime = -1;
@@ -378,24 +397,26 @@ public class GdxVideoProcessor implements MovieProcessor {
     @Override
     public void preload() {
         if (disposed || preloaded) return;
+        Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " preload requested for: " + filepath);
 
         try {
             // 1. 初始化 VideoPlayer（在 GL 线程上）
             if (!ensureInitialized()) {
-                Logger.getGlobal().warning("Video preload: ensureInitialized failed for " + filepath);
+                Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " preload: ensureInitialized failed");
                 return;
             }
 
             // 2. 加载视频文件（但不播放）
             FileHandle fh = Gdx.files.absolute(filepath);
             if (!fh.exists()) {
-                Logger.getGlobal().warning("Video preload: file not found: " + filepath);
+                Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " preload: file not found: " + filepath);
                 return;
             }
 
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Loading video for preload...");
             boolean loaded = videoPlayer.load(fh);
             if (!loaded) {
-                Logger.getGlobal().warning("Video preload: load failed: " + filepath);
+                Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " preload: load failed: " + filepath);
                 safeDispose();
                 return;
             }
@@ -404,9 +425,9 @@ public class GdxVideoProcessor implements MovieProcessor {
             preloaded = true;
             playing = false;
 
-            Logger.getGlobal().info("Video preloaded successfully: " + filepath);
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video preloaded successfully: " + filepath);
         } catch (Exception e) {
-            Logger.getGlobal().warning("Video preload failed: " + e.getMessage());
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video preload failed: " + e.getMessage());
             safeDispose();
         }
     }
