@@ -191,7 +191,7 @@ public class GdxVideoProcessor implements MovieProcessor {
         // 正值 = 视频超前，负值 = 视频滞后
         long drift = currentVideoTime - targetVideoTime;
 
-        if (syncCorrectionCount % 100 == 0) {
+        if (syncCorrectionCount % 600 == 0) {
             Gdx.app.log("GdxVideoProcessor", "Sync: target=" + targetVideoTime + "ms, current=" + currentVideoTime + "ms, drift=" + drift + "ms");
         }
         syncCorrectionCount++;
@@ -221,7 +221,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             resetSyncPoint();
         } else {
             // 中等程度的超前/滞后，记录日志但保持连续播放
-            if (syncCorrectionCount % 100 == 0) {
+            if (syncCorrectionCount % 600 == 0) {
                 Logger.getGlobal().fine("Video sync: drift=" + drift + "ms (corrections=" + syncCorrectionCount + ")");
             }
         }

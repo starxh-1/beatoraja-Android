@@ -23,9 +23,9 @@
     <string name="bga_expand">BGA Expand</string>
     <string name="gauge_auto_shift">Gauge Auto Shift</string>
     <string name="auto_save_replay">Auto Save Replay</string>
-    <string name="green_number">Green Number</string>
+    <string name="green_number">緑数字</string>
     <string name="hispeed_fix">HI-SPEED Fix</string>
-    <string name="enable_lanecover">レーンカバーを有効にする</string>
+    <string name="enable_lanecover">LANECOVERを有効にする</string>
     <string name="enable_lift">LIFTを有効にする</string>
     <string name="section_tables">難易度表</string>
     <string name="update_all">すべて更新</string>
@@ -75,6 +75,7 @@
         <item>Min BPM</item>
     </string-array>
 
+    <string name="msg_update_failed">難易度表の更新に失敗しました</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>
     <string name="msg_invalid_url">有効な URL を入力してください</string>
@@ -98,4 +99,5 @@
     <string name="msg_player_exists">同名のプレイヤーが既に存在します</string>
     <string name="dialog_delete_player">プレイヤー削除</string>
     <string name="msg_delete_confirm">プレイヤー \'%1$s\' を削除してもよろしいですか？スコアを含む全てのデータが削除されます。</string>
+    <string name="msg_table_updated">難易度表を更新しました</string>
 </resources>

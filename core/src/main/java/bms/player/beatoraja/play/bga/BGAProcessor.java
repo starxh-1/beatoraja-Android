@@ -343,18 +343,16 @@ public class BGAProcessor {
 			if (tl.getTime() > this.time) {
 				final int bga = tl.getBGA();
 				if (bga == -2) {
-					if (playingbgaid != -1) Gdx.app.log("BGAProcessor", "BGA ID changed to: -1 (None)");
+					// if (playingbgaid != -1) Gdx.app.log("BGAProcessor", "BGA ID changed to: -1 (None)");
 					playingbgaid = -1;
 					rbga = false;
 					bga_start_time = 0;
 				} else if (bga >= 0) {
 					if (playingbgaid != bga) {
-						Gdx.app.log("BGAProcessor", "BGA ID changed to: " + bga + " at time: " + time);
+						// Gdx.app.log("BGAProcessor", "BGA ID changed to: " + bga + " at time: " + time);
 						if (bga < movies.length && movies[bga] != null) {
-							Gdx.app.log("BGAProcessor", "Triggering play() for movie ID " + bga);
+							// Gdx.app.log("BGAProcessor", "Triggering play() for movie ID " + bga);
 							movies[bga].play(tl.getMilliTime(), false);
-						} else {
-							Gdx.app.log("BGAProcessor", "No movie processor for ID " + bga + " (movies.length=" + movies.length + ")");
 						}
 					}
 					playingbgaid = bga;
@@ -364,18 +362,16 @@ public class BGAProcessor {
 
 				final int layer = tl.getLayer();
 				if (layer == -2) {
-					if (playinglayerid != -1) Gdx.app.log("BGAProcessor", "Layer ID changed to: -1 (None)");
+					// if (playinglayerid != -1) Gdx.app.log("BGAProcessor", "Layer ID changed to: -1 (None)");
 					playinglayerid = -1;
 					rlayer = false;
 					layer_start_time = 0;
 				} else if (layer >= 0) {
 					if (playinglayerid != layer) {
-						Gdx.app.log("BGAProcessor", "Layer ID changed to: " + layer + " at time: " + time);
+						// Gdx.app.log("BGAProcessor", "Layer ID changed to: " + layer + " at time: " + time);
 						if (layer < movies.length && movies[layer] != null) {
-							Gdx.app.log("BGAProcessor", "Triggering play() for layer movie ID " + layer);
+							// Gdx.app.log("BGAProcessor", "Triggering play() for layer movie ID " + layer);
 							movies[layer].play(tl.getMilliTime(), false);
-						} else {
-							Gdx.app.log("BGAProcessor", "No movie processor for layer ID " + layer);
 						}
 					}
 					playinglayerid = layer;
