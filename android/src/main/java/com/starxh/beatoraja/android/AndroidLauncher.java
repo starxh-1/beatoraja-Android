@@ -274,12 +274,10 @@ public class AndroidLauncher extends AndroidApplication {
 
         Gdx.input.setCatchKey(Keys.BACK, true);
 
-        // initialize 之后立即设置高帧率（此时 Surface 已准备好）
+        // WindowManager 刷新率 + maxRefreshRate 检测
         setupHighRefreshRate();
-        // 重复调用几次，压制 dynamicfps 的限制
-        for (int i = 0; i < 3; i++) {
-            new Handler(Looper.getMainLooper()).postDelayed(this::setupHighRefreshRate, 500 * (i + 1));
-        }
+        // Surface 级别帧速率（延迟等待 libGDX 创建 SurfaceView）
+        new Handler(Looper.getMainLooper()).postDelayed(this::setupSurfaceFrameRate, 200);
 
         setupSustainedPerformance();
     }
@@ -629,6 +627,7 @@ public class AndroidLauncher extends AndroidApplication {
         } else {
             setupSustainedPerformance();
             setupHighRefreshRate();
+            new Handler(Looper.getMainLooper()).postDelayed(this::setupSurfaceFrameRate, 200);
         }
     }
 
@@ -698,28 +697,62 @@ public class AndroidLauncher extends AndroidApplication {
         return "/storage/emulated/0/Download";
     }
 
+    /**
+     * 检测硬件最大刷新率并通过 WindowManager 请求。
+     * 不设置 preferredDisplayModeId，避免与 MIUI DynamicFPS 冲突。
+     * Surface 级别的帧速率由 setupSurfaceFrameRate() 单独处理。
+     */
     private void setupHighRefreshRate() {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                Window window = getWindow();
-                android.view.Display display = window.getWindowManager().getDefaultDisplay();
-                android.view.Display.Mode[] modes = display.getSupportedModes();
-                android.view.Display.Mode bestMode = null;
-                float highestRR = 0;
-                for (android.view.Display.Mode m : modes) {
-                    if (m.getRefreshRate() > highestRR) { highestRR = m.getRefreshRate(); bestMode = m; }
-                }
-                if (bestMode != null) {
-                    WindowManager.LayoutParams params = window.getAttributes();
-                    params.preferredDisplayModeId = bestMode.getModeId();
-                    params.preferredRefreshRate = bestMode.getRefreshRate();
-                    window.setAttributes(params);
-                }
-                if (highestRR > 60f) {
-                    maxRefreshRate = highestRR;
-                }
+            Window window = getWindow();
+            android.view.Display display = window.getWindowManager().getDefaultDisplay();
+            android.view.Display.Mode[] modes = display.getSupportedModes();
+            float highestRR = 60f;
+            for (android.view.Display.Mode m : modes) {
+                if (m.getRefreshRate() > highestRR) highestRR = m.getRefreshRate();
             }
+            maxRefreshRate = highestRR;
+            Log.i(TAG, "Max refresh rate: " + highestRR + " Hz");
+
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.preferredRefreshRate = highestRR;
+            window.setAttributes(params);
         } catch (Throwable t) { Log.e(TAG, "setupHighRefreshRate fail", t); }
+    }
+
+    /**
+     * 使用帧速率 API (Surface.setFrameRate) 在 Surface 级别声明预期帧速率。
+     * 这是 Android 11+ 官方推荐的途径，对应文档中的「帧速率 API」：
+     * "SurfaceFlinger 会尝试将刷新率设置为该帧速率的倍数"
+     */
+    private void setupSurfaceFrameRate() {
+        if (Build.VERSION.SDK_INT < 30) return;
+        try {
+            android.view.SurfaceView sv = findSurfaceView(getWindow().getDecorView());
+            if (sv == null) {
+                Log.w(TAG, "SurfaceView not found for setFrameRate");
+                return;
+            }
+            android.view.SurfaceHolder holder = sv.getHolder();
+            if (holder == null) return;
+            android.view.Surface surface = holder.getSurface();
+            if (surface == null || !surface.isValid()) return;
+
+            surface.setFrameRate(maxRefreshRate, android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT);
+            Log.i(TAG, "Surface.setFrameRate(" + maxRefreshRate + ")");
+        } catch (Throwable t) { Log.e(TAG, "setFrameRate fail", t); }
+    }
+
+    private static android.view.SurfaceView findSurfaceView(android.view.View view) {
+        if (view instanceof android.view.SurfaceView) return (android.view.SurfaceView) view;
+        if (view instanceof android.view.ViewGroup) {
+            android.view.ViewGroup vg = (android.view.ViewGroup) view;
+            for (int i = 0; i < vg.getChildCount(); i++) {
+                android.view.SurfaceView sv = findSurfaceView(vg.getChildAt(i));
+                if (sv != null) return sv;
+            }
+        }
+        return null;
     }
 
     public void setAndroidBackPressedFlag() {

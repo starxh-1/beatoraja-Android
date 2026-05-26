@@ -211,12 +211,6 @@ public class MainController {
             // 内部限帧设定为与物理刷新率一致
             config.setMaxFramePerSecond(targetFPS);
 
-            // 高刷新率屏幕自动关闭 Vsync，减少输入延迟
-            if (targetFPS > 60) {
-                config.setVsync(false);
-                Gdx.app.log("beatoraja", "VSync disabled for high refresh rate");
-            }
-
             // ─── 积极请求高刷新率 (Android 11+ Frame Rate API) ───
             // 许多 Android 手机（如小米、一加）在没有触摸或进入视频播放时会自动降频到 90Hz/60Hz。
             // 告知系统我们需要最高流畅度。
@@ -240,7 +234,7 @@ public class MainController {
 
     // --- 性能 API 反射缓存 ---
     private java.lang.reflect.Method setFrameRateMethod = null;
-    private long lastFrameRateUpdate = 0;
+
 
     private void updateFrameRateAPI(int targetFPS) {
         if (!isAndroid) return;
@@ -259,22 +253,12 @@ public class MainController {
                     if (surface != null) {
                         java.lang.reflect.Method isValid = surface.getClass().getMethod("isValid");
                         if (Boolean.TRUE.equals(isValid.invoke(surface))) {
-                            // 尝试获取三参数版本以支持 CHANGE_FRAME_RATE_ALWAYS
                             if (setFrameRateMethod == null) {
-                                try {
-                                    setFrameRateMethod = surface.getClass().getMethod("setFrameRate", float.class, int.class, int.class);
-                                } catch (NoSuchMethodException e) {
-                                    setFrameRateMethod = surface.getClass().getMethod("setFrameRate", float.class, int.class);
-                                }
+                                setFrameRateMethod = surface.getClass().getMethod("setFrameRate", float.class, int.class);
                             }
-
-                            if (setFrameRateMethod.getParameterCount() == 3) {
-                                // 使用 FIXED_SOURCE (1) 和 CHANGE_FRAME_RATE_ALWAYS (1)
-                                setFrameRateMethod.invoke(surface, (float) targetFPS, 1, 1);
-                            } else {
-                                // 使用 FIXED_SOURCE (1)
-                                setFrameRateMethod.invoke(surface, (float) targetFPS, 1);
-                            }
+                            // FRAME_RATE_COMPATIBILITY_DEFAULT (0)：游戏应使用默认兼容模式
+                            // 不使用 FIXED_SOURCE（视频模式），不使用 CHANGE_FRAME_RATE_ALWAYS
+                            setFrameRateMethod.invoke(surface, (float) targetFPS, 0);
                         }
                     }
                 }
@@ -300,21 +284,9 @@ public class MainController {
                 currentTargetFPS = detectedRefreshRate;
                 config.setMaxFramePerSecond(detectedRefreshRate);
             }
-            updateFrameRateAPI(currentTargetFPS);
-            // 针对 PLAY 界面，启动重复定时任务对抗系统 DynamicFPS 降频
-            // MIUI 等系统会在 1-2 秒内自动降低刷新率，需要持续重新请求高刷新率
-            if (state == MainStateType.PLAY && detectedRefreshRate > 60) {
-                final int playTargetFPS = detectedRefreshRate;
-                com.badlogic.gdx.utils.Timer.schedule(new com.badlogic.gdx.utils.Timer.Task() {
-                    @Override
-                    public void run() {
-                        if (current instanceof BMSPlayer) {
-                            updateFrameRateAPI(playTargetFPS);
-                        } else {
-                            cancel();
-                        }
-                    }
-                }, 1.5f, 2.0f);
+            // 仅在目标帧率为合理值（< 1000）时调用 setFrameRate
+            if (currentTargetFPS < 1000) {
+                updateFrameRateAPI(currentTargetFPS);
             }
         }
 
@@ -651,13 +623,6 @@ public class MainController {
     /** 预分配的坐标文字 StringBuilder，避免每帧 String.format() */
     private final StringBuilder coordTextBuilder = new StringBuilder(16);
 
-    // --- 频谱可视化反射缓存 ---
-    private Object visualizerInstance = null;
-    private java.lang.reflect.Method visualizerHasNewDataMethod = null;
-    private java.lang.reflect.Method visualizerGetMagnitudesMethod = null;
-    private boolean visualizerReflectionFailed = false;
-    private final Color spectrumBarColor = new Color(0.2f, 0.8f, 1f, 0.8f);
-
     /**
      * 将屏幕坐标 (Gdx.input.getX/getY) 转换为游戏逻辑坐标（皮肤坐标系）。
      * 在等比视口模式下，屏幕坐标需要扣除 pillarbox/letterbox 偏移并缩放。
@@ -776,9 +741,6 @@ public class MainController {
         }
         messageRenderer.render(current, sprite, 100, config.getResolution().height - 2);
         sprite.end();
-
-        // ── 音频频谱渲染（黑边区域）──
-        drawAudioSpectrum();
 
         // 绘制触摸指针（仅 Android，PLAY 和 DECIDE 界面不显示，浮动菜单消费触摸时不显示）
         if (Gdx.app.getType() == Application.ApplicationType.Android && touchPointerTexture != null
@@ -965,16 +927,6 @@ public class MainController {
             doFrameLimit = !config.isVsync() && maxFPS > 0;
         }
 
-        // Android：周期性重新请求高刷新率，对抗系统 DynamicFPS 降频
-        // 放在 doFrameLimit 之外，确保在任何配置下都能持续请求高帧率
-        if (isAndroid && maxFPS > 60) {
-            lastFrameRateUpdate++;
-            if (lastFrameRateUpdate > 30) {
-                updateFrameRateAPI(maxFPS);
-                lastFrameRateUpdate = 0;
-            }
-        }
-
         if (doFrameLimit) {
             final long frameIntervalNanos = 1_000_000_000L / maxFPS;
             final long now = System.nanoTime();
@@ -1011,100 +963,6 @@ public class MainController {
                 }
             }
         }
-    }
-
-    /**
-     * 在屏幕黑边区域绘制音频频谱
-     */
-    private void drawAudioSpectrum() {
-        // 只在 Android 上运行
-        if (Gdx.app.getType() != Application.ApplicationType.Android || visualizerReflectionFailed) {
-            return;
-        }
-
-        float[] magnitudes = null;
-
-        // 使用反射缓存获取 Visualizer 数据
-        try {
-            if (visualizerInstance == null) {
-                Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AudioSpectrumVisualizer");
-                visualizerInstance = clazz.getMethod("getInstance").invoke(null);
-                if (visualizerInstance == null) return;
-                visualizerHasNewDataMethod = visualizerInstance.getClass().getMethod("hasNewData");
-                visualizerGetMagnitudesMethod = visualizerInstance.getClass().getMethod("getSmoothedBandMagnitudes");
-            }
-
-            boolean hasNewData = (Boolean) visualizerHasNewDataMethod.invoke(visualizerInstance);
-            if (!hasNewData) {
-                return;
-            }
-
-            magnitudes = (float[]) visualizerGetMagnitudesMethod.invoke(visualizerInstance);
-        } catch (Exception e) {
-            visualizerReflectionFailed = true; // 失败后不再尝试，避免每帧报错
-            return;
-        }
-
-        if (magnitudes == null || magnitudes.length == 0) {
-            return;
-        }
-
-        int screenW = Gdx.graphics.getWidth();
-        int screenH = Gdx.graphics.getHeight();
-        float targetAspect = 1920f / 1080f;
-        float screenAspect = (float) screenW / screenH;
-
-        // 计算黑边区域
-        int viewportW, viewportH, viewportX, viewportY;
-        if (screenAspect > targetAspect) {
-            // 左右黑边
-            viewportH = screenH;
-            viewportW = Math.round(screenH * targetAspect);
-            viewportX = (screenW - viewportW) / 2;
-            viewportY = 0;
-        } else {
-            // 上下黑边
-            viewportW = screenW;
-            viewportH = Math.round(screenW / targetAspect);
-            viewportX = 0;
-            viewportY = (screenH - viewportH) / 2;
-        }
-
-        int borderWidth = viewportX > 0 ? viewportX : viewportY;
-        if (borderWidth <= 0) {
-            return;
-        }
-
-        // 设置屏幕坐标投影
-        sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, screenW, screenH));
-        sprite.begin();
-
-        // 绘制频谱柱
-        int bandCount = magnitudes.length;
-        int barWidth = borderWidth / bandCount - 2;
-        if (barWidth < 2) barWidth = 2;
-
-        if (viewportX > 0) {
-            // 左侧黑边：从下往上画
-            for (int i = 0; i < bandCount; i++) {
-                int x = borderWidth - (i + 1) * (barWidth + 2);
-                int barHeight = (int) (magnitudes[i] * viewportH * 0.8f);
-                int y = viewportY + (viewportH - barHeight) / 2;
-                sprite.setColor(spectrumBarColor);
-                sprite.draw(white, x, y, barWidth, barHeight);
-            }
-        } else if (screenAspect < targetAspect) {
-            // 上下黑边：左边画
-            for (int i = 0; i < bandCount; i++) {
-                int x = viewportX + borderWidth - (i + 1) * (barWidth + 2);
-                int barHeight = (int) (magnitudes[i] * viewportW * 0.8f);
-                int y = borderWidth - barHeight;
-                sprite.setColor(spectrumBarColor);
-                sprite.draw(white, x, y, barWidth, barHeight);
-            }
-        }
-
-        sprite.end();
     }
 
     public void dispose() {
@@ -1169,8 +1027,11 @@ public class MainController {
         if (isAndroid) {
             Gdx.app.log("MainController", "resume(): rebuilding font textures after GL context restore");
 
-            // 恢复时积极请求高刷新率
-            updateFrameRateAPI(config.getMaxFramePerSecond());
+            // 恢复时重新请求高刷新率
+            int maxFPS = config.getMaxFramePerSecond();
+            if (maxFPS < 1000) {
+                updateFrameRateAPI(maxFPS);
+            }
 
             // 步骤1：清除所有 SkinTextFont 的 generator 缓存
             bms.player.beatoraja.skin.SkinTextFont.invalidateGeneratorCache();

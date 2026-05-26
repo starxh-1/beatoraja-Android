@@ -23,6 +23,14 @@ import android.widget.Toast;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 
+import android.view.Window;
+import android.view.WindowManager;
+
+import android.view.MotionEvent;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
+
 import com.starxh.beatoraja.android.AndroidLauncher;
 import com.starxh.beatoraja.R;
 
@@ -69,12 +77,43 @@ public class SettingsActivity extends Activity {
     private LinearLayout tableUrlContainer;
     private Spinner playerSpinner;
 
+    private Handler keepAliveHandler;
+    private boolean isSimulatingTouch = false;
+
+    private final Runnable keepAliveRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // 已移除模拟触摸
+        }
+    };
+
+    private void startKeepAlive() {
+        if (keepAliveHandler == null) keepAliveHandler = new Handler(Looper.getMainLooper());
+        keepAliveHandler.removeCallbacks(keepAliveRunnable);
+        keepAliveHandler.postDelayed(keepAliveRunnable, 1000);
+    }
+
+    private void stopKeepAlive() {
+        if (keepAliveHandler != null) keepAliveHandler.removeCallbacks(keepAliveRunnable);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 在加载视图之前，强制刷新当前上下文的语言环境
         updateContextLanguage();
 
         super.onCreate(savedInstanceState);
+
+        // 性能优化：启用硬件加速和保持屏幕常亮
+        Window window = getWindow();
+        if (window != null) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                window.setSustainedPerformanceMode(true);
+            }
+        }
+
         readConfigDirectly();
         setContentView(R.layout.activity_settings);
         initViews();
@@ -943,7 +982,17 @@ public class SettingsActivity extends Activity {
         f.delete();
     }
 
-    @Override protected void onPause() { super.onPause(); readAllOptionsFromUI(); saveConfigToJson(); }
+    @Override protected void onResume() {
+        super.onResume();
+        startKeepAlive();
+        readAllOptionsFromUI();
+        saveConfigToJson();
+    }
+
+    @Override protected void onPause() {
+        stopKeepAlive();
+        super.onPause();
+    }
     @Override public void onBackPressed() { readAllOptionsFromUI(); saveConfigToJson(); super.onBackPressed(); }
 
     private void readAllOptionsFromUI() {
@@ -987,6 +1036,12 @@ public class SettingsActivity extends Activity {
         }
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
         selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
+    }
+
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent ev) {
+        if (isSimulatingTouch) return true;
+        return super.dispatchTouchEvent(ev);
     }
 
     private void updatePlayOptionsUI() {
