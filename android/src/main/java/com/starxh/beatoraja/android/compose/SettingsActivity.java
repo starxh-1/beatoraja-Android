@@ -72,6 +72,7 @@ public class SettingsActivity extends Activity {
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
     private int selectedSampleRate = 48000;
+    private int selectedPollingRate = 1000;
 
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
@@ -173,6 +174,7 @@ public class SettingsActivity extends Activity {
                 if (!hasDefault) bmsPaths.add(0, defaultBmsPath);
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
                 selectedSampleRate = findJsonIntValueInSection(json, "audio", "sampleRate", 48000);
+                selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
@@ -461,6 +463,31 @@ public class SettingsActivity extends Activity {
                     selectedSampleRate = Integer.parseInt(sampleRateOptions[position].split(" ")[0]);
                 } catch (Exception e) {
                     Log.e("SettingsActivity", "Parse sample rate fail: " + sampleRateOptions[position]);
+                }
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+
+        // Polling Rate (for non-touch devices only)
+        Spinner pollingRateSpinner = findViewById(R.id.pollingRateSpinner);
+        String[] pollingRateOptions = getResources().getStringArray(R.array.input_polling_rate_options);
+        ArrayAdapter<String> pollingRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, pollingRateOptions);
+        pollingRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        pollingRateSpinner.setAdapter(pollingRateAdapter);
+        int pollingRateIndex = -1;
+        for (int i = 0; i < pollingRateOptions.length; i++) {
+            String opt = pollingRateOptions[i];
+            int value = 1000;
+            try { value = Integer.parseInt(opt.split(" ")[0]); } catch (Exception ignored) {}
+            if (value == selectedPollingRate) { pollingRateIndex = i; break; }
+        }
+        pollingRateSpinner.setSelection(pollingRateIndex >= 0 ? pollingRateIndex : 2); // default to index 2 (1000)
+        pollingRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                try {
+                    selectedPollingRate = Integer.parseInt(pollingRateOptions[position].split(" ")[0]);
+                } catch (Exception e) {
+                    Log.e("SettingsActivity", "Parse polling rate fail: " + pollingRateOptions[position]);
                 }
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
@@ -779,6 +806,7 @@ public class SettingsActivity extends Activity {
             audio.put("sampleRate", selectedSampleRate);
             config.put("audio", audio);
             config.put("showAudioSpectrum", showAudioSpectrum);
+            config.put("inputPollingRate", selectedPollingRate);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
 
@@ -1032,6 +1060,14 @@ public class SettingsActivity extends Activity {
                 selectedSampleRate = Integer.parseInt(sr.split(" ")[0]);
             } catch (Exception e) {
                 Log.e("SettingsActivity", "Parse sample rate fail from UI: " + sr);
+            }
+        }
+        String pr = (String) ((Spinner) findViewById(R.id.pollingRateSpinner)).getSelectedItem();
+        if (pr != null) {
+            try {
+                selectedPollingRate = Integer.parseInt(pr.split(" ")[0]);
+            } catch (Exception e) {
+                Log.e("SettingsActivity", "Parse polling rate fail from UI: " + pr);
             }
         }
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();

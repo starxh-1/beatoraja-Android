@@ -75,6 +75,16 @@
         <item>Min BPM</item>
     </string-array>
 
+    <string-array name="input_polling_rate_options">
+        <item>250</item>
+        <item>500</item>
+        <item>1000 (默认)</item>
+        <item>2000</item>
+        <item>4000</item>
+    </string-array>
+
+    <string name="pollingrate">轮询频率 (Hz)</string>
+
     <string name="dialog_new_player">新建玩家</string>
     <string name="hint_player_name">玩家名称</string>
     <string name="btn_create">创建</string>

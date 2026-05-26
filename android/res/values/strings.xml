@@ -81,6 +81,16 @@
         <item>Min BPM</item>
     </string-array>
 
+    <string-array name="input_polling_rate_options">
+        <item>250</item>
+        <item>500</item>
+        <item>1000 (default)</item>
+        <item>2000</item>
+        <item>4000</item>
+    </string-array>
+
+    <string name="pollingrate">Pollingrate (Hz)</string>
+
     <string name="dialog_new_player">New Player</string>
     <string name="hint_player_name">Player name</string>
     <string name="btn_create">Create</string>

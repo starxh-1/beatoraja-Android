@@ -75,6 +75,16 @@
         <item>Min BPM</item>
     </string-array>
 
+    <string-array name="input_polling_rate_options">
+        <item>250</item>
+        <item>500</item>
+        <item>1000 (デフォルト)</item>
+        <item>2000</item>
+        <item>4000</item>
+    </string-array>
+
+    <string name="pollingrate">ポーリングレート (Hz)</string>
+
     <string name="msg_update_failed">難易度表の更新に失敗しました</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>

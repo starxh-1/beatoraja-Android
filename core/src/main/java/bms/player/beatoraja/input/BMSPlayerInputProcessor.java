@@ -623,8 +623,13 @@ public class BMSPlayerInputProcessor {
 	public void poll() {
 		final long now = System.nanoTime() / 1000 - starttime;
 		kbinput.poll(now);
-		for (BMControllerInputProcessor controller : bminput) {
-			controller.poll(now);
+		// 触摸检测：仅检测是否有触摸事件发生（用于决定是否跳过控制器轮询）
+		final boolean isTouched = com.badlogic.gdx.Gdx.input.isTouched();
+		// 如果正在触摸，跳过控制器轮询以避免触摸按键和控制器按键冲突
+		if (!isTouched) {
+			for (BMControllerInputProcessor controller : bminput) {
+				controller.poll(now);
+			}
 		}
 	}
 

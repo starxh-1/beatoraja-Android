@@ -609,6 +609,29 @@
                 android:checked="false" />
         </LinearLayout>
 
+        <!-- Polling Rate (for non-touch devices) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/pollingrate"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/pollingRateSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
