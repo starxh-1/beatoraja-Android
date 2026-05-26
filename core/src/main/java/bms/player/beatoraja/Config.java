@@ -87,6 +87,19 @@ public class Config implements Validatable, Serializable {
 	private boolean showTouchKey = false;
 
 	/**
+	 * 输入轮询频率 (Hz)。默认 1000Hz (1ms)。
+	 * 可选值：500, 1000, 2000, 4000。
+	 * 更高的频率提供更低的输入延迟，但增加 CPU 消耗。
+	 */
+	private int inputPollingRate = 1000;
+
+	/**
+	 * 曲終了時のキー音再生猶予時間（ミリ秒）。デフォルト 5000ms。
+	 * 長いキー音（8秒K音など）の場合はこの値を大きく設定する。
+	 */
+	private int keySoundTailMs = 5000;
+
+	/**
 	 * 获取是否启用 Android 无限制帧率
 	 */
 	public boolean isAndroidUnlimitedFPS() {
@@ -120,6 +133,22 @@ public class Config implements Validatable, Serializable {
 
 	public void setShowTouchKey(boolean showTouchKey) {
 		this.showTouchKey = showTouchKey;
+	}
+
+	public int getInputPollingRate() {
+		return inputPollingRate;
+	}
+
+	public void setInputPollingRate(int inputPollingRate) {
+		this.inputPollingRate = MathUtils.clamp(inputPollingRate, 250, 4000);
+	}
+
+	public int getKeySoundTailMs() {
+		return keySoundTailMs;
+	}
+
+	public void setKeySoundTailMs(int keySoundTailMs) {
+		this.keySoundTailMs = MathUtils.clamp(keySoundTailMs, 0, 60000);
 	}
 
 	public boolean isShowAudioSpectrum() {
@@ -627,6 +656,8 @@ public class Config implements Validatable, Serializable {
 		}
 		audio.validate();
 
+		inputPollingRate = MathUtils.clamp(inputPollingRate, 500, 4000);
+		keySoundTailMs = MathUtils.clamp(keySoundTailMs, 0, 60000);
 		maxFramePerSecond = MathUtils.clamp(maxFramePerSecond, 0, 1000);
 		prepareFramePerSecond = MathUtils.clamp(prepareFramePerSecond, 0, 100000);
         maxSearchBarCount = MathUtils.clamp(maxSearchBarCount, 1, 100);
@@ -807,6 +838,8 @@ public class Config implements Validatable, Serializable {
         c.androidUnlimitedFPS = this.androidUnlimitedFPS;
         c.androidStableFPS = this.androidStableFPS;
         c.showTouchKey = this.showTouchKey;
+        c.inputPollingRate = this.inputPollingRate;
+        c.keySoundTailMs = this.keySoundTailMs;
         return c;
     }
 
@@ -859,6 +892,8 @@ public class Config implements Validatable, Serializable {
         c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
         c.androidStableFPS = changes.androidStableFPS;
         c.showTouchKey = changes.showTouchKey;
+        c.inputPollingRate = changes.inputPollingRate;
+        c.keySoundTailMs = changes.keySoundTailMs;
         return c;
     }
 }

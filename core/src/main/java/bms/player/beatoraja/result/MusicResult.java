@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import bms.player.beatoraja.input.KeyCommand;
 import bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.FloatArray;
 
@@ -39,6 +40,7 @@ public class MusicResult extends AbstractResult {
 	}
 
 	public void create() {
+		Gdx.graphics.setContinuousRendering(true);
 		// replay存在確認はprepare()に遅延（ファイルIO回避）
 		for(int i = 0;i < REPLAY_SIZE;i++) {
 			saveReplay[i] = ReplayStatus.NOT_EXIST;

@@ -42,6 +42,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
     // pointer ID -> 按下的按键索引 (-1 表示未按在任何键上)
     private int[] pointerMap = new int[64];
+    // pointer ID -> 按下时的游戏时间戳（微秒），在 touchDown 时立即捕获
+    private long[] pointerPressTime = new long[64];
 
     private final Matrix4 oldProj = new Matrix4();
 
@@ -70,7 +72,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         // 初始化空的按钮数组，将在 updateRegionsFromSkin 中填充
         keyButtons = new TouchKeyButton[0];
 
-        for (int i = 0; i < pointerMap.length; i++) pointerMap[i] = -1;
+        for (int i = 0; i < pointerMap.length; i++) { pointerMap[i] = -1; pointerPressTime[i] = Long.MIN_VALUE; }
     }
 
     /**
@@ -242,7 +244,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
     /**
      * 同步按键状态到核心层
      */
-    private void syncKeyState(int laneIdx) {
+    private void syncKeyState(int laneIdx, long pressTimeMicro) {
         if (laneIdx < 0 || laneIdx >= keyButtons.length) return;
         boolean stillPressed = false;
         for (int p = 0; p < pointerMap.length; p++) {
@@ -260,7 +262,12 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
                 keyIdx = laneToKey[laneIdx][0];
             }
         }
-        inputProcessor.setKeyChanged(keyIdx, stillPressed, player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY));
+
+        // 使用 touchDown 时捕获的高精度时间戳（微秒），而非当前时间
+        // TimerManager 已改为实时计算，此处时间精度不再受帧率限制
+        final long timestamp = stillPressed ? pressTimeMicro
+            : player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY);
+        inputProcessor.setKeyChanged(keyIdx, stillPressed, timestamp);
     }
 
     public void render(SpriteBatch sprite, BitmapFont font) {
@@ -274,7 +281,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             if (pointerMap[p] != -1 && !Gdx.input.isTouched(p)) {
                 int oldKeyIdx = pointerMap[p];
                 pointerMap[p] = -1;
-                syncKeyState(oldKeyIdx);
+                final long pressTime = pointerPressTime[p];
+                pointerPressTime[p] = Long.MIN_VALUE;
+                syncKeyState(oldKeyIdx, pressTime);
             }
         }
 
@@ -296,7 +305,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             if (pointerMap[i] != -1) {
                 int keyIdx = pointerMap[i];
                 pointerMap[i] = -1;
-                syncKeyState(keyIdx);
+                final long pressTime = pointerPressTime[i];
+                pointerPressTime[i] = Long.MIN_VALUE;
+                syncKeyState(keyIdx, pressTime);
             }
         }
     }
@@ -307,11 +318,15 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         if (!regionsInitialized) return false;
         if (pointer >= pointerMap.length) return false;
 
+        // 立即捕获高精度时间戳 -- TimerManager 现已实时计算，精度 ~1μs
+        final long pressTime = player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY);
+
         Vector2 coords = stage.screenToStageCoordinates(new Vector2(screenX, screenY));
         for (int i = 0; i < keyButtons.length; i++) {
             if (keyButtons[i] != null && keyButtons[i].getBounds().contains(coords.x, coords.y)) {
                 pointerMap[pointer] = i;
-                syncKeyState(i);
+                pointerPressTime[pointer] = pressTime;
+                syncKeyState(i, pressTime);
                 return true;
             }
         }
@@ -325,7 +340,9 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         if (pointer < pointerMap.length && pointerMap[pointer] != -1) {
             int keyIdx = pointerMap[pointer];
             pointerMap[pointer] = -1;
-            syncKeyState(keyIdx);
+            final long pressTime = pointerPressTime[pointer];
+            pointerPressTime[pointer] = Long.MIN_VALUE;
+            syncKeyState(keyIdx, pressTime);
             return true;
         }
         return true;

@@ -11,6 +11,7 @@ import bms.player.beatoraja.MainController;
 import bms.player.beatoraja.input.BMSPlayerInputProcessor;
 import bms.player.beatoraja.input.KeyInputLog;
 import bms.player.beatoraja.skin.SkinPropertyMapper;
+import java.util.concurrent.locks.LockSupport;
 
 /**
  * キー入力処理用スレッド
@@ -101,7 +102,7 @@ class KeyInputProccessor {
 					scratch[s] += 2160 - deltatime * 2;
 				}
 				scratch[s] %= 2160;
-				
+
 				main.getOffset(OFFSET_SCRATCHANGLE_1P + s).r = scratch[s] / 6;
 			}
 		}
@@ -162,45 +163,45 @@ class KeyInputProccessor {
 			long frametime = 1;
 			final BMSPlayerInputProcessor input = player.main.getInputProcessor();
 			final JudgeManager judge = player.getJudgeManager();
-			final long lasttime = timelines[timelines.length - 1].getMicroTime() + BMSPlayer.TIME_MARGIN * 1000;
+			final long lasttime = timelines[timelines.length - 1].getMicroTime() + player.TIME_MARGIN * 1000;
+
+			// 使用配置的输入轮询频率
+			final int pollRate = player.main.getConfig().getInputPollingRate();
+			final long pollIntervalNs = 1_000_000_000L / pollRate;
+			long nextPollTime = System.nanoTime();
 
 			long prevtime = -1;
 			while (!stop) {
-//				final long time = player.main.getNowTime(TIMER_PLAY);
+				// 实时读取播放时间（TimerManager 现已改为实时计算，不再受帧率限制）
 				final long mtime = player.timer.getNowMicroTime(TIMER_PLAY);
-				if (mtime != prevtime) {
-					// リプレイデータ再生
-					if (keylog != null) {
-						while (index < keylog.length && keylog[index].getTime() + microMarginTime <= mtime) {
-							final KeyInputLog key = keylog[index];
-							// if(input.getKeystate()[key.keycode] ==
-							// key.pressed) {
-							// System.out.println("押し離しが行われていません : key - " +
-							// key.keycode + " pressed - " + key.pressed +
-							// " time - " + key.time);
-							// }
-							input.setKeyState(key.getKeycode(), key.isPressed(), key.getTime() + microMarginTime);
-							index++;
-						}
-					}
 
-					judge.update(mtime);
-
-					if (prevtime != -1) {
-						final long nowtime = mtime - prevtime;
-						frametime = nowtime < frametime ? frametime : nowtime;
-					}
-
-					prevtime = mtime;
-				} else {
-					try {
-						sleep(0, 500000);
-					} catch (InterruptedException e) {
+				// リプレイデータ再生
+				if (keylog != null) {
+					while (index < keylog.length && keylog[index].getTime() + microMarginTime <= mtime) {
+						final KeyInputLog key = keylog[index];
+						input.setKeyState(key.getKeycode(), key.isPressed(), key.getTime() + microMarginTime);
+						index++;
 					}
 				}
 
+				judge.update(mtime);
+
+				if (prevtime != -1) {
+					final long nowtime = mtime - prevtime;
+					frametime = nowtime < frametime ? frametime : nowtime;
+				}
+
+				prevtime = mtime;
+
 				if (mtime >= lasttime) {
 					break;
+				}
+
+				// 精确休眠到下一轮询周期（1000Hz），避免 CPU 空转
+				nextPollTime += pollIntervalNs;
+				final long sleepNs = nextPollTime - System.nanoTime();
+				if (sleepNs > 50000) {
+					LockSupport.parkNanos(sleepNs);
 				}
 			}
 

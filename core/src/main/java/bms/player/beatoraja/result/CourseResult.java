@@ -8,6 +8,7 @@ import java.util.*;
 import java.util.logging.Logger;
 
 import bms.player.beatoraja.input.KeyCommand;
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.FloatArray;
 
 import bms.model.BMSModel;
@@ -35,6 +36,7 @@ public class CourseResult extends AbstractResult {
 	}
 
 	public void create() {
+		Gdx.graphics.setContinuousRendering(true);
 		for(int i = 0;i < REPLAY_SIZE;i++) {
 			saveReplay[i] = main.getPlayDataAccessor().existsReplayData(resource.getCourseBMSModels(),
 					resource.getPlayerConfig().getLnmode(), i ,resource.getConstraint()) ? ReplayStatus.EXIST : ReplayStatus.NOT_EXIST ;

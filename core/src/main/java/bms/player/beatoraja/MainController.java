@@ -523,27 +523,24 @@ public class MainController {
             Logger.getGlobal().warning("JIT warmup failed: " + e.getMessage());
         }
 
+        // 高精度输入轮询线程：可配置频率，绝对时间对齐
+        // 输入采样不再跟随帧率，独立读取所有输入设备状态并写入 keystate[]
         Thread polling = new Thread(() -> {
-            long time = 0;
-            final boolean isAndroidPlatform = Gdx.app.getType() == Application.ApplicationType.Android;
+            long nextPollTime = System.nanoTime();
             for (;;) {
-                final long now = System.nanoTime() / 1000000;
-                if (time != now) {
-                    time = now;
-                    input.poll();
-                } else {
-                    try {
-                        // Android: 使用 parkNanos 替代 sleep，避免 MIUI DynamicFPS 检测到 App sleep 超时而锁 90Hz，
-                        // 同时让线程真正让出 CPU，降低占用。park 精确度足够，不需要额外 yield/busy-wait
-                        if (isAndroidPlatform) {
-                            LockSupport.parkNanos(1_000_000);
-                        } else {
-                            Thread.sleep(0, 500000);
-                        }
-                    } catch (InterruptedException e) {}
+                input.poll();
+
+                // 根据配置动态调整轮询间隔
+                final int rate = config.getInputPollingRate();
+                final long pollIntervalNs = 1_000_000_000L / rate;
+                nextPollTime += pollIntervalNs;
+                final long sleepNs = nextPollTime - System.nanoTime();
+                if (sleepNs > 50000) {
+                    LockSupport.parkNanos(sleepNs);
                 }
             }
         });
+        polling.setPriority(Thread.MAX_PRIORITY - 1);
         polling.start();
 
         Array<String> targetlist = new Array<String>(player.getTargetlist());
@@ -665,7 +662,7 @@ public class MainController {
 
         // 记录帧开始时间（用于帧率限制）
         final long frameStart = System.nanoTime();
-        timer.update();
+        // timer.update() 已移除：时间源改为实时计算，不再每帧缓存
 
         // ─── 等比视口计算 ───
         // 皮肤坐标决定游戏期望的宽高比；屏幕可能更宽（20:9 手机）或更高。

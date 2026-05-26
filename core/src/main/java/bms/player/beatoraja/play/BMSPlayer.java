@@ -77,7 +77,7 @@ public class BMSPlayer extends MainState {
 	 */
 	private PlayConfig replayConfig;
 
-	static final int TIME_MARGIN = 5000;
+	int TIME_MARGIN = 5000;
 
 	private int state = STATE_PRELOAD;
 
@@ -103,6 +103,7 @@ public class BMSPlayer extends MainState {
 		this.model = resource.getBMSModel();
 		BMSPlayerMode autoplay = resource.getPlayMode();
 		PlayerConfig config = resource.getPlayerConfig();
+		TIME_MARGIN = resource.getConfig().getKeySoundTailMs();
 
 		playinfo.randomoption = config.getRandom();
 		playinfo.randomoption2 = config.getRandom2();
@@ -209,6 +210,44 @@ public class BMSPlayer extends MainState {
 		}
 		// 通常プレイの場合は最後のノーツ、オートプレイの場合はBG/BGAを含めた最後のノーツ
 		playtime = (autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY ? model.getLastTime() : model.getLastNoteTime()) + TIME_MARGIN;
+
+		// 检查末尾 notes 的 WAV 时长，若按键音尾部超出 TIME_MARGIN 则延长 playtime
+		// 避免长音效（如 8 秒 K 音）在曲终时被截断
+		{
+			final int tailWindow = TIME_MARGIN + 10000; // 检查 song end 前 15 秒内的 notes
+			final int lastTimeMs = autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY
+				? model.getLastTime() : model.getLastNoteTime();
+			final String[] wavlist = model.getWavList();
+			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
+			final java.io.File bmsDir = new java.io.File(model.getPath()).getParentFile();
+			int maxTailMs = 0;
+
+			for (TimeLine tl : model.getAllTimeLines()) {
+				if (tl.getTime() < lastTimeMs - tailWindow) continue;
+				for (int lane = 0; lane < model.getMode().key; lane++) {
+					Note note = tl.existNote(lane) ? tl.getNote(lane) : null;
+					if (note == null) note = tl.getHiddenNote(lane);
+					if (note != null) {
+						final int wavid = note.getWav();
+						if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
+							Integer dur = wavDurationCache.get(wavid);
+							if (dur == null) {
+								final String wavPath = new java.io.File(bmsDir, wavlist[wavid]).getPath();
+								dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(wavPath);
+								wavDurationCache.put(wavid, dur);
+							}
+							if (dur > 0) {
+								final int tailEnd = tl.getTime() + dur;
+								maxTailMs = Math.max(maxTailMs, tailEnd - lastTimeMs);
+							}
+						}
+					}
+				}
+			}
+			if (maxTailMs > TIME_MARGIN) {
+				playtime += (maxTailMs - TIME_MARGIN);
+			}
+		}
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {

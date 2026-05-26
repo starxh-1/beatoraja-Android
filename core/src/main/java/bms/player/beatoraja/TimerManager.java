@@ -40,23 +40,29 @@ public class TimerManager {
 	}
 
 	public long getNowTime() {
-		return nowmicrotime / 1000;
+		return getNowMicroTime() / 1000;
 	}
 
 	public long getNowTime(int id) {
 		if(isTimerOn(id)) {
-			return (nowmicrotime - getMicroTimer(id)) / 1000;
+			return (getNowMicroTime() - getMicroTimer(id)) / 1000;
 		}
 		return 0;
 	}
 
+	/**
+	 * 实时返回当前微秒时间。不再依赖帧率，直接从 System.nanoTime() 计算。
+	 */
 	public long getNowMicroTime() {
-		return nowmicrotime;
+		if (USE_MILLIS_FOR_LOW_POWER) {
+			return (System.currentTimeMillis() - starttime) * 1000;
+		}
+		return (System.nanoTime() - starttime) / 1000;
 	}
 
 	public long getNowMicroTime(int id) {
 		if(isTimerOn(id)) {
-			return nowmicrotime - getMicroTimer(id);
+			return getNowMicroTime() - getMicroTimer(id);
 		}
 		return 0;
 	}
@@ -78,7 +84,7 @@ public class TimerManager {
 	}
 
 	public void setTimerOn(int id) {
-		setMicroTimer(id, nowmicrotime);
+		setMicroTimer(id, getNowMicroTime());
 	}
 
 	public void setTimerOff(int id) {
@@ -96,7 +102,7 @@ public class TimerManager {
 	public void switchTimer(int id, boolean on) {
 		if(on) {
 			if(getMicroTimer(id) == Long.MIN_VALUE) {
-				setMicroTimer(id, nowmicrotime);
+				setMicroTimer(id, getNowMicroTime());
 			}
 		} else {
 			setMicroTimer(id, Long.MIN_VALUE);
