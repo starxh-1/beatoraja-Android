@@ -190,7 +190,7 @@ public abstract class PCM<T> {
             if (vorbisPos < 0) return 0;
 
             // Vorbis ID: packet_type(1) + "vorbis"(6) + version(4) + channels(1) + sample_rate(4)
-            int srOffset = vorbisPos + 1 + 6 + 4 + 1;
+            int srOffset = vorbisPos + 12;
             if (srOffset + 4 >= read) return 0;
             int sampleRate = (head[srOffset] & 0xFF) | ((head[srOffset+1] & 0xFF) << 8)
                 | ((head[srOffset+2] & 0xFF) << 16) | ((head[srOffset+3] & 0xFF) << 24);
@@ -204,7 +204,7 @@ public abstract class PCM<T> {
             raf.readFully(tail);
 
             int lastOggs = -1;
-            for (int i = tailSize - 4; i >= 0; i--) {
+            for (int i = tailSize - 26; i >= 0; i--) {
                 if (tail[i] == 'O' && tail[i+1] == 'g' && tail[i+2] == 'g' && tail[i+3] == 'S') {
                     lastOggs = i; break;
                 }

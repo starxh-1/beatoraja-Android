@@ -209,45 +209,62 @@ public class BMSPlayer extends MainState {
 			Logger.getGlobal().info("譜面分岐 : " + Arrays.toString(playinfo.rand));
 		}
 		// 通常プレイの場合は最後のノーツ、オートプレイの場合はBG/BGAを含めた最後のノーツ
-		playtime = (autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY ? model.getLastTime() : model.getLastNoteTime()) + TIME_MARGIN;
-
-		// 检查末尾 notes 的 WAV 时长，若按键音尾部超出 TIME_MARGIN 则延长 playtime
-		// 避免长音效（如 8 秒 K 音）在曲终时被截断
-		{
-			final int tailWindow = TIME_MARGIN + 10000; // 检查 song end 前 15 秒内的 notes
-			final int lastTimeMs = autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY
+		final int lastTimeMs = autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY
 				? model.getLastTime() : model.getLastNoteTime();
+
+		// 检查 notes 的 WAV 时长，确保曲终时音频播放完整
+		int maxTailMs = 0;
+		{
 			final String[] wavlist = model.getWavList();
 			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
 			final java.io.File bmsDir = new java.io.File(model.getPath()).getParentFile();
-			int maxTailMs = 0;
 
 			for (TimeLine tl : model.getAllTimeLines()) {
-				if (tl.getTime() < lastTimeMs - tailWindow) continue;
+				// 收集该时间点的所有 notes（包含演奏、隐藏和 BGM）
+				java.util.List<Note> allNotes = new java.util.ArrayList<>();
 				for (int lane = 0; lane < model.getMode().key; lane++) {
-					Note note = tl.existNote(lane) ? tl.getNote(lane) : null;
-					if (note == null) note = tl.getHiddenNote(lane);
-					if (note != null) {
-						final int wavid = note.getWav();
-						if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
-							Integer dur = wavDurationCache.get(wavid);
-							if (dur == null) {
-								final String wavPath = new java.io.File(bmsDir, wavlist[wavid]).getPath();
-								dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(wavPath);
-								wavDurationCache.put(wavid, dur);
+					Note n = tl.getNote(lane);
+					if (n == null) n = tl.getHiddenNote(lane);
+					if (n != null) allNotes.add(n);
+				}
+				for (Note n : tl.getBackGroundNotes()) {
+					if (n != null) allNotes.add(n);
+				}
+
+				for (Note note : allNotes) {
+					final int wavid = note.getWav();
+					if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
+						Integer dur = wavDurationCache.get(wavid);
+						if (dur == null) {
+							String fileName = wavlist[wavid];
+							java.io.File audioFile = new java.io.File(bmsDir, fileName);
+							if (!audioFile.exists()) {
+								int dotIdx = fileName.lastIndexOf('.');
+								String baseName = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+								for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
+									java.io.File f = new java.io.File(bmsDir, baseName + ext);
+									if (f.exists()) {
+										audioFile = f;
+										break;
+									}
+								}
 							}
-							if (dur > 0) {
-								final int tailEnd = tl.getTime() + dur;
+
+							dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
+							wavDurationCache.put(wavid, dur);
+						}
+						if (dur > 0) {
+							final int tailEnd = tl.getTime() + dur;
+							if (tailEnd > lastTimeMs) {
 								maxTailMs = Math.max(maxTailMs, tailEnd - lastTimeMs);
 							}
 						}
 					}
 				}
 			}
-			if (maxTailMs > TIME_MARGIN) {
-				playtime += (maxTailMs - TIME_MARGIN);
-			}
 		}
+		// 移除固定的 5 秒缓冲，改用测得的音频尾部时长，保底留 1 秒让声音自然结束
+		playtime = lastTimeMs + Math.max(1000, maxTailMs);
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {
