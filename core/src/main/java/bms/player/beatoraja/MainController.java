@@ -200,7 +200,7 @@ public class MainController {
                 java.lang.reflect.Field maxRefreshRateField = launcher.getField("maxRefreshRate");
                 maxRR = (int) maxRefreshRateField.getFloat(null);
             } catch (Exception e) {
-                maxRR = 60;
+                maxRR = 120;
             }
             this.detectedRefreshRate = maxRR;
             Gdx.app.log("beatoraja", "Hardware max refresh rate detected: " + detectedRefreshRate + "Hz");
@@ -703,9 +703,6 @@ public class MainController {
         // 先清全屏（黑边区域用 glClearColor 填充）
         Gdx.gl.glViewport(0, 0, screenW, screenH);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
-
-        // 每帧重新设置混合模式（防止被sprite batch修改）
-        Gdx.gl.glBlendFunc(GL20.GL_ONE, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         // 设置等比视口
         Gdx.gl.glViewport(viewportX, viewportY, viewportW, viewportH);

@@ -58,6 +58,9 @@ public class LaneRenderer {
 
 	// Portrait mode: notes fall horizontally instead of vertically
 	private boolean isPortrait = false;
+	// Cached portrait detection - only recompute when skin changes
+	private PlaySkin cachedSkinForPortrait = null;
+	private boolean cachedPortraitValue = false;
 	public boolean isPortrait() { return isPortrait; }
 	// Portrait op value from skin (1101 = portrait, 1100 = landscape)
 	private static final int OP_PORTRAIT = 1101;
@@ -345,24 +348,28 @@ public class LaneRenderer {
 		}
 		if (skin == null) return;
 		// Detect portrait mode from skin configuration (op 1101 = portrait)
-		isPortrait = false;
-		if (main.getSkin() != null && main.getSkin().header != null) {
-			for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : main.getSkin().header.getCustomOptions()) {
-				if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
-					isPortrait = true;
-					break;
+		// Cache result - only recompute when skin instance changes
+		if (skin != cachedSkinForPortrait) {
+			cachedSkinForPortrait = skin;
+			cachedPortraitValue = false;
+			if (main.getSkin() != null && main.getSkin().header != null) {
+				for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : main.getSkin().header.getCustomOptions()) {
+					if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
+						cachedPortraitValue = true;
+						break;
+					}
+				}
+			}
+			if (!cachedPortraitValue && skin.getOption() != null) {
+				for (com.badlogic.gdx.utils.IntIntMap.Entry e : skin.getOption()) {
+					if (e.value == OP_PORTRAIT) {
+						cachedPortraitValue = true;
+						break;
+					}
 				}
 			}
 		}
-		// Also check option map as secondary source
-		if (!isPortrait && skin.getOption() != null) {
-			for (com.badlogic.gdx.utils.IntIntMap.Entry e : skin.getOption()) {
-				if (e.value == OP_PORTRAIT) {
-					isPortrait = true;
-					break;
-				}
-			}
-		}
+		isPortrait = cachedPortraitValue;
 		final Rectangle[] playerr = skin.getLaneGroupRegion();
 		double bpm = model.getBpm();
 		double nbpm = bpm;
