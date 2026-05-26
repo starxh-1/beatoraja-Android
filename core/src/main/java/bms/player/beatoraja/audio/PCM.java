@@ -106,18 +106,42 @@ public abstract class PCM<T> {
     }
 
     private static int tryWavDuration(File file) {
-        try (FileInputStream in = new FileInputStream(file)) {
-            byte[] header = new byte[44];
-            if (in.read(header) < 44) return 0;
-            if (header[0] != 'R' || header[1] != 'I' || header[2] != 'F' || header[3] != 'F') return 0;
-            int channels = (header[22] & 0xFF) | ((header[23] & 0xFF) << 8);
-            int sampleRate = (header[24] & 0xFF) | ((header[25] & 0xFF) << 8)
-                | ((header[26] & 0xFF) << 16) | ((header[27] & 0xFF) << 24);
-            int bitsPerSample = (header[34] & 0xFF) | ((header[35] & 0xFF) << 8);
-            int dataSize = (header[40] & 0xFF) | ((header[41] & 0xFF) << 8)
-                | ((header[42] & 0xFF) << 16) | ((header[43] & 0xFF) << 24);
-            if (sampleRate <= 0 || bitsPerSample <= 0 || channels <= 0) return 0;
-            int totalSamples = dataSize / (bitsPerSample / 8) / channels;
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            byte[] buf = new byte[12];
+            if (raf.read(buf) < 12) return 0;
+            if (buf[0] != 'R' || buf[1] != 'I' || buf[2] != 'F' || buf[3] != 'F' ||
+                buf[8] != 'W' || buf[9] != 'A' || buf[10] != 'V' || buf[11] != 'E') return 0;
+
+            int channels = 0;
+            int sampleRate = 0;
+            int bitsPerSample = 0;
+            long dataSize = 0;
+
+            while (raf.getFilePointer() < raf.length() - 8) {
+                String chunkId = "" + (char)raf.read() + (char)raf.read() + (char)raf.read() + (char)raf.read();
+                long chunkSize = Integer.reverseBytes(raf.readInt()) & 0xFFFFFFFFL;
+
+                if (chunkId.equals("fmt ")) {
+                    raf.readShort(); // format tag
+                    channels = Short.reverseBytes(raf.readShort()) & 0xFFFF;
+                    sampleRate = Integer.reverseBytes(raf.readInt());
+                    raf.readInt(); // avgBytesPerSec
+                    raf.readShort(); // blockAlign
+                    bitsPerSample = Short.reverseBytes(raf.readShort()) & 0xFFFF;
+                    if (chunkSize > 16) raf.seek(raf.getFilePointer() + (chunkSize - 16));
+                } else if (chunkId.equals("data")) {
+                    dataSize = chunkSize;
+                    long remaining = raf.length() - raf.getFilePointer();
+                    if (dataSize <= 0 || dataSize > remaining) dataSize = remaining;
+                    break;
+                } else {
+                    raf.seek(raf.getFilePointer() + chunkSize);
+                }
+                if (chunkSize % 2 != 0) raf.seek(raf.getFilePointer() + 1);
+            }
+
+            if (sampleRate <= 0 || bitsPerSample <= 0 || channels <= 0 || dataSize <= 0) return 0;
+            long totalSamples = dataSize / (bitsPerSample / 8) / channels;
             return (int) (totalSamples * 1000L / sampleRate);
         } catch (Exception e) {
             return 0;
@@ -190,7 +214,9 @@ public abstract class PCM<T> {
             if (vorbisPos < 0) return 0;
 
             // Vorbis ID: packet_type(1) + "vorbis"(6) + version(4) + channels(1) + sample_rate(4)
-            int srOffset = vorbisPos + 12;
+            // Indices relative to 'v' (vorbisPos):
+            // v:0, o:1, r:2, b:3, i:4, s:5, version:6-9, channels:10, sample_rate:11-14
+            int srOffset = vorbisPos + 11;
             if (srOffset + 4 >= read) return 0;
             int sampleRate = (head[srOffset] & 0xFF) | ((head[srOffset+1] & 0xFF) << 8)
                 | ((head[srOffset+2] & 0xFF) << 16) | ((head[srOffset+3] & 0xFF) << 24);
@@ -203,23 +229,28 @@ public abstract class PCM<T> {
             raf.seek(fileLen - tailSize);
             raf.readFully(tail);
 
-            int lastOggs = -1;
+            long granule = -1;
+            // 从后往前找最后一个合法的 OggS 页面
             for (int i = tailSize - 26; i >= 0; i--) {
                 if (tail[i] == 'O' && tail[i+1] == 'g' && tail[i+2] == 'g' && tail[i+3] == 'S') {
-                    lastOggs = i; break;
+                    // 验证是否为合法 Ogg 页面 (version == 0)
+                    if (tail[i+4] == 0) {
+                        long g = (tail[i+6] & 0xFFL)
+                            | ((tail[i+7] & 0xFFL) << 8)
+                            | ((tail[i+8] & 0xFFL) << 16)
+                            | ((tail[i+9] & 0xFFL) << 24)
+                            | ((tail[i+10] & 0xFFL) << 32)
+                            | ((tail[i+11] & 0xFFL) << 40)
+                            | ((tail[i+12] & 0xFFL) << 48)
+                            | ((tail[i+13] & 0xFFL) << 56);
+                        // granule 为 -1 表示该页没有结束任何 packet，继续往前找
+                        if (g != -1 && g > 0) {
+                            granule = g;
+                            break;
+                        }
+                    }
                 }
             }
-            if (lastOggs < 0) return 0;
-
-            // granule position at OggS+6, 8 bytes little-endian
-            long granule = (tail[lastOggs+6] & 0xFFL)
-                | ((tail[lastOggs+7] & 0xFFL) << 8)
-                | ((tail[lastOggs+8] & 0xFFL) << 16)
-                | ((tail[lastOggs+9] & 0xFFL) << 24)
-                | ((tail[lastOggs+10] & 0xFFL) << 32)
-                | ((tail[lastOggs+11] & 0xFFL) << 40)
-                | ((tail[lastOggs+12] & 0xFFL) << 48)
-                | ((tail[lastOggs+13] & 0xFFL) << 56);
             if (granule <= 0) return 0;
             return (int) (granule * 1000L / sampleRate);
         } catch (Exception e) {

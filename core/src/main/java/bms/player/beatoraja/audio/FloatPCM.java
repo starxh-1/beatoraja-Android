@@ -81,23 +81,29 @@ public class FloatPCM extends PCM<float[]> {
 		return new FloatPCM(channels, sampleRate, start, len, samples);
 	}
 	
-	private float[] getSample(int sample) {
-		float[] samples = new float[(int) (((long) this.sample.length / channels) * sample / sampleRate) * channels];
+	private float[] getSample(int targetSampleRate) {
+		int numOutputSamples = (int) (((long) this.sample.length / channels) * targetSampleRate / sampleRate) * channels;
+		float[] samples = new float[numOutputSamples];
 
-		for (long i = 0; i < samples.length / channels; i++) {
-			long position = i * sampleRate / sample;
-			long mod = (i * sampleRate) % sample;
+		for (int i = 0; i < numOutputSamples / channels; i++) {
+			double srcPosition = (double) i * sampleRate / targetSampleRate;
+			long srcIndex = (long) srcPosition;
+			double frac = srcPosition - srcIndex;
 			for (int j = 0; j < channels; j++) {
-				if (mod != 0 && (int) ((position + 1) * channels + j) < this.sample.length) {
-					float sample1 = this.sample[(int) (position * channels + j)];
-					float sample2 = this.sample[(int) ((position + 1) * channels + j)];
-					samples[(int) (i * channels + j)] = (sample1 * (sample - mod) + sample2 * mod) / sample;
+				long idx1 = srcIndex * channels + j;
+				long idx2 = idx1 + channels;
+				if (idx2 < this.sample.length) {
+					float sample1 = this.sample[(int) idx1];
+					float sample2 = this.sample[(int) idx2];
+					samples[i * channels + j] = (float) (sample1 + (sample2 - sample1) * frac);
+				} else if (idx1 < this.sample.length) {
+					samples[i * channels + j] = this.sample[(int) idx1];
 				} else {
-					samples[(int) (i * channels + j)] = this.sample[(int) (position * channels + j)];
+					samples[i * channels + j] = 0;
 				}
 			}
 		}
-		
+
 		return samples;
 	}
 

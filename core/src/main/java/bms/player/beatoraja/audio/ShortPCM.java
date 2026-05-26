@@ -82,23 +82,29 @@ public class ShortPCM extends PCM<short[]> {
 		return new ShortPCM(channels, sampleRate, start, len, samples);
 	}
 	
-	private short[] getSample(int sample) {
-		short[] samples = new short[(int) (((long) this.sample.length / channels) * sample / sampleRate) * channels];
+	private short[] getSample(int targetSampleRate) {
+		int numOutputSamples = (int) (((long) this.sample.length / channels) * targetSampleRate / sampleRate) * channels;
+		short[] samples = new short[numOutputSamples];
 
-		for (long i = 0; i < samples.length / channels; i++) {
-			long position = i * sampleRate / sample;
-			long mod = (i * sampleRate) % sample;
+		for (int i = 0; i < numOutputSamples / channels; i++) {
+			double srcPosition = (double) i * sampleRate / targetSampleRate;
+			long srcIndex = (long) srcPosition;
+			double frac = srcPosition - srcIndex;
 			for (int j = 0; j < channels; j++) {
-				if (mod  != 0 && (int) ((position + 1) * channels + j) < this.sample.length) {
-					short sample1 = this.sample[(int) (position * channels + j)];
-					short sample2 = this.sample[(int) ((position + 1) * channels + j)];
-					samples[(int) (i * channels + j)] = (short) (((long)sample1 * (sample - mod) + (long)sample2 * mod) / sample);
+				long idx1 = srcIndex * channels + j;
+				long idx2 = idx1 + channels;
+				if (idx2 < this.sample.length) {
+					short sample1 = this.sample[(int) idx1];
+					short sample2 = this.sample[(int) idx2];
+					samples[i * channels + j] = (short) (sample1 + (sample2 - sample1) * frac);
+				} else if (idx1 < this.sample.length) {
+					samples[i * channels + j] = this.sample[(int) idx1];
 				} else {
-					samples[(int) (i * channels + j)] = this.sample[(int) (position * channels + j)];
+					samples[i * channels + j] = 0;
 				}
 			}
 		}
-		
+
 		return samples;
 	}
 
