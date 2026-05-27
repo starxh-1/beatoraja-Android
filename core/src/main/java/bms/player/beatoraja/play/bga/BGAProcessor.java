@@ -114,10 +114,10 @@ public class BGAProcessor {
 		mpgresource = new ResourcePool<String, MovieProcessor>(Math.max(config.getSongResourceGen(), 1)) {
 			@Override
 			protected MovieProcessor load(String key) {
-				// Android: gdx-video 硬件解码（MediaCodec）处理所有格式
-				GdxVideoProcessor gvp = new GdxVideoProcessor();
-				gvp.create(key);
-				return gvp;
+				// Use VideoDecoderFactory for format-based routing:
+				// - GdxVideoProcessor for mp4/webm/m4v
+				// - ExoPlayerProcessor for wmv/mpg/avi/mkv/flv
+				return VideoDecoderFactory.create(key);
 			}
 
 			@Override

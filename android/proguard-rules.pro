@@ -30,6 +30,12 @@
 # Needed by the gdx-video official extension (Android hardware video decoding).
 -keep class com.badlogic.gdx.video.** { *; }
 
+# Needed by Media3 ExoPlayer (BGA video fallback decoder for wmv, mpg, avi, mkv, flv).
+-keep class androidx.media3.** { *; }
+-keepclassmembers class androidx.media3.** { *; }
+-dontwarn androidx.media3.**
+-dontnote androidx.media3.**
+
 # ===========================================================
 # R8 Release 构建修复：忽略 Android 不存在的 Java SE 桌面类
 # ===========================================================
