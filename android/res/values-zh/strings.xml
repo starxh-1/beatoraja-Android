@@ -8,6 +8,7 @@
     <string name="key_volume">按键音量</string>
     <string name="bgm_volume">BGM 音量</string>
     <string name="sample_rate">采样率</string>
+    <string name="sample_rate_help">采样率：指录音设备在单位时间内对模拟信号的采样次数。在BMS中，因为诸多历史遗留问题，以及音乐制作本身标准的不统一，各个BMS之间均存在着不同的音频采样率（目前主要以44100Hz和48000Hz为主）。较低的采样率可以让CPU负载更轻一些，但是会产生音质损失。如果你不清楚各个选项代表了什么，又或者不清楚这个选项的作用，请保持默认。</string>
     <string name="section_player">玩家</string>
     <string name="select_player">选择玩家</string>
     <string name="new_player">+ 新建玩家</string>

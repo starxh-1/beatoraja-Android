@@ -468,6 +468,15 @@ public class SettingsActivity extends Activity {
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
+        // Sample Rate Help button
+        findViewById(R.id.sampleRateHelp).setOnClickListener(v -> {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.sample_rate))
+                .setMessage(getString(R.string.sample_rate_help))
+                .setPositiveButton("OK", null)
+                .show();
+        });
+
         // Polling Rate (for non-touch devices only)
         Spinner pollingRateSpinner = findViewById(R.id.pollingRateSpinner);
         String[] pollingRateOptions = getResources().getStringArray(R.array.input_polling_rate_options);
@@ -863,17 +872,47 @@ public class SettingsActivity extends Activity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        try {
+            super.onActivityResult(requestCode, resultCode, data);
+        } catch (Exception e) {
+            Log.e("SettingsActivity", "Error in super.onActivityResult", e);
+        }
+
+        if (resultCode != RESULT_OK || data == null) {
+            Log.w("SettingsActivity", "onActivityResult: resultCode not OK or data is null");
+            return;
+        }
+
         Uri uri = data.getData();
+        Log.i("SettingsActivity", "onActivityResult: requestCode=" + requestCode + ", uri=" + uri);
+
+        if (uri == null) return;
+
         if (requestCode == REQUEST_CODE_PICK_FOLDER) {
             String path = getPathFromSAFUri(uri);
-            if (path != null) { bmsPaths.add(path); refreshBmsPathList(); }
+            if (path != null) {
+                Log.i("SettingsActivity", "Added BMS path: " + path);
+                bmsPaths.add(path);
+                refreshBmsPathList();
+            } else {
+                Log.w("SettingsActivity", "Failed to get path from SAF URI: " + uri);
+                Toast.makeText(this, "Failed to get folder path", Toast.LENGTH_SHORT).show();
+            }
         } else if (requestCode == REQUEST_CODE_PICK_FOLDER_LEGACY) {
             String path = getPathFromFileUri(uri);
-            if (path != null) { File f = new File(path); if (f.isFile()) path = f.getParent(); if (path != null) { bmsPaths.add(path); refreshBmsPathList(); } }
-        } else if (requestCode == REQUEST_CODE_EXPORT_SCORE) exportScoreToUri(uri);
-        else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) importPlayerFromUri(uri);
+            if (path != null) {
+                File f = new File(path);
+                if (f.isFile()) path = f.getParent();
+                if (path != null) {
+                    bmsPaths.add(path);
+                    refreshBmsPathList();
+                }
+            }
+        } else if (requestCode == REQUEST_CODE_EXPORT_SCORE) {
+            exportScoreToUri(uri);
+        } else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) {
+            importPlayerFromUri(uri);
+        }
     }
 
     private void exportScoreDatabase() {
@@ -938,27 +977,67 @@ public class SettingsActivity extends Activity {
     }
 
     private String getPathFromSAFUri(Uri uri) {
+        if (uri == null) return null;
         try {
-            String path = uri.getPath();
-            if (path != null && path.startsWith("/tree/")) {
-                String tree = path.substring(7);
-                int colon = tree.indexOf(':');
-                if (colon > 0) {
-                    String storage = tree.substring(0, colon);
-                    String rel = java.net.URLDecoder.decode(tree.substring(colon + 1), "UTF-8").trim();
-                    String full = "primary".equals(storage) ? "/storage/emulated/0/" + rel : "/storage/" + storage + "/" + rel;
-                    File f = new File(full).getAbsoluteFile();
+            Log.d("SettingsActivity", "getPathFromSAFUri: " + uri.toString());
+            String docId = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && DocumentsContract.isTreeUri(uri)) {
+                    docId = DocumentsContract.getTreeDocumentId(uri);
+                } else if (DocumentsContract.isDocumentUri(this, uri)) {
+                    docId = DocumentsContract.getDocumentId(uri);
+                }
+            }
+
+            if (docId != null && !docId.isEmpty()) {
+                Log.d("SettingsActivity", "Document ID: " + docId);
+                if (docId.contains(":")) {
+                    String[] parts = docId.split(":");
+                    String type = parts[0];
+                    String relativePath = parts.length > 1 ? parts[1] : "";
+
+                    String path;
+                    if ("primary".equalsIgnoreCase(type)) {
+                        path = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + relativePath;
+                    } else {
+                        path = "/storage/" + type + "/" + relativePath;
+                    }
+                    File f = new File(path);
                     if (f.exists()) return f.getAbsolutePath();
                 }
             }
-            if (DocumentsContract.isDocumentUri(this, uri)) {
-                String docId = DocumentsContract.getDocumentId(uri);
-                if (docId != null && docId.contains(":")) {
-                    String[] p = docId.split(":");
-                    if (p.length >= 2) return ("primary".equals(p[0]) ? Environment.getExternalStorageDirectory().getAbsolutePath() : "/storage/" + p[0]) + "/" + p[1];
+
+            // Fallback: try to parse from path
+            String path = uri.getPath();
+            if (path != null) {
+                Log.d("SettingsActivity", "Fallback parsing path: " + path);
+                String treePart = path;
+                if (path.startsWith("/tree/")) treePart = path.substring(7);
+                else if (path.startsWith("/document/")) treePart = path.substring(10);
+
+                int colon = treePart.indexOf(':');
+                if (colon < 0) {
+                    // Try finding encoded colon
+                    treePart = java.net.URLDecoder.decode(treePart, "UTF-8");
+                    colon = treePart.indexOf(':');
+                }
+
+                if (colon >= 0) {
+                    String type = treePart.substring(0, colon);
+                    String relativePath = treePart.substring(colon + 1);
+                    String full;
+                    if ("primary".equalsIgnoreCase(type)) {
+                        full = Environment.getExternalStorageDirectory().getAbsolutePath() + "/" + relativePath;
+                    } else {
+                        full = "/storage/" + type + "/" + relativePath;
+                    }
+                    File f = new File(full);
+                    if (f.exists()) return f.getAbsolutePath();
                 }
             }
-        } catch (Exception ignored) {}
+        } catch (Exception e) {
+            Log.e("SettingsActivity", "getPathFromSAFUri error", e);
+        }
         return null;
     }
 

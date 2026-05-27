@@ -8,6 +8,7 @@
     <string name="key_volume">キー音量</string>
     <string name="bgm_volume">BGM音量</string>
     <string name="sample_rate">サンプリングレート</string>
+    <string name="sample_rate_help">サンプリングレート：オーディオ機器が1秒間に模擬信号をサンプル取る回数です。BMSでは、色んな歴史的な問題や音楽制作の標準が統一されていないことから、BMSファイルによって異なるオーディオサンプリングレートを使用しています（今は主に44100Hzと48000Hzです）。低いサンプリングレートはCPU負荷を軽減できますが、音質低下の原因になります。このオプションの意味がわからない場合はデフォルトのままでしてください。</string>
     <string name="section_player">プレイヤー</string>
     <string name="select_player">プレイヤー選択</string>
     <string name="new_player">+ 新規プレイヤー</string>
