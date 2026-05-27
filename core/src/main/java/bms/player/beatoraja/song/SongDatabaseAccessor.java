@@ -36,11 +36,9 @@ public interface SongDatabaseAccessor {
 	 *            スコアデータベースのパス
 	 * @param scorelog
 	 *            スコアログデータベースのパス
-	 * @param info
-	 *            譜面情報データベースのパス
 	 * @return
 	 */
-	public SongData[] getSongDatas(String sql, String score, String scorelog, String info);
+	public SongData[] getSongDatas(String sql, String score, String scorelog);
 
 	public void setSongDatas(SongData[] songs);
 
@@ -65,7 +63,7 @@ public interface SongDatabaseAccessor {
 	 * @param updateAll
 	 *            更新の必要がないものも更新するかどうか
 	 */
-	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info);
+	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll);
 
 	/**
 	 * データベースを更新する（進捗報告付き）
@@ -77,7 +75,7 @@ public interface SongDatabaseAccessor {
 	 * @param progress
 	 *            進捗コールバック。スキャン開始時と各ファイル完了時に呼び出される
 	 */
-	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info, SongScanProgress progress);
+	public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongScanProgress progress);
 
 	/**
 	 * Get the BMS root directories used by this accessor.

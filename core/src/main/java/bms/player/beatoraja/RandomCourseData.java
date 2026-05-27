@@ -102,15 +102,8 @@ public class RandomCourseData {
 					sql = "1";
 				}
 			}
-			String infoPath = null;
-			if (main.getInfoDatabase() != null) {
-				infoPath = "songinfo.db";
-				if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-					infoPath = com.badlogic.gdx.Gdx.files.getLocalStoragePath() + infoPath;
-				}
-			}
 			lots = main.getSongDatabase().getSongDatas(sql ,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-					,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db", infoPath);
+				,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db");
 			lotterySongData(i, songDatas, lots, isDistinct);
 		}
 	}

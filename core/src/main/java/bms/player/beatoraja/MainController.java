@@ -79,7 +79,6 @@ public class MainController {
     private PlayerConfig player;
     private BMSPlayerMode auto;
     private boolean songUpdated;
-    private SongInformationAccessor infodb;
     private IRStatus[] ir;
     private RivalDataAccessor rivals = new RivalDataAccessor();
     private RankingDataCache ircache = new RankingDataCache();
@@ -155,14 +154,6 @@ public class MainController {
             }
         }
 
-        try {
-            if(config.isUseSongInfo()) {
-                infodb = new SongInformationAccessor(config.getSonginfopath());
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-
         playdata = new PlayDataAccessor(config);
 
         Array<IRStatus> irarray = new Array<IRStatus>();
@@ -220,7 +211,6 @@ public class MainController {
 
     public SkinOffset getOffset(int index) { return offset[index]; }
     public SongDatabaseAccessor getSongDatabase() { return MainLoader.getScoreDatabaseAccessor(); }
-    public SongInformationAccessor getInfoDatabase() { return infodb; }
     public PlayDataAccessor getPlayDataAccessor() { return playdata; }
     public RivalDataAccessor getRivalDataAccessor() { return rivals; }
     public RankingDataCache getRankingDataCache() { return ircache; }
@@ -1203,7 +1193,7 @@ public class MainController {
                     };
 
                 // 执行扫描 - 这是阻塞调用，会等待扫描完成
-                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase(), progress);
+                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, progress);
 
                 long elapsed = System.currentTimeMillis() - threadStartTime;
                 Logger.getGlobal().info("================================================================================");
