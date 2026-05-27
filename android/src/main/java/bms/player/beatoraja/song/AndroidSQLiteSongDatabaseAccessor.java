@@ -560,24 +560,11 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         BMSDecoder decoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
         SQLiteDatabase db = helper.getWritableDatabase();
 
-        // 阶段 0: 预扫描计算总文件数，以便 UI 显示进度
+        // 总文件数：forceRefresh 路径在 updateSongDatasParallel 阶段1中由 collectBmsFiles() 获得；
+        // 增量路径不再做预扫描计数，避免二次遍历所有目录。totalFiles=0 表示 UI 应显示不确定进度。
         int totalFiles = 0;
-        long preScanStart = System.currentTimeMillis();
-        for (String path : paths) {
-            if (path == null || path.trim().isEmpty()) continue;
-            try {
-                FileHandle rootDir = Gdx.files.absolute(path.trim());
-                if (rootDir.exists()) {
-                    totalFiles += countBmsFiles(rootDir);
-                }
-            } catch (Throwable t) {
-                Log.w(TAG, "Pre-scan failed for path: " + path, t);
-            }
-        }
-        long preScanElapsed = System.currentTimeMillis() - preScanStart;
-        Log.i(TAG, "updateSongDatas: Pre-scan found " + totalFiles + " BMS files in " + preScanElapsed + "ms");
 
-        // 初始化进度
+        // 初始化进度（totalFiles=0 表示不确定进度）
         if (progress != null) {
             progress.onFileScanned(0, totalFiles);
         }
@@ -917,29 +904,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             long infoElapsed = System.currentTimeMillis() - infoStart;
             Log.i(TAG, "updateSongDatasParallel: Phase4 updated " + infoCount + " SongInformation records in " + infoElapsed + "ms");
         }
-    }
-
-    /**
-     * 计算目录下 BMS 文件总数（轻量预扫描）
-     */
-    private int countBmsFiles(FileHandle folder) {
-        int count = 0;
-        try {
-            if (!folder.exists() || !folder.isDirectory()) return 0;
-            FileHandle[] children = folder.list();
-            if (children == null) return 0;
-
-            for (FileHandle child : children) {
-                if (child.isDirectory()) {
-                    count += countBmsFiles(child);
-                } else if (isBmsFile(child.name().toLowerCase())) {
-                    count++;
-                }
-            }
-        } catch (Exception e) {
-            Log.w(TAG, "countBmsFiles: Failed to scan " + folder.path(), e);
-        }
-        return count;
     }
 
     /**
