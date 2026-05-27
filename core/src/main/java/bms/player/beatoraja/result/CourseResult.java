@@ -121,7 +121,7 @@ public class CourseResult extends AbstractResult {
 				for (IRSendStatus irc : irSendStatus) {
 					try {
 						if (irsend == 0) {
-							timer.switchTimer(TIMER_IR_CONNECT_BEGIN, true);
+							Gdx.app.postRunnable(() -> timer.switchTimer(TIMER_IR_CONNECT_BEGIN, true));
 						}
 						irsend++;
 						succeed &= irc.send();
@@ -138,12 +138,15 @@ public class CourseResult extends AbstractResult {
 				irSendStatus.removeAll(removeIrSendStatus);
 
 				if (irsend > 0) {
-					timer.switchTimer(succeed ? TIMER_IR_CONNECT_SUCCESS : TIMER_IR_CONNECT_FAIL, true);
+					final boolean irSucceed = succeed;
+					Gdx.app.postRunnable(() -> timer.switchTimer(irSucceed ? TIMER_IR_CONNECT_SUCCESS : TIMER_IR_CONNECT_FAIL, true));
 					try {
 						IRResponse<bms.player.beatoraja.ir.IRScoreData[]> response = ir[0].connection.getCoursePlayData(null, new IRCourseData(resource.getCourseData(), lnmode));
 						if (response.isSucceeded()) {
 							ranking.updateScore(ir[0].player, main.getRivalDataAccessor(), response.getData(), newscore.getExscore() > oldscore.getExscore() ? newscore : oldscore);
-							rankingOffset = ranking.getRank() > 10 ? ranking.getRank() - 5 : 0;
+							Gdx.app.postRunnable(() -> {
+								rankingOffset = ranking.getRank() > 10 ? ranking.getRank() - 5 : 0;
+							});
 							Logger.getGlobal().info("IRからのスコア取得成功 : " + response.getMessage());
 						} else {
 							Logger.getGlobal().warning("IRからのスコア取得失敗 : " + response.getMessage());
@@ -153,7 +156,7 @@ public class CourseResult extends AbstractResult {
 						e.printStackTrace();
 					}
 				}
-				state = STATE_IR_FINISHED;
+				Gdx.app.postRunnable(() -> state = STATE_IR_FINISHED);
 			});
 			irprocess.start();
 		}

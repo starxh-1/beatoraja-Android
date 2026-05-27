@@ -85,6 +85,7 @@
     </string-array>
 
     <string name="pollingrate">ポーリングレート (Hz)</string>
+    <string name="pollingrate_help">ポーリングレート：デフォルトは1000Hz（1msごとに更新を報告します）。お使いの入力デバイス（ゲーム向けキーボードなど）がより高いポーリングレートをサポートしている場合は、最大4000Hzまで調整できますが、ソフトウェアのCPU負荷が高くなります。</string>
 
     <string name="msg_update_failed">難易度表の更新に失敗しました</string>
     <string name="btn_update">更新</string>

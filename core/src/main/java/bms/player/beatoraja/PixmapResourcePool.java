@@ -1,6 +1,9 @@
 package bms.player.beatoraja;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
 
 import com.badlogic.gdx.Gdx;
@@ -13,6 +16,9 @@ import com.badlogic.gdx.graphics.PixmapIO;
  * @author exch
  */
 public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
+
+	// 目录文件名缓存: 目录路径 -> (小写文件名 -> 原始文件名)
+	private static final Map<String, Map<String, String>> directoryCache = new ConcurrentHashMap<>();
 
 	public PixmapResourcePool() {
 		super(1);
@@ -73,6 +79,30 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 	}
 
 	/**
+	 * 获取目录的文件名缓存（小写→原始大小写）
+	 */
+	private static Map<String, String> getDirectoryCache(File parentDir) {
+		String dirPath = parentDir.getAbsolutePath();
+		return directoryCache.computeIfAbsent(dirPath, path -> {
+			Map<String, String> map = new HashMap<>();
+			File[] files = parentDir.listFiles();
+			if (files != null) {
+				for (File f : files) {
+					map.put(f.getName().toLowerCase(), f.getName());
+				}
+			}
+			return map;
+		});
+	}
+
+	/**
+	 * 清除目录文件名缓存
+	 */
+	public static void clearDirectoryCache() {
+		directoryCache.clear();
+	}
+
+	/**
 	 * 指定のパスで表現されるファイルを読み込む
 	 * @param path イメージファイルのパス
 	 * @return イメージ。読めなかった場合またはpathがファイルでない場合はnullを返す
@@ -93,21 +123,16 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 				java.io.File parentDir = file.getParentFile();
 				if (parentDir != null && parentDir.exists()) {
 					String fileName = file.getName();
-					java.io.File[] files = parentDir.listFiles();
-					if (files != null) {
-						for (java.io.File candidate : files) {
-							if (candidate.getName().equalsIgnoreCase(fileName)) {
-								actualPath = candidate.getAbsolutePath().replace("\\", "/");
-								// On Android, absolute paths from external storage should use Gdx.files.absolute(), not internal()
-								if (actualPath.startsWith("/") && !actualPath.startsWith("/data/") && !actualPath.startsWith("/app/")) {
-									exists = com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-								} else {
-									exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-								}
-								if (exists) {
-									break;
-								}
-							}
+					String fileNameLower = fileName.toLowerCase();
+					Map<String, String> cache = getDirectoryCache(parentDir);
+					String matchedName = cache.get(fileNameLower);
+					if (matchedName != null && !matchedName.equals(fileName)) {
+						String newPath = file.getParentFile().getAbsolutePath() + "/" + matchedName;
+						actualPath = newPath.replace("\\", "/");
+						if (actualPath.startsWith("/") && !actualPath.startsWith("/data/") && !actualPath.startsWith("/app/")) {
+							exists = com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+						} else {
+							exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
 						}
 					}
 				}

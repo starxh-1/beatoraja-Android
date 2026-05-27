@@ -91,6 +91,7 @@
     </string-array>
 
     <string name="pollingrate">Pollingrate (Hz)</string>
+    <string name="pollingrate_help">Polling Rate: The default frequency is 1000Hz (reporting updates every 1ms). If your input device (such as a gaming keyboard) supports a higher polling rate, you can adjust up to 4000Hz, but this will increase the software\'s CPU load.</string>
 
     <string name="dialog_new_player">New Player</string>
     <string name="hint_player_name">Player name</string>

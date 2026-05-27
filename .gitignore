@@ -168,3 +168,17 @@ libgdx-oboe.zip
 # Custom ignore for beatoraja-Android
 /android/assets/inochi_ogg/
 /android/assets/sound/*.ogg
+
+/*.txt
+/*.png
+/*.jpg
+/*.jpeg
+/*.gif
+/*.bmp
+/*.webp
+*./png
+*./jpg
+*./jpeg
+*./gif
+*./bmp
+*./webp

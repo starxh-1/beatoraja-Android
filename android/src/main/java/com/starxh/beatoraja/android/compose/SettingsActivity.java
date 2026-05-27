@@ -502,6 +502,15 @@ public class SettingsActivity extends Activity {
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
 
+        // Polling Rate Help button
+        findViewById(R.id.pollingRateHelp).setOnClickListener(v -> {
+            new android.app.AlertDialog.Builder(this)
+                .setTitle(getString(R.string.pollingrate))
+                .setMessage(getString(R.string.pollingrate_help))
+                .setPositiveButton("OK", null)
+                .show();
+        });
+
         // Player Spinner
         playerSpinner = findViewById(R.id.playerSpinner);
         availablePlayers = getAvailablePlayers();

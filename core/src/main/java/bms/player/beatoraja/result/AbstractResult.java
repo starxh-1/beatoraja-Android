@@ -17,7 +17,7 @@ public abstract class AbstractResult extends MainState {
 	/**
 	 * 状態
 	 */
-	protected int state;
+	protected volatile int state;
 
 	public static final int STATE_OFFLINE = 0;
 	/**
@@ -277,9 +277,10 @@ public abstract class AbstractResult extends MainState {
 	 */
 	public static class TimingDistribution {
 		private final int arrayCenter;
-		private int[] dist;
-		private float average;
-		private float stdDev;
+		private volatile int[] dist;
+		private volatile float average;
+		private volatile float stdDev;
+		private volatile boolean calculated = false;
 
 		public TimingDistribution(int range) {
 			this.arrayCenter = range;
@@ -307,12 +308,14 @@ public abstract class AbstractResult extends MainState {
 			}
 
 			stdDev = (float) Math.sqrt(sumf / count);
+			calculated = true;
 		}
 
 		public void init() {
 			Arrays.fill(dist, 0);
 			average = Float.MAX_VALUE;
 			stdDev = -1.0f;
+			calculated = false;
 		}
 
 		public void add(int timing) {
@@ -335,6 +338,10 @@ public abstract class AbstractResult extends MainState {
 
 		public int getArrayCenter() {
 			return arrayCenter;
+		}
+
+		public boolean isCalculated() {
+			return calculated;
 		}
 
 	}

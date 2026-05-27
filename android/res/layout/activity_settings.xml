@@ -633,14 +633,30 @@
             android:layout_marginBottom="24dp"
             android:orientation="horizontal">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/pollingrate"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/pollingrate"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center_vertical"/>
+
+                <TextView
+                    android:id="@+id/pollingRateHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="16sp"
+                    android:padding="4dp"/>
+            </LinearLayout>
 
             <Spinner
                 android:id="@+id/pollingRateSpinner"

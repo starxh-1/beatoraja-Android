@@ -887,6 +887,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         try {
             for (DecodeResult result : results) {
                 insertSongData(result.songData, db);
+                // 更新 SongInformation (对应原版 info.update(model))
+                if (info != null && result.model != null) {
+                    info.update(result.model);
+                }
             }
             db.setTransactionSuccessful();
         } catch (Throwable t) {
@@ -960,11 +964,13 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SongData songData;
         FileHandle file;
         int lastModified;
+        BMSModel model;
 
-        DecodeResult(SongData songData, FileHandle file, int lastModified) {
+        DecodeResult(SongData songData, FileHandle file, int lastModified, BMSModel model) {
             this.songData = songData;
             this.file = file;
             this.lastModified = lastModified;
+            this.model = model;
         }
     }
 
@@ -1028,7 +1034,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
-            return new DecodeResult(songData, file, lastModifiedTime);
+            // 更新 SongInformation (对应原版 info.update(model))
+            if (info != null) {
+                info.update(model);
+            }
+
+            return new DecodeResult(songData, file, lastModifiedTime, model);
         } catch (Exception e) {
             Log.w(TAG, "processBmsFileParallel: Failed " + (file != null ? file.path() : "null"), e);
             return null;
