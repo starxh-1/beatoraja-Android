@@ -903,6 +903,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         long writeElapsed = System.currentTimeMillis() - writeStart;
         long totalElapsed = System.currentTimeMillis() - startTime;
         Log.i(TAG, "updateSongDatasParallel: Phase3 wrote " + results.size() + " songs in " + writeElapsed + "ms, total: " + totalElapsed + "ms");
+
+        if (info != null) {
+            long infoStart = System.currentTimeMillis();
+            int infoCount = 0;
+            for (DecodeResult result : results) {
+                if (result.model != null) {
+                    info.update(result.model);
+                    infoCount++;
+                }
+            }
+            info.endUpdate();
+            long infoElapsed = System.currentTimeMillis() - infoStart;
+            Log.i(TAG, "updateSongDatasParallel: Phase4 updated " + infoCount + " SongInformation records in " + infoElapsed + "ms");
+        }
     }
 
     /**
@@ -960,11 +974,19 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SongData songData;
         FileHandle file;
         int lastModified;
+        BMSModel model;
 
         DecodeResult(SongData songData, FileHandle file, int lastModified) {
             this.songData = songData;
             this.file = file;
             this.lastModified = lastModified;
+        }
+
+        DecodeResult(SongData songData, FileHandle file, int lastModified, BMSModel model) {
+            this.songData = songData;
+            this.file = file;
+            this.lastModified = lastModified;
+            this.model = model;
         }
     }
 
@@ -1028,7 +1050,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
-            return new DecodeResult(songData, file, lastModifiedTime);
+            return new DecodeResult(songData, file, lastModifiedTime, model);
         } catch (Exception e) {
             Log.w(TAG, "processBmsFileParallel: Failed " + (file != null ? file.path() : "null"), e);
             return null;
