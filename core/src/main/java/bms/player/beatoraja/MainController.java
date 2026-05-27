@@ -701,12 +701,20 @@ public class MainController {
         }
 
         current.render();
+        // [DEBUG PROBE] 皮肤渲染耗时监控 — 每帧触发，正常运行时禁用
+        // long drawStart = System.nanoTime();
         sprite.begin();
         if (current.getSkin() != null) {
             current.getSkin().updateCustomObjects(current);
             current.getSkin().drawAllObjects(sprite, current);
         }
         sprite.end();
+        // [DEBUG PROBE] >16ms 慢帧报警 — 正常运行时禁用
+        // long drawEnd = System.nanoTime();
+        // long drawUs = (drawEnd - drawStart) / 1000;
+        // if (drawUs > 16_000) {
+        //     bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("MainController:skin draw slow=" + drawUs + "us");
+        // }
 
         final Stage stage = current.getStage();
         if (stage != null) {

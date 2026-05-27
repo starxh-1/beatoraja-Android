@@ -2,6 +2,8 @@ package bms.player.beatoraja;
 
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import org.apache.commons.dbutils.QueryRunner;
@@ -17,6 +19,9 @@ import bms.player.beatoraja.song.SongData;
 public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 
 	private final QueryRunner qr;
+	private final ReentrantLock dblock = new ReentrantLock();
+
+	private static final long READ_TIMEOUT_MILLIS = 500;
 
 	private final ResultSetHandler<List<PlayerInformation>> infoHandler = new AndroidBeanListHandler<>(PlayerInformation.class);
 	private final ResultSetHandler<List<ScoreData>> scoreHandler = new AndroidBeanListHandler<>(ScoreData.class);
@@ -92,7 +97,10 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 		}
 	}
 
-	public synchronized PlayerInformation getInformation() {
+	public PlayerInformation getInformation() {
+		if (!lockForRead("getInformation")) {
+			return null;
+		}
 		try {
 			List<PlayerInformation> info =  qr.query("SELECT * FROM info", infoHandler);
 			if (info.size() > 0) {
@@ -100,22 +108,34 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 			}
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア取得時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
 		return null;
 	}
 
-	public synchronized void setInformation(PlayerInformation info) {
+	public void setInformation(PlayerInformation info) {
+		dblock.lock();
 		try {
 			qr.update("DELETE FROM info");
 			insert(qr, "info", info);
-//			qr.update("insert into info " + "(id, name, rank) " + "values(?,?,?);", info.getId(), info.getName(), info.getRank());
 		} catch (Exception e) {
-			Logger.getGlobal().severe("スコア取得時の例外:" + e.getMessage());
+			Logger.getGlobal().severe("スコア更新時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
 	}
 
-	public synchronized ScoreData getScoreData(String hash, int mode) {
-		ScoreData result = null;
+	public ScoreData getScoreData(String hash, int mode) {
+		// [DEBUG PROBE] DB 锁等待：getScoreData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockWait("getScoreData");
+		if (!lockForRead("getScoreData")) {
+			// [DEBUG PROBE] DB 读超时返回 null
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("getScoreData:TIMEOUT returning null");
+			return null;
+		}
+		// [DEBUG PROBE] DB 锁获取：getScoreData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockAcquired("getScoreData");
 		try {
 			List<ScoreData> score = Validatable.removeInvalidElements(qr.query("SELECT * FROM score WHERE sha256 = '" + hash + "' AND mode = " + mode, scoreHandler));
 			if (score.size() > 0) {
@@ -125,22 +145,34 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 						sc = s;
 					}
 				}
-				result = sc;
+				return sc;
 			}
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア取得時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
-		return result;
+		return null;
 	}
 
 	/**
 	 * プレイヤースコアデータを取得する
 	 */
-	public synchronized void getScoreDatas(ScoreDataCollector collector, SongData[] songs, int mode) {
-		StringBuilder str = new StringBuilder(songs.length * 68);
-		getScoreDatas(collector, songs, mode, str, true);
-		str.setLength(0);
-		getScoreDatas(collector, songs, 0, str, false);
+	public void getScoreDatas(ScoreDataCollector collector, SongData[] songs, int mode) {
+		if (!lockForRead("getScoreDatas")) {
+			for (SongData song : songs) {
+				collector.collect(song, null);
+			}
+			return;
+		}
+		try {
+			StringBuilder str = new StringBuilder(songs.length * 68);
+			getScoreDatas(collector, songs, mode, str, true);
+			str.setLength(0);
+			getScoreDatas(collector, songs, 0, str, false);
+		} finally {
+			dblock.unlock();
+		}
 	}
 
 	private void getScoreDatas(ScoreDataCollector collector, SongData[] songs, int mode, StringBuilder str, boolean hasln) {
@@ -176,22 +208,30 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 		}
 	}
 
-	public synchronized List<ScoreData> getScoreDatas(String sql) {
-		List<ScoreData> score = null;
+	public List<ScoreData> getScoreDatas(String sql) {
+		if (!lockForRead("getScoreDatas(sql)")) {
+			return null;
+		}
 		try {
-			score = Validatable.removeInvalidElements(qr.query("SELECT * FROM score WHERE " + sql, scoreHandler));
+			return Validatable.removeInvalidElements(qr.query("SELECT * FROM score WHERE " + sql, scoreHandler));
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア取得時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
-		return score;
-
+		return null;
 	}
 
 	public void setScoreData(ScoreData score) {
 		setScoreData(new ScoreData[] { score });
 	}
 
-	public synchronized void setScoreData(ScoreData[] scores) {
+	public void setScoreData(ScoreData[] scores) {
+		// [DEBUG PROBE] DB 锁等待：setScoreData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockWait("setScoreData");
+		dblock.lock();
+		// [DEBUG PROBE] DB 锁获取：setScoreData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockAcquired("setScoreData");
 		try (Connection con = qr.getDataSource().getConnection()) {
 			con.setAutoCommit(false);
 			for (ScoreData score : scores) {
@@ -200,10 +240,13 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 			con.commit();
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア更新時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
 	}
 
-	public synchronized void setScoreData(Map<String, Map<String, Object>> map) {
+	public void setScoreData(Map<String, Map<String, Object>> map) {
+		dblock.lock();
 		try (Connection con = qr.getDataSource().getConnection()) {
 			con.setAutoCommit(false);
 			for (String hash : map.keySet()) {
@@ -220,16 +263,20 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 			con.commit();
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア更新時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
 	}
 
-	public synchronized void deleteScoreData(String sha256, int mode) {
+	public void deleteScoreData(String sha256, int mode) {
+		dblock.lock();
 		try {
 			qr.update("DELETE FROM score WHERE sha256 = ? and mode = ?", sha256, mode);
 		} catch (SQLException e) {
 			e.printStackTrace();
+		} finally {
+			dblock.unlock();
 		}
-
 	}
 
 	/**
@@ -245,16 +292,20 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 		return null;
 	}
 
-	public synchronized PlayerData[] getPlayerDatas(int count) {
-		PlayerData[] result = null;
+	public PlayerData[] getPlayerDatas(int count) {
+		if (!lockForRead("getPlayerDatas")) {
+			return new PlayerData[0];
+		}
 		try {
 			List<PlayerData> pd = qr
 					.query("SELECT * FROM player ORDER BY date DESC" + (count > 0 ? " limit " + count : ""), playerHandler);
-			result = pd.toArray(new PlayerData[0]);
+			return pd.toArray(new PlayerData[0]);
 		} catch (Exception e) {
 			Logger.getGlobal().severe("プレイヤーデータ取得時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
 		}
-		return result != null ? result : new PlayerData[0];
+		return new PlayerData[0];
 	}
 
 	/**
@@ -262,7 +313,12 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 	 *
 	 * @param pd プレイヤーデータ
 	 */
-	public synchronized void setPlayerData(PlayerData pd) {
+	public void setPlayerData(PlayerData pd) {
+		// [DEBUG PROBE] DB 锁等待：setPlayerData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockWait("setPlayerData");
+		dblock.lock();
+		// [DEBUG PROBE] DB 锁获取：setPlayerData
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeDBLockAcquired("setPlayerData");
 		try (Connection con = qr.getDataSource().getConnection()) {
 			con.setAutoCommit(false);
 			Calendar cal = Calendar.getInstance(TimeZone.getDefault());
@@ -276,6 +332,22 @@ public class ScoreDatabaseAccessor extends SQLiteDatabaseAccessor {
 			con.commit();
 		} catch (Exception e) {
 			Logger.getGlobal().severe("スコア更新時の例外:" + e.getMessage());
+		} finally {
+			dblock.unlock();
+		}
+	}
+
+	private boolean lockForRead(String operation) {
+		try {
+			if (!dblock.tryLock(READ_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+				Logger.getGlobal().warning("ScoreDatabaseAccessor." + operation + " DB lock timeout after " + READ_TIMEOUT_MILLIS + "ms, skipping");
+				return false;
+			}
+			return true;
+		} catch (InterruptedException e) {
+			Logger.getGlobal().warning("ScoreDatabaseAccessor." + operation + " interrupted while waiting for DB lock");
+			Thread.currentThread().interrupt();
+			return false;
 		}
 	}
 

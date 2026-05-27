@@ -152,6 +152,8 @@ public class SkinGaugeGraphObject extends SkinObject {
 	 * heavy allocation happens during render.
 	 */
 	private void rebuildTextures() {
+		// [DEBUG PROBE] gauge 纹理重建开始
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeGaugeGraphRebuildBegin();
 		// Dispose old textures if they exist
 		if (backtex != null) {
 			backtex.getTexture().dispose();
@@ -233,6 +235,8 @@ public class SkinGaugeGraphObject extends SkinObject {
 		shapetex = new TextureRegion(new Texture(shape));
 		shape.dispose();
 		redraw = false;
+		// [DEBUG PROBE] gauge 纹理重建结束
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeGaugeGraphRebuildEnd();
 	}
 
 	@Override
