@@ -8,8 +8,8 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 import bms.player.beatoraja.MainState;
+import bms.player.beatoraja.play.bga.GdxVideoProcessor;
 import bms.player.beatoraja.play.bga.MovieProcessor;
-import bms.player.beatoraja.play.bga.VideoDecoderFactory;
 
 /**
  * スキンのソースイメージ(ムービー)
@@ -34,10 +34,11 @@ public class SkinSourceMovie extends SkinSource {
 	}
 
 	public SkinSourceMovie(String s, int timer) {
-		// Android: Use format-based routing for video playback
+		// Android: 使用 gdx-video 硬件解码
 		if (Gdx.app.getType() == Application.ApplicationType.Android) {
-			// Try gdx-video first, fallback to ExoPlayer for unsupported formats
-			image = VideoDecoderFactory.create(s);
+			GdxVideoProcessor gvp = new GdxVideoProcessor();
+			gvp.create(s);
+			image = gvp;
 		} else {
 			// Desktop: 视频播放已不支持
 			image = null;
