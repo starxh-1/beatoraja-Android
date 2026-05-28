@@ -310,6 +310,8 @@ public class Skin {
 			pcntDraw = (System.nanoTime() - startDraw) / 1000;
 
 		} else {
+			// [DEBUG PROBE] 每帧皮肤渲染开始计时 — 高频输出，正常运行时禁用
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeSkinDrawBegin();
 			if (nextpreparetime <= microtime) {
 				final long time = state.timer.getNowTime();
 				for (SkinObject obj : objectarray) {
@@ -334,6 +336,8 @@ public class Skin {
 					}
 				}
 			}
+			// [DEBUG PROBE] 每帧皮肤渲染结束计时 — 高频输出，正常运行时禁用
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeSkinDrawEnd();
 		}
 		if (renderer != null) {
 			renderer.reset();

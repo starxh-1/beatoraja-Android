@@ -17,8 +17,33 @@ import com.badlogic.gdx.graphics.PixmapIO;
  */
 public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 
-	// 目录文件名缓存: 目录路径 -> (小写文件名 -> 原始文件名)
-	private static final Map<String, Map<String, String>> directoryCache = new ConcurrentHashMap<>();
+	/**
+	 * 大小写不敏感文件名缓存。key=父目录绝对路径, value=(小写文件名→原始文件名)。
+	 * 避免每次文件找不到时 O(n) 遍历整个目录做 equalsIgnoreCase。
+	 */
+	private static final ConcurrentHashMap<String, Map<String, String>> DIR_FILE_CACHE = new ConcurrentHashMap<>();
+
+	/**
+	 * 在指定目录下按大小写不敏感方式查找文件。
+	 * 首次查找该目录时列出所有文件建立缓存映射，后续查找为 O(1)。
+	 * @param parentPath 父目录绝对路径
+	 * @param targetName 目标文件名（任意大小写）
+	 * @return 匹配的实际文件名，未找到返回 null
+	 */
+	public static String findFileIgnoreCase(String parentPath, String targetName) {
+		Map<String, String> fileMap = DIR_FILE_CACHE.computeIfAbsent(parentPath, k -> {
+			Map<String, String> map = new HashMap<>();
+			File dir = new File(k);
+			File[] files = dir.listFiles();
+			if (files != null) {
+				for (File f : files) {
+					map.put(f.getName().toLowerCase(), f.getName());
+				}
+			}
+			return map;
+		});
+		return fileMap.get(targetName.toLowerCase());
+	}
 
 	public PixmapResourcePool() {
 		super(1);
@@ -79,30 +104,6 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 	}
 
 	/**
-	 * 获取目录的文件名缓存（小写→原始大小写）
-	 */
-	private static Map<String, String> getDirectoryCache(File parentDir) {
-		String dirPath = parentDir.getAbsolutePath();
-		return directoryCache.computeIfAbsent(dirPath, path -> {
-			Map<String, String> map = new HashMap<>();
-			File[] files = parentDir.listFiles();
-			if (files != null) {
-				for (File f : files) {
-					map.put(f.getName().toLowerCase(), f.getName());
-				}
-			}
-			return map;
-		});
-	}
-
-	/**
-	 * 清除目录文件名缓存
-	 */
-	public static void clearDirectoryCache() {
-		directoryCache.clear();
-	}
-
-	/**
 	 * 指定のパスで表現されるファイルを読み込む
 	 * @param path イメージファイルのパス
 	 * @return イメージ。読めなかった場合またはpathがファイルでない場合はnullを返す
@@ -117,18 +118,14 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
 			exists = com.badlogic.gdx.Gdx.files.internal(path).exists() || com.badlogic.gdx.Gdx.files.absolute(path).exists();
 
-			// Android 大小写敏感问题修复：如果文件找不到，尝试忽略大小写在目录中搜索
+			// Android 大小写敏感问题修复：使用目录文件名缓存，O(1) 查找
 			if (!exists) {
 				java.io.File file = new java.io.File(path);
 				java.io.File parentDir = file.getParentFile();
 				if (parentDir != null && parentDir.exists()) {
-					String fileName = file.getName();
-					String fileNameLower = fileName.toLowerCase();
-					Map<String, String> cache = getDirectoryCache(parentDir);
-					String matchedName = cache.get(fileNameLower);
-					if (matchedName != null && !matchedName.equals(fileName)) {
-						String newPath = file.getParentFile().getAbsolutePath() + "/" + matchedName;
-						actualPath = newPath.replace("\\", "/");
+					String actualName = findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+					if (actualName != null) {
+						actualPath = new java.io.File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
 						if (actualPath.startsWith("/") && !actualPath.startsWith("/data/") && !actualPath.startsWith("/app/")) {
 							exists = com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
 						} else {

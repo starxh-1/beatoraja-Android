@@ -36,9 +36,6 @@ public class JSONSkinLoader extends SkinLoader {
 
 	protected ObjectMap<String, String> filemap = new ObjectMap<String, String>();
 
-	// 目录文件名缓存: 目录路径 -> (小写文件名 -> 原始文件名)
-	private Map<String, Map<String, String>> directoryCache = new HashMap<>();
-
 	protected JsonSkinSerializer serializer;
 
 	protected static class SourceData {
@@ -502,32 +499,21 @@ public class JSONSkinLoader extends SkinLoader {
 			String pString = imagefile.getPath().replace("\\", "/");
 			exists = com.badlogic.gdx.Gdx.files.internal(pString).exists() || com.badlogic.gdx.Gdx.files.absolute(pString).exists();
 
-			// Android 大小写敏感问题修复：如果文件找不到，尝试忽略大小写查找
+			// Android 大小写敏感问题修复：使用目录文件名缓存，O(1) 查找
 			if (!exists) {
 				java.io.File file = new java.io.File(pString);
 				java.io.File parentDir = file.getParentFile();
 				if (parentDir != null && parentDir.exists()) {
-					String fileName = file.getName();
-					String fileNameLower = fileName.toLowerCase();
-					Map<String, String> cache = directoryCache.computeIfAbsent(parentDir.getAbsolutePath(), path -> {
-						Map<String, String> map = new HashMap<>();
-						File[] files = parentDir.listFiles();
-						if (files != null) {
-							for (File f : files) {
-								map.put(f.getName().toLowerCase(), f.getName());
-							}
-						}
-						return map;
-					});
-					String matchedName = cache.get(fileNameLower);
-					if (matchedName != null && !matchedName.equals(fileName)) {
-						String actualPath = file.getParentFile().getAbsolutePath() + "/" + matchedName;
+					String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+					if (actualName != null) {
+						java.io.File candidate = new java.io.File(parentDir, actualName);
+						String actualPath = candidate.getAbsolutePath().replace("\\", "/");
 						if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists()) {
-							imagefile = new File(actualPath);
+							imagefile = candidate;
 							exists = true;
 							Logger.getGlobal().info("Case-insensitive match found (JSONSkinLoader): " + pString + " -> " + actualPath);
 						} else if (com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
-							imagefile = new File(actualPath);
+							imagefile = candidate;
 							exists = true;
 							Logger.getGlobal().info("Case-insensitive match found (JSONSkinLoader): " + pString + " -> " + actualPath);
 						}

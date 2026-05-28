@@ -198,8 +198,12 @@ public final class PlayDataAccessor {
 	 *            プレイ回数のみ反映する場合はfalse
 	 */
 	public void writeScoreData(ScoreData newscore, BMSModel model, int lnmode, boolean updateScore) {
+		// [DEBUG PROBE] 写分线程开始
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("writeScoreData:begin updateScore=" + updateScore);
 		String hash = model.getSHA256();
 		if (newscore == null) {
+			// [DEBUG PROBE] 写分线程：newscore 为 null
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("writeScoreData:newscore null, returning");
 			return;
 		}
 		ScoreData score = scoredb.getScoreData(hash, model.containsUndefinedLongNote() ? lnmode : 0);
@@ -298,6 +302,8 @@ public final class PlayDataAccessor {
 			}
 		}
 		updatePlayerData(newscore, time);
+		// [DEBUG PROBE] 写分线程完成
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("writeScoreData:complete");
 		Logger.getGlobal().info("スコアデータベース更新完了 ");
 	}
 

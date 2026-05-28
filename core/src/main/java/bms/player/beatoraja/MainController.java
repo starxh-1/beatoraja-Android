@@ -79,7 +79,6 @@ public class MainController {
     private PlayerConfig player;
     private BMSPlayerMode auto;
     private boolean songUpdated;
-    private SongInformationAccessor infodb;
     private IRStatus[] ir;
     private RivalDataAccessor rivals = new RivalDataAccessor();
     private RankingDataCache ircache = new RankingDataCache();
@@ -155,14 +154,6 @@ public class MainController {
             }
         }
 
-        try {
-            if(config.isUseSongInfo()) {
-                infodb = new SongInformationAccessor(config.getSonginfopath());
-            }
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-
         playdata = new PlayDataAccessor(config);
 
         Array<IRStatus> irarray = new Array<IRStatus>();
@@ -220,7 +211,6 @@ public class MainController {
 
     public SkinOffset getOffset(int index) { return offset[index]; }
     public SongDatabaseAccessor getSongDatabase() { return MainLoader.getScoreDatabaseAccessor(); }
-    public SongInformationAccessor getInfoDatabase() { return infodb; }
     public PlayDataAccessor getPlayDataAccessor() { return playdata; }
     public RivalDataAccessor getRivalDataAccessor() { return rivals; }
     public RankingDataCache getRankingDataCache() { return ircache; }
@@ -711,12 +701,20 @@ public class MainController {
         }
 
         current.render();
+        // [DEBUG PROBE] 皮肤渲染耗时监控 — 每帧触发，正常运行时禁用
+        // long drawStart = System.nanoTime();
         sprite.begin();
         if (current.getSkin() != null) {
             current.getSkin().updateCustomObjects(current);
             current.getSkin().drawAllObjects(sprite, current);
         }
         sprite.end();
+        // [DEBUG PROBE] >16ms 慢帧报警 — 正常运行时禁用
+        // long drawEnd = System.nanoTime();
+        // long drawUs = (drawEnd - drawStart) / 1000;
+        // if (drawUs > 16_000) {
+        //     bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("MainController:skin draw slow=" + drawUs + "us");
+        // }
 
         final Stage stage = current.getStage();
         if (stage != null) {
@@ -1203,7 +1201,7 @@ public class MainController {
                     };
 
                 // 执行扫描 - 这是阻塞调用，会等待扫描完成
-                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, getInfoDatabase(), progress);
+                getSongDatabase().updateSongDatas(path, config.getBmsroot(), false, progress);
 
                 long elapsed = System.currentTimeMillis() - threadStartTime;
                 Logger.getGlobal().info("================================================================================");

@@ -32,7 +32,6 @@ import bms.player.beatoraja.ir.IRTableData;
 import bms.player.beatoraja.select.bar.*;
 import bms.player.beatoraja.skin.property.EventFactory.EventType;
 import bms.player.beatoraja.song.SongData;
-import bms.player.beatoraja.song.SongInformationAccessor;
 
 /**
  * 楽曲バー管理用クラス
@@ -778,11 +777,7 @@ public final class BarManager {
 					break;
 				}
 			}
-			// loading song information - disabled to avoid UI blocking
-			// final SongInformationAccessor info = main.getInfoDatabase();
-			// if(info != null) {
-			//     info.getInformation(songs);
-			// }
+			// loading song information - no longer needed (info lives in songdata.db)
 			// loading banner
 			// loading stagefile
 			for (Bar bar : bars) {

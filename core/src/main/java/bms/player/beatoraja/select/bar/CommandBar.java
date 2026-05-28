@@ -39,27 +39,13 @@ public class CommandBar extends DirectoryBar {
     @Override
     public Bar[] getChildren() {
     	final MainController main = selector.main;
-        String infoPath = null;
-        if (main.getInfoDatabase() != null) {
-            infoPath = "songinfo.db";
-            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-                infoPath = com.badlogic.gdx.Gdx.files.getLocalStoragePath() + infoPath;
-            }
-        }
         return SongBar.toSongBarArray(main.getSongDatabase().getSongDatas(sql,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db", infoPath));
+        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db"));
     }
 
     public void updateFolderStatus() {
     	final MainController main = selector.main;
-        String infoPath = null;
-        if (main.getInfoDatabase() != null) {
-            infoPath = "songinfo.db";
-            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-                infoPath = com.badlogic.gdx.Gdx.files.getLocalStoragePath() + infoPath;
-            }
-        }
         updateFolderStatus(main.getSongDatabase().getSongDatas(sql,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db", infoPath));
+        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db"));
     }
 }

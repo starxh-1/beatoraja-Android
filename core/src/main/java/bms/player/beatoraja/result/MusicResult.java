@@ -40,7 +40,14 @@ public class MusicResult extends AbstractResult {
 	}
 
 	public void create() {
+		// [DEBUG PROBE] create() 入口，测量进入 result 的总耗时
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeCreateBegin(this);
+
 		Gdx.graphics.setContinuousRendering(true);
+		// [DEBUG PROBE] 记录 continuousRendering 被设置为 true
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeContinuousRenderingState(true);
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("create:after setContinuousRendering");
+
 		// replay存在確認はprepare()に遅延（ファイルIO回避）
 		for(int i = 0;i < REPLAY_SIZE;i++) {
 			saveReplay[i] = ReplayStatus.NOT_EXIST;
@@ -51,16 +58,14 @@ public class MusicResult extends AbstractResult {
 			property = ResultKeyProperty.BEAT_7K;
 		}
 
+		// [DEBUG PROBE] updateScoreDatabase() 前后的计时点
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("create:before updateScoreDatabase");
 		updateScoreDatabase();
-		// リプレイの自動保存
-		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
-			for (int i = 0; i < REPLAY_SIZE; i++) {
-				if (ReplayAutoSaveConstraint.get(resource.getPlayerConfig().getAutoSaveReplay()[i]).isQualified(oldscore,
-						resource.getScoreData())) {
-					saveReplayData(i);
-				}
-			}
-		}
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("create:after updateScoreDatabase");
+
+		// リプレイの自動保存: FIX 已移至 OldScoreLoadThread 中异步执行
+		// oldscore 加载完成后再判断 ReplayAutoSaveConstraint
+
 		// コースモードの場合はリプレイデータをストックする
 		if (resource.getCourseBMSModels() != null) {
 			resource.addCourseReplay(resource.getReplayData());
@@ -69,7 +74,11 @@ public class MusicResult extends AbstractResult {
 
 		gaugeType = resource.getGrooveGauge().getType();
 
+		// [DEBUG PROBE] loadSkin 前后的计时点
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeLoadSkinBegin();
 		loadSkin(SkinType.RESULT);
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeLoadSkinEnd();
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeCreateEnd();
 	}
 
 	public void prepare() {
@@ -167,6 +176,8 @@ public class MusicResult extends AbstractResult {
 	}
 
 	public void render() {
+		// [DEBUG PROBE] 每帧渲染入口 — 检测帧间隔 > 500ms 的冻结
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeRenderFrame();
 		long time = timer.getNowTime();
 		timer.switchTimer(TIMER_RESULTGRAPH_BEGIN, true);
 		timer.switchTimer(TIMER_RESULTGRAPH_END, true);
@@ -257,6 +268,8 @@ public class MusicResult extends AbstractResult {
 			}
 		} else {
 			if (time > getSkin().getScene()) {
+				// [DEBUG PROBE] FADEOUT 计时器启动 — 记录 scene 时间和当前时间
+				// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeFadeoutStart(getSkin().getScene(), time);
 				timer.switchTimer(TIMER_FADEOUT, true);
 				if (getSound(RESULT_CLOSE) != null) {
 					stop(RESULT_CLEAR);
@@ -272,6 +285,12 @@ public class MusicResult extends AbstractResult {
 		super.input();
 		long time = timer.getNowTime();
 		final BMSPlayerInputProcessor inputProcessor = main.getInputProcessor();
+
+		// [DEBUG PROBE] 记录 input 时的状态（state/fadeout/startInput/scoreData）
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeInputState(state,
+		// 	timer.isTimerOn(TIMER_FADEOUT),
+		// 	timer.isTimerOn(TIMER_STARTINPUT),
+		// 	resource.getScoreData() == null);
 
 		if (!timer.isTimerOn(TIMER_FADEOUT) && timer.isTimerOn(TIMER_STARTINPUT)) {
 			if (time > getSkin().getInput()) {
@@ -289,6 +308,8 @@ public class MusicResult extends AbstractResult {
 				}
 
 				if (inputProcessor.isControlKeyPressed(ControlKeys.ESCAPE) || inputProcessor.isControlKeyPressed(ControlKeys.ENTER)) {
+					// [DEBUG PROBE] ESCAPE 或 ENTER 触发退出
+					// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeInputEscape();
 					ok = true;
 				}
 
@@ -347,8 +368,12 @@ public class MusicResult extends AbstractResult {
 	}
 
 	private void updateScoreDatabase() {
+		// [DEBUG PROBE] updateScoreDatabase() 入口计时
+		// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("updateScoreDB:begin");
 		ScoreData newscore = resource.getScoreData();
 		if (newscore == null) {
+			// [DEBUG PROBE] newscore 为 null 直接返回
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("updateScoreDB:newscore null, returning");
 			if (resource.getCourseScoreData() != null) {
 				resource.getCourseScoreData()
 						.setMinbp(resource.getCourseScoreData().getMinbp() + resource.getBMSModel().getTotalNotes());
@@ -356,12 +381,37 @@ public class MusicResult extends AbstractResult {
 			}
 			return;
 		}
-		final ScoreData oldsc = main.getPlayDataAccessor().readScoreData(resource.getBMSModel(),
-				resource.getPlayerConfig().getLnmode());
-		oldscore = oldsc != null ? oldsc : new ScoreData();
 
+		// FIX: 先用默认值填充 oldscore，GL Thread 立即继续
+		// 真正的旧分在 OldScoreLoadThread 中异步加载
+		oldscore = new ScoreData();
 		getScoreDataProperty().setTargetScore(oldscore.getExscore(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0, resource.getBMSModel().getTotalNotes());
 		getScoreDataProperty().update(newscore);
+
+		final boolean isPlayMode = resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY;
+		final int lnMode = resource.getPlayerConfig().getLnmode();
+		final ScoreData newscoreFinal = newscore;
+
+		// FIX: 异步加载旧分，避免 GL Thread 被 DB 锁阻塞
+		new Thread(() -> {
+			// [DEBUG PROBE] readScoreData() 前后的计时点（后台线程中）
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeReadScoreBegin();
+			final ScoreData oldsc = main.getPlayDataAccessor().readScoreData(resource.getBMSModel(), lnMode);
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeReadScoreEnd();
+			oldscore = oldsc != null ? oldsc : new ScoreData();
+			getScoreDataProperty().setTargetScore(oldscore.getExscore(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0, resource.getBMSModel().getTotalNotes());
+			// [DEBUG PROBE] 旧分加载完成，记录 exscore
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("updateScoreDB:oldScore loaded, old exscore=" + oldscore.getExscore());
+
+			// replay 自动保存：需要在 oldscore 加载完成后才能正确判断
+			if (isPlayMode) {
+				for (int i = 0; i < REPLAY_SIZE; i++) {
+					if (ReplayAutoSaveConstraint.get(resource.getPlayerConfig().getAutoSaveReplay()[i]).isQualified(oldscore, newscoreFinal)) {
+						saveReplayData(i);
+					}
+				}
+			}
+		}, "OldScoreLoadThread").start();
 		// duration average - timingDistributionを非同期計算しGLスレッドのブロックを回避
 		avgduration = newscore.getAvgjudge();
 		timingDistribution.init();
@@ -470,7 +520,8 @@ public class MusicResult extends AbstractResult {
 			final int lnModeToSave = resource.getPlayerConfig().getLnmode();
 			final boolean isUpdateScore = resource.isUpdateScore();
 
-			// Run database write in a background thread to prevent UI hangs if SQLite is locked.
+			// [DEBUG PROBE] ScoreWriteThread 启动前的记��点
+			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("updateScoreDB:launching ScoreWriteThread isUpdateScore=" + isUpdateScore);
 			new Thread(() -> {
 				try {
 					main.getPlayDataAccessor().writeScoreData(scoreToSave, modelToSave, lnModeToSave, isUpdateScore);

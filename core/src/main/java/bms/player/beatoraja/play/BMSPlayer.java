@@ -860,8 +860,12 @@ public class BMSPlayer extends MainState {
 					timer.switchTimer(TIMER_FADEOUT, true);
 				}
 				if (timer.getNowTime(TIMER_FADEOUT) > skin.getFadeout()) {
+					// [DEBUG PROBE] BMSPlayer→RESULT 过渡开始
+				// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("bmsp:transition start");
 					main.getAudioProcessor().setGlobalPitch(1f);
 					resource.getBGAManager().stop();
+					// [DEBUG PROBE] BGA 已停止
+				// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("bmsp:bga stopped");
 
 					if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.REPLAY) {
 						resource.setScoreData(createScoreData());
@@ -869,6 +873,8 @@ public class BMSPlayer extends MainState {
 					resource.setCombo(judge.getCourseCombo());
 					resource.setMaxcombo(judge.getCourseMaxcombo());
 					saveConfig();
+					// [DEBUG PROBE] Config 已保存
+				// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("bmsp:config saved");
 					resource.setGauge(gaugelog);
 					resource.setGrooveGauge(gauge);
 					resource.setAssist(assist);
@@ -878,7 +884,11 @@ public class BMSPlayer extends MainState {
 						state = STATE_PRACTICE;
 					} else if (resource.getScoreData() != null) {
 						Logger.getGlobal().info("\"score\": " + resource.getScoreData());
+						// [DEBUG PROBE] 调用 changeState(RESULT)
+					// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("bmsp:changeState RESULT");
 						main.changeState(MainStateType.RESULT);
+						// [DEBUG PROBE] changeState 返回
+					// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("bmsp:changeState returned");
 					} else {
 						if (resource.mediaLoadFinished()) {
 							main.getAudioProcessor().stop((Note) null);

@@ -625,30 +625,23 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 			String pString = imagefile.getPath().replace("\\", "/");
 			exists = com.badlogic.gdx.Gdx.files.internal(pString).exists() || com.badlogic.gdx.Gdx.files.absolute(pString).exists();
 
-			// Android 大小写敏感问题修复：如果文件找不到，尝试忽略大小写查找
+			// Android 大小写敏感问题修复：使用目录文件名缓存，O(1) 查找
 			if (!exists) {
 				java.io.File file = new java.io.File(pString);
 				java.io.File parentDir = file.getParentFile();
 				if (parentDir != null && parentDir.exists()) {
-					String fileName = file.getName();
-					java.io.File[] files = parentDir.listFiles();
-					if (files != null) {
-						for (java.io.File candidate : files) {
-							if (candidate.getName().equalsIgnoreCase(fileName)) {
-								String actualPath = candidate.getAbsolutePath().replace("\\", "/");
-								if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists()) {
-									imagefile = candidate;
-									exists = true;
-									java.util.logging.Logger.getLogger(getClass().getName()).info("Case-insensitive match found: " + pString + " -> " + actualPath);
-									break;
-								}
-								if (com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
-									imagefile = candidate;
-									exists = true;
-									java.util.logging.Logger.getLogger(getClass().getName()).info("Case-insensitive match found: " + pString + " -> " + actualPath);
-									break;
-								}
-							}
+					String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+					if (actualName != null) {
+						java.io.File candidate = new java.io.File(parentDir, actualName);
+						String actualPath = candidate.getAbsolutePath().replace("\\", "/");
+						if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists()) {
+							imagefile = candidate;
+							exists = true;
+							java.util.logging.Logger.getLogger(getClass().getName()).info("Case-insensitive match found: " + pString + " -> " + actualPath);
+						} else if (com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
+							imagefile = candidate;
+							exists = true;
+							java.util.logging.Logger.getLogger(getClass().getName()).info("Case-insensitive match found: " + pString + " -> " + actualPath);
 						}
 					}
 				}
