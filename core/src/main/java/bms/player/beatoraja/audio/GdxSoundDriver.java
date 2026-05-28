@@ -31,6 +31,15 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 	public GdxSoundDriver(Config config) {
 		super(config.getSongResourceGen());
 		channels = 2;
+
+		int sampleRate = config.getAudioConfig().getSampleRate();
+		if (sampleRate == 0) {
+			String prop = System.getProperty("beatoraja.audio.sampleRate");
+			if (prop != null) sampleRate = Integer.parseInt(prop);
+		}
+		if (sampleRate == 0) sampleRate = 44100;
+		setSampleRate(sampleRate);
+
 		for (int i = 0; i < sounds.length; i++) {
 			sounds[i] = new SoundInstance();
 		}

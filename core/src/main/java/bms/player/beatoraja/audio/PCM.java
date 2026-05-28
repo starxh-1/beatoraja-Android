@@ -306,8 +306,7 @@ public abstract class PCM<T> {
                     short[] data = (short[]) decodeMethod.invoke(Gdx.audio, file.path());
                     if (data != null) {
                         channels = 2; // OboeAudio 强制转换为双声道
-                        sampleRate = ((AbstractAudioDriver)driver).getSampleRate(); // 动态获取当前音频驱动采样率
-                        if (sampleRate == 0) sampleRate = 48000; // 兜底
+                        sampleRate = 44100; // Native decoder outputs at 44100Hz
                         bitsPerSample = 16;
                         pcm = getDirectByteBuffer(data.length * 2);
                         pcm.asShortBuffer().put(data);

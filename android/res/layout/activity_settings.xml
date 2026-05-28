@@ -143,45 +143,6 @@
                 android:textSize="14sp" />
         </LinearLayout>
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/sample_rate"
-                    android:textColor="#FFFFFF"
-                    android:textSize="16sp"
-                    android:gravity="center_vertical"/>
-
-                <TextView
-                    android:id="@+id/sampleRateHelp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=" ? "
-                    android:textColor="#4FC3F7"
-                    android:textSize="16sp"
-                    android:padding="4dp"/>
-            </LinearLayout>
-
-            <Spinner
-                android:id="@+id/sampleRateSpinner"
-                android:layout_width="120dp"
-                android:layout_height="48dp"
-                android:background="#333333"/>
-        </LinearLayout>
-
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

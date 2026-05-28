@@ -71,7 +71,6 @@ public class SettingsActivity extends Activity {
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
-    private int selectedSampleRate = 48000;
     private int selectedPollingRate = 1000;
 
     private LinearLayout bmsPathContainer;
@@ -173,7 +172,6 @@ public class SettingsActivity extends Activity {
                 }
                 if (!hasDefault) bmsPaths.add(0, defaultBmsPath);
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
-                selectedSampleRate = findJsonIntValueInSection(json, "audio", "sampleRate", 48000);
                 selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
@@ -444,37 +442,6 @@ public class SettingsActivity extends Activity {
             }
             @Override public void onStartTrackingTouch(android.widget.SeekBar seekBar) {}
             @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
-        });
-
-        // Sample Rate
-        Spinner sampleRateSpinner = findViewById(R.id.sampleRateSpinner);
-        final String[] sampleRateOptions = getResources().getStringArray(R.array.sample_rate_options);
-        ArrayAdapter<String> sampleRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, sampleRateOptions);
-        sampleRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        sampleRateSpinner.setAdapter(sampleRateAdapter);
-        int sampleRateIndex = -1;
-        for (int i = 0; i < sampleRateOptions.length; i++) {
-            if (sampleRateOptions[i].startsWith(String.valueOf(selectedSampleRate))) { sampleRateIndex = i; break; }
-        }
-        sampleRateSpinner.setSelection(sampleRateIndex >= 0 ? sampleRateIndex : (sampleRateOptions.length - 1));
-        sampleRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                try {
-                    selectedSampleRate = Integer.parseInt(sampleRateOptions[position].split(" ")[0]);
-                } catch (Exception e) {
-                    Log.e("SettingsActivity", "Parse sample rate fail: " + sampleRateOptions[position]);
-                }
-            }
-            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-
-        // Sample Rate Help button
-        findViewById(R.id.sampleRateHelp).setOnClickListener(v -> {
-            new android.app.AlertDialog.Builder(this)
-                .setTitle(getString(R.string.sample_rate))
-                .setMessage(getString(R.string.sample_rate_help))
-                .setPositiveButton("OK", null)
-                .show();
         });
 
         // Polling Rate (for non-touch devices only)
@@ -821,7 +788,6 @@ public class SettingsActivity extends Activity {
             audio.put("systemvolume", String.format("%.2f", selectedVolume / 100f));
             audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
-            audio.put("sampleRate", selectedSampleRate);
             config.put("audio", audio);
             config.put("showAudioSpectrum", showAudioSpectrum);
             config.put("inputPollingRate", selectedPollingRate);
@@ -1142,14 +1108,6 @@ public class SettingsActivity extends Activity {
         selectedAutoSaveReplay[3] = ((Spinner) findViewById(R.id.autoSaveReplay4)).getSelectedItemPosition();
         try { selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString()); } catch (Exception ignored) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
-        String sr = (String) ((Spinner) findViewById(R.id.sampleRateSpinner)).getSelectedItem();
-        if (sr != null) {
-            try {
-                selectedSampleRate = Integer.parseInt(sr.split(" ")[0]);
-            } catch (Exception e) {
-                Log.e("SettingsActivity", "Parse sample rate fail from UI: " + sr);
-            }
-        }
         String pr = (String) ((Spinner) findViewById(R.id.pollingRateSpinner)).getSelectedItem();
         if (pr != null) {
             try {

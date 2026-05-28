@@ -43,13 +43,12 @@ public class AndroidLauncher extends AndroidApplication {
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
     private OboeAudio oboeAudio;
-    private int mSampleRate = 48000;
     private String mLanguage = "en";
 
     @Override
     public AndroidAudio createAudio(Context context, AndroidApplicationConfiguration config) {
         try {
-            oboeAudio = new OboeAudio(context.getAssets(), mSampleRate);
+            oboeAudio = new OboeAudio(context.getAssets(), 44100);
             Log.i(TAG, "OboeAudio initialized successfully (FFT spectrum enabled)");
 
             // Set up spectrum provider adapter
@@ -235,22 +234,6 @@ public class AndroidLauncher extends AndroidApplication {
                             }
                         }
                         if (!paths.isEmpty()) bmsrootFromConfig = paths.toArray(new String[0]);
-                    }
-                }
-
-                // Parse audio.sampleRate
-                int audioIndex = content.indexOf("\"audio\"");
-                if (audioIndex >= 0) {
-                    int sampleRateIndex = content.indexOf("\"sampleRate\"", audioIndex);
-                    if (sampleRateIndex >= 0) {
-                        int colonIndex = content.indexOf(":", sampleRateIndex);
-                        if (colonIndex >= 0) {
-                            int start = colonIndex + 1;
-                            while (start < content.length() && (content.charAt(start) == ' ' || start < content.length() && content.charAt(start) == '"')) start++;
-                            int end = start;
-                            while (end < content.length() && content.charAt(end) >= '0' && content.charAt(end) <= '9') end++;
-                            if (end > start) mSampleRate = Integer.parseInt(content.substring(start, end));
-                        }
                     }
                 }
             }

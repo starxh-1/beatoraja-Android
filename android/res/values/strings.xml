@@ -7,8 +7,6 @@
     <string name="system_volume">System Volume</string>
     <string name="key_volume">Key Volume</string>
     <string name="bgm_volume">BGM Volume</string>
-    <string name="sample_rate">Sample Rate</string>
-    <string name="sample_rate_help">Sample Rate: The number of times per second that an audio device samples an analog signal. In BMS, due to various legacy issues and inconsistent music production standards, different BMS files use different audio sample rates (currently mainly 44100Hz and 48000Hz). A lower sample rate reduces CPU load but may cause audio quality loss. If you are unsure about what this option means, please keep the default.</string>
     <string name="section_player">Player</string>
     <string name="select_player">Select Player</string>
     <string name="new_player">+ New Player</string>
@@ -36,13 +34,6 @@
         <item>English</item>
         <item>简体中文</item>
         <item>日本語</item>
-    </string-array>
-
-    <string-array name="sample_rate_options">
-        <item>32000</item>
-        <item>36000</item>
-        <item>44100</item>
-        <item>48000 (default)</item>
     </string-array>
 
     <string-array name="bga_display_options">

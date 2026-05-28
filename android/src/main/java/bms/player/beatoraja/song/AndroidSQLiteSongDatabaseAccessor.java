@@ -30,7 +30,6 @@ import bms.model.BMSModel;
 import bms.model.BMSONDecoder;
 import bms.player.beatoraja.song.SongData;
 import bms.player.beatoraja.song.FolderData;
-import bms.player.beatoraja.song.SongInformationAccessor;
 import bms.player.beatoraja.Validatable;
 
 /**
@@ -55,9 +54,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
     // CRC计算用的 root 路径（对应原版的 Paths.get(".").toString()）
     private final String rootpath = "";
-
-    // SongInformationAccessor for info.update() calls
-    private SongInformationAccessor info;
 
     public AndroidSQLiteSongDatabaseAccessor(Context context, String dbPath, String[] bmsroot) {
         Log.i(TAG, "AndroidSQLiteSongDatabaseAccessor constructor, dbPath: " + dbPath);
@@ -220,7 +216,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     @Override
-    public SongData[] getSongDatas(String sql, String score, String scorelog, String info) {
+    public SongData[] getSongDatas(String sql, String score, String scorelog) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
 
@@ -527,16 +523,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     @Override
-    public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info) {
-        updateSongDatas(updatepath, bmsroot, updateAll, info, null);
+    public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll) {
+        updateSongDatas(updatepath, bmsroot, updateAll, (SongScanProgress) null);
     }
 
     @Override
-    public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongInformationAccessor info, SongScanProgress progress) {
-        this.info = info;
-        if (info != null) {
-            info.startUpdate();
-        }
+    public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongScanProgress progress) {
         if (updatepath != null) {
             updateSongDatas(new String[]{updatepath}, updateAll, progress);
         } else {
@@ -765,14 +757,9 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } catch (Throwable t) {
             Log.e(TAG, "updateSongDatas failed", t);
         } finally {
-            // 确保最后的 checkpoint
             try {
                 db.execSQL("PRAGMA wal_checkpoint(FULL)");
             } catch (Throwable ignored) {}
-            // 对应原版: info.endUpdate()
-            if (info != null) {
-                info.endUpdate();
-            }
         }
     }
 
@@ -887,10 +874,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         try {
             for (DecodeResult result : results) {
                 insertSongData(result.songData, db);
-                // 更新 SongInformation (对应原版 info.update(model))
-                if (info != null && result.model != null) {
-                    info.update(result.model);
-                }
             }
             db.setTransactionSuccessful();
         } catch (Throwable t) {
@@ -907,29 +890,23 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         long writeElapsed = System.currentTimeMillis() - writeStart;
         long totalElapsed = System.currentTimeMillis() - startTime;
         Log.i(TAG, "updateSongDatasParallel: Phase3 wrote " + results.size() + " songs in " + writeElapsed + "ms, total: " + totalElapsed + "ms");
-    }
 
-    /**
-     * 计算目录下 BMS 文件总数（轻量预扫描）
-     */
-    private int countBmsFiles(FileHandle folder) {
-        int count = 0;
+        long infoStart = System.currentTimeMillis();
+        int infoCount = 0;
+        db.beginTransaction();
         try {
-            if (!folder.exists() || !folder.isDirectory()) return 0;
-            FileHandle[] children = folder.list();
-            if (children == null) return 0;
-
-            for (FileHandle child : children) {
-                if (child.isDirectory()) {
-                    count += countBmsFiles(child);
-                } else if (isBmsFile(child.name().toLowerCase())) {
-                    count++;
+            for (DecodeResult result : results) {
+                if (result.model != null) {
+                    insertInformation(new bms.player.beatoraja.song.SongInformation(result.model), db);
+                    infoCount++;
                 }
             }
-        } catch (Exception e) {
-            Log.w(TAG, "countBmsFiles: Failed to scan " + folder.path(), e);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
-        return count;
+        long infoElapsed = System.currentTimeMillis() - infoStart;
+        Log.i(TAG, "updateSongDatasParallel: Phase4 wrote " + infoCount + " SongInformation rows in " + infoElapsed + "ms");
     }
 
     /**
@@ -958,6 +935,29 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     /**
+     * 计算目录下 BMS 文件总数（轻量预扫描）
+     */
+    private int countBmsFiles(FileHandle folder) {
+        int count = 0;
+        try {
+            if (!folder.exists() || !folder.isDirectory()) return 0;
+            FileHandle[] children = folder.list();
+            if (children == null) return 0;
+
+            for (FileHandle child : children) {
+                if (child.isDirectory()) {
+                    count += countBmsFiles(child);
+                } else if (isBmsFile(child.name().toLowerCase())) {
+                    count++;
+                }
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "countBmsFiles: Failed to scan " + folder.path(), e);
+        }
+        return count;
+    }
+
+    /**
      * 并行解码时的结果包装类
      */
     private static class DecodeResult {
@@ -965,6 +965,12 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         FileHandle file;
         int lastModified;
         BMSModel model;
+
+        DecodeResult(SongData songData, FileHandle file, int lastModified) {
+            this.songData = songData;
+            this.file = file;
+            this.lastModified = lastModified;
+        }
 
         DecodeResult(SongData songData, FileHandle file, int lastModified, BMSModel model) {
             this.songData = songData;
@@ -1034,16 +1040,29 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
-            // 更新 SongInformation (对应原版 info.update(model))
-            if (info != null) {
-                info.update(model);
-            }
-
             return new DecodeResult(songData, file, lastModifiedTime, model);
         } catch (Exception e) {
             Log.w(TAG, "processBmsFileParallel: Failed " + (file != null ? file.path() : "null"), e);
             return null;
         }
+    }
+
+    private void insertInformation(bms.player.beatoraja.song.SongInformation info, SQLiteDatabase db) {
+        ContentValues cv = new ContentValues();
+        cv.put("sha256", info.getSha256());
+        cv.put("n", info.getN());
+        cv.put("ln", info.getLn());
+        cv.put("s", info.getS());
+        cv.put("ls", info.getLs());
+        cv.put("total", info.getTotal());
+        cv.put("density", info.getDensity());
+        cv.put("peakdensity", info.getPeakdensity());
+        cv.put("enddensity", info.getEnddensity());
+        cv.put("mainbpm", info.getMainbpm());
+        cv.put("distribution", info.getDistribution());
+        cv.put("speedchange", info.getSpeedchange());
+        cv.put("lanenotes", info.getLanenotes());
+        db.insertWithOnConflict("information", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
     /**
@@ -1409,10 +1428,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 plugin.update(model, songData);
             }
 
-            // 更新 SongInformation (对应原版 info.update(model))
-            if (info != null) {
-                info.update(model);
-            }
+            // 更新 SongInformation
+            insertInformation(new bms.player.beatoraja.song.SongInformation(model), db);
 
             songData.setDate((int) lastModifiedTime);
             long currentTime = System.currentTimeMillis() / 1000;
@@ -1592,71 +1609,23 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             System.out.println("Table Created: folder");
             Log.i(TAG, "Table Created: folder");
 
-            // information table - stores clear status information
+            // information table - stores BMS analysis (density, BPM, note distribution)
             db.execSQL("CREATE TABLE IF NOT EXISTS information ("
-                    + "sha256 TEXT, "
-                    + "mode INTEGER, "
-                    + "level INTEGER, "
-                    + "clear INTEGER, "
-                    + "epclear INTEGER, "
-                    + "bpclear INTEGER, "
-                    + "noplay INTEGER, "
-                    + "failed INTEGER, "
-                    + "assist INTEGER, "
-                    + "easy INTEGER, "
-                    + "normal INTEGER, "
-                    + "hard INTEGER, "
-                    + "exhard INTEGER, "
-                    + "fc INTEGER, "
-                    + "perfect INTEGER"
-                    + ", PRIMARY KEY (sha256))");
+                    + "sha256 TEXT PRIMARY KEY, "
+                    + "n INTEGER, "
+                    + "ln INTEGER, "
+                    + "s INTEGER, "
+                    + "ls INTEGER, "
+                    + "total REAL, "
+                    + "density REAL, "
+                    + "peakdensity REAL, "
+                    + "enddensity REAL, "
+                    + "mainbpm REAL, "
+                    + "distribution TEXT, "
+                    + "speedchange TEXT, "
+                    + "lanenotes TEXT)");
             System.out.println("Table Created: information");
             Log.i(TAG, "Table Created: information");
-
-            // score table - stores best score information
-            db.execSQL("CREATE TABLE IF NOT EXISTS score ("
-                    + "sha256 TEXT, "
-                    + "playcount INTEGER, "
-                    + "clear INTEGER, "
-                    + "score INTEGER, "
-                    + "exscore INTEGER, "
-                    + "maxcombo INTEGER, "
-                    + "minbp INTEGER, "
-                    + "perfect INTEGER, "
-                    + "great INTEGER, "
-                    + "good INTEGER, "
-                    + "bad INTEGER, "
-                    + "poor INTEGER, "
-                    + "totalnotes INTEGER, "
-                    + "fast INTEGER, "
-                    + "slow INTEGER, "
-                    + "date INTEGER, "
-                    + "log TEXT, "
-                    + "hash TEXT)");
-            System.out.println("Table Created: score");
-            Log.i(TAG, "Table Created: score");
-
-            // scorelog table - stores score history
-            db.execSQL("CREATE TABLE IF NOT EXISTS scorelog ("
-                    + "sha256 TEXT, "
-                    + "date INTEGER, "
-                    + "clear INTEGER, "
-                    + "score INTEGER, "
-                    + "exscore INTEGER, "
-                    + "maxcombo INTEGER, "
-                    + "minbp INTEGER, "
-                    + "perfect INTEGER, "
-                    + "great INTEGER, "
-                    + "good INTEGER, "
-                    + "bad INTEGER, "
-                    + "poor INTEGER, "
-                    + "totalnotes INTEGER, "
-                    + "fast INTEGER, "
-                    + "slow INTEGER, "
-                    + "option INTEGER, "
-                    + "option2 INTEGER)");
-            System.out.println("Table Created: scorelog");
-            Log.i(TAG, "Table Created: scorelog");
 
             Log.i(TAG, "DBHelper onCreate: All tables created successfully");
         }
