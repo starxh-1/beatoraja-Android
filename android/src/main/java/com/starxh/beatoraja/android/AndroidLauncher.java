@@ -253,6 +253,16 @@ public class AndroidLauncher extends AndroidApplication {
         setupHighRefreshRate();
         inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 
+        // VSync 相位同步：使用 Choreographer 定时向 MainController 发送 VSync 时间戳，
+        // 从而将应用层的绝对时间帧率控制与系统 VSync 锁定。
+        android.view.Choreographer.getInstance().postFrameCallback(new android.view.Choreographer.FrameCallback() {
+            @Override
+            public void doFrame(long frameTimeNanos) {
+                bms.player.beatoraja.MainController.setLastVsyncTimeNanos(frameTimeNanos);
+                android.view.Choreographer.getInstance().postFrameCallback(this);
+            }
+        });
+
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
         Gdx.input.setCatchKey(Keys.BACK, true);

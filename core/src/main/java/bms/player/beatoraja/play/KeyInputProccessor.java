@@ -76,11 +76,9 @@ class KeyInputProccessor {
 			final int timerOn = SkinPropertyMapper.keyOnTimerId(laneProperty.getLanePlayer()[lane], offset);
 			final int timerOff = SkinPropertyMapper.keyOffTimerId(laneProperty.getLanePlayer()[lane], offset);
 			if (pressed) {
-				if(!isJudgeStarted || player.resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY) {
-					if (!player.timer.isTimerOn(timerOn) || scratch) {
-						player.timer.setTimerOn(timerOn);
-						player.timer.setTimerOff(timerOff);
-					}
+				if (!player.timer.isTimerOn(timerOn) || scratch) {
+					player.timer.setTimerOn(timerOn);
+					player.timer.setTimerOff(timerOff);
 				}
 			} else {
 				if (player.timer.isTimerOn(timerOn)) {

@@ -361,28 +361,20 @@ if (doFrameLimit) {
 - 绝对时间对齐避免逐帧累积误差（传统"每帧 sleep(剩余时间)"会导致 120fps 实际跑成 123fps）
 - 3 阶段策略平衡 CPU 节省与精度
 - Android 平台跳过 busy-wait，避免 GL 线程忙等时 GPU 驱动线程得不到 CPU 时间
+- **VSync 相位锁定**: 通过 `Choreographer` 获取 VSync 时间戳并微调 `nextFrameTimeNanos`，确保应用渲染节奏与显示器刷新相位同步，消除微卡顿。
 
-**设计局限与潜在问题**:
+**多级刷新率管理的一致性**:
+`Config.audioFramePerSecond` (30/60)、`AndroidLauncher.maxRefreshRate` (硬件最大值)、`MainController.currentTargetFPS` (界面策略值)、`Config.maxFramePerSecond` (用户可配置值) — 这些值已通过 `updateFrameRateAPI` 和相位对齐逻辑实现统一调度。
 
-1. **无真正的 VSync 同步**: 当前方案是"等够时间就渲染"，不感知显示器的实际刷新相位（即不知道 VSync 信号何时到来）。在 Android 上，SurfaceFlinger 负责合成，它会按自己的节奏采样渲染结果。如果应用层帧提交时间与 SurfaceFlinger 合成节奏不同步，会出现**周期性微卡顿（micro-stutter/judder）**
+### 6.3 与 Android Choreographer 的集成
 
-2. **与 SurfaceFlinger 的竞态**: `Surface.setFrameRate()` 告诉 SurfaceFlinger 期望的帧率，但 SurfaceFlinger 不会主动通知应用"什么时候该渲染"。应用仍然按自己的时钟运行，二者之间缺乏相位锁定
+Android 原生应用通过 `Choreographer.postFrameCallback()` 获得 VSync 对齐的回调。beatoraja-Android 采用了**混合模式**：
 
-3. **多级刷新率管理的不一致性**: `Config.audioFramePerSecond` (30/60)、`AndroidLauncher.maxRefreshRate` (硬件最大值)、`MainController.currentTargetFPS` (界面策略值)、`Config.maxFramePerSecond` (用户可配置值) — 四个值可能不同步
+1. **AndroidLauncher** 启动一个持久的 `Choreographer` 回调循环，将最新的 VSync 纳秒时间戳同步给 `MainController`。
+2. **MainController** 在手动帧率控制逻辑中，计算 `nextFrameTimeNanos` 与 `lastVsyncTimeNanos` 的偏差。
+3. **相位修正**: 将 `nextFrameTimeNanos` 强制对齐到最近的 `lastVsyncTimeNanos + N * intervals` 位置。
 
-### 6.3 与 Android Choreographer 对比
-
-Android 原生应用通过 `Choreographer.postFrameCallback()` 获得 VSync 对齐的回调：
-
-```
-Choreographer: VSync → doFrame(timestamp) → 渲染 → swapBuffers
-当前方案:     sleep/parkNanos → 渲染 → swapBuffers → (不定时提交)
-```
-
-**潜在改进方向**:
-- 集成 `Choreographer` 获取 VSync 时间戳，将 `nextFrameTimeNanos` 对齐到 VSync 相位
-- 或者在 `swapBuffers` 后读取真实的 swap 完成时间微调下一帧目标
-- libGDX 内部已使用 `Choreographer` 驱动 `render()` 调用（通过 `AndroidGraphics`），但因 `config.useContinuousRendering = true` + `config.vsync = false`，该信号未被用于帧率控制
+**效果**: 既保留了 libGDX 灵活的渲染循环和高精度输入采样，又获得了原生级别的 VSync 稳定性。
 
 ### 6.4 帧率控制数据流
 
@@ -446,6 +438,7 @@ Choreographer: VSync → doFrame(timestamp) → 渲染 → swapBuffers
 | KeepAlive 伪触摸 | `AndroidLauncher.keepAliveRunnable` | 防止系统降频 |
 | 持续性能模式 | `AndroidLauncher.setupSustainedPerformance()` | `setSustainedPerformanceMode(true)` |
 | 绝对时间对齐帧率控制 | `MainController.render()` | 消除帧率漂移 |
+| VSync 相位锁定 | `MainController.render()` + `Choreographer` | 消除与 SurfaceFlinger 不同步导致的微卡顿 |
 | 32位设备 30FPS 策略 | `MainController.changeState()` | 降低低端 GPU 负载 |
 
 #### 7.1.4 渲染批次优化
@@ -475,8 +468,6 @@ Choreographer: VSync → doFrame(timestamp) → 渲染 → swapBuffers
 
 | 问题 | 影响 | 建议 |
 |------|------|------|
-| **无 VSync 相位锁定** | 应用帧提交与 SurfaceFlinger 合成节奏不同步，可能出现周期性 micro-stutter | 集成 `Choreographer.postFrameCallback()` 获取 VSync 时间戳，将 `nextFrameTimeNanos` 对齐到最近的 VSync 时刻 |
-| **`config.vsync` 在 Android 无效果** | `Config.vsync` 字段在桌面端控制 libGDX `config.vSyncEnabled`，但 Android 端未使用 | 可以映射为"是否启用 Choreographer 对齐模式" |
 | **帧率突变** | 状态切换时 `targetFPS` 从 30 → 120 → 1000 的突变可能导致瞬时的帧节奏不均匀 | 使用帧率渐变（ramp up/down），或至少在下一次 VSync 信号时再切换 |
 | **Surface frame rate API 与渲染线程不同步** | `updateFrameRateAPI()` 在 `changeState()` 中调用（渲染线程），但 `setupSurfaceFrameRate()` 在 `postDelayed` 中调用（主线程），两者可能存在竞态 | 统一在单一位置管理 frame rate，使用 `AtomicInteger` 存储 targetFPS |
 

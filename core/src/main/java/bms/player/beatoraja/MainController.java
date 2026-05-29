@@ -593,6 +593,11 @@ public class MainController {
      */
     private long nextFrameTimeNanos = 0;
 
+    /** 记录来自 Android Choreographer 的最新 VSync 时间戳（纳秒） */
+    private static volatile long lastVsyncTimeNanos = 0;
+    /** 供 AndroidLauncher 调用，同步 VSync 相位 */
+    public static void setLastVsyncTimeNanos(long time) { lastVsyncTimeNanos = time; }
+
     // ─── 等比视口参数 ───
     // Android 端屏幕宽高比通常不是 16:9（如 2400x1080 = 20:9），
     // 直接全屏渲染会拉伸画面。以下字段存储每帧计算的等比视口位置，
@@ -929,6 +934,15 @@ public class MainController {
                 nextFrameTimeNanos = now + frameIntervalNanos;
             } else {
                 nextFrameTimeNanos += frameIntervalNanos;
+            }
+
+            // ─── Android VSync 相位对齐 ───
+            // 将 nextFrameTimeNanos 对齐到来自 Choreographer 的 VSync 信号相位。
+            // 这样应用提交帧的节奏与 SurfaceFlinger 合成节奏保持锁定，消除周期性微卡顿。
+            if (isAndroid && lastVsyncTimeNanos != 0) {
+                long diff = nextFrameTimeNanos - lastVsyncTimeNanos;
+                long intervals = Math.round((double) diff / frameIntervalNanos);
+                nextFrameTimeNanos = lastVsyncTimeNanos + intervals * frameIntervalNanos;
             }
 
             long remaining = nextFrameTimeNanos - System.nanoTime();

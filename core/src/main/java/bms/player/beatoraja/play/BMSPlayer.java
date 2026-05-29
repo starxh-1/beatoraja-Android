@@ -1073,9 +1073,19 @@ public class BMSPlayer extends MainState {
 		if (timer.isTimerOn(TIMER_FAILED) || timer.isTimerOn(TIMER_FADEOUT)) {
 			return;
 		}
+		// AUTOPLAY按ESCAPE时，直接取消，不显示finish
+		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY) {
+			state = STATE_FAILED;
+			timer.setTimerOn(TIMER_FAILED);
+			if (resource.mediaLoadFinished()) {
+				main.getAudioProcessor().stop((Note) null);
+			}
+			play(PLAY_STOP);
+			Logger.getGlobal().info("AUTOPLAY ESCAPE: STATE_FAILEDに移行");
+			return;
+		}
 		if (state != STATE_FINISHED &&
-				(judge.getPastNotes() == resource.getSongdata().getNotes()
-				|| resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY)) {
+				judge.getPastNotes() == resource.getSongdata().getNotes()) {
 			state = STATE_FINISHED;
 			timer.setTimerOn(TIMER_PLAY_NOTE_END);
 			timer.switchTimer(TIMER_ENDOFNOTE_1P, true);

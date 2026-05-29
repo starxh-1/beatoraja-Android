@@ -169,16 +169,7 @@ libgdx-oboe.zip
 /android/assets/inochi_ogg/
 /android/assets/sound/*.ogg
 
-/*.txt
-/*.png
-/*.jpg
-/*.jpeg
-/*.gif
-/*.bmp
-/*.webp
-*./png
-*./jpg
-*./jpeg
-*./gif
-*./bmp
-*./webp
+# Ignore upstream libs and debug files (before /*.txt so they stay ignored)
+upstream-libgdx-oboe/
+debugforai.txt
+audio-rate-lock-plan.md

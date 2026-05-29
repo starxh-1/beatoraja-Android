@@ -185,6 +185,13 @@ public class SideSpectrumRenderer {
     private void renderInBlackBars(float[] spectrum, float[] topValues, int w, int h, boolean hasRealData) {
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
+
+        // blackBarW <= 0 表示屏幕比例宽于16:9（如16:10），使用垂直排列填充上下黑边
+        if (blackBarW <= 0) {
+            renderVerticalInBlackBars(spectrum, topValues, w, h, hasRealData);
+            return;
+        }
+
         float maxBarW = Math.min(w * 0.09f, blackBarW);
 
         float totalHeight = h * 0.8f;
@@ -197,6 +204,57 @@ public class SideSpectrumRenderer {
             float y = baseY + (32 - i) * barH;
             drawHorizontalBarLeft(i, y, maxBarW, barThickness, barColor, blackBarW);
             drawHorizontalBarRight(32 + i, y, maxBarW, barThickness, barColor, blackBarW);
+        }
+    }
+
+    // 垂直排列渲染（用于无黑边的宽屏如16:10）
+    private void renderVerticalInBlackBars(float[] spectrum, float[] topValues, int w, int h, boolean hasRealData) {
+        float gameW = h * (1920f / 1080f);
+        float topBarH = (h - gameW) / 2f;  // 上黑边高度
+        float bottomBarH = topBarH;        // 下黑边高度
+
+        float barW = w / 64f;  // 64个band平分宽度，每边32个
+        float barThickness = barW * 0.7f;
+        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+
+        // 在上黑边绘制垂直条形图（从下向上延伸）
+        for (int i = 0; i < 32; i++) {
+            float x = i * barW;
+            float val = spectrum[31 - i];  // 频谱从低到高排列
+            float top = topValues[31 - i];
+
+            float barHeight = Math.min(val * topBarH * 0.85f, topBarH - 4);
+            float topHeight = Math.min(top * topBarH * 0.85f, topBarH - 4);
+
+            // 频谱条从黑边底部向上延伸
+            shapeRenderer.setColor(barColor);
+            shapeRenderer.rect(x + (barW - barThickness) / 2, h - topBarH + 4, barThickness, barHeight);
+
+            // 顶部高亮
+            if (topHeight > 2) {
+                shapeRenderer.setColor(Color.WHITE);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, h - topBarH + 4 + barHeight - 2, barThickness, 2);
+            }
+        }
+
+        // 在下黑边绘制垂直条形图（从上向下延伸）
+        for (int i = 0; i < 32; i++) {
+            float x = w - (32 - i) * barW;  // 从右往左
+            float val = spectrum[32 + i];   // 右声道
+            float top = topValues[32 + i];
+
+            float barHeight = Math.min(val * bottomBarH * 0.85f, bottomBarH - 4);
+            float topHeight = Math.min(top * bottomBarH * 0.85f, bottomBarH - 4);
+
+            // 频谱条从黑边顶部向下延伸
+            shapeRenderer.setColor(barColor);
+            shapeRenderer.rect(x + (barW - barThickness) / 2, 0, barThickness, barHeight);
+
+            // 顶部高亮
+            if (topHeight > 2) {
+                shapeRenderer.setColor(Color.WHITE);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, 0, barThickness, 2);
+            }
         }
     }
 
