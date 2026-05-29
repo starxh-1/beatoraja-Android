@@ -865,7 +865,7 @@ public class BMSPlayer extends MainState {
 			case STATE_FINISHED -> {
 				keyinput.stopJudge();
 				keysound.stopBGPlay();
-				if (timer.getNowTime(TIMER_PLAY_NOTE_END) > skin.getFinishMargin()) {
+				if (timer.getNowTime(TIMER_PLAY_NOTE_END) > 0) {
 					timer.switchTimer(TIMER_FADEOUT, true);
 				}
 				if (timer.getNowTime(TIMER_FADEOUT) > skin.getFadeout()) {
