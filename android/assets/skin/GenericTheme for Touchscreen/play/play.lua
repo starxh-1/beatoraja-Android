@@ -1748,7 +1748,7 @@ local function main(keysNumber)
 			local nextrank_x = scoregraph_rightend_x - num_w * 5 - rank_text_w
 			local function nextrank(id, op)
 				append_all(skin.destination, {
-					{id = id, op = op, filter = 1, timer = 143, dst = {
+					{id = id, op = op, filter = 1, timer = 909, dst = {
 						{x = nextrank_x, y = nextrank_y, w = rank_text_w, h = h}
 					}}
 				})
@@ -1762,7 +1762,7 @@ local function main(keysNumber)
 			nextrank("text_rank_aaa", {221, -220})
 			nextrank("text_rank_max", {220})
 			append_all(skin.destination, {
-				{id = "text_nextrank_minus", filter = 1, timer = 143, dst = {
+				{id = "text_nextrank_minus", filter = 1, timer = 909, dst = {
 					{x = nextrank_x + rank_text_w, y = nextrank_y, w = num_w, h = h}
 				}},
 			})
@@ -1774,7 +1774,7 @@ local function main(keysNumber)
 				{id = "diff_target", filter = 1, dst = {
 					{x = num_x, y = target_y, w = num_w, h = h}
 				}},
-				{id = "diff_nextrank", filter = 1, timer = 143, dst = {
+				{id = "diff_nextrank", filter = 1, timer = 909, dst = {
 					{x = num_x + num_w, y = nextrank_y, w = num_w, h = h}
 				}},
 			})
@@ -2506,7 +2506,7 @@ local function main(keysNumber)
 					{time = 500},
 					{time = 1000, x = ready_y - 40, a = 0}
 				}},
-				{id = "image_finish", timer = 143,
+				{id = "image_finish", timer = 909,
 					draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
 					-- 透明から現れて横长に消える
 					{time = 0, x = finish_y, y = y, w = w, h = h, a = 0, angle = angle, cx = cx, cy = cy},
@@ -2527,7 +2527,7 @@ local function main(keysNumber)
 					{time = 500},
 					{time = 1000, y = ready_y - 40, a = 0}
 				}},
-				{id = "image_finish", timer = 143,
+				{id = "image_finish", timer = 909,
 					draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
 					-- 透明から現れて横長に消える
 					{time = 0, x = x, y = finish_y, w = w, h = h, a = 0},
