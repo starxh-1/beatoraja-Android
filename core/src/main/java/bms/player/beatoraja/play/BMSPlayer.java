@@ -761,6 +761,7 @@ public class BMSPlayer extends MainState {
 				if (playtime < ptime) {
 					state = STATE_FINISHED;
 					timer.setTimerOn(TIMER_PLAY_NOTE_END);
+					timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 					for(int i = TIMER_PM_CHARA_1P_NEUTRAL; i <= TIMER_PM_CHARA_2P_BAD; i++) {
 						timer.setTimerOff(i);
 					}
@@ -1069,6 +1070,7 @@ public class BMSPlayer extends MainState {
 				|| resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY)) {
 			state = STATE_FINISHED;
 			timer.setTimerOn(TIMER_PLAY_NOTE_END);
+			timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 			Logger.getGlobal().info("STATE_FINISHEDに移行");
 		} else if(state == STATE_FINISHED && !timer.isTimerOn(TIMER_FADEOUT)) {
 			timer.setTimerOn(TIMER_FADEOUT);
