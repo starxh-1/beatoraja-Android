@@ -44,6 +44,15 @@ public class BMSPlayer extends MainState {
 	private int playtime;
 
 	/**
+	 * 最后一个音符结束后的音频尾部时长（ms）
+	 */
+	private int maxTailMs;
+
+	public int getMaxTailMs() {
+		return maxTailMs;
+	}
+
+	/**
 	 * キー入力用スレッド
 	 */
 	private KeyInputProccessor keyinput;
@@ -77,8 +86,7 @@ public class BMSPlayer extends MainState {
 	 */
 	private PlayConfig replayConfig;
 
-	int TIME_MARGIN = 5000;
-
+	
 	private int state = STATE_PRELOAD;
 
 	public static final int STATE_PRELOAD = 0;
@@ -103,7 +111,6 @@ public class BMSPlayer extends MainState {
 		this.model = resource.getBMSModel();
 		BMSPlayerMode autoplay = resource.getPlayMode();
 		PlayerConfig config = resource.getPlayerConfig();
-		TIME_MARGIN = resource.getConfig().getKeySoundTailMs();
 
 		playinfo.randomoption = config.getRandom();
 		playinfo.randomoption2 = config.getRandom2();
@@ -212,8 +219,8 @@ public class BMSPlayer extends MainState {
 		final int lastTimeMs = autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY
 				? model.getLastTime() : model.getLastNoteTime();
 
-		// 检查 notes 的 WAV 时长，确保曲终时音频播放完整
-		int maxTailMs = 0;
+		// 计算音频尾部时长（检查所有notes的WAV时长）
+		maxTailMs = 0;
 		{
 			final String[] wavlist = model.getWavList();
 			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
@@ -263,8 +270,8 @@ public class BMSPlayer extends MainState {
 				}
 			}
 		}
-		// 移除固定的 5 秒缓冲，改用测得的音频尾部时长，保底留 1 秒让声音自然结束
-		playtime = lastTimeMs + Math.max(1000, maxTailMs);
+		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束
+		playtime = lastTimeMs + Math.max(5000, maxTailMs);
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {
@@ -695,7 +702,9 @@ public class BMSPlayer extends MainState {
 					judge.init(model, resource);
 					skin.pomyu.init();
 					starttimeoffset = (property.starttime > 1000 ? property.starttime - 1000 : 0) * 100 / property.freq;
-					playtime = (property.endtime + 1000) * 100 / property.freq + TIME_MARGIN;
+					// Practice模式也使用动态tail：最后一note结束后留500ms（若maxTailMs > 500则用maxTailMs）
+					int practiceTail = Math.max(5000, maxTailMs);
+					playtime = (property.endtime + practiceTail) * 100 / property.freq;
 					bga.prepare(this);
 					state = STATE_READY;
 					timer.setTimerOn(TIMER_READY);
@@ -758,7 +767,7 @@ public class BMSPlayer extends MainState {
 					timer.setTimerOff(TIMER_PM_CHARA_DANCE);
 
 					Logger.getGlobal().info("STATE_FINISHEDに移行");
-				} else if(playtime - TIME_MARGIN < ptime) {
+				} else if(playtime - 1000 < ptime) {
 					timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 				}
 				// stage failed判定
@@ -1059,7 +1068,7 @@ public class BMSPlayer extends MainState {
 				(judge.getPastNotes() == resource.getSongdata().getNotes()
 				|| resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY)) {
 			state = STATE_FINISHED;
-			timer.setTimerOn(TIMER_FADEOUT);
+			timer.setTimerOn(TIMER_MUSIC_END);
 			Logger.getGlobal().info("STATE_FINISHEDに移行");
 		} else if(state == STATE_FINISHED && !timer.isTimerOn(TIMER_FADEOUT)) {
 			timer.setTimerOn(TIMER_FADEOUT);

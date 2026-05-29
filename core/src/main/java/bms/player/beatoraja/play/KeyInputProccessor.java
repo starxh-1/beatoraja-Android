@@ -163,7 +163,7 @@ class KeyInputProccessor {
 			long frametime = 1;
 			final BMSPlayerInputProcessor input = player.main.getInputProcessor();
 			final JudgeManager judge = player.getJudgeManager();
-			final long lasttime = timelines[timelines.length - 1].getMicroTime() + player.TIME_MARGIN * 1000;
+			final long lasttime = timelines[timelines.length - 1].getMicroTime() + player.getMaxTailMs() * 1000;
 
 			// 使用配置的输入轮询频率
 			final int pollRate = player.main.getConfig().getInputPollingRate();

@@ -57,18 +57,18 @@ public class BGAProcessor {
 	 */
 	private int playinglayerid = -1;
 	/**
+	 * 再生中のミスレイヤーBGA ID
+	 */
+	private int playingmissbgaid = -1;
+	/**
 	 * ミスレイヤー表示開始時間
 	 */
 	private long misslayertime;
 
 	private long getMisslayerduration;
-	/**
-	 * 現在のミスレイヤーシーケンス
-	 */
-	private Layer misslayer = null;
-
 	private long bga_start_time = 0;
 	private long layer_start_time = 0;
+	private long missbga_start_time = 0;
 
 	private long time;
 	private long lastProcessedTime = -2;
@@ -93,6 +93,7 @@ public class BGAProcessor {
 
 	private boolean rbga;
 	private boolean rlayer;
+	private boolean rmissbga;
 
 	private boolean isPortrait = false;
 
@@ -151,7 +152,7 @@ public class BGAProcessor {
 
 		if(model != null) {
 			for(TimeLine tl : model.getAllTimeLines()) {
-				if(tl.getBGA() != -1 || tl.getLayer() != -1 || tl.getEventlayer().length > 0) {
+				if(tl.getBGA() != -1 || tl.getLayer() != -1 || tl.getMissBGA() != -1 || tl.getEventlayer().length > 0) {
 					tls.add(tl);
 				}
 			}
@@ -295,7 +296,9 @@ public class BGAProcessor {
 		playingbgaid = -1;
 		playinglayerid = -1;
 		misslayertime = 0;
-		misslayer = null;
+		playingmissbgaid = -1;
+		rmissbga = false;
+		missbga_start_time = 0;
 		rbga = false;
 		rlayer = false;
 	}
@@ -379,12 +382,20 @@ public class BGAProcessor {
 					layer_start_time = tl.getTime();
 				}
 
-				final Layer[] eventlayer = tl.getEventlayer();
-
-				for(Layer poor : eventlayer) {
-					if (poor.event.type == Layer.EventType.MISS) {
-						misslayer = poor;
+				final int missbga = tl.getMissBGA();
+				if (missbga == -2) {
+					playingmissbgaid = -1;
+					rmissbga = false;
+					missbga_start_time = 0;
+				} else if (missbga >= 0) {
+					if (playingmissbgaid != missbga) {
+						if (missbga < movies.length && movies[missbga] != null) {
+							movies[missbga].play(tl.getMilliTime(), false);
+						}
 					}
+					playingmissbgaid = missbga;
+					rmissbga = false;
+					missbga_start_time = tl.getTime();
 				}
 				pos = i;
 			}
@@ -427,16 +438,13 @@ public class BGAProcessor {
 		sprite.draw(blanktex, r.x, r.y, r.width, r.height);
 		sprite.setBlend(originalBlend); // 恢复原始混合模式
 
-		if (misslayer != null && misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration) {
-			// draw miss layer
-			final Layer.Sequence[] seq = misslayer.sequence[0];
-			final int index = seq[(int) ((seq.length - 1) * (time - misslayertime) / getMisslayerduration)].id;
-			if(index != Integer.MIN_VALUE) {
-				Texture miss = getBGAData(time, index, true);
-				if (miss != null) {
-					sprite.setType(SkinObjectRenderer.TYPE_LINEAR);
-					drawBGAFixRatio(dst, sprite, r, miss);
-				}
+		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
+			// draw miss BGA layer (follows chart timing like BGA/LAYER)
+			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
+			rmissbga = true;
+			if (misstex != null) {
+				sprite.setType(SkinObjectRenderer.TYPE_LINEAR);
+				drawBGAFixRatio(dst, sprite, r, misstex);
 			}
 		} else {
 		// draw BGA (Background) - 中间层：绘制BGA背景层
@@ -573,14 +581,11 @@ public class BGAProcessor {
 		// since skin coordinates (targetRect) are Y-down
 		tmpRect.set(targetRect.x, (float)height - targetRect.y - targetRect.height, targetRect.width, targetRect.height);
 
-		if (misslayer != null && misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration) {
-			final Layer.Sequence[] seq = misslayer.sequence[0];
-			final int index = seq[(int) ((seq.length - 1) * (time - misslayertime) / getMisslayerduration)].id;
-			if (index != Integer.MIN_VALUE) {
-				Texture miss = getBGAData(time, index, true);
-				if (miss != null) {
-					drawBGAFixRatioToRect(batch, tmpRect, miss, targetStretch);
-				}
+		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
+			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
+			rmissbga = true;
+			if (misstex != null) {
+				drawBGAFixRatioToRect(batch, tmpRect, misstex, targetStretch);
 			}
 		} else {
 			// Draw BGA background
@@ -676,11 +681,11 @@ public class BGAProcessor {
 			return getSharedBGATexture();
 		}
 		// Fallback to raw BGA data if width/height are invalid
-		if (misslayer != null && misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration) {
-			final Layer.Sequence[] seq = misslayer.sequence[0];
-			final int index = seq[(int) ((seq.length - 1) * (time - misslayertime) / getMisslayerduration)].id;
-			if (index != Integer.MIN_VALUE) {
-				return getBGAData(time, index, true);
+		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
+			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
+			rmissbga = true;
+			if (misstex != null) {
+				return misstex;
 			}
 		}
 		return getBGAData(time - bga_start_time, playingbgaid, rbga);

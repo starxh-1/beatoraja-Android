@@ -263,7 +263,7 @@ public class TimeLine {
 
 	/**
 	 * 表示するレイヤーBGAのIDを取得する
-	 * 
+	 *
 	 * @return レイヤーBGAのID
 	 */
 	public int getLayer() {
@@ -272,6 +272,24 @@ public class TimeLine {
 
 	public void setLayer(int layer) {
 		this.layer = layer;
+	}
+
+	/**
+	 * 表示するミスレイヤーBGAのID
+	 */
+	private int missbga = -1;
+
+	/**
+	 * 表示するミスレイヤーBGAのIDを取得する
+	 *
+	 * @return ミスレイヤーBGAのID
+	 */
+	public int getMissBGA() {
+		return missbga;
+	}
+
+	public void setMissBGA(int missbga) {
+		this.missbga = missbga;
 	}
 
 	public Layer[] getEventlayer() {

@@ -64,6 +64,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 
 	private int sampleRate;
 	int channels;
+		private long lastDedupKey = -1;
 
 	/**
 	 * 上一次加载成功的歌曲 MD5，用于优化重复加载。
@@ -452,6 +453,12 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			if (id < 0) {
 				return;
 			}
+			// 同一时间点同一WAV只播放一次，避免重复note导致音量叠加
+			final long dedupKey = ((long) id << 32) | (n.getMicroStarttime() & 0xFFFFFFFFL);
+			if (dedupKey == lastDedupKey) {
+				return;
+			}
+			lastDedupKey = dedupKey;
 			final int channel = channel(id, pitchShift);
 			final float pitch = pitchShift != 0 ? (float)Math.pow(2.0, pitchShift / 12.0) : 1.0f;
 			final long starttime = n.getMicroStarttime();

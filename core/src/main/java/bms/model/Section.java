@@ -43,10 +43,6 @@ public class Section {
 	 * 小節の拡大倍率
 	 */
 	private double rate = 1.0;
-	/**
-	 * POORアニメーション
-	 */
-	private int[] poor = new int[0];
 
 	private final BMSModel model;
 
@@ -80,6 +76,7 @@ public class Section {
 			case BGA_PLAY:
 			// レイヤー
 			case LAYER_PLAY:
+				case POOR_PLAY:
 				channellines.add(line);
 				break;
 			// 小節の拡大率
@@ -99,25 +96,6 @@ public class Section {
 					}
 					bpmchange.put(pos, (double) (data / 36) * 16 + (data % 36));
 				});
-				break;
-			// POORアニメーション
-			case POOR_PLAY:
-				poor = this.splitData(line);
-				// アニメーションが単一画像のみの定義の場合、0を除外する(ミスレイヤーチャンネルの定義が曖昧)
-				int singleid = 0;
-				for(int id : poor) {
-					if(id != 0) {
-						if(singleid != 0 && singleid != id) {
-							singleid = -1;
-							break;
-						} else {
-							singleid = id;
-						}
-					}
-				}
-				if(singleid != -1) {
-					poor = new int[] {singleid};
-				}
 				break;
 			// BPM変化(拡張)
 			case BPM_CHANGE_EXTEND:
@@ -253,20 +231,6 @@ public class Section {
 		final TimeLine basetl = getTimeLine(sectionnum);
 		basetl.setSectionLine(true);
 		
-		if(poor.length > 0) {
-			final Layer.Sequence[] poors = new Layer.Sequence[poor.length + 1];
-			final int poortime = 500;
-			
-			for (int i = 0; i < poor.length; i++) {
-				if (bgamap[poor[i]] != -2) {
-					poors[i] = new Layer.Sequence((long)(i * poortime / poor.length), bgamap[poor[i]]);
-				} else {
-					poors[i] = new Layer.Sequence((long)(i * poortime / poor.length), -1);
-				}
-			}
-			poors[poors.length - 1] = new Layer.Sequence(poortime);
-			basetl.setEventlayer(new Layer[] {new Layer(new Layer.Event(EventType.MISS, 1),new Layer.Sequence[][] {poors})});			
-		}
 		// BPM変化。ストップシーケンステーブル準備
 		Iterator<Entry<Double, Double>> stops = stop.entrySet().iterator();			
 		Map.Entry<Double, Double> ste = stops.hasNext() ? stops.next() : null;
@@ -511,6 +475,11 @@ public class Section {
 					getTimeLine(sectionnum + rate * pos).setLayer(bgamap[data]);
 				});
 				break;
+				case POOR_PLAY:
+					this.processData(line, (pos, data) -> {
+						getTimeLine(sectionnum + rate * pos).setMissBGA(bgamap[data]);
+					});
+					break;
 
 			}
 		}
