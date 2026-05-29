@@ -181,6 +181,11 @@ public class Config implements Validatable, Serializable {
 
 	private boolean showFloatingMenuInPlay = true;
 
+	private int floatingMenuPosition = 0; // 0: Top Center, 1: Top Right, 2: Bottom Center, 3: Bottom Right
+
+	public int getFloatingMenuPosition() { return floatingMenuPosition; }
+	public void setFloatingMenuPosition(int floatingMenuPosition) { this.floatingMenuPosition = floatingMenuPosition; }
+
 	private int prepareFramePerSecond = 0;
 	/**
 	 * 検索バー同時表示上限数
