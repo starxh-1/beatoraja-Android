@@ -179,8 +179,30 @@ public class FloatingMenu implements InputProcessor {
     }
 
     private void updateIconPosition() {
-        iconX = (logicW - ICON_SIZE) / 2; // 居中
-        iconY = logicH - ICON_SIZE - ICON_MARGIN;
+        Config config = null;
+        if (kbInput != null && kbInput.getMainController() instanceof MainController) {
+            config = ((MainController) kbInput.getMainController()).getConfig();
+        }
+
+        int pos = (config != null) ? config.getFloatingMenuPosition() : 0;
+        switch (pos) {
+            case 1: // Top Right
+                iconX = logicW - ICON_SIZE - ICON_MARGIN;
+                iconY = logicH - ICON_SIZE - ICON_MARGIN;
+                break;
+            case 2: // Bottom Center
+                iconX = (logicW - ICON_SIZE) / 2;
+                iconY = ICON_MARGIN;
+                break;
+            case 3: // Bottom Right
+                iconX = logicW - ICON_SIZE - ICON_MARGIN;
+                iconY = ICON_MARGIN;
+                break;
+            default: // 0: Top Center
+                iconX = (logicW - ICON_SIZE) / 2;
+                iconY = logicH - ICON_SIZE - ICON_MARGIN;
+                break;
+        }
     }
 
     /** PLAY 状态时调用 setVisible(false) 隐藏 */
@@ -339,46 +361,24 @@ public class FloatingMenu implements InputProcessor {
     }
 
     private void drawPanel(SpriteBatch sprite, BitmapFont font) {
-        // 过滤出当前界面显示的按钮
-        int visibleCount = 0;
-        for (MenuItem item : items) {
-            if (isItemVisible(item)) visibleCount++;
-        }
-
-        // 计算分页栏高度
-        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-        float pageBarHeight = (totalPages > 1) ? 36 : 0;
-
-        // 计算当前页显示的按钮
-        int startIdx = currentPage * ITEMS_PER_PAGE;
-        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
-        int itemCount = endIdx - startIdx;
-
-        // 频谱调整页使用3列布局（4行），普通页使用2列布局（6行）
-        boolean isSpectrumPage = (SPECTRUM_START >= startIdx && SPECTRUM_START < endIdx);
-        int cols = isSpectrumPage ? 3 : 2;
-        int actualRows = (itemCount + cols - 1) / cols;
-
-        float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
-        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
-
-        // 面板位于图标下方，居中对齐
-        float panelX = iconX + (ICON_SIZE - panelW) / 2;
-        float panelY = iconY - panelH - 4;
+        // 1. 获取基础布局参数
+        PanelLayout info = calculatePanelLayout();
 
         // 面板背景
         sprite.setColor(0.1f, 0.1f, 0.15f, 0.85f);
-        sprite.draw(whitePixel, panelX, panelY, panelW, panelH);
+        sprite.draw(whitePixel, info.x, info.y, info.w, info.h);
 
         // 面板边框
         sprite.setColor(0.4f, 0.6f, 1f, 0.6f);
         float border = 2;
-        sprite.draw(whitePixel, panelX, panelY, panelW, border);
-        sprite.draw(whitePixel, panelX, panelY + panelH - border, panelW, border);
-        sprite.draw(whitePixel, panelX, panelY, border, panelH);
-        sprite.draw(whitePixel, panelX + panelW - border, panelY, border, panelH);
+        sprite.draw(whitePixel, info.x, info.y, info.w, border);
+        sprite.draw(whitePixel, info.x, info.y + info.h - border, info.w, border);
+        sprite.draw(whitePixel, info.x, info.y, border, info.h);
+        sprite.draw(whitePixel, info.x + info.w - border, info.y, border, info.h);
 
         // 收集可见按钮索引
+        int visibleCount = 0;
+        for (MenuItem item : items) { if (isItemVisible(item)) visibleCount++; }
         int[] visibleIndices = new int[visibleCount];
         int idx = 0;
         for (int i = 0; i < items.length; i++) {
@@ -387,75 +387,154 @@ public class FloatingMenu implements InputProcessor {
             }
         }
 
-        // GlyphLayout 在翻页和按钮中都要用，提前声明
-        GlyphLayout layout = new GlyphLayout();
+        // GlyphLayout 在翻页和按钮中都要用
+        GlyphLayout glyph = new GlyphLayout();
 
         // 绘制分页指示器和翻页按钮（面板顶部）
-        if (totalPages > 1) {
-            float pageY = panelY + panelH - PANEL_PAD - pageBarHeight;
+        if (info.totalPages > 1) {
+            float pageY = info.y + info.h - PANEL_PAD - info.pageBarHeight;
             // 分页栏背景
             sprite.setColor(0.15f, 0.15f, 0.2f, 0.5f);
-            sprite.draw(whitePixel, panelX + border, pageY, panelW - border * 2, pageBarHeight);
+            sprite.draw(whitePixel, info.x + border, pageY, info.w - border * 2, info.pageBarHeight);
 
             // 左右翻页箭头
             sprite.setColor(0.4f, 0.6f, 1f, 0.9f);
             if (currentPage > 0) {
                 font.setColor(0.5f, 0.8f, 1f, 0.9f);
-                font.draw(sprite, "<", panelX + PANEL_PAD, pageY + pageBarHeight - 8);
+                font.draw(sprite, "<", info.x + PANEL_PAD, pageY + info.pageBarHeight - 8);
             }
-            if (currentPage < totalPages - 1) {
+            if (currentPage < info.totalPages - 1) {
                 font.setColor(0.5f, 0.8f, 1f, 0.9f);
                 String rightArrow = ">";
-                layout.setText(font, rightArrow);
-                float arrowX = panelX + panelW - PANEL_PAD - layout.width;
-                font.draw(sprite, rightArrow, arrowX, pageY + pageBarHeight - 8);
+                glyph.setText(font, rightArrow);
+                float arrowX = info.x + info.w - PANEL_PAD - glyph.width;
+                font.draw(sprite, rightArrow, arrowX, pageY + info.pageBarHeight - 8);
             }
             // 页码：频谱调整页显示"Spectrum"，其他页显示"页码"
             String pageText;
-            if (isSpectrumPage) {
+            if (info.isSpectrumPage) {
                 pageText = "In-Game Spectrum Adjust";
             } else {
-                pageText = (currentPage + 1) + "/" + totalPages;
+                pageText = (currentPage + 1) + "/" + info.totalPages;
             }
             font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
-            layout.setText(font, pageText);
-            float pageTextX = panelX + (panelW - layout.width) / 2;
-            font.draw(sprite, pageText, pageTextX, pageY + pageBarHeight - 8);
+            glyph.setText(font, pageText);
+            float pageTextX = info.x + (info.w - glyph.width) / 2;
+            font.draw(sprite, pageText, pageTextX, pageY + info.pageBarHeight - 8);
         }
 
-        // 按钮（从顶部开始布局，pageBarHeight 已包含在 panelH 中）
-        float contentTop = panelY + panelH - PANEL_PAD;
-        for (int j = startIdx; j < endIdx; j++) {
+        // 按钮（从顶部开始布局）
+        float contentTop = info.y + info.h - PANEL_PAD - (info.pageBarHeight > 0 ? info.pageBarHeight + 4 : 0);
+        for (int j = info.startIdx; j < info.endIdx; j++) {
             int itemIdx = visibleIndices[j];
             MenuItem item = items[itemIdx];
-            int localIdx = j - startIdx;
-            int col = localIdx % cols;
-            int row = localIdx / cols;
-            float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = contentTop - PANEL_PAD - pageBarHeight - (row + 1) * BTN_H - row * BTN_GAP;
 
-            // 按钮背景颜色计算：按下或正在闪烁时变亮
-            boolean isPressed = false;
+            int localIdx = j - info.startIdx;
+            int row = localIdx / info.cols;
+            int col = localIdx % info.cols;
+
+            float bx = info.x + PANEL_PAD + col * (BTN_W + BTN_GAP);
+            float by = contentTop - (row + 1) * BTN_H - row * BTN_GAP;
+
+            // 绘制按钮背景
+            boolean pressed = false;
             for (int p = 0; p < pointerPressedIndex.length; p++) {
-                if (pointerPressedIndex[p] == itemIdx) {
-                    isPressed = true;
-                    break;
-                }
+                if (pointerPressedIndex[p] == itemIdx) { pressed = true; break; }
             }
-            if (isPressed || flashTimers[itemIdx] > 0) {
-                sprite.setColor(0.4f, 0.6f, 1.0f, 0.9f);
+
+            if (pressed) {
+                sprite.setColor(0.3f, 0.5f, 0.8f, 0.95f);
+            } else if (flashTimers[itemIdx] > 0) {
+                sprite.setColor(0.5f, 0.7f, 1.0f, 0.9f);
             } else {
-                sprite.setColor(0.25f, 0.3f, 0.4f, 0.8f);
+                sprite.setColor(0.2f, 0.2f, 0.3f, 0.7f);
             }
             sprite.draw(whitePixel, bx, by, BTN_W, BTN_H);
 
-            // 文字居中
-            font.setColor(1, 1, 1, 0.95f);
-            layout.setText(font, item.label);
-            float tx = bx + (BTN_W - layout.width) / 2;
-            float ty = by + (BTN_H + layout.height) / 2;
-            font.draw(sprite, item.label, tx, ty);
+            // 按钮文字
+            font.setColor(1, 1, 1, 0.9f);
+            glyph.setText(font, item.label);
+            font.draw(sprite, item.label, bx + (BTN_W - glyph.width) / 2, by + (BTN_H + glyph.height) / 2);
+
+            // 如果是开关项，绘制状态指示
+            if (item.isToggle) {
+                boolean active = isToggleActive(item);
+                sprite.setColor(active ? Color.CYAN : Color.GRAY);
+                sprite.draw(whitePixel, bx + 4, by + 4, 8, BTN_H - 8);
+            }
         }
+    }
+
+    private boolean isToggleActive(MenuItem item) {
+        if (item.keycode == -100) { // Touch Key
+            if (kbInput != null && kbInput.getMainController() instanceof MainController) {
+                return ((MainController) kbInput.getMainController()).getConfig().isShowTouchKey();
+            }
+        }
+        return false;
+    }
+
+    private static class PanelLayout {
+        float x, y, w, h;
+        float pageBarHeight;
+        int totalPages;
+        int startIdx, endIdx;
+        boolean isSpectrumPage;
+        int cols;
+    }
+
+    private PanelLayout calculatePanelLayout() {
+        PanelLayout res = new PanelLayout();
+
+        // 统计可见按钮
+        int visibleCount = 0;
+        for (MenuItem item : items) {
+            if (isItemVisible(item)) visibleCount++;
+        }
+
+        res.totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
+        if (currentPage >= res.totalPages) currentPage = Math.max(0, res.totalPages - 1);
+
+        res.pageBarHeight = (res.totalPages > 1) ? 36 : 0;
+        res.startIdx = currentPage * ITEMS_PER_PAGE;
+        res.endIdx = Math.min(res.startIdx + ITEMS_PER_PAGE, visibleCount);
+        int itemCount = res.endIdx - res.startIdx;
+
+        res.isSpectrumPage = (SPECTRUM_START >= res.startIdx && SPECTRUM_START < res.endIdx);
+        res.cols = res.isSpectrumPage ? 3 : 2;
+        int rows = (itemCount + res.cols - 1) / res.cols;
+
+        res.w = res.cols * BTN_W + (res.cols - 1) * BTN_GAP + PANEL_PAD * 2;
+        res.h = rows * BTN_H + (rows - 1) * BTN_GAP + PANEL_PAD * 2 + (res.pageBarHeight > 0 ? res.pageBarHeight + 4 : 0);
+
+        // 定位逻辑
+        Config config = null;
+        if (kbInput != null && kbInput.getMainController() instanceof MainController) {
+            config = ((MainController) kbInput.getMainController()).getConfig();
+        }
+        int pos = (config != null) ? config.getFloatingMenuPosition() : 0;
+
+        // Y轴：底部图标向上弹出，顶部图标向下弹出
+        if (pos >= 2) { // Bottom Center, Bottom Right
+            res.y = iconY + ICON_SIZE + 8;
+        } else { // Top Center, Top Right
+            res.y = iconY - res.h - 8;
+        }
+
+        // X轴：居中或对齐右侧
+        if (pos == 1 || pos == 3) { // Top Right, Bottom Right
+            res.x = iconX + ICON_SIZE - res.w;
+        } else { // Center
+            res.x = iconX + (ICON_SIZE - res.w) / 2;
+        }
+
+        // 边界保护
+        if (res.x < 10) res.x = 10;
+        if (res.x + res.w > logicW - 10) res.x = logicW - res.w - 10;
+        if (res.y < 10) res.y = 10;
+        if (res.y + res.h > logicH - 10) res.y = logicH - res.h - 10;
+
+        return res;
     }
 
     // ─────────────────── InputProcessor 事件驱动触摸处理 ───────────────────
@@ -478,24 +557,24 @@ public class FloatingMenu implements InputProcessor {
                 return true;
             }
             // 检查是否点到了按钮
-            int hit = hitTestPanel(tx, ty);
-            if (hit >= 0) {
-                pointerPressedIndex[pointer] = hit;
-                pressButton(hit);
+            int itemHit = hitTestPanel(tx, ty);
+            if (itemHit >= 0) {
+                pointerPressedIndex[pointer] = itemHit;
+                pressButton(itemHit);
                 pointerConsuming[pointer] = true;
                 return true;
             }
             // 处理翻页
-            if (hit == -3) {
+            if (itemHit == -3) {
                 if (currentPage > 0) currentPage--;
                 pointerConsuming[pointer] = true;
                 pointerPressedIndex[pointer] = -1;
                 return true;
             }
-            if (hit == -4) {
+            if (itemHit == -4) {
                 int visibleCount = 0;
                 for (MenuItem item : items) {
-                    if (selectMode ? item.showOnSelect : true) visibleCount++;
+                    if (isItemVisible(item)) visibleCount++;
                 }
                 int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
                 if (currentPage < totalPages - 1) currentPage++;
@@ -503,13 +582,8 @@ public class FloatingMenu implements InputProcessor {
                 pointerPressedIndex[pointer] = -1;
                 return true;
             }
-            // 面板区域内空白 → 消费事件
-            if (hit == -1) {
-                pointerConsuming[pointer] = true;
-                pointerPressedIndex[pointer] = -1;
-                return true;
-            }
-            // 面板外点击
+            // 面板区域内空白或点击面板外任何地方 → 关闭菜单并消费事件
+            expanded = false;
             pointerConsuming[pointer] = true;
             pointerPressedIndex[pointer] = -1;
             return true;
@@ -652,46 +726,25 @@ public class FloatingMenu implements InputProcessor {
     private int hitTestPanel(float tx, float ty) {
         if (font == null) return -2;
 
-        // 计算可见按钮数量
-        int visibleCount = 0;
-        for (MenuItem item : items) {
-            if (isItemVisible(item)) visibleCount++;
-        }
+        PanelLayout info = calculatePanelLayout();
 
-        // 计算当前页显示的按钮
-        int startIdx = currentPage * ITEMS_PER_PAGE;
-        int endIdx = Math.min(startIdx + ITEMS_PER_PAGE, visibleCount);
-        int itemCount = endIdx - startIdx;
-
-        // 频谱调整页使用3列布局（4行），普通页使用2列布局（6行）
-        boolean isSpectrumPage = (SPECTRUM_START >= startIdx && SPECTRUM_START < endIdx);
-        int cols = isSpectrumPage ? 3 : 2;
-        int actualRows = (itemCount + cols - 1) / cols;
-
-        float panelW = cols * BTN_W + (cols - 1) * BTN_GAP + PANEL_PAD * 2;
-        int totalPages = (visibleCount + ITEMS_PER_PAGE - 1) / ITEMS_PER_PAGE;
-        float pageBarHeight = (totalPages > 1) ? 36 : 0;
-        float panelH = actualRows * BTN_H + (actualRows - 1) * BTN_GAP + PANEL_PAD * 2 + pageBarHeight;
-        float panelX = iconX + (ICON_SIZE - panelW) / 2;
-        float panelY = iconY - panelH - 4;
-
-        if (tx < panelX || tx > panelX + panelW || ty < panelY || ty > panelY + panelH) {
+        if (tx < info.x || tx > info.x + info.w || ty < info.y || ty > info.y + info.h) {
             return -2;  // 不在面板区域内
         }
 
         // 检查是否点击了翻页箭头（顶部）
-        if (totalPages > 1) {
-            float pageY = panelY + panelH - PANEL_PAD - pageBarHeight;
-            if (ty >= pageY && ty <= pageY + pageBarHeight) {
+        if (info.totalPages > 1) {
+            float pageY = info.y + info.h - PANEL_PAD - info.pageBarHeight;
+            if (ty >= pageY && ty <= pageY + info.pageBarHeight) {
                 // 检查左箭头
-                if (currentPage > 0 && tx >= panelX + PANEL_PAD - 20 && tx <= panelX + PANEL_PAD + 30) {
+                if (currentPage > 0 && tx >= info.x + PANEL_PAD - 20 && tx <= info.x + PANEL_PAD + 30) {
                     return -3;  // 上一页
                 }
                 // 检查右箭头
-                if (currentPage < totalPages - 1) {
+                if (currentPage < info.totalPages - 1) {
                     GlyphLayout layout = new GlyphLayout();
                     layout.setText(font, ">");
-                    float arrowX = panelX + panelW - PANEL_PAD - layout.width;
+                    float arrowX = info.x + info.w - PANEL_PAD - layout.width;
                     if (tx >= arrowX - 20 && tx <= arrowX + layout.width + 20) {
                         return -4;  // 下一页
                     }
@@ -700,6 +753,8 @@ public class FloatingMenu implements InputProcessor {
         }
 
         // 收集可见按钮索引
+        int visibleCount = 0;
+        for (MenuItem item : items) { if (isItemVisible(item)) visibleCount++; }
         int[] visibleIndices = new int[visibleCount];
         int idx = 0;
         for (int i = 0; i < items.length; i++) {
@@ -708,21 +763,22 @@ public class FloatingMenu implements InputProcessor {
             }
         }
 
-        // 检查按钮
-        float contentTop = panelY + panelH - PANEL_PAD;
-        for (int j = startIdx; j < endIdx; j++) {
+        float contentTop = info.y + info.h - PANEL_PAD - (info.pageBarHeight > 0 ? info.pageBarHeight + 4 : 0);
+        for (int j = info.startIdx; j < info.endIdx; j++) {
             int itemIdx = visibleIndices[j];
-            int localIdx = j - startIdx;
-            int col = localIdx % cols;
-            int row = localIdx / cols;
-            float bx = panelX + PANEL_PAD + col * (BTN_W + BTN_GAP);
-            float by = contentTop - PANEL_PAD - pageBarHeight - (row + 1) * BTN_H - row * BTN_GAP;
+            int localIdx = j - info.startIdx;
+            int row = localIdx / info.cols;
+            int col = localIdx % info.cols;
+
+            float bx = info.x + PANEL_PAD + col * (BTN_W + BTN_GAP);
+            float by = contentTop - (row + 1) * BTN_H - row * BTN_GAP;
+
             if (tx >= bx && tx <= bx + BTN_W && ty >= by && ty <= by + BTN_H) {
-                return itemIdx; // 返回实际按钮索引
+                return itemIdx;
             }
         }
 
-        return -1;  // 在面板空白处
+        return -1;
     }
 
     private int hitTestButton(float tx, float ty) {

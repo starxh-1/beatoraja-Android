@@ -26,9 +26,17 @@
     <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
     <string name="enable_lift">启用抬高 (LIFT)</string>
+    <string name="floating_menu_position">悬浮菜单位置</string>
     <string name="section_tables">难易度表</string>
     <string name="update_all">全部更新</string>
     <string name="start_game">开始游戏</string>
+
+    <string-array name="floating_menu_position_options">
+        <item>顶部居中</item>
+        <item>顶部右侧</item>
+        <item>底部居中</item>
+        <item>底部右侧</item>
+    </string-array>
 
     <string-array name="bga_display_options">
         <item>On</item>

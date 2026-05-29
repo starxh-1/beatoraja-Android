@@ -72,6 +72,7 @@ public class SettingsActivity extends Activity {
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
     private int selectedPollingRate = 1000;
+    private int selectedFloatingMenuPosition = 0;
 
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
@@ -173,6 +174,7 @@ public class SettingsActivity extends Activity {
                 if (!hasDefault) bmsPaths.add(0, defaultBmsPath);
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
                 selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000);
+                selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
@@ -524,6 +526,14 @@ public class SettingsActivity extends Activity {
         showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
         showAudioSpectrumSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> showAudioSpectrum = isChecked);
 
+        // Floating Menu Position
+        Spinner floatingMenuPositionSpinner = findViewById(R.id.floatingMenuPositionSpinner);
+        String[] floatingMenuPositionOptions = getResources().getStringArray(R.array.floating_menu_position_options);
+        ArrayAdapter<String> fmpAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, floatingMenuPositionOptions);
+        fmpAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        floatingMenuPositionSpinner.setAdapter(fmpAdapter);
+        floatingMenuPositionSpinner.setSelection(Math.min(selectedFloatingMenuPosition, floatingMenuPositionOptions.length - 1));
+
         // BGA
         Spinner bgaDisplaySpinner = findViewById(R.id.bgaDisplaySpinner);
         String[] bgaDisplayOptions = getResources().getStringArray(R.array.bga_display_options);
@@ -791,6 +801,7 @@ public class SettingsActivity extends Activity {
             config.put("audio", audio);
             config.put("showAudioSpectrum", showAudioSpectrum);
             config.put("inputPollingRate", selectedPollingRate);
+            config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
 
@@ -1091,6 +1102,7 @@ public class SettingsActivity extends Activity {
             }
         }
         showAudioSpectrum = ((Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
+        selectedFloatingMenuPosition = ((Spinner) findViewById(R.id.floatingMenuPositionSpinner)).getSelectedItemPosition();
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
         selectedBgaExpand = ((Spinner) findViewById(R.id.bgaExpandSpinner)).getSelectedItemPosition();
         tableUrls.clear();

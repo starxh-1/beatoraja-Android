@@ -26,6 +26,7 @@
     <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">ENABLE LANECOVER</string>
     <string name="enable_lift">ENABLE LIFT</string>
+    <string name="floating_menu_position">Floating Menu Position</string>
     <string name="section_tables">Difficulty Tables</string>
     <string name="update_all">Update All</string>
     <string name="start_game">Start</string>
@@ -34,6 +35,13 @@
         <item>English</item>
         <item>简体中文</item>
         <item>日本語</item>
+    </string-array>
+
+    <string-array name="floating_menu_position_options">
+        <item>Top Center</item>
+        <item>Top Right</item>
+        <item>Bottom Center</item>
+        <item>Bottom Right</item>
     </string-array>
 
     <string-array name="bga_display_options">

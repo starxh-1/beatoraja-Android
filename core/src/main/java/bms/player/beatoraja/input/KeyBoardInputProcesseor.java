@@ -91,10 +91,12 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 
 		reserved = new IntArray();
 		// Reserve non-numeric ControlKeys so they can't be assigned as gameplay keys.
-		// NUM0-NUM9 (number row) are excluded so users can bind them in keyconfig.
+		// NUM0-NUM9 (number row) and NUMPAD are excluded so users can bind them in keyconfig.
 		Arrays.stream(ControlKeys.values())
-			.filter(k -> k.keycode < Keys.NUM_0 || k.keycode > Keys.NUM_9)
-			.forEach(keys -> reserved.add(keys.keycode));
+			.filter(k -> !((k.keycode >= Keys.NUM_0 && k.keycode <= Keys.NUM_9) ||
+					(k.keycode >= Keys.NUMPAD_0 && k.keycode <= Keys.NUMPAD_9) ||
+					k.text))
+			.forEach(k -> reserved.add(k.keycode));
 
 		Arrays.fill(keytime, Long.MIN_VALUE);
 	}
@@ -206,6 +208,17 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 				keymodifiers[key.keycode] = pressed ? currentlyHeldModifiers() : 0;
 				if (key == ControlKeys.ESCAPE) {
 					Gdx.app.log("AndroidBack", "ESCAPE state changed to " + pressed + " with keytime=" + keytime[key.keycode]);
+				}
+
+				// 同步到核心层 (Fix: 使 NUM 和 符号区按键在 play 界面生效)
+				this.bmsPlayerInputProcessor.setKeyState(key.keycode, pressed, microtime);
+				// 如果该按键也被映射到了游戏轨道，触发 keyChanged
+				for (int i = 0; i < keys.length; i++) {
+					if (keys[i] == key.keycode) {
+						this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, pressed);
+						this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
+						break;
+					}
 				}
 			}
 		}
@@ -540,6 +553,31 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 		NUM7(7, Keys.NUM_7, true),
 		NUM8(8, Keys.NUM_8, true),
 		NUM9(9, Keys.NUM_9, true),
+
+		NUMPAD0(29, Keys.NUMPAD_0, true),
+		NUMPAD1(30, Keys.NUMPAD_1, true),
+		NUMPAD2(31, Keys.NUMPAD_2, true),
+		NUMPAD3(32, Keys.NUMPAD_3, true),
+		NUMPAD4(33, Keys.NUMPAD_4, true),
+		NUMPAD5(34, Keys.NUMPAD_5, true),
+		NUMPAD6(35, Keys.NUMPAD_6, true),
+		NUMPAD7(36, Keys.NUMPAD_7, true),
+		NUMPAD8(37, Keys.NUMPAD_8, true),
+		NUMPAD9(38, Keys.NUMPAD_9, true),
+
+		PLUS(39, Keys.PLUS, true),
+		MINUS(40, Keys.MINUS, true),
+		STAR(41, Keys.STAR, true),
+		SLASH(42, Keys.SLASH, true),
+		COMMA(43, Keys.COMMA, true),
+		PERIOD(44, Keys.PERIOD, true),
+		SEMICOLON(45, Keys.SEMICOLON, true),
+		APOSTROPHE(46, Keys.APOSTROPHE, true),
+		BACKSLASH(47, Keys.BACKSLASH, true),
+		EQUALS(48, Keys.EQUALS, true),
+		LEFT_BRACKET(49, Keys.LEFT_BRACKET, true),
+		RIGHT_BRACKET(50, Keys.RIGHT_BRACKET, true),
+		GRAVE(51, Keys.GRAVE, true),
 
 		F1(10, Keys.F1, false),
 		F2(11, Keys.F2, false),
