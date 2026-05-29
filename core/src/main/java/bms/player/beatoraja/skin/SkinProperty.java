@@ -144,7 +144,8 @@ public class SkinProperty {
 	public static final int TIMER_PM_CHARA_2P_BAD = 907;
 	public static final int TIMER_MUSIC_END = 908;
 	// FEVERWIN WIN LOSEはOPTION_1P_100とOPTION_1P_BORDER_OR_MOREを用いて分岐
-	public static final int TIMER_PM_CHARA_DANCE = 909;
+	public static final int TIMER_PLAY_NOTE_END = 909;
+	public static final int TIMER_PM_CHARA_DANCE = 910;
 	// ここまで連番でお願いします
 
 	// 拡張版TIMER

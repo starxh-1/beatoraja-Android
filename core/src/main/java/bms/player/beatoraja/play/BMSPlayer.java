@@ -760,7 +760,7 @@ public class BMSPlayer extends MainState {
 				// System.out.println("playing time : " + time);
 				if (playtime < ptime) {
 					state = STATE_FINISHED;
-					timer.setTimerOn(TIMER_MUSIC_END);
+					timer.setTimerOn(TIMER_PLAY_NOTE_END);
 					for(int i = TIMER_PM_CHARA_1P_NEUTRAL; i <= TIMER_PM_CHARA_2P_BAD; i++) {
 						timer.setTimerOff(i);
 					}
@@ -865,7 +865,7 @@ public class BMSPlayer extends MainState {
 			case STATE_FINISHED -> {
 				keyinput.stopJudge();
 				keysound.stopBGPlay();
-				if (timer.getNowTime(TIMER_MUSIC_END) > skin.getFinishMargin()) {
+				if (timer.getNowTime(TIMER_PLAY_NOTE_END) > skin.getFinishMargin()) {
 					timer.switchTimer(TIMER_FADEOUT, true);
 				}
 				if (timer.getNowTime(TIMER_FADEOUT) > skin.getFadeout()) {
@@ -1068,7 +1068,7 @@ public class BMSPlayer extends MainState {
 				(judge.getPastNotes() == resource.getSongdata().getNotes()
 				|| resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY)) {
 			state = STATE_FINISHED;
-			timer.setTimerOn(TIMER_MUSIC_END);
+			timer.setTimerOn(TIMER_PLAY_NOTE_END);
 			Logger.getGlobal().info("STATE_FINISHEDに移行");
 		} else if(state == STATE_FINISHED && !timer.isTimerOn(TIMER_FADEOUT)) {
 			timer.setTimerOn(TIMER_FADEOUT);
