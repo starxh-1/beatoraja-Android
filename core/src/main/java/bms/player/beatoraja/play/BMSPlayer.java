@@ -44,6 +44,11 @@ public class BMSPlayer extends MainState {
 	private int playtime;
 
 	/**
+	 * 最后一个音符结束时间（不含音频尾部），用于 finish 显示判定
+	 */
+	private int lastNoteEndTime;
+
+	/**
 	 * 最后一个音符结束后的音频尾部时长（ms）
 	 */
 	private int maxTailMs;
@@ -270,6 +275,7 @@ public class BMSPlayer extends MainState {
 				}
 			}
 		}
+		lastNoteEndTime = lastTimeMs;
 		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束
 		playtime = lastTimeMs + Math.max(5000, maxTailMs);
 
@@ -760,7 +766,6 @@ public class BMSPlayer extends MainState {
 				// System.out.println("playing time : " + time);
 				if (playtime < ptime) {
 					state = STATE_FINISHED;
-					timer.setTimerOn(TIMER_PLAY_NOTE_END);
 					timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 					for(int i = TIMER_PM_CHARA_1P_NEUTRAL; i <= TIMER_PM_CHARA_2P_BAD; i++) {
 						timer.setTimerOff(i);
@@ -768,7 +773,10 @@ public class BMSPlayer extends MainState {
 					timer.setTimerOff(TIMER_PM_CHARA_DANCE);
 
 					Logger.getGlobal().info("STATE_FINISHEDに移行");
-				} else if(playtime - 1000 < ptime) {
+				} else if(lastNoteEndTime < ptime) {
+					if(!timer.isTimerOn(TIMER_PLAY_NOTE_END)) {
+						timer.setTimerOn(TIMER_PLAY_NOTE_END);
+					}
 					timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 				}
 				// stage failed判定
