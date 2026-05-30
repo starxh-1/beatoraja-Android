@@ -171,5 +171,6 @@ libgdx-oboe.zip
 
 # Ignore upstream libs and debug files (before /*.txt so they stay ignored)
 upstream-libgdx-oboe/
+endlessdream-upstream-src/
 debugforai.txt
 audio-rate-lock-plan.md

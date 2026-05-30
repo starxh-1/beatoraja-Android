@@ -163,9 +163,8 @@ class KeyInputProccessor {
 			final JudgeManager judge = player.getJudgeManager();
 			final long lasttime = timelines[timelines.length - 1].getMicroTime() + player.getMaxTailMs() * 1000;
 
-			// 使用配置的输入轮询频率
-			final int pollRate = player.main.getConfig().getInputPollingRate();
-			final long pollIntervalNs = 1_000_000_000L / pollRate;
+			// 硬编码 1000Hz 轮询频率（Endless Dream upstream 修复）
+			final long pollIntervalNs = 1_000_000L; // 1000Hz = 1ms
 			long nextPollTime = System.nanoTime();
 
 			long prevtime = -1;

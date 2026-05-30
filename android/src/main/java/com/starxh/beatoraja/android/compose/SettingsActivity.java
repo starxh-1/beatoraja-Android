@@ -71,7 +71,7 @@ public class SettingsActivity extends Activity {
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
-    private int selectedPollingRate = 1000;
+    // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
 
     private LinearLayout bmsPathContainer;
@@ -173,7 +173,7 @@ public class SettingsActivity extends Activity {
                 }
                 if (!hasDefault) bmsPaths.add(0, defaultBmsPath);
                 showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
-                selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000);
+                // selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000); // hardcoded to 1000Hz
                 selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
@@ -446,39 +446,40 @@ public class SettingsActivity extends Activity {
             @Override public void onStopTrackingTouch(android.widget.SeekBar seekBar) {}
         });
 
-        // Polling Rate (for non-touch devices only)
-        Spinner pollingRateSpinner = findViewById(R.id.pollingRateSpinner);
-        String[] pollingRateOptions = getResources().getStringArray(R.array.input_polling_rate_options);
-        ArrayAdapter<String> pollingRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, pollingRateOptions);
-        pollingRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        pollingRateSpinner.setAdapter(pollingRateAdapter);
-        int pollingRateIndex = -1;
-        for (int i = 0; i < pollingRateOptions.length; i++) {
-            String opt = pollingRateOptions[i];
-            int value = 1000;
-            try { value = Integer.parseInt(opt.split(" ")[0]); } catch (Exception ignored) {}
-            if (value == selectedPollingRate) { pollingRateIndex = i; break; }
-        }
-        pollingRateSpinner.setSelection(pollingRateIndex >= 0 ? pollingRateIndex : 2); // default to index 2 (1000)
-        pollingRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                try {
-                    selectedPollingRate = Integer.parseInt(pollingRateOptions[position].split(" ")[0]);
-                } catch (Exception e) {
-                    Log.e("SettingsActivity", "Parse polling rate fail: " + pollingRateOptions[position]);
-                }
-            }
-            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-
-        // Polling Rate Help button
-        findViewById(R.id.pollingRateHelp).setOnClickListener(v -> {
-            new android.app.AlertDialog.Builder(this)
-                .setTitle(getString(R.string.pollingrate))
-                .setMessage(getString(R.string.pollingrate_help))
-                .setPositiveButton("OK", null)
-                .show();
-        });
+        // ===== Polling Rate UI disabled (hardcoded to 1000Hz per Endless Dream upstream fix) =====
+        // Spinner pollingRateSpinner = findViewById(R.id.pollingRateSpinner);
+        // String[] pollingRateOptions = getResources().getStringArray(R.array.input_polling_rate_options);
+        // ArrayAdapter<String> pollingRateAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, pollingRateOptions);
+        // pollingRateAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        // pollingRateSpinner.setAdapter(pollingRateAdapter);
+        // int pollingRateIndex = -1;
+        // for (int i = 0; i < pollingRateOptions.length; i++) {
+        //     String opt = pollingRateOptions[i];
+        //     int value = 1000;
+        //     try { value = Integer.parseInt(opt.split(" ")[0]); } catch (Exception ignored) {}
+        //     if (value == selectedPollingRate) { pollingRateIndex = i; break; }
+        // }
+        // pollingRateSpinner.setSelection(pollingRateIndex >= 0 ? pollingRateIndex : 2);
+        // pollingRateSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+        //     @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+        //         try {
+        //             selectedPollingRate = Integer.parseInt(pollingRateOptions[position].split(" ")[0]);
+        //         } catch (Exception e) {
+        //             Log.e("SettingsActivity", "Parse polling rate fail: " + pollingRateOptions[position]);
+        //         }
+        //     }
+        //     @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        // });
+        //
+        // // Polling Rate Help button
+        // findViewById(R.id.pollingRateHelp).setOnClickListener(v -> {
+        //     new android.app.AlertDialog.Builder(this)
+        //         .setTitle(getString(R.string.pollingrate))
+        //         .setMessage(getString(R.string.pollingrate_help))
+        //         .setPositiveButton("OK", null)
+        //         .show();
+        // });
+        // ===== End of disabled polling rate UI =====
 
         // Player Spinner
         playerSpinner = findViewById(R.id.playerSpinner);
@@ -800,7 +801,7 @@ public class SettingsActivity extends Activity {
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
             config.put("audio", audio);
             config.put("showAudioSpectrum", showAudioSpectrum);
-            config.put("inputPollingRate", selectedPollingRate);
+            // config.put("inputPollingRate", selectedPollingRate); // hardcoded to 1000Hz
             config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
@@ -1120,14 +1121,15 @@ public class SettingsActivity extends Activity {
         selectedAutoSaveReplay[3] = ((Spinner) findViewById(R.id.autoSaveReplay4)).getSelectedItemPosition();
         try { selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString()); } catch (Exception ignored) {}
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
-        String pr = (String) ((Spinner) findViewById(R.id.pollingRateSpinner)).getSelectedItem();
-        if (pr != null) {
-            try {
-                selectedPollingRate = Integer.parseInt(pr.split(" ")[0]);
-            } catch (Exception e) {
-                Log.e("SettingsActivity", "Parse polling rate fail from UI: " + pr);
-            }
-        }
+        // Polling rate UI disabled (hardcoded to 1000Hz)
+        // String pr = (String) ((Spinner) findViewById(R.id.pollingRateSpinner)).getSelectedItem();
+        // if (pr != null) {
+        //     try {
+        //         selectedPollingRate = Integer.parseInt(pr.split(" ")[0]);
+        //     } catch (Exception e) {
+        //         Log.e("SettingsActivity", "Parse polling rate fail from UI: " + pr);
+        //     }
+        // }
         selectedEnableLanecover = ((Switch) findViewById(R.id.enableLanecoverSwitch)).isChecked();
         selectedEnableLift = ((Switch) findViewById(R.id.enableLiftSwitch)).isChecked();
     }

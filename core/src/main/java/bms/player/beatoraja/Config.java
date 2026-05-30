@@ -93,6 +93,9 @@ public class Config implements Validatable, Serializable {
 	 */
 	private int inputPollingRate = 1000;
 
+	// Polling rate is hardcoded to 1000Hz per Endless Dream upstream fix.
+	// See docs/polling-vsync-refactor-plan.md
+
 	/**
 	 * 曲終了時のキー音再生猶予時間（ミリ秒）。デフォルト 5000ms。
 	 * 長いキー音（8秒K音など）の場合はこの値を大きく設定する。
@@ -136,11 +139,12 @@ public class Config implements Validatable, Serializable {
 	}
 
 	public int getInputPollingRate() {
-		return inputPollingRate;
+		// Hardcoded to 1000Hz per Endless Dream upstream fix
+		return 1000;
 	}
 
 	public void setInputPollingRate(int inputPollingRate) {
-		this.inputPollingRate = MathUtils.clamp(inputPollingRate, 250, 4000);
+		// No-op: polling rate hardcoded to 1000Hz
 	}
 
 	public int getKeySoundTailMs() {
@@ -661,7 +665,7 @@ public class Config implements Validatable, Serializable {
 		}
 		audio.validate();
 
-		inputPollingRate = MathUtils.clamp(inputPollingRate, 500, 4000);
+		// inputPollingRate = MathUtils.clamp(inputPollingRate, 500, 4000); // hardcoded to 1000Hz
 		keySoundTailMs = MathUtils.clamp(keySoundTailMs, 0, 60000);
 		maxFramePerSecond = MathUtils.clamp(maxFramePerSecond, 0, 1000);
 		prepareFramePerSecond = MathUtils.clamp(prepareFramePerSecond, 0, 100000);
@@ -843,7 +847,7 @@ public class Config implements Validatable, Serializable {
         c.androidUnlimitedFPS = this.androidUnlimitedFPS;
         c.androidStableFPS = this.androidStableFPS;
         c.showTouchKey = this.showTouchKey;
-        c.inputPollingRate = this.inputPollingRate;
+        // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
         return c;
     }
@@ -897,7 +901,7 @@ public class Config implements Validatable, Serializable {
         c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
         c.androidStableFPS = changes.androidStableFPS;
         c.showTouchKey = changes.showTouchKey;
-        c.inputPollingRate = changes.inputPollingRate;
+        // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;
         return c;
     }

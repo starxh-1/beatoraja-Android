@@ -513,16 +513,14 @@ public class MainController {
             Logger.getGlobal().warning("JIT warmup failed: " + e.getMessage());
         }
 
-        // 高精度输入轮询线程：可配置频率，绝对时间对齐
-        // 输入采样不再跟随帧率，独立读取所有输入设备状态并写入 keystate[]
+        // 高精度输入轮询线程：硬编码 1000Hz，无条件轮询
+        // Android 下 keyDown 事件是异步的，必须每周期无条件调用 poll() 更新 keystate，
+        // 否则 keystate[keycode] 会在 keyDown 与 render 之间保持旧状态（如 Enter 被截断问题）。
         Thread polling = new Thread(() -> {
             long nextPollTime = System.nanoTime();
+            final long pollIntervalNs = 1_000_000L; // 1000Hz
             for (;;) {
                 input.poll();
-
-                // 根据配置动态调整轮询间隔
-                final int rate = config.getInputPollingRate();
-                final long pollIntervalNs = 1_000_000_000L / rate;
                 nextPollTime += pollIntervalNs;
                 final long sleepNs = nextPollTime - System.nanoTime();
                 if (sleepNs > 50000) {
