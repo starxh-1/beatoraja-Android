@@ -173,6 +173,8 @@ public abstract class PCM<T> {
         }
     }
 
+    private static final ThreadLocal<byte[]> OGG_TAIL_BUFFER = ThreadLocal.withInitial(() -> new byte[100000]);
+
     /**
      * OGG Vorbis 时长解析。读取开头获取 sampleRate，读取末尾获取 granule position。
      */
@@ -180,13 +182,27 @@ public abstract class PCM<T> {
         RandomAccessFile raf = null;
         try {
             raf = new RandomAccessFile(file, "r");
+            long fileLen = raf.length();
+            if (fileLen < 100) return 0;
 
             // 读取开头 4KB 获取 Vorbis ID header 中的 sample rate
             byte[] head = new byte[4096];
             int read = raf.read(head);
             if (read < 100) return 0;
 
-            // 找第一个 "OggS"
+            // 验证 OggS 标记
+            if (head[0] != 'O' || head[1] != 'g' || head[2] != 'g' || head[3] != 'S') {
+                // 如果不是在开头，找第一个 "OggS"
+                int oggs = -1;
+                for (int i = 1; i < read - 4; i++) {
+                    if (head[i] == 'O' && head[i+1] == 'g' && head[i+2] == 'g' && head[i+3] == 'S') {
+                        oggs = i; break;
+                    }
+                }
+                if (oggs < 0) return 0;
+            }
+
+            // 找第一个 "OggS" (如果是从 0 开始则 oggs = 0)
             int oggs = -1;
             for (int i = 0; i < read - 4; i++) {
                 if (head[i] == 'O' && head[i+1] == 'g' && head[i+2] == 'g' && head[i+3] == 'S') {
@@ -222,12 +238,11 @@ public abstract class PCM<T> {
                 | ((head[srOffset+2] & 0xFF) << 16) | ((head[srOffset+3] & 0xFF) << 24);
             if (sampleRate <= 0) return 0;
 
-            // 读取末尾 100KB 找最后一个 OggS page 的 granule position
-            long fileLen = raf.length();
+            // 读取末尾找最后一个 OggS page 的 granule position
             int tailSize = (int) Math.min(100000, fileLen);
-            byte[] tail = new byte[tailSize];
+            byte[] tail = OGG_TAIL_BUFFER.get();
             raf.seek(fileLen - tailSize);
-            raf.readFully(tail);
+            raf.readFully(tail, 0, tailSize);
 
             long granule = -1;
             // 从后往前找最后一个合法的 OggS 页面

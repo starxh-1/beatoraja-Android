@@ -91,7 +91,7 @@ public class BMSPlayer extends MainState {
 	 */
 	private PlayConfig replayConfig;
 
-	
+
 	private int state = STATE_PRELOAD;
 
 	public static final int STATE_PRELOAD = 0;
@@ -227,53 +227,68 @@ public class BMSPlayer extends MainState {
 		// 计算音频尾部时长（检查所有notes的WAV时长）
 		maxTailMs = 0;
 		{
+			long startTime = System.currentTimeMillis();
 			final String[] wavlist = model.getWavList();
-			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
 			final java.io.File bmsDir = new java.io.File(model.getPath()).getParentFile();
+			// 记录每个 wavid 最后一次出现的时间
+			final java.util.HashMap<Integer, Integer> lastOccurrenceMap = new java.util.HashMap<>();
 
 			for (TimeLine tl : model.getAllTimeLines()) {
-				// 收集该时间点的所有 notes（包含演奏、隐藏和 BGM）
-				java.util.List<Note> allNotes = new java.util.ArrayList<>();
+				final int time = tl.getTime();
+				// 演奏通道
 				for (int lane = 0; lane < model.getMode().key; lane++) {
 					Note n = tl.getNote(lane);
 					if (n == null) n = tl.getHiddenNote(lane);
-					if (n != null) allNotes.add(n);
+					if (n != null) lastOccurrenceMap.put(n.getWav(), time);
 				}
+				// BGM通道
 				for (Note n : tl.getBackGroundNotes()) {
-					if (n != null) allNotes.add(n);
+					if (n != null) lastOccurrenceMap.put(n.getWav(), time);
 				}
+			}
 
-				for (Note note : allNotes) {
-					final int wavid = note.getWav();
-					if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
-						Integer dur = wavDurationCache.get(wavid);
-						if (dur == null) {
-							String fileName = wavlist[wavid];
-							java.io.File audioFile = new java.io.File(bmsDir, fileName);
-							if (!audioFile.exists()) {
-								int dotIdx = fileName.lastIndexOf('.');
-								String baseName = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
-								for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
-									java.io.File f = new java.io.File(bmsDir, baseName + ext);
-									if (f.exists()) {
-										audioFile = f;
-										break;
-									}
+			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
+			int checkCount = 0;
+			for (java.util.Map.Entry<Integer, Integer> entry : lastOccurrenceMap.entrySet()) {
+				final int wavid = entry.getKey();
+				final int lastTime = entry.getValue();
+
+				// 只有在距离歌曲结束 20 秒内的采样才需要检测时长
+				if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null && lastTime > lastTimeMs - 20000) {
+					Integer dur = wavDurationCache.get(wavid);
+					if (dur == null) {
+						checkCount++;
+						String fileName = wavlist[wavid];
+						java.io.File audioFile = new java.io.File(bmsDir, fileName);
+						if (!audioFile.exists()) {
+							int dotIdx = fileName.lastIndexOf('.');
+							String baseName = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
+							for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
+								java.io.File f = new java.io.File(bmsDir, baseName + ext);
+								if (f.exists()) {
+									audioFile = f;
+									break;
 								}
 							}
-
-							dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
-							wavDurationCache.put(wavid, dur);
 						}
-						if (dur > 0) {
-							final int tailEnd = tl.getTime() + dur;
-							if (tailEnd > lastTimeMs) {
-								maxTailMs = Math.max(maxTailMs, tailEnd - lastTimeMs);
-							}
+
+						if (audioFile.exists()) {
+							dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
+						} else {
+							dur = 0;
+						}
+						wavDurationCache.put(wavid, dur);
+					}
+					if (dur > 0) {
+						final int tailEnd = lastTime + dur;
+						if (tailEnd > lastTimeMs) {
+							maxTailMs = Math.max(maxTailMs, tailEnd - lastTimeMs);
 						}
 					}
 				}
 			}
+			Logger.getGlobal().info(String.format("Audio tail check finished: %d ms, unique wavs: %d, checked: %d, maxTail: %d ms",
+					System.currentTimeMillis() - startTime, lastOccurrenceMap.size(), checkCount, maxTailMs));
 		}
 		lastNoteEndTime = lastTimeMs;
 		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束
