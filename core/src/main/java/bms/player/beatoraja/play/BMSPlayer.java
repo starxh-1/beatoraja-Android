@@ -225,8 +225,9 @@ public class BMSPlayer extends MainState {
 				? model.getLastTime() : model.getLastNoteTime();
 
 		// 计算音频尾部时长（检查所有notes的WAV时长）
-		maxTailMs = 0;
-		{
+		maxTailMs = resource.getSongdata().getTail();
+		if (maxTailMs < 0) {
+			maxTailMs = 0;
 			long startTime = System.currentTimeMillis();
 			final String[] wavlist = model.getWavList();
 			final java.io.File bmsDir = new java.io.File(model.getPath()).getParentFile();
@@ -287,8 +288,12 @@ public class BMSPlayer extends MainState {
 					}
 				}
 			}
+			resource.getSongdata().setTail(maxTailMs);
+			main.getSongDatabase().updateSongTail(model.getSHA256(), maxTailMs);
 			Logger.getGlobal().info(String.format("Audio tail check finished: %d ms, unique wavs: %d, checked: %d, maxTail: %d ms",
 					System.currentTimeMillis() - startTime, lastOccurrenceMap.size(), checkCount, maxTailMs));
+		} else {
+			Logger.getGlobal().info("Audio tail loaded from database: " + maxTailMs + " ms");
 		}
 		lastNoteEndTime = lastTimeMs;
 		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束

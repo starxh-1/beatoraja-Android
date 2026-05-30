@@ -14,13 +14,13 @@ import bms.tool.mdprocessor.IpfsInformation;
 
 /**
  * 楽曲データ
- * 
+ *
  * @author exch
  */
 public class SongData implements Validatable, IpfsInformation {
 
 	public static final SongData[] EMPTY = new SongData[0];
-	
+
 	public static final int FEATURE_UNDEFINEDLN = 1;
 	public static final int FEATURE_MINENOTE = 2;
 	public static final int FEATURE_RANDOM = 4;
@@ -87,12 +87,16 @@ public class SongData implements Validatable, IpfsInformation {
 	 */
 	private int maxbpm;
 	/**
-	 * 曲の長さ(ms)
+	 * 曲の长度(ms)
 	 */
 	private int length;
+	/**
+	 * 音频尾部延伸时长(ms)。-1 表示未计算。
+	 */
+	private int tail = -1;
 	private int content;
 	private int notes;
-	
+
 	/**
 	 * STAGEFILE path
 	 */
@@ -122,9 +126,9 @@ public class SongData implements Validatable, IpfsInformation {
 	private List<String> org_md5;
 
 	public SongData() {
-		
+
 	}
-	
+
 	public SongData(BMSModel model, boolean containstxt) {
 		content = containstxt ? CONTENT_TEXT : 0;
 		setBMSModel(model);
@@ -161,7 +165,7 @@ public class SongData implements Validatable, IpfsInformation {
 		}
 		mode = model.getMode().id;
 		if(difficulty == 0) {
-			difficulty = model.getDifficulty();			
+			difficulty = model.getDifficulty();
 		}
 		judge = model.getJudgerank();
 		minbpm = (int) model.getMinBPM();
@@ -206,7 +210,7 @@ public class SongData implements Validatable, IpfsInformation {
 		feature |= model.getRandom() != null && model.getRandom().length > 0 ? FEATURE_RANDOM : 0;
 		content |= model.getBgaList().length > 0 ? CONTENT_BGA : 0;
 		content |= length >= 30000 && model.getWavList().length <= (length / (50 * 1000)) + 3 ? CONTENT_NOKEYSOUND : 0;
-		
+
 		info = new SongInformation(model);
 		try {
 			MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -232,23 +236,23 @@ public class SongData implements Validatable, IpfsInformation {
 		}
 		return null;
 	}
-	
+
 	public void setPath(String path) {
 		if(this.path.size() == 0) {
 			this.path.add(path);
 		} else {
-			this.path.set(0, path);			
+			this.path.set(0, path);
 		}
 	}
-	
+
 	public void addAnotherPath(String path) {
 		this.path.add(path);
 	}
-	
+
 	public String[] getAllPaths() {
 		return path.toArray(new String[0]);
 	}
-	
+
 	public String getTag() {
 		return tag;
 	}
@@ -270,21 +274,21 @@ public class SongData implements Validatable, IpfsInformation {
 	public String getTitle() {
 		return title;
 	}
-	
+
 	public void setTitle(String title) {
 		this.title = title;
 		fulltitle = null;
 	}
-	
+
 	public String getSubtitle() {
 		return subtitle;
 	}
-	
+
 	public void setSubtitle(String subtitle) {
 		this.subtitle = subtitle;
 		fulltitle = null;
 	}
-	
+
 	public String getFullTitle() {
 		if(fulltitle == null) {
 			fulltitle = subtitle.length() > 0 ? title + " " + subtitle : title;
@@ -301,12 +305,12 @@ public class SongData implements Validatable, IpfsInformation {
 	public String getSubartist() {
 		return subartist;
 	}
-	
+
 	public void setSubartist(String subartist) {
 		this.subartist = subartist;
 		fullartist = null;
 	}
-	
+
 	public String getFullArtist() {
 		if(fullartist == null) {
 			fullartist = subartist.length() > 0 ? artist + " " + subartist : artist;
@@ -363,11 +367,11 @@ public class SongData implements Validatable, IpfsInformation {
 	public void setBanner(String banner) {
 		this.banner = banner;
 	}
-	
+
 	public boolean hasDocument() {
 		return (content & CONTENT_TEXT) != 0;
 	}
-	
+
 	public boolean hasBGA() {
 		return (content & CONTENT_BGA) != 0;
 	}
@@ -495,7 +499,7 @@ public class SongData implements Validatable, IpfsInformation {
 	public void setInformation(SongInformation info) {
 		this.info = info;
 	}
-	
+
 	public String getFolder() {
 		return folder;
 	}
@@ -518,6 +522,14 @@ public class SongData implements Validatable, IpfsInformation {
 
 	public void setLength(int length) {
 		this.length = length;
+	}
+
+	public int getTail() {
+		return tail;
+	}
+
+	public void setTail(int tail) {
+		this.tail = tail;
 	}
 
 	public String getUrl() {
@@ -567,7 +579,7 @@ public class SongData implements Validatable, IpfsInformation {
 	public void setOrg_md5(List<String> org_md5) {
 		this.org_md5 = org_md5;
 	}
-	
+
 	public void merge(SongData song) {
 		if(url == null || url.length() == 0) {
 			url = song.getUrl();
@@ -576,11 +588,12 @@ public class SongData implements Validatable, IpfsInformation {
 			appendurl = song.getAppendurl();
 		}
 	}
-	
+
 	public void shrink() {
 		fulltitle = fullartist = null;
 		path.clear();
 		date = adddate = level = mode = feature = difficulty = judge = minbpm = maxbpm = notes = length = 0;
+		tail = -1;
 		folder = parent = preview = "";
 	}
 

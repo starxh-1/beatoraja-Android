@@ -2,14 +2,14 @@ package bms.player.beatoraja.song;
 
 /**
  * 楽曲データベースへのアクセスインターフェイス
- * 
+ *
  * @author exch
  */
 public interface SongDatabaseAccessor {
 
 	/**
 	 * 楽曲を取得する
-	 * 
+	 *
 	 * @param key
 	 *            属性
 	 * @param value
@@ -20,7 +20,7 @@ public interface SongDatabaseAccessor {
 
 	/**
 	 * MD5/SHA256で指定した楽曲をまとめて取得する
-	 * 
+	 *
 	 * @param hashes
 	 *            楽曲のハッシュ
 	 * @return
@@ -29,7 +29,7 @@ public interface SongDatabaseAccessor {
 
 	/**
 	 * スコアデータベース、スコアログデータベース、譜面情報データベースを跨いでSQLで問い合わせを行う
-	 * 
+	 *
 	 * @param sql
 	 *            SQL
 	 * @param score
@@ -42,11 +42,13 @@ public interface SongDatabaseAccessor {
 
 	public void setSongDatas(SongData[] songs);
 
+	public void updateSongTail(String sha256, int tail);
+
 	public SongData[] getSongDatasByText(String text);
 
 	/**
 	 * 楽曲を取得する
-	 * 
+	 *
 	 * @param key
 	 *            属性
 	 * @param value

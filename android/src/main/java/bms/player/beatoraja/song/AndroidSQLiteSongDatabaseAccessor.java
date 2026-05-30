@@ -459,6 +459,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 cv.put("maxbpm", sd.getMaxbpm());
                 cv.put("minbpm", sd.getMinbpm());
                 cv.put("length", sd.getLength());
+                cv.put("tail", sd.getTail());
                 cv.put("mode", sd.getMode());
                 cv.put("judge", sd.getJudge());
                 cv.put("feature", sd.getFeature());
@@ -476,6 +477,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } finally {
             db.endTransaction();
         }
+    }
+
+    @Override
+    public void updateSongTail(String sha256, int tail) {
+        SQLiteDatabase db = helper.getWritableDatabase();
+        ContentValues cv = new ContentValues();
+        cv.put("tail", tail);
+        db.update("song", cv, "sha256 = ?", new String[]{sha256});
     }
 
     @Override
@@ -1516,6 +1525,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             sd.setMaxbpm(getIntSafe(c, "maxbpm"));
             sd.setMinbpm(getIntSafe(c, "minbpm"));
             sd.setLength(getIntSafe(c, "length"));
+            sd.setTail(getIntSafe(c, "tail"));
             sd.setMode(getIntSafe(c, "mode"));
             sd.setJudge(getIntSafe(c, "judge"));
             sd.setFeature(getIntSafe(c, "feature"));
@@ -1546,7 +1556,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
     private static class DBHelper extends SQLiteOpenHelper {
         private final String path;
-        private static final int DATABASE_VERSION = 3; // Updated for sha256 primary key migration
+        private static final int DATABASE_VERSION = 4; // Updated for tail column
 
         DBHelper(Context ctx, String path) {
             super(ctx, path, null, DATABASE_VERSION);
@@ -1579,6 +1589,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     + "maxbpm INTEGER, "
                     + "minbpm INTEGER, "
                     + "length INTEGER, "
+                    + "tail INTEGER DEFAULT -1, "
                     + "mode INTEGER, "
                     + "judge INTEGER, "
                     + "feature INTEGER, "
@@ -1725,6 +1736,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     }
                 } catch (Exception e) {
                     Log.e(TAG, "Failed to migrate to sha256 primary key: " + e.getMessage(), e);
+                }
+            }
+
+            // Version 4: Add tail column
+            if (oldVersion < 4) {
+                try {
+                    db.execSQL("ALTER TABLE song ADD COLUMN tail INTEGER DEFAULT -1");
+                    Log.i(TAG, "Added tail column to song table");
+                } catch (Exception e) {
+                    Log.e(TAG, "Failed to add tail column: " + e.getMessage(), e);
                 }
             }
         }
