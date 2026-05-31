@@ -385,7 +385,7 @@ local function main(keysNumber)
 			total_orig_w = total_orig_w + base_widths[idx]
 		end
 
-		local target_width = 1140 -- Increased to 1140 to ensure it covers the edge on wider-than-16:9 screens
+		local target_width = 1080 -- Fixed to standard screen width
 		local sep_w = 6
 		geo.lane.separateline_w = sep_w
 		local num_seps = #geo.lane.order - 1
@@ -401,7 +401,7 @@ local function main(keysNumber)
 		-- Portrait lane: x=judgment line position, y=bottom of screen
 		geo.lane.x = 240  -- Judgment line position (Landscape X)
 		geo.lane.y = 0    -- Fill from bottom of buffer (Landscape Y)
-		geo.lane.w = 1920 - geo.lane.x - 20  -- Lane length (to reduce top gap)
+		geo.lane.w = 1920 - geo.lane.x - 20  -- Lane length
 		geo.lane.h = target_width -- Total width across lanes
 
 		geo.lane.each_w = {}
@@ -435,7 +435,7 @@ local function main(keysNumber)
 		geo.lane.fivekey_center_x = geo.lane.center_x
 		geo.lane.judgeline_h = 10
 
-		-- Gauge area - at bottom in portrait
+		-- Gauge area - below judge line
 		geo.gaugearea = {}
 		geo.gaugearea.x = 0
 		geo.gaugearea.w = geo.lane.x - 20
@@ -443,16 +443,16 @@ local function main(keysNumber)
 		geo.gaugearea.h = target_width
 
 		geo.gauge = {}
-		geo.gauge.x = 80      -- Below judgment line (Landscape X)
-		geo.gauge.y = 20      -- Bottom edge (Landscape Y)
-		geo.gauge.w = 35      -- Thickness
-		geo.gauge.h = 1000    -- Length (will be vertical due to h > w in SkinGauge)
+		geo.gauge.x = 140      -- Horizontal bar at bottom area
+		geo.gauge.y = 540      -- Center of screen width
+		geo.gauge.w = 1000     -- Length
+		geo.gauge.h = 35       -- Thickness
 
 		-- Score/info area
 		geo.scoreinfoarea = {}
 		geo.scoreinfoarea.x = 0
 		geo.scoreinfoarea.w = geo.gaugearea.w
-		geo.scoreinfoarea.y = geo.gauge.y + 100
+		geo.scoreinfoarea.y = 0
 
 		-- Scoregraph - hidden in portrait
 		geo.scoregrapharea = {}
@@ -2581,7 +2581,12 @@ local function main(keysNumber)
 		local y = geo.gauge.y local h = geo.gauge.h
 		local angle = 0
 		if isPortraitLayout() then
-			angle = 270
+			-- Back to horizontal bar across the bottom
+			x = geo.gauge.x
+			y = geo.gauge.y
+			w = geo.gauge.w
+			h = geo.gauge.h
+			angle = 0
 		elseif is2P() then
 			x = geo.gauge.x + geo.gauge.w
 			w = -geo.gauge.w
@@ -2598,13 +2603,13 @@ local function main(keysNumber)
 		})
 		local w = 35 local h = 35
 		if isPortraitLayout() then
-			local x = geo.gauge.x + 50
-			local start_y = geo.gauge.y - geo.gauge.w / 2 - 30
+			local px = 200 -- Above right end of gauge
+			local py = 950 -- Right side
 			append_all(skin.destination, {
-				{id = "gaugevalue", dst = {{x = x, y = start_y, w = w, h = h, angle = 270}}},
-				{id = "text_image_dot", dst = {{x = x, y = start_y - h * 3 - 1, w = w, h = h, angle = 270}}},
-				{id = "gaugevalue_ad", dst = {{x = x, y = start_y - h * 3 - 10, w = w, h = h, angle = 270}}},
-				{id = "text_image_%", dst = {{x = x, y = start_y - h * 4 - 12, w = 24, h = 20, angle = 270}}},
+				{id = "gaugevalue", dst = {{x = px, y = py, w = w, h = h, angle = 270}}},
+				{id = "text_image_dot", dst = {{x = px, y = py - h * 3 - 1, w = w, h = h, angle = 270}}},
+				{id = "gaugevalue_ad", dst = {{x = px, y = py - h * 3 - 10, w = w, h = h, angle = 270}}},
+				{id = "text_image_%", dst = {{x = px, y = py - h * 4 - 12, w = 24, h = 20, angle = 270}}},
 			})
 		else
 			local y = geo.gauge.y + geo.gauge.h + 7
@@ -2753,14 +2758,14 @@ local function main(keysNumber)
 		local text_size = 16
 		local num_size = 20
 			if isPortraitLayout() then
-				local px = geo.gauge.x + 30
-				local py = geo.gauge.y - geo.gauge.w / 2 - 120
+				local px = 80 -- Below gauge
+				local py = 150 -- Left side
 				local num_w = 18 local num_h = 18
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
 					{x = px, y = py, w = image_w * text_size / image_h * 1.06, h = text_size, angle = 270},
 				}})
 				table.insert(skin.destination, {id = "exscore", dst = {
-					{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
+					{x = px, y = py + 150, w = num_w, h = num_h, angle = 270},
 				}})
 			else
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
@@ -2782,8 +2787,8 @@ local function main(keysNumber)
 			{id = "text_images_hispeed", src = "src_othertexts", x = 0, y = image_h * 4, w = image_w, h = image_h * 5, divy = 5, len = 5, ref = 55}
 		)
 			if isPortraitLayout() then
-				local px = geo.gauge.x + 30
-				local py = geo.gauge.y - geo.gauge.w / 2 - 180
+				local px = 80 -- Same horizontal line as EXSCORE
+				local py = 650 -- Right side
 				local num_w = 18 local num_h = 18
 				local text_images_h = 16
 				append_all(skin.destination, {
@@ -2791,13 +2796,13 @@ local function main(keysNumber)
 						{x = px, y = py, w = image_w * text_images_h / image_h * 1.06, h = text_images_h, angle = 270},
 					}},
 					{id = "hispeed", dst = {
-						{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py + 150, w = num_w, h = num_h, angle = 270},
 					}},
 					{id = "text_image_dot", dst = {
-						{x = px, y = py - num_h * 4, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py + 150 + num_w * 2 + 4, w = num_w, h = num_h, angle = 270},
 					}},
 					{id = "hispeed_ad", dst = {
-						{x = px, y = py - num_h * 6, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py + 150 + num_w * 3 - 6, w = num_w, h = num_h, angle = 270},
 					}},
 				})
 			else
