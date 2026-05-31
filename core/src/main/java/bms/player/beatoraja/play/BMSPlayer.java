@@ -786,12 +786,15 @@ public class BMSPlayer extends MainState {
 				// System.out.println("playing time : " + time);
 				if (playtime < ptime) {
 					state = STATE_FINISHED;
-					timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
-					for(int i = TIMER_PM_CHARA_1P_NEUTRAL; i <= TIMER_PM_CHARA_2P_BAD; i++) {
-						timer.setTimerOff(i);
+					if (resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY) {
+						timer.setTimerOn(TIMER_FADEOUT);
+					} else {
+						timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
+						for(int i = TIMER_PM_CHARA_1P_NEUTRAL; i <= TIMER_PM_CHARA_2P_BAD; i++) {
+							timer.setTimerOff(i);
+						}
+						timer.setTimerOff(TIMER_PM_CHARA_DANCE);
 					}
-					timer.setTimerOff(TIMER_PM_CHARA_DANCE);
-
 					Logger.getGlobal().info("STATE_FINISHEDに移行");
 				} else if(lastNoteEndTime < ptime) {
 					if(!timer.isTimerOn(TIMER_PLAY_NOTE_END)) {
@@ -894,7 +897,7 @@ public class BMSPlayer extends MainState {
 			case STATE_FINISHED -> {
 				keyinput.stopJudge();
 				keysound.stopBGPlay();
-				if (timer.getNowTime(TIMER_PLAY_NOTE_END) > 0) {
+				if (timer.getNowTime(TIMER_PLAY_NOTE_END) > 0 || timer.getNowTime(TIMER_ENDOFNOTE_1P) > 0) {
 					timer.switchTimer(TIMER_FADEOUT, true);
 				}
 				if (timer.getNowTime(TIMER_FADEOUT) > skin.getFadeout()) {
@@ -1093,15 +1096,14 @@ public class BMSPlayer extends MainState {
 		if (timer.isTimerOn(TIMER_FAILED) || timer.isTimerOn(TIMER_FADEOUT)) {
 			return;
 		}
-		// AUTOPLAY按ESCAPE时，直接取消，不显示finish
+		// AUTOPLAY按ESCAPE时，直接中止，不显示failed/finish
 		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY) {
-			state = STATE_FAILED;
-			timer.setTimerOn(TIMER_FAILED);
 			if (resource.mediaLoadFinished()) {
 				main.getAudioProcessor().stop((Note) null);
 			}
-			play(PLAY_STOP);
-			Logger.getGlobal().info("AUTOPLAY ESCAPE: STATE_FAILEDに移行");
+			state = STATE_FINISHED;
+			timer.setTimerOn(TIMER_FADEOUT);
+			Logger.getGlobal().info("AUTOPLAY ESCAPE: FINISHED→MUSICSELECTに移行");
 			return;
 		}
 		if (state != STATE_FINISHED &&
