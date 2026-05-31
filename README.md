@@ -48,6 +48,7 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 # Special Thanks
 
 - beatoraja by exch-bms2 (https://github.com/exch-bms2/beatoraja)
+- LR2oraja-EndlessDream by seraxis (https://github.com/seraxis/lr2oraja-endlessdream)
 - libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
 - GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
 - KissFFT by Mark Borgerding (https://github.com/mborgerding/kissfft)
