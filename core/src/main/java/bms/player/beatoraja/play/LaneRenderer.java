@@ -1027,30 +1027,29 @@ public class LaneRenderer {
 
 		if (isPortrait) {
 			// Portrait mode: notes fall horizontally (x decreases from right to left)
-			// Leading edge of head is at x. Tail follows at x + height.
+			// Head is at x. Tail follows at x + height.
 			float W = width;  // Lane width (vertical on screen)
 			float L = height; // LN length (horizontal on screen)
 			float T = scale;  // Note thickness
 			float laneCenterY = y + (W - T) / 2f;
 
-			// Visual Head (Hit side) - Draw at x.
-			// Matches landscape logic where tailIdx is drawn at head position (y - height).
-			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
-				sprite.draw(longImage[tailIdx], x + 0.5f * T - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
-			}
-
-			// Visual Body - Draw from x + T to x + L.
+			// Visual Body - Draw first, from x to x + L to ensure connection with head/tail
 			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
-				float bodyL = L - T;
-				if (bodyL > 0.01f) {
-					sprite.draw(longImage[bodyIdx], x + T + 0.5f * bodyL - 0.5f * W, y + (W - bodyL) / 2f, W, bodyL, 0.5f, 0.5f, 270.0f);
+				if (L > 0.01f) {
+					sprite.draw(longImage[bodyIdx], x + 0.5f * L - 0.5f * W, y + (W - L) / 2f, W, L, 0.5f, 0.5f, 270.0f);
 				}
 			}
 
-			// Visual Tail (End side) - Draw at x + L.
-			// Matches landscape logic where headIdx is drawn at tail position (y).
+			// Visual Head (Hit side) - Center at x to match normal note alignment
+			// Matches landscape logic where tailIdx is drawn at head position.
+			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
+				sprite.draw(longImage[tailIdx], x - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
+			}
+
+			// Visual Tail (End side) - Center at x + L
+			// Matches landscape logic where headIdx is drawn at tail position.
 			if (headIdx < longImage.length && longImage[headIdx] != null) {
-				sprite.draw(longImage[headIdx], x + L + 0.5f * T - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
+				sprite.draw(longImage[headIdx], x + L - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
 			}
 		} else {
 			// Landscape mode: notes fall vertically (y increases from bottom to top)
