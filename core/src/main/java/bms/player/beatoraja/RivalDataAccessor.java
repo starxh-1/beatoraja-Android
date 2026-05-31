@@ -64,7 +64,7 @@ public final class RivalDataAccessor {
 				try {
 					IRResponse<IRScoreData[]> scores = main.getIRStatus()[0].connection.getPlayData(main.getIRStatus()[0].player, null);
 					if(scores.isSucceeded()) {
-						ScoreDataImporter scoreimport = new ScoreDataImporter(new ScoreDatabaseAccessor(main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + File.separatorChar + "score.db"));
+						ScoreDataImporter scoreimport = new ScoreDataImporter(ScoreDatabaseAccessor.create(main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + File.separatorChar + "score.db"));
 						scoreimport.importScores(convert(scores.getData()), main.getIRStatus()[0].config.getIrname());
 
 						Logger.getGlobal().info("IRからのスコアインポート完了");
@@ -96,7 +96,7 @@ public final class RivalDataAccessor {
 							rival.setId(irplayer.id);
 							rival.setName(irplayer.name);
 							rival.setRank(irplayer.rank);
-							final ScoreDatabaseAccessor scoredb = new ScoreDatabaseAccessor("rival/" + main.getIRStatus()[0].config.getIrname() + rival.getId() + ".db");
+							final ScoreDatabaseAccessor scoredb = ScoreDatabaseAccessor.create("rival/" + main.getIRStatus()[0].config.getIrname() + rival.getId() + ".db");
 							
 							rivals.add(rival);
 							rivalcaches.add(new ScoreDataCache() {
@@ -139,7 +139,7 @@ public final class RivalDataAccessor {
 							}
 
 							if(p.getName().endsWith(".db")) {
-								final ScoreDatabaseAccessor scoredb = new ScoreDatabaseAccessor(p.getPath());
+								final ScoreDatabaseAccessor scoredb = ScoreDatabaseAccessor.create(p.getPath());
 								PlayerInformation info = scoredb.getInformation();
 								if(info != null) {
 									rivals.add(info);

@@ -110,6 +110,8 @@
     <string name="msg_score_db_not_found">Score database not found for %1$s</string>
     <string name="msg_score_exported">Score exported successfully</string>
     <string name="msg_export_failed">Export failed: %1$s</string>
+    <string name="msg_score_imported">Score imported successfully</string>
+    <string name="msg_score_import_failed">Score import failed: %1$s</string>
     <string name="msg_import_success">Player \'%1$s\' imported successfully</string>
     <string name="msg_import_failed">Import failed: %1$s</string>
     <string name="msg_delete_success">Player deleted</string>

@@ -23,7 +23,7 @@ public class LR2FontLoader extends LR2SkinLoader {
 	File path;
 
 	private final boolean usecim;
-	
+
 	public LR2FontLoader(boolean usecim) {
 		this.usecim = usecim;
 		addCommandWord(FontCommand.values());
@@ -69,9 +69,28 @@ enum FontCommand implements Command<LR2FontLoader> {
 	// texture
 	T ((loader, str) -> {
 		File imagefile = new File(loader.path.getParent(), str[2]);
-		// System.out.println("Font image loading : " +
-		// imagefile.getPath());
-		if (imagefile.exists()) {
+		String path = imagefile.getPath().replace("\\", "/");
+		boolean exists = com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android ?
+				(com.badlogic.gdx.Gdx.files.internal(path).exists() || com.badlogic.gdx.Gdx.files.absolute(path).exists()) :
+				imagefile.exists();
+
+		// Android 大小写敏感问题修复
+		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
+			java.io.File parentDir = imagefile.getParentFile();
+			if (parentDir != null && parentDir.exists()) {
+				String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), imagefile.getName());
+				if (actualName != null) {
+					File candidate = new File(parentDir, actualName);
+					String actualPath = candidate.getAbsolutePath().replace("\\", "/");
+					if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
+						imagefile = candidate;
+						exists = true;
+					}
+				}
+			}
+		}
+
+		if (exists) {
 			loader.textimage.setPath(Integer.parseInt(str[1]),imagefile.getPath());
 		}
 	}),
@@ -89,7 +108,7 @@ enum FontCommand implements Command<LR2FontLoader> {
 			e.printStackTrace();
 		}
 	});
-	
+
 	private static int[] mapCode(int code) {
 		int sjiscode = code;
 		byte[] sjisbyte;
@@ -123,7 +142,7 @@ enum FontCommand implements Command<LR2FontLoader> {
 		}
 		return new int[0];
 	}
-	
+
 	public final BiConsumer<LR2FontLoader, String[]> function;
 
 	private FontCommand(BiConsumer<LR2FontLoader, String[]> function) {

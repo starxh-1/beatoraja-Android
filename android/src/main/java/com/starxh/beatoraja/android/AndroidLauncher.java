@@ -263,6 +263,10 @@ public class AndroidLauncher extends AndroidApplication {
             }
         });
 
+        // Set up unified score DB factory (Android native SQLite, not JDBC)
+        bms.player.beatoraja.ScoreDatabaseAccessor.setFactory(
+            path -> new bms.player.beatoraja.score.AndroidScoreDatabaseAccessor(AndroidLauncher.this, path));
+
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
         Gdx.input.setCatchKey(Keys.BACK, true);

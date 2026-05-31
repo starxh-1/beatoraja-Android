@@ -187,14 +187,18 @@ public abstract class SkinLoader {
 
                 File parentDir = new File(path).getParentFile();
                 if (parentDir != null && parentDir.isDirectory()) {
-                    File[] files = parentDir.listFiles();
-                    if (files != null) {
-                        String prefix = path.substring(0, path.lastIndexOf('.')) + "__";
-                        for (File f : files) {
-                            String fname = f.getName();
-                            if (fname.startsWith(prefix) && fname.endsWith(".cim")) {
-                                f.delete();
-                                break;
+                    // 在 Android 上，避免全量 listFiles，它非常慢。
+                    // 老旧 CIM 文件的清理在 Android 上通常不是必要的。
+                    if (com.badlogic.gdx.Gdx.app.getType() != com.badlogic.gdx.Application.ApplicationType.Android) {
+                        File[] files = parentDir.listFiles();
+                        if (files != null) {
+                            String prefix = path.substring(0, path.lastIndexOf('.')) + "__";
+                            for (File f : files) {
+                                String fname = f.getName();
+                                if (fname.startsWith(prefix) && fname.endsWith(".cim")) {
+                                    f.delete();
+                                    break;
+                                }
                             }
                         }
                     }

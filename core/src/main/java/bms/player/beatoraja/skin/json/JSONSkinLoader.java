@@ -10,7 +10,6 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.utils.*;
 
 import bms.player.beatoraja.*;
-import bms.player.beatoraja.config.SkinConfigurationSkin;
 import bms.player.beatoraja.play.bga.BGAProcessor;
 import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.skin.SkinHeader.CustomItem;
@@ -112,7 +111,7 @@ public class JSONSkinLoader extends SkinLoader {
 	protected SkinHeader loadJsonSkinHeader(JsonSkin.Skin sk, File p) {
 		SkinHeader header = null;
 		try {
-			if (sk.type != -1) {
+			if (sk != null && sk.type != -1) {
 				header = new SkinHeader();
 				header.setSkinType(SkinType.getSkinTypeById(sk.type));
 				header.setName(sk.name != null ? sk.name : "");
@@ -121,45 +120,63 @@ public class JSONSkinLoader extends SkinLoader {
 				header.setType(SkinHeader.TYPE_BEATORJASKIN);
 
 				ObjectMap<JsonSkin.Category, SkinHeader.CustomItem[]> categories = new ObjectMap<JsonSkin.Category, SkinHeader.CustomItem[]>();
-				for(JsonSkin.Category category : sk.category) {
-					categories.put(category, new SkinHeader.CustomItem[category.item.length]);
+				if (sk.category != null) {
+					for(JsonSkin.Category category : sk.category) {
+						if (category == null || category.item == null) continue;
+						categories.put(category, new SkinHeader.CustomItem[category.item.length]);
+					}
 				}
 
-				SkinHeader.CustomOption[] options = new SkinHeader.CustomOption[sk.property.length];
-				for (int i = 0; i < sk.property.length; i++) {
-					JsonSkin.Property pr = sk.property[i];
+				if (sk.property != null) {
+					SkinHeader.CustomOption[] options = new SkinHeader.CustomOption[sk.property.length];
+					for (int i = 0; i < sk.property.length; i++) {
+						JsonSkin.Property pr = sk.property[i];
+						if (pr == null || pr.item == null) continue;
 
-					int[] op = new int[pr.item.length];
-					String[] name = new String[pr.item.length];
-					for (int j = 0; j < pr.item.length; j++) {
-						op[j] = pr.item[j].op;
-						name[j] = pr.item[j].name;
-					}
-					options[i] = new SkinHeader.CustomOption(pr.name, op, name, pr.def);
+						int[] op = new int[pr.item.length];
+						String[] name = new String[pr.item.length];
+						for (int j = 0; j < pr.item.length; j++) {
+							if (pr.item[j] == null) continue;
+							op[j] = pr.item[j].op;
+							name[j] = pr.item[j].name;
+						}
+						options[i] = new SkinHeader.CustomOption(pr.name, op, name, pr.def);
 
-					for(JsonSkin.Category category : sk.category) {
-						for(int index = 0;index < category.item.length;index++) {
-							if(category.item[index].equals(pr.category)) {
-								categories.get(category)[index] = options[i];
+						if (sk.category != null) {
+							for(JsonSkin.Category category : sk.category) {
+								if (category == null || category.item == null) continue;
+								for(int index = 0;index < category.item.length;index++) {
+									if(category.item[index] != null && category.item[index].equals(pr.category)) {
+										SkinHeader.CustomItem[] items = categories.get(category);
+										if (items != null) items[index] = options[i];
+									}
+								}
 							}
 						}
 					}
+					header.setCustomOptions(options);
 				}
-				header.setCustomOptions(options);
 
-				SkinHeader.CustomFile[] files = new SkinHeader.CustomFile[sk.filepath.length];
-				for (int i = 0; i < sk.filepath.length; i++) {
-					JsonSkin.Filepath pr = sk.filepath[i];
-					files[i] = new SkinHeader.CustomFile(pr.name, p.getParentFile().toString() + "/" + pr.path, pr.def);
-					for(JsonSkin.Category category : sk.category) {
-						for(int index = 0;index < category.item.length;index++) {
-							if(category.item[index].equals(pr.category)) {
-								categories.get(category)[index] = files[i];
+				if (sk.filepath != null) {
+					SkinHeader.CustomFile[] files = new SkinHeader.CustomFile[sk.filepath.length];
+					for (int i = 0; i < sk.filepath.length; i++) {
+						JsonSkin.Filepath pr = sk.filepath[i];
+						if (pr == null) continue;
+						files[i] = new SkinHeader.CustomFile(pr.name, p.getParentFile().toString() + "/" + pr.path, pr.def);
+						if (sk.category != null) {
+							for(JsonSkin.Category category : sk.category) {
+								if (category == null || category.item == null) continue;
+								for(int index = 0;index < category.item.length;index++) {
+									if(category.item[index] != null && category.item[index].equals(pr.category)) {
+										SkinHeader.CustomItem[] items = categories.get(category);
+										if (items != null) items[index] = files[i];
+									}
+								}
 							}
 						}
 					}
+					header.setCustomFiles(files);
 				}
-				header.setCustomFiles(files);
 
 				int offsetLengthAddition = 0;
 				switch (header.getSkinType()) {
@@ -173,46 +190,60 @@ public class JSONSkinLoader extends SkinLoader {
 						offsetLengthAddition = 4;
 					default:
 				}
-				SkinHeader.CustomOffset[] offsets = new SkinHeader.CustomOffset[sk.offset.length + offsetLengthAddition];
-				for (int i = 0; i < sk.offset.length; i++) {
-					JsonSkin.Offset pr = sk.offset[i];
-					offsets[i] = new SkinHeader.CustomOffset(pr.name, pr.id, pr.x, pr.y, pr.w, pr.h, pr.r, pr.a);
-					for(JsonSkin.Category category : sk.category) {
-						for(int index = 0;index < category.item.length;index++) {
-							if(category.item[index].equals(pr.category)) {
-								categories.get(category)[index] = offsets[i];
+
+				if (sk.offset != null) {
+					SkinHeader.CustomOffset[] offsets = new SkinHeader.CustomOffset[sk.offset.length + offsetLengthAddition];
+					for (int i = 0; i < sk.offset.length; i++) {
+						JsonSkin.Offset pr = sk.offset[i];
+						if (pr == null) continue;
+						offsets[i] = new SkinHeader.CustomOffset(pr.name, pr.id, pr.x, pr.y, pr.w, pr.h, pr.r, pr.a);
+						if (sk.category != null) {
+							for(JsonSkin.Category category : sk.category) {
+								if (category == null || category.item == null) continue;
+								for(int index = 0;index < category.item.length;index++) {
+									if(category.item[index] != null && category.item[index].equals(pr.category)) {
+										SkinHeader.CustomItem[] items = categories.get(category);
+										if (items != null) items[index] = offsets[i];
+									}
+								}
 							}
 						}
 					}
-				}
-				switch (header.getSkinType()) {
-					case PLAY_5KEYS:
-					case PLAY_7KEYS:
-					case PLAY_9KEYS:
-					case PLAY_10KEYS:
-					case PLAY_14KEYS:
-					case PLAY_24KEYS:
-					case PLAY_24KEYS_DOUBLE:
-						offsets[sk.offset.length + 0] = new SkinHeader.CustomOffset("All offset(%)", SkinProperty.OFFSET_ALL, true, true, true, true, false, false);
-						offsets[sk.offset.length + 1] = new SkinHeader.CustomOffset("Notes offset", SkinProperty.OFFSET_NOTES_1P, false, false, false, true, false, false);
-						offsets[sk.offset.length + 2] = new SkinHeader.CustomOffset("Judge offset", SkinProperty.OFFSET_JUDGE_1P, true, true, true, true, false, true);
-						offsets[sk.offset.length + 3] = new SkinHeader.CustomOffset("Judge Detail offset", SkinProperty.OFFSET_JUDGEDETAIL_1P, true, true, true, true, false, true);
-					default:
-				}
-				header.setCustomOffsets(offsets);
-
-				SkinHeader.CustomCategory[] category = new SkinHeader.CustomCategory[sk.category.length];
-				for(int i = 0;i < sk.category.length;i++) {
-					JsonSkin.Category pr = sk.category[i];
-					Array<SkinHeader.CustomItem> array = new Array<CustomItem>();
-					for(SkinHeader.CustomItem item : categories.get(pr)) {
-						if(item != null) {
-							array.add(item);
-						}
+					switch (header.getSkinType()) {
+						case PLAY_5KEYS:
+						case PLAY_7KEYS:
+						case PLAY_9KEYS:
+						case PLAY_10KEYS:
+						case PLAY_14KEYS:
+						case PLAY_24KEYS:
+						case PLAY_24KEYS_DOUBLE:
+							offsets[sk.offset.length] = new SkinHeader.CustomOffset("All offset(%)", SkinProperty.OFFSET_ALL, true, true, true, true, false, false);
+							offsets[sk.offset.length + 1] = new SkinHeader.CustomOffset("Notes offset", SkinProperty.OFFSET_NOTES_1P, false, false, false, true, false, false);
+							offsets[sk.offset.length + 2] = new SkinHeader.CustomOffset("Judge offset", SkinProperty.OFFSET_JUDGE_1P, true, true, true, true, false, true);
+							offsets[sk.offset.length + 3] = new SkinHeader.CustomOffset("Judge Detail offset", SkinProperty.OFFSET_JUDGEDETAIL_1P, true, true, true, true, false, true);
+						default:
 					}
-					category[i] = new SkinHeader.CustomCategory(pr.name, array.toArray(SkinHeader.CustomItem.class));
+					header.setCustomOffsets(offsets);
 				}
-				header.setCustomCategories(category);
+
+				if (sk.category != null) {
+					SkinHeader.CustomCategory[] category = new SkinHeader.CustomCategory[sk.category.length];
+					for(int i = 0;i < sk.category.length;i++) {
+						JsonSkin.Category pr = sk.category[i];
+						if (pr == null) continue;
+						Array<SkinHeader.CustomItem> array = new Array<CustomItem>();
+						SkinHeader.CustomItem[] items = categories.get(pr);
+						if (items != null) {
+							for(SkinHeader.CustomItem item : items) {
+								if(item != null) {
+									array.add(item);
+								}
+							}
+						}
+						category[i] = new SkinHeader.CustomCategory(pr.name, array.toArray(SkinHeader.CustomItem.class));
+					}
+					header.setCustomCategories(category);
+				}
 			}
 		} catch (Throwable e) {
 			e.printStackTrace();
@@ -273,6 +304,7 @@ public class JSONSkinLoader extends SkinLoader {
 	}
 
 	protected Skin loadJsonSkin(SkinHeader header, JsonSkin.Skin sk, SkinType type, SkinConfig.Property property, File p){
+		if (sk == null) return null;
 		Skin skin = null;
 		try {
 			Resolution src = HD;
@@ -340,37 +372,43 @@ public class JSONSkinLoader extends SkinLoader {
 			skin.setInput(sk.input);
 			skin.setScene(sk.scene);
 
-			for(JsonSkin.Source source : sk.source) {
-				sourceMap.put(source.id, new SourceData(source.path));
+			if (sk.source != null) {
+				for(JsonSkin.Source source : sk.source) {
+					if (source == null || source.id == null) continue;
+					sourceMap.put(source.id, new SourceData(source.path));
+				}
 			}
 
-			for (JsonSkin.Destination dst : sk.destination) {
-				SkinObject obj = null;
-				try {
-					int id = Integer.parseInt(dst.id);
-					if (id < 0) {
-						obj = new SkinImage(-id);
-					}
-				} catch (Exception e) {
+			if (sk.destination != null) {
+				for (JsonSkin.Destination dst : sk.destination) {
+					if (dst == null || dst.id == null) continue;
+					SkinObject obj = null;
+					try {
+						int id = Integer.parseInt(dst.id);
+						if (id < 0) {
+							obj = new SkinImage(-id);
+						}
+					} catch (Exception e) {
 
-				}
-				if (obj == null) {
-					if(objectLoader != null) {
-						SkinObject sobj = objectLoader.loadSkinObject(skin, sk, dst, p);
-						if(sobj != null) {
-							obj = sobj;
+					}
+					if (obj == null) {
+						if(objectLoader != null) {
+							SkinObject sobj = objectLoader.loadSkinObject(skin, sk, dst, p);
+							if(sobj != null) {
+								obj = sobj;
+							}
 						}
 					}
-				}
 
-				if (obj != null) {
-					setDestination(skin, obj, dst);
-					skin.add(obj);
+					if (obj != null) {
+						setDestination(skin, obj, dst);
+						skin.add(obj);
+					}
 				}
 			}
 
-			if (sk.skinSelect != null && skin instanceof  SkinConfigurationSkin) {
-				SkinConfigurationSkin skinSelect = (SkinConfigurationSkin) skin;
+			if (sk.skinSelect != null && skin instanceof bms.player.beatoraja.config.SkinConfigurationSkin) {
+				bms.player.beatoraja.config.SkinConfigurationSkin skinSelect = (bms.player.beatoraja.config.SkinConfigurationSkin) skin;
 				skinSelect.setCustomOffsetStyle(sk.skinSelect.customOffsetStyle);
 				skinSelect.setDefaultSkinType(sk.skinSelect.defaultCategory);
 				skinSelect.setSampleBMS(sk.skinSelect.customBMS);
@@ -378,18 +416,22 @@ public class JSONSkinLoader extends SkinLoader {
 					skinSelect.setCustomPropertyCount(sk.skinSelect.customPropertyCount);
 				} else {
 					int count = 0;
-					for (JsonSkin.Image image : sk.image) {
-						if (SkinPropertyMapper.isSkinCustomizeButton(image.act.getEventId())) {
-							int index = SkinPropertyMapper.getSkinCustomizeIndex(image.act.getEventId());
-							if (count <= index)
-								count = index + 1;
+					if (sk.image != null) {
+						for (JsonSkin.Image image : sk.image) {
+							if (image != null && image.act != null && SkinPropertyMapper.isSkinCustomizeButton(image.act.getEventId())) {
+								int index = SkinPropertyMapper.getSkinCustomizeIndex(image.act.getEventId());
+								if (count <= index)
+									count = index + 1;
+							}
 						}
 					}
-					for (JsonSkin.ImageSet imageSet : sk.imageset) {
-						if (SkinPropertyMapper.isSkinCustomizeButton(imageSet.act.getEventId())) {
-							int index = SkinPropertyMapper.getSkinCustomizeIndex(imageSet.act.getEventId());
-							if (count <= index)
-								count = index + 1;
+					if (sk.imageset != null) {
+						for (JsonSkin.ImageSet imageSet : sk.imageset) {
+							if (imageSet != null && imageSet.act != null && SkinPropertyMapper.isSkinCustomizeButton(imageSet.act.getEventId())) {
+								int index = SkinPropertyMapper.getSkinCustomizeIndex(imageSet.act.getEventId());
+								if (count <= index)
+									count = index + 1;
+							}
 						}
 					}
 					skinSelect.setCustomPropertyCount(count);
@@ -398,13 +440,17 @@ public class JSONSkinLoader extends SkinLoader {
 
 			if (sk.customEvents != null) {
 				for (JsonSkin.CustomEvent event : sk.customEvents) {
-					skin.addCustomEvent(new CustomEvent(event.id, event.action, event.condition, event.minInterval));
+					if (event != null) {
+						skin.addCustomEvent(new CustomEvent(event.id, event.action, event.condition, event.minInterval));
+					}
 				}
 			}
 
 			if (sk.customTimers != null) {
 				for (JsonSkin.CustomTimer timer : sk.customTimers) {
-					skin.addCustomTimer(new CustomTimer(timer.id, timer.timer));
+					if (timer != null) {
+						skin.addCustomTimer(new CustomTimer(timer.id, timer.timer));
+					}
 				}
 			}
 		} catch (Throwable e) {
@@ -415,57 +461,63 @@ public class JSONSkinLoader extends SkinLoader {
 	}
 
 	private void setDestination(Skin skin, SkinObject obj, JsonSkin.Destination dst) {
+		if (dst == null) return;
 		// 处理 dst.dst 为空的情况，确保至少有一个默认的 destination
 		if (dst.dst == null || dst.dst.length == 0) {
 			skin.setDestination(obj, 0, 0, 0, 1, 1, 0, 255, 255, 255, 255, 0, 0, 0, 0, 0, 0, 0, 0, 0, new int[0]);
 		} else {
 			JsonSkin.Animation prev = null;
 			for (JsonSkin.Animation a : dst.dst) {
-			if (prev == null) {
-				a.time = (a.time == Integer.MIN_VALUE ? 0 : a.time);
-				a.x = (a.x == Integer.MIN_VALUE ? 0 : a.x);
-				a.y = (a.y == Integer.MIN_VALUE ? 0 : a.y);
-				a.w = (a.w == Integer.MIN_VALUE ? 0 : a.w);
-				a.h = (a.h == Integer.MIN_VALUE ? 0 : a.h);
-				a.acc = (a.acc == Integer.MIN_VALUE ? 0 : a.acc);
-				a.angle = (a.angle == Integer.MIN_VALUE ? 0 : a.angle);
-				a.a = (a.a == Integer.MIN_VALUE ? 255 : a.a);
-				a.r = (a.r == Integer.MIN_VALUE ? 255 : a.r);
-				a.g = (a.g == Integer.MIN_VALUE ? 255 : a.g);
-				a.b = (a.b == Integer.MIN_VALUE ? 255 : a.b);
-			} else {
-				a.time = (a.time == Integer.MIN_VALUE ? prev.time : a.time);
-				a.x = (a.x == Integer.MIN_VALUE ? prev.x : a.x);
-				a.y = (a.y == Integer.MIN_VALUE ? prev.y : a.y);
-				a.w = (a.w == Integer.MIN_VALUE ? prev.w : a.w);
-				a.h = (a.h == Integer.MIN_VALUE ? prev.h : a.h);
-				a.acc = (a.acc == Integer.MIN_VALUE ? prev.acc : a.acc);
-				a.angle = (a.angle == Integer.MIN_VALUE ? prev.angle : a.angle);
-				a.a = (a.a == Integer.MIN_VALUE ? prev.a : a.a);
-				a.r = (a.r == Integer.MIN_VALUE ? prev.r : a.r);
-				a.g = (a.g == Integer.MIN_VALUE ? prev.g : a.g);
-				a.b = (a.b == Integer.MIN_VALUE ? prev.b : a.b);
+				if (a == null) continue;
+				if (prev == null) {
+					a.time = (a.time == Integer.MIN_VALUE ? 0 : a.time);
+					a.x = (a.x == Integer.MIN_VALUE ? 0 : a.x);
+					a.y = (a.y == Integer.MIN_VALUE ? 0 : a.y);
+					a.w = (a.w == Integer.MIN_VALUE ? 0 : a.w);
+					a.h = (a.h == Integer.MIN_VALUE ? 0 : a.h);
+					a.acc = (a.acc == Integer.MIN_VALUE ? 0 : a.acc);
+					a.angle = (a.angle == Integer.MIN_VALUE ? 0 : a.angle);
+					a.a = (a.a == Integer.MIN_VALUE ? 255 : a.a);
+					a.r = (a.r == Integer.MIN_VALUE ? 255 : a.r);
+					a.g = (a.g == Integer.MIN_VALUE ? 255 : a.g);
+					a.b = (a.b == Integer.MIN_VALUE ? 255 : a.b);
+				} else {
+					a.time = (a.time == Integer.MIN_VALUE ? prev.time : a.time);
+					a.x = (a.x == Integer.MIN_VALUE ? prev.x : a.x);
+					a.y = (a.y == Integer.MIN_VALUE ? prev.y : a.y);
+					a.w = (a.w == Integer.MIN_VALUE ? prev.w : a.w);
+					a.h = (a.h == Integer.MIN_VALUE ? prev.h : a.h);
+					a.acc = (a.acc == Integer.MIN_VALUE ? prev.acc : a.acc);
+					a.angle = (a.angle == Integer.MIN_VALUE ? prev.angle : a.angle);
+					a.a = (a.a == Integer.MIN_VALUE ? prev.a : a.a);
+					a.r = (a.r == Integer.MIN_VALUE ? prev.r : a.r);
+					a.g = (a.g == Integer.MIN_VALUE ? prev.g : a.g);
+					a.b = (a.b == Integer.MIN_VALUE ? prev.b : a.b);
+				}
+				if(dst.draw != null) {
+					skin.setDestination(obj, a.time, a.x, a.y, a.w, a.h, a.acc, a.a, a.r, a.g, a.b, dst.blend, dst.filter,
+							a.angle, dst.center, dst.loop, dst.timer, dst.draw);
+				} else {
+					skin.setDestination(obj, a.time, a.x, a.y, a.w, a.h, a.acc, a.a, a.r, a.g, a.b, dst.blend, dst.filter,
+							a.angle, dst.center, dst.loop, dst.timer, dst.op);
+				}
+				if (dst.mouseRect != null) {
+					skin.setMouseRect(obj, dst.mouseRect.x, dst.mouseRect.y, dst.mouseRect.w, dst.mouseRect.h);
+				}
+				prev = a;
 			}
-			if(dst.draw != null) {
-				skin.setDestination(obj, a.time, a.x, a.y, a.w, a.h, a.acc, a.a, a.r, a.g, a.b, dst.blend, dst.filter,
-						a.angle, dst.center, dst.loop, dst.timer, dst.draw);
-			} else {
-				skin.setDestination(obj, a.time, a.x, a.y, a.w, a.h, a.acc, a.a, a.r, a.g, a.b, dst.blend, dst.filter,
-						a.angle, dst.center, dst.loop, dst.timer, dst.op);
-			}
-			if (dst.mouseRect != null) {
-				skin.setMouseRect(obj, dst.mouseRect.x, dst.mouseRect.y, dst.mouseRect.w, dst.mouseRect.h);
-			}
-			prev = a;
-		}
 		}
 
-		int[] offsets = new int[dst.offsets.length + 1];
-		for(int i = 0; i < dst.offsets.length; i++) {
-			offsets[i] = dst.offsets[i];
+		if (dst.offsets != null) {
+			int[] offsets = new int[dst.offsets.length + 1];
+			for(int i = 0; i < dst.offsets.length; i++) {
+				offsets[i] = dst.offsets[i];
+			}
+			offsets[dst.offsets.length] = dst.offset;
+			obj.setOffsetID(offsets);
+		} else {
+			obj.setOffsetID(new int[]{dst.offset});
 		}
-		offsets[dst.offsets.length] = dst.offset;
-		obj.setOffsetID(offsets);
 		if (dst.stretch >= 0) {
 			obj.setStretch(dst.stretch);
 		}
@@ -485,10 +537,9 @@ public class JSONSkinLoader extends SkinLoader {
 		if(data.loaded) {
 			return data.data;
 		}
-		// Lua 皮肤中的 source.path 可能已经是从根开始的完整路径 (skin/default/...)
-		// 如果已经以 skin/ 开头，直接使用，不要再拼接到 p.getParent() 下面
+
 		final String fullPath;
-		if (data.path.startsWith("skin/")) {
+		if (data.path != null && data.path.startsWith("skin/")) {
 			fullPath = data.path;
 		} else {
 			fullPath = p.getParentFile().toString() + "/" + data.path;
@@ -499,7 +550,6 @@ public class JSONSkinLoader extends SkinLoader {
 			String pString = imagefile.getPath().replace("\\", "/");
 			exists = com.badlogic.gdx.Gdx.files.internal(pString).exists() || com.badlogic.gdx.Gdx.files.absolute(pString).exists();
 
-			// Android 大小写敏感问题修复：使用目录文件名缓存，O(1) 查找
 			if (!exists) {
 				java.io.File file = new java.io.File(pString);
 				java.io.File parentDir = file.getParentFile();
@@ -508,14 +558,9 @@ public class JSONSkinLoader extends SkinLoader {
 					if (actualName != null) {
 						java.io.File candidate = new java.io.File(parentDir, actualName);
 						String actualPath = candidate.getAbsolutePath().replace("\\", "/");
-						if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists()) {
+						if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
 							imagefile = candidate;
 							exists = true;
-							Logger.getGlobal().info("Case-insensitive match found (JSONSkinLoader): " + pString + " -> " + actualPath);
-						} else if (com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
-							imagefile = candidate;
-							exists = true;
-							Logger.getGlobal().info("Case-insensitive match found (JSONSkinLoader): " + pString + " -> " + actualPath);
 						}
 					}
 				}

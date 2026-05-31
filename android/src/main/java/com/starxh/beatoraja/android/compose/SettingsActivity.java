@@ -54,6 +54,7 @@ public class SettingsActivity extends Activity {
     private static final int REQUEST_CODE_PICK_FOLDER_LEGACY = 1235;
     private static final int REQUEST_CODE_EXPORT_SCORE = 1236;
     private static final int REQUEST_CODE_IMPORT_PLAYER = 1237;
+    private static final int REQUEST_CODE_IMPORT_SCORE = 1238;
 
     private int selectedVolume = 100;
     private int selectedKeyVolume = 100;
@@ -504,7 +505,7 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.newPlayerBtn).setOnClickListener(v -> showNewPlayerDialog());
         findViewById(R.id.deletePlayerBtn).setOnClickListener(v -> deleteCurrentPlayer());
         findViewById(R.id.exportScoreBtn).setOnClickListener(v -> exportScoreDatabase());
-        findViewById(R.id.importPlayerBtn).setOnClickListener(v -> importPlayerConfig());
+        findViewById(R.id.importPlayerBtn).setOnClickListener(v -> importScoreDatabase());
 
         // BMS Path Container
         bmsPathContainer = findViewById(R.id.bmsPathContainer);
@@ -897,6 +898,8 @@ public class SettingsActivity extends Activity {
             }
         } else if (requestCode == REQUEST_CODE_EXPORT_SCORE) {
             exportScoreToUri(uri);
+        } else if (requestCode == REQUEST_CODE_IMPORT_SCORE) {
+            importScoreFromUri(uri);
         } else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) {
             importPlayerFromUri(uri);
         }
@@ -906,18 +909,58 @@ public class SettingsActivity extends Activity {
         File f = new File(getExternalFilesDir(null), "player/" + selectedPlayerName + "/score.db");
         if (!f.exists()) { Toast.makeText(this, getString(R.string.msg_score_db_not_found, selectedPlayerName), Toast.LENGTH_SHORT).show(); return; }
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/x-sqlite3");
-        intent.putExtra(Intent.EXTRA_TITLE, selectedPlayerName + "_score.db");
+        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/zip");
+        intent.putExtra(Intent.EXTRA_TITLE, selectedPlayerName + "_score.zip");
         startActivityForResult(intent, REQUEST_CODE_EXPORT_SCORE);
     }
 
     private void exportScoreToUri(Uri uri) {
         new Thread(() -> {
-            try (java.io.InputStream in = new java.io.FileInputStream(new File(getExternalFilesDir(null), "player/" + selectedPlayerName + "/score.db"));
-                 java.io.OutputStream out = getContentResolver().openOutputStream(uri)) {
-                byte[] buf = new byte[8192]; int r; while ((r = in.read(buf)) != -1) out.write(buf, 0, r);
+            try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(getContentResolver().openOutputStream(uri))) {
+                File playerDir = new File(getExternalFilesDir(null), "player/" + selectedPlayerName);
+                String[] files = {"score.db", "score.db-wal", "score.db-shm"};
+                byte[] buf = new byte[8192];
+                for (String name : files) {
+                    File f = new File(playerDir, name);
+                    if (f.exists()) {
+                        zos.putNextEntry(new java.util.zip.ZipEntry(name));
+                        try (java.io.FileInputStream fis = new java.io.FileInputStream(f)) {
+                            int r; while ((r = fis.read(buf)) != -1) zos.write(buf, 0, r);
+                        }
+                        zos.closeEntry();
+                    }
+                }
                 runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_exported), Toast.LENGTH_SHORT).show());
             } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_export_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
+        }).start();
+    }
+
+    private void importScoreDatabase() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/zip");
+        startActivityForResult(intent, REQUEST_CODE_IMPORT_SCORE);
+    }
+
+    private void importScoreFromUri(Uri uri) {
+        new Thread(() -> {
+            try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(getContentResolver().openInputStream(uri))) {
+                File playerDir = new File(getExternalFilesDir(null), "player/" + selectedPlayerName);
+                byte[] buf = new byte[8192];
+                java.util.zip.ZipEntry entry;
+                while ((entry = zis.getNextEntry()) != null) {
+                    String name = new File(entry.getName()).getName();
+                    if (!name.equals("score.db") && !name.equals("score.db-wal") && !name.equals("score.db-shm")) {
+                        zis.closeEntry();
+                        continue;
+                    }
+                    File outFile = new File(playerDir, name);
+                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
+                        int r; while ((r = zis.read(buf)) != -1) fos.write(buf, 0, r);
+                    }
+                    zis.closeEntry();
+                }
+                runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_imported), Toast.LENGTH_SHORT).show());
+            } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_import_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
         }).start();
     }
 

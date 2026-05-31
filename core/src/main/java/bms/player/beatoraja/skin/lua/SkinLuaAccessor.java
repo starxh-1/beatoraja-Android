@@ -50,6 +50,10 @@ public class SkinLuaAccessor {
 	private static final String TIMER_UTIL = "timer_util";
 	private static final String EVENT_UTIL = "event_util";
 
+	public Globals getGlobals() {
+		return globals;
+	}
+
 	public SkinLuaAccessor(boolean isGlobal) {
 		globals = JsePlatform.standardGlobals();
 		// 设置自定义资源查找器，解决 Android 上 require 找不到文件的问题
@@ -68,7 +72,7 @@ public class SkinLuaAccessor {
 					} catch (Exception e) {
 						// package 可能还未初始化
 					}
-					
+
 					if (packagePath != null) {
 						String[] paths = packagePath.split(";");
 						for (String pathPattern : paths) {
@@ -82,7 +86,7 @@ public class SkinLuaAccessor {
 							}
 						}
 					}
-					
+
 					// 如果 package.path 中没找到，直接尝试查找
 					FileHandle fh = tryFindFile(p);
 					if (fh != null && fh.exists()) {
@@ -95,7 +99,7 @@ public class SkinLuaAccessor {
 				Logger.getGlobal().warning("fail to open node (Lua require): " + name);
 				return null;
 			}
-			
+
 			private FileHandle tryFindFile(String path) {
 				FileHandle fh = null;
 				if (com.badlogic.gdx.Gdx.app != null && com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {

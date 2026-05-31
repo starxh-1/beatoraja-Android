@@ -162,6 +162,10 @@ public class SystemSoundManager {
 	public void play(SoundType sound, boolean loop) {
 		final String path = soundmap.get(sound);
 		if (path != null) {
+			// 对于非循环效果音，在播放前先停止上一个，实现截断机制，避免快速触发时重叠导致声音过大或杂乱
+			if (!loop) {
+				main.getAudioProcessor().stop(path);
+			}
 			main.getAudioProcessor().play(path, main.getConfig().getAudioConfig().getSystemvolume(), loop);
 		}
 	}

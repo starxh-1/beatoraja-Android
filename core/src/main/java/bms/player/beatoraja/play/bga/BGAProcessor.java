@@ -410,6 +410,9 @@ public class BGAProcessor {
 		if (playinglayerid >= 0 && movies[playinglayerid] != null && playinglayerid != playingbgaid) {
 			movies[playinglayerid].update(time);
 		}
+		if (playingmissbgaid >= 0 && movies[playingmissbgaid] != null && playingmissbgaid != playingbgaid && playingmissbgaid != playinglayerid) {
+			movies[playingmissbgaid].update(time);
+		}
 	}
 
 
@@ -438,16 +441,7 @@ public class BGAProcessor {
 		sprite.draw(blanktex, r.x, r.y, r.width, r.height);
 		sprite.setBlend(originalBlend); // 恢复原始混合模式
 
-		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
-			// draw miss BGA layer (follows chart timing like BGA/LAYER)
-			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
-			rmissbga = true;
-			if (misstex != null) {
-				sprite.setType(SkinObjectRenderer.TYPE_LINEAR);
-				drawBGAFixRatio(dst, sprite, r, misstex);
-			}
-		} else {
-		// draw BGA (Background) - 中间层：绘制BGA背景层
+		// draw BGA (Background) - 绘制BGA背景层，即使在MISS状态下也应该绘制背景
 		final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
 		rbga = true;
 		if (playingbgatex != null) {
@@ -460,17 +454,28 @@ public class BGAProcessor {
 			}
 		}
 
-		// draw layer (Overlay) - 最上层：在背景之上绘制图层，启用 Alpha 混合
-		final Texture playinglayertex = getBGAData(time - layer_start_time, playinglayerid, rlayer);
-		rlayer = true;
+		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
+			// draw miss BGA layer (Overlay on top of BGA)
+			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
+			rmissbga = true;
+			if (misstex != null) {
+				if (movies[playingmissbgaid] != null) {
+					sprite.setType(movies[playingmissbgaid].getRenderType());
+					drawBGAFixRatio(dst, sprite, r, misstex);
+				} else {
+					sprite.setType(SkinObjectRenderer.TYPE_LAYER);
+					drawBGAFixRatio(dst, sprite, r, misstex);
+				}
+			}
+		} else {
+			// draw layer (Overlay) - 在背景之上绘制图层
+			final Texture playinglayertex = getBGAData(time - layer_start_time, playinglayerid, rlayer);
+			rlayer = true;
 			if (playinglayertex != null) {
 				// 确保在绘制 LAYER 前启用 Alpha Blending
-				// SkinObjectRenderer 的 preDraw() 会根据 blend 值自动设置混合函数
-				// 这里我们确保使用标准的 Alpha 混合
 				int layerBlend = sprite.getBlend();
 				if (layerBlend == 0) {
-					// 如果未设置混合模式，强制使用 Alpha 混合
-					sprite.setBlend(2); // 使用 case 2: GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA
+					sprite.setBlend(2);
 				}
 
 				if (movies[playinglayerid] != null) {
@@ -481,7 +486,6 @@ public class BGAProcessor {
 					drawBGAFixRatio(dst, sprite, r, playinglayertex);
 				}
 
-				// 恢复原始混合设置
 				if (layerBlend == 0) {
 					sprite.setBlend(0);
 				}
@@ -581,6 +585,13 @@ public class BGAProcessor {
 		// since skin coordinates (targetRect) are Y-down
 		tmpRect.set(targetRect.x, (float)height - targetRect.y - targetRect.height, targetRect.width, targetRect.height);
 
+		// Draw BGA background
+		final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
+		if (playingbgatex != null) {
+			rbga = true;
+			drawBGAFixRatioToRect(batch, tmpRect, playingbgatex, targetStretch);
+		}
+
 		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
 			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
 			rmissbga = true;
@@ -588,13 +599,6 @@ public class BGAProcessor {
 				drawBGAFixRatioToRect(batch, tmpRect, misstex, targetStretch);
 			}
 		} else {
-			// Draw BGA background
-			final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
-			if (playingbgatex != null) {
-				rbga = true;
-				drawBGAFixRatioToRect(batch, tmpRect, playingbgatex, targetStretch);
-			}
-
 			// Draw layer
 			final Texture playinglayertex = getBGAData(time - layer_start_time, playinglayerid, rlayer);
 			if (playinglayertex != null) {

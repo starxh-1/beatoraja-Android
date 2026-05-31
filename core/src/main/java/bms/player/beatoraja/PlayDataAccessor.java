@@ -16,7 +16,7 @@ import static bms.player.beatoraja.CourseData.CourseDataConstraint.*;
 import bms.player.beatoraja.CourseData.CourseDataConstraint;
 import bms.player.beatoraja.ScoreData.SongTrophy;
 import bms.player.beatoraja.ScoreDatabaseAccessor.ScoreDataCollector;
-import bms.player.beatoraja.ScoreLogDatabaseAccessor.ScoreLog;
+import bms.player.beatoraja.ScoreDatabaseAccessor.ScoreLog;
 import bms.player.beatoraja.song.SongData;
 
 import com.badlogic.gdx.utils.Json;
@@ -44,17 +44,9 @@ public final class PlayDataAccessor {
 	 */
 	private final String playerpath;
 	/**
-	 * スコアデータベースアクセサ
+	 * スコアデータベースアクセサ (unified: score + scorelog + scoredatalog)
 	 */
 	private ScoreDatabaseAccessor scoredb;
-	/**
-	 * スコアログアクセサ
-	 */
-	private ScoreLogDatabaseAccessor scorelogdb;
-	/**
-	 * スコアデータログアクセサ
-	 */
-	private ScoreDataLogDatabaseAccessor scoredatalogdb;
 
 
 	private static final String[] replay = { "", "C", "H" };
@@ -64,16 +56,10 @@ public final class PlayDataAccessor {
 		this.playerpath = config.getPlayerpath();
 
 		try {
-			try {
-				Class.forName("org.sqldroid.SQLDroidDriver");
-			} catch (ClassNotFoundException e) {
-				Class.forName("org.sqlite.JDBC");
-			}
-			scoredb = new ScoreDatabaseAccessor(playerpath + File.separatorChar + player + File.separatorChar + "score.db");
+			String dbPath = playerpath + File.separatorChar + player + File.separatorChar + "score.db";
+			scoredb = ScoreDatabaseAccessor.create(dbPath);
 			scoredb.createTable();
-			scorelogdb = new ScoreLogDatabaseAccessor(playerpath + File.separatorChar + player + File.separatorChar + "scorelog.db");
-			scoredatalogdb = new ScoreDataLogDatabaseAccessor(playerpath + File.separatorChar + player + File.separatorChar + "scoredatalog.db");
-		} catch (ClassNotFoundException e) {
+		} catch (Exception e) {
 			e.printStackTrace();
 		}
 
@@ -271,13 +257,13 @@ public final class PlayDataAccessor {
 		score.setDate(Calendar.getInstance(TimeZone.getDefault()).getTimeInMillis() / 1000L);
 		score.setScorehash(getScoreHash(score));
 		scoredb.setScoreData(score);
-		if (log.getSha256() != null && scorelogdb != null) {
+		if (log.getSha256() != null) {
 			log.setMode(score.getMode());
 			log.setDate(score.getDate());
-			scorelogdb.setScoreLog(log);
+			scoredb.setScoreLog(log);
 		}
 
-		if (scoredatalogdb != null) {
+		{
 			StringBuilder newScoresb = new StringBuilder();
 			for(SongTrophy trophy : newTrophies) {
 				newScoresb.append(trophy.character);
@@ -289,7 +275,7 @@ public final class PlayDataAccessor {
 			newscore.setClearcount(score.getClearcount());
 			newscore.setScorehash(getScoreHash(newscore));
 
-			scoredatalogdb.setScoreDataLog(newscore);
+			scoredb.setScoreDataLog(newscore);
 		}
 
 		// 楽曲のプレイ時間算出(秒)
@@ -433,10 +419,10 @@ public final class PlayDataAccessor {
 		score.setDate(Calendar.getInstance(TimeZone.getDefault()).getTimeInMillis() / 1000L);
 		score.setScorehash(getScoreHash(score));
 		scoredb.setScoreData(score);
-		if (log.getSha256() != null && scorelogdb != null) {
+		if (log.getSha256() != null) {
 			log.setMode(score.getMode());
 			log.setDate(score.getDate());
-			scorelogdb.setScoreLog(log);
+			scoredb.setScoreLog(log);
 		}
 
 		Logger.getGlobal().info("スコアデータベース更新完了 ");

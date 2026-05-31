@@ -20,14 +20,21 @@ import java.io.File;
 import java.lang.reflect.Array;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 /**
- * Luaスキンローダー
+ * Luaスキンローダー (Android 优化版)
  *
- * @author excln
+ * @author excln / Optimized for beatoraja-Android
  */
 public class LuaSkinLoader extends JSONSkinLoader {
+
+	private static final ConcurrentHashMap<Class<?>, Map<String, Field>> fieldMapCache = new ConcurrentHashMap<>();
+
+	/** 缓存编译后的 Lua 闭包，避免重复读取磁盘和解析 */
+	private LuaValue cachedClosure;
+	private File cachedFile;
 
 	public LuaSkinLoader() {
 		super(new SkinLuaAccessor(false));
@@ -37,103 +44,88 @@ public class LuaSkinLoader extends JSONSkinLoader {
 		super(state, c, new SkinLuaAccessor(false));
 	}
 
-	@Override
-	public SkinHeader loadHeader(File p) {
-		java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: starting for " + p);
-		SkinHeader header = null;
+	private LuaValue getExecResult(File p) {
 		try {
-			lua.setDirectory(p.getParentFile());
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: directory set to " + p.getParentFile());
-			LuaValue value = lua.execFile(p);
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: execFile done, value.istable=" + value.istable());
-			// Lua皮肤标准格式: return { header = ..., main = function() ... end }
-			// loadHeader 只需要读取 header，header 已经在外层 table，不需要调用 main()
-			// 因为 main() 需要 skin_config 全局变量，而 skin_config 此时还未导出
-			if (value.istable() && !value.get("header").isnil()) {
-				// 从外层table获取header
-				java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: found header in outer table");
-				value = value.get("header");
-			} else if (value.istable() && value.get("main").isfunction()) {
-				// 如果header不在外层，fallback到调用main
-				java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: calling main()");
-				LuaValue mainFunc = value.get("main");
-				value = mainFunc.call();
+			if (p.equals(cachedFile) && cachedClosure != null) {
+				return cachedClosure.call();
 			}
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: calling fromLuaValue");
-			sk = fromLuaValue(JsonSkin.Skin.class, value);
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: calling loadJsonSkinHeader");
-			header = loadJsonSkinHeader(sk, p);
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader.loadHeader: success, header=" + (header != null ? header.getName() : "null"));
-		} catch (Throwable e) {
-			java.util.logging.Logger.getGlobal().severe("LuaSkinLoader.loadHeader: failed for " + p + ", error=" + e.getMessage());
-			e.printStackTrace();
+			cachedFile = p;
+			String pathStr = p.getPath().replace("\\", "/");
+			com.badlogic.gdx.files.FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(p.getAbsolutePath());
+			if (!fh.exists()) fh = com.badlogic.gdx.Gdx.files.internal(pathStr);
+			if (fh.exists()) {
+				// 编译并缓存闭包。注意：这步不执行脚本，只生成可执行代码。
+				cachedClosure = lua.getGlobals().load(fh.read(), "@" + p.getPath(), "bt", lua.getGlobals());
+				return cachedClosure.call();
+			}
+		} catch (Exception e) {
+			java.util.logging.Logger.getGlobal().severe("Lua 加载/编译失败: " + e.getMessage());
 		}
-		return header;
+		return LuaValue.NIL;
 	}
 
 	@Override
-	public Skin loadSkin(File p, SkinType type, SkinConfig.Property property) {
-		return load(p, type, property);
+	public SkinHeader loadHeader(File p) {
+		SkinHeader header = null;
+		try {
+			lua.setDirectory(p.getParentFile());
+			LuaValue value = getExecResult(p);
+			if (value.istable()) {
+				LuaValue h = value.get("header");
+				if (!h.isnil()) {
+					sk = fromLuaValue(JsonSkin.Skin.class, h);
+				} else {
+					sk = fromLuaValue(JsonSkin.Skin.class, value);
+				}
+			}
+			header = loadJsonSkinHeader(sk, p);
+		} catch (Throwable e) {
+			java.util.logging.Logger.getGlobal().severe("LuaSkinLoader.loadHeader 异常: " + e.getMessage());
+		}
+		return header;
 	}
 
 	@Override
 	public Skin load(File p, SkinType type, SkinConfig.Property property) {
 		Skin skin = null;
 		SkinHeader header = loadHeader(p);
-		if(header == null) {
-			java.util.logging.Logger.getGlobal().severe("LuaSkinLoader: loadHeader returned null, skin loading failed");
-			return null;
-		}
+		if(header == null) return null;
 		header.setSkinConfigProperty(property);
 
 		try {
 			filemap = new ObjectMap<>();
 			for(SkinHeader.CustomFile customFile : header.getCustomFiles()) {
-				if(customFile.getSelectedFilename() != null) {
-					// 归一化 filemap 的 Key，确保与加载贴图时的 imagePath 格式一致
+				if(customFile != null && customFile.getSelectedFilename() != null) {
 					String normalizedKey = customFile.path.replace("\\", "/").replaceAll("/+", "/");
 					if (normalizedKey.startsWith("/")) normalizedKey = normalizedKey.substring(1);
 					normalizedKey = normalizePath(normalizedKey);
-
 					filemap.put(normalizedKey, customFile.getSelectedFilename());
-					java.util.logging.Logger.getGlobal().info("LuaSkinLoader: filemap mapping: " + normalizedKey + " -> " + customFile.getSelectedFilename());
 				}
 			}
 
 			lua.exportSkinProperty(header, property, (String path) -> {
 				String rawPath = p.getParent() + "/" + path;
-				rawPath = rawPath.replace("\\", "/").replaceAll("/+", "/");
+				rawPath = SkinLoader.normalizePath(rawPath.replace("\\", "/").replaceAll("/+", "/"));
 				if (rawPath.startsWith("/")) rawPath = rawPath.substring(1);
-				// Normalize ".." parent references for Android AssetManager compatibility
-				// (Android assets do not resolve ".." in paths)
-				rawPath = SkinLoader.normalizePath(rawPath);
 				return getPath(rawPath, filemap).getPath();
 			});
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader: Starting full skin load, p=" + p.toString());
-			LuaValue value = lua.execFile(p);
-			// Lua皮肤标准格式: return { header = ..., main = function() ... end }
-			// 需要调用main()函数获取完整的skin定义
+
+			// 重新执行以确保正确的 skin_config 导出
+			LuaValue value = getExecResult(p);
 			if (value.istable() && value.get("main").isfunction()) {
-				java.util.logging.Logger.getGlobal().info("LuaSkinLoader: Found main function, calling it...");
-				LuaValue mainFunc = value.get("main");
-				value = mainFunc.call();
-				java.util.logging.Logger.getGlobal().info("LuaSkinLoader: main function returned, is table=" + value.istable());
+				value = value.get("main").call();
 			}
+
 			sk = fromLuaValue(JsonSkin.Skin.class, value);
-			java.util.logging.Logger.getGlobal().info(String.format("LuaSkinLoader: Conversion complete - source.length=%d, image.length=%d, note=null? %b",
-				sk.source != null ? sk.source.length : 0,
-				sk.image != null ? sk.image.length : 0,
-				sk.note == null));
 			skin = loadJsonSkin(header, sk, type, property, p);
-			java.util.logging.Logger.getGlobal().info("LuaSkinLoader: loadJsonSkin complete, skin=" + (skin != null ? "success" : "null"));
 		} catch (Throwable e) {
-			java.util.logging.Logger.getGlobal().severe("LuaSkinLoader: Exception during load: " + e.getMessage());
+			java.util.logging.Logger.getGlobal().severe("LuaSkinLoader.load 崩溃: " + e.getMessage());
 			e.printStackTrace();
 		}
 		return skin;
 	}
 
-	private Map<Class, Function<LuaValue, Object>> serializerMap = new HashMap<Class, Function<LuaValue, Object>>() {
+	private final Map<Class, Function<LuaValue, Object>> serializerMap = new HashMap<Class, Function<LuaValue, Object>>() {
 		{
 			put(boolean.class, LuaValue::toboolean);
 			put(Boolean.class, LuaValue::toboolean);
@@ -173,12 +165,24 @@ public class LuaSkinLoader extends JSONSkinLoader {
 
 	@SuppressWarnings("unchecked")
 	<T> T fromLuaValue(Class<T> cls, LuaValue lv) {
+		if (lv == null || lv.isnil()) return null;
+
 		if (serializerMap.containsKey(cls)) {
 			return (T) serializerMap.get(cls).apply(lv);
 		} else if (cls.isArray()) {
-			Class componentClass = cls.getComponentType();
+			Class<?> componentClass = cls.getComponentType();
 			if (lv.istable()) {
 				LuaTable table = (LuaTable) lv;
+				int len = table.length();
+				// 优化：针对 Lua 1-based 连续数组进行快速转换
+				if (len > 0) {
+					Object array = Array.newInstance(componentClass, len);
+					for (int i = 0; i < len; i++) {
+						Array.set(array, i, fromLuaValue(componentClass, table.get(i + 1)));
+					}
+					return (T) array;
+				}
+				// 备选方案：处理非连续数组或名值对
 				LuaValue[] keys = table.keys();
 				Object array = Array.newInstance(componentClass, keys.length);
 				for (int i = 0; i < keys.length; i++) {
@@ -191,20 +195,32 @@ public class LuaSkinLoader extends JSONSkinLoader {
 		} else {
 			try {
 				T instance = (T) ClassReflection.newInstance(cls);
-				Field[] fields = ClassReflection.getFields(cls);
+				Map<String, Field> fields = fieldMapCache.get(cls);
+				if (fields == null) {
+					fields = new HashMap<>();
+					for (Field f : ClassReflection.getFields(cls)) {
+						fields.put(f.getName(), f);
+					}
+					fieldMapCache.put(cls, fields);
+				}
+
 				if (lv.istable()) {
-					LuaTable table = (LuaTable)lv;
-					for (LuaValue key : table.keys()) {
+					LuaTable table = (LuaTable) lv;
+					LuaValue[] keys = table.keys();
+					for (LuaValue key : keys) {
 						String keyName = key.tojstring();
-						for (Field field : fields) {
-							if (field.getName().equals(keyName)) {
-								Object value = fromLuaValue(field.getType(), table.get(key));
-								field.set(instance, value);
-								break;
+						Field field = fields.get(keyName);
+						if (field != null) {
+							Object value = fromLuaValue(field.getType(), table.get(key));
+							if (value != null) {
+								try {
+									field.set(instance, value);
+								} catch (Exception e) {
+									// 忽略类型不匹配
+								}
 							}
 						}
 					}
-				} else if (lv.isuserdata()) {
 				}
 				return instance;
 			} catch (ReflectionException e) {

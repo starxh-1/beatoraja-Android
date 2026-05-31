@@ -9,10 +9,12 @@ import org.apache.commons.dbutils.ResultSetHandler;
 import bms.player.beatoraja.DatabaseUtils;
 
 /**
- * スコアデータログデータベースアクセサ
+ * @deprecated Use {@link ScoreDatabaseAccessor#setScoreDataLog(ScoreData[])} instead.
+ * Score data log functionality is now merged into the unified ScoreDatabaseAccessor.
  *
  * @author omi
  */
+@Deprecated
 public class ScoreDataLogDatabaseAccessor extends SQLiteDatabaseAccessor {
 
 	private final ResultSetHandler<List<ScoreData>> scoreHandler = new AndroidBeanListHandler<>(ScoreData.class);

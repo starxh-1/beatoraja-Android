@@ -11,7 +11,6 @@ dependencies {
   implementation "commons-dbutils:commons-dbutils:1.8.1"
   implementation "org.apache.commons:commons-compress:1.28.0"
 
-  implementation "org.xerial:sqlite-jdbc:3.53.0.0"
   implementation "commons-dbutils:commons-dbutils:1.8.1"
   implementation 'org.luaj:luaj-jse:3.0.1'
 

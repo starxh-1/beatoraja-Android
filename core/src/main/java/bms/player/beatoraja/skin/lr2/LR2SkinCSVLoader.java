@@ -79,19 +79,13 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 					File file = new File(path);
 					File parentDir = file.getParentFile();
 					if (parentDir != null && parentDir.exists()) {
-						String fileName = file.getName();
-						File[] files = parentDir.listFiles();
-						if (files != null) {
-							for (File candidate : files) {
-								if (candidate.getName().equalsIgnoreCase(fileName)) {
-									String actualPath = candidate.getAbsolutePath().replace("\\", "/");
-									handle = com.badlogic.gdx.Gdx.files.internal(actualPath);
-									if (!handle.exists()) handle = com.badlogic.gdx.Gdx.files.absolute(actualPath);
-									if (handle.exists()) {
-										java.util.logging.Logger.getGlobal().info("Case-insensitive match found (INCLUDE): " + path + " -> " + actualPath);
-										break;
-									}
-								}
+						String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+						if (actualName != null) {
+							String actualPath = new File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
+							handle = com.badlogic.gdx.Gdx.files.internal(actualPath);
+							if (!handle.exists()) handle = com.badlogic.gdx.Gdx.files.absolute(actualPath);
+							if (handle.exists()) {
+								java.util.logging.Logger.getGlobal().info("Case-insensitive match found (INCLUDE): " + path + " -> " + actualPath);
 							}
 						}
 					}
@@ -128,18 +122,12 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 					File file = new File(path);
 					File parentDir = file.getParentFile();
 					if (parentDir != null && parentDir.exists()) {
-						String fileName = file.getName();
-						File[] files = parentDir.listFiles();
-						if (files != null) {
-							for (File candidate : files) {
-								if (candidate.getName().equalsIgnoreCase(fileName)) {
-									actualPath = candidate.getAbsolutePath().replace("\\", "/");
-									exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-									if (exists) {
-										java.util.logging.Logger.getGlobal().info("Case-insensitive match found (IMAGE): " + path + " -> " + actualPath);
-										break;
-									}
-								}
+						String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+						if (actualName != null) {
+							actualPath = new File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
+							exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+							if (exists) {
+								java.util.logging.Logger.getGlobal().info("Case-insensitive match found (IMAGE): " + path + " -> " + actualPath);
 							}
 						}
 					}
@@ -192,19 +180,13 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 					File file = new File(path);
 					File parentDir = file.getParentFile();
 					if (parentDir != null && parentDir.exists()) {
-						String fileName = file.getName();
-						File[] files = parentDir.listFiles();
-						if (files != null) {
-							for (File candidate : files) {
-								if (candidate.getName().equalsIgnoreCase(fileName)) {
-									actualPath = candidate.getAbsolutePath().replace("\\", "/");
-									actualFile = candidate;
-									exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-									if (exists) {
-										java.util.logging.Logger.getGlobal().info("Case-insensitive match found (LR2FONT): " + path + " -> " + actualPath);
-										break;
-									}
-								}
+						String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
+						if (actualName != null) {
+							actualPath = new File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
+							actualFile = new File(actualPath);
+							exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
+							if (exists) {
+								java.util.logging.Logger.getGlobal().info("Case-insensitive match found (LR2FONT): " + path + " -> " + actualPath);
 							}
 						}
 					}
