@@ -453,9 +453,9 @@ local function main(keysNumber)
 		geo.scoregrapharea = {}
 		geo.scoregrapharea.w = 0
 
-		-- BGA - fills the rest of the area
+		-- BGA - fills the rest of the area, starting from lane edge to cover full lane
 		geo.bgaarea = {}
-		geo.bgaarea.x = geo.lane.x + geo.lane.judgeline_h + 5
+		geo.bgaarea.x = geo.lane.x
 		geo.bgaarea.w = 1920 - geo.bgaarea.x
 		geo.bgaarea.y = 0
 		geo.bgaarea.h = 1080
@@ -880,10 +880,10 @@ local function main(keysNumber)
 				end
 				return d
 			end)(),
-			-- idにdestinationの特殊番号(-111など)は使えないっぽい(NPEになる)
+			-- idにdestinationの特殊番号(-111...など)は使えないっぽい(NPEになる)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
 			group = {
-				{id = "section_line", offset = 3, dst = (function()
+				{id = "section_line", dst = (function()
 					if isPortraitLayout() then
 						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 128, g = 128, b = 128}}
 					else
@@ -892,7 +892,7 @@ local function main(keysNumber)
 				end)()}
 			},
 			time = {
-				{id = "section_line", offset = 3, dst = (function()
+				{id = "section_line", dst = (function()
 					if isPortraitLayout() then
 						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 64, g = 192, b = 192}}
 					else
@@ -901,7 +901,7 @@ local function main(keysNumber)
 				end)()}
 			},
 			bpm = {
-				{id = "section_line", offset = 3, dst = (function()
+				{id = "section_line", dst = (function()
 					if isPortraitLayout() then
 						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 0, g = 192, b = 0}}
 					else
@@ -910,7 +910,7 @@ local function main(keysNumber)
 				end)()}
 			},
 			stop = {
-				{id = "section_line", offset = 3, dst = (function()
+				{id = "section_line", dst = (function()
 					if isPortraitLayout() then
 						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 192, g = 192, b = 0}}
 					else
@@ -1070,8 +1070,8 @@ local function main(keysNumber)
 
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then
-			n_x = 0 -- Relative to judge_f's center
-			n_y = -200 -- Offset in Landscape Y (Horizontal in portrait)
+			n_x = 0 -- Same Vertical level in portrait (Landscape X)
+			n_y = 180 -- Offset to the right in portrait (Landscape Y)
 			n_angle = 270 -- Rotated to match judge_f
 			n_cx = 0.5
 			n_cy = 0.5
@@ -2184,9 +2184,15 @@ local function main(keysNumber)
 	end
 	-- lanecover/liftcover
 	do
-		table.insert(skin.slider,
-			{id = "lanecover", src = "src_lanecover", x = 0, y = 0, w = -1, h = -1, angle = 2, range = geo.lane.h, type = 4}
-		)
+		if isPortraitLayout() then
+			table.insert(skin.slider,
+				{id = "lanecover", src = "src_lanecover", x = 0, y = 0, w = -1, h = -1, angle = 1, range = geo.lane.w, type = 4}
+			)
+		else
+			table.insert(skin.slider,
+				{id = "lanecover", src = "src_lanecover", x = 0, y = 0, w = -1, h = -1, angle = 2, range = geo.lane.h, type = 4}
+			)
+		end
 		table.insert(skin.hiddenCover,
 			{id = "hiddencover", src = "src_hiddencover", x = 0, y = 0, w = -1, h = -1, disapearLine = geo.lane.y}
 		)
@@ -2260,14 +2266,28 @@ local function main(keysNumber)
 		append_all(skin.destination, durationgreen_dst(3, {272}, geo.lane.y - (num_h + num_margin_y), geo.lane.y - (num_h + num_h * minmaxrate + num_margin_y * 2)))
 
 		-- lanecover(sudden)
-		append_all(skin.destination, {
-			{id = "lanecover", dst = {
-				{x = geo.lane.visual_x, y = header.h, w = geo.lane.w, h = cover_h},
-			}},
-			{id = "num_lanecover", offset = 4, op = {270}, filter = 1, dst = {
-				{x = geo.lane.visual_x + geo.lane.w * 0.25, y = header.h + num_margin_y, w = num_w, h = num_h},
-			}},
-		})
+		if isPortraitLayout() then
+			-- Portrait: lanecover starts at spawn side (right edge) and slides left toward judgment line.
+			-- Rotated 270 degrees: w=thickness, h=geo.lane.w (full lane width after rotation).
+			local cover_thickness = 30
+			append_all(skin.destination, {
+				{id = "lanecover", dst = {
+					{x = geo.lane.x + geo.lane.w, y = geo.lane.y + geo.lane.h / 2, w = cover_thickness, h = geo.lane.w, angle = 270, cx = 0.5, cy = 0.5},
+				}},
+				{id = "num_lanecover", offset = 4, op = {270}, filter = 1, dst = {
+					{x = geo.lane.x + geo.lane.w + num_h + num_margin_y, y = geo.lane.y + geo.lane.h * 0.25, w = num_w, h = num_h, angle = 270},
+				}},
+			})
+		else
+			append_all(skin.destination, {
+				{id = "lanecover", dst = {
+					{x = geo.lane.visual_x, y = header.h, w = geo.lane.w, h = cover_h},
+				}},
+				{id = "num_lanecover", offset = 4, op = {270}, filter = 1, dst = {
+					{x = geo.lane.visual_x + geo.lane.w * 0.25, y = header.h + num_margin_y, w = num_w, h = num_h},
+				}},
+			})
+		end
 		append_all(skin.destination, durationgreen_dst(4, {}, header.h + num_margin_y, header.h + num_h + num_margin_y * 2))
 
 		-- duration without lanecover
@@ -2574,12 +2594,12 @@ local function main(keysNumber)
 		local w = 35 local h = 35
 		if isPortraitLayout() then
 			local x = geo.gauge.x + 50
-			local start_y = geo.gauge.y + 350
+			local start_y = geo.gauge.y - geo.gauge.w / 2 - 30
 			append_all(skin.destination, {
 				{id = "gaugevalue", dst = {{x = x, y = start_y, w = w, h = h, angle = 270}}},
-				{id = "text_image_dot", dst = {{x = x, y = start_y + w * 3 + 2, w = w, h = h, angle = 270}}},
-				{id = "gaugevalue_ad", dst = {{x = x, y = start_y + w * 3 + 12, w = w, h = h, angle = 270}}},
-				{id = "text_image_%", dst = {{x = x, y = start_y + w * 4 + 14, w = 24, h = 20, angle = 270}}},
+				{id = "text_image_dot", dst = {{x = x, y = start_y - h * 3 - 1, w = w, h = h, angle = 270}}},
+				{id = "gaugevalue_ad", dst = {{x = x, y = start_y - h * 3 - 10, w = w, h = h, angle = 270}}},
+				{id = "text_image_%", dst = {{x = x, y = start_y - h * 4 - 12, w = 24, h = 20, angle = 270}}},
 			})
 		else
 			local y = geo.gauge.y + geo.gauge.h + 7
@@ -2615,13 +2635,14 @@ local function main(keysNumber)
 			local x = geo.gauge.x + 50
 			local y = geo.gauge.y - 100
 			local space_y = 15
+			-- judgerank alternatives: each shown conditionally via op filter
 			for i = 1, 5 do
 				table.insert(skin.destination, {id = "judgerank_"..i, op = {185 - i}, filter = 1, dst = {
-					{x = x, y = y, w = judgerank_w, h = h, angle = 270}
+					{x = x, y = y, w = judgerank_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
 				}})
 			end
 			table.insert(skin.destination, {id = "random", filter = 1, dst = {
-				{x = x, y = y + judgerank_w + space_y, w = random_w, h = h, angle = 270}
+				{x = x, y = y + judgerank_w + space_y, w = random_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
 			}})
 		else
 			local y = geo.gauge.y + geo.gauge.h + 6
@@ -2725,13 +2746,25 @@ local function main(keysNumber)
 
 		local x = geo.gauge.x local y = geo.gauge.y - 32
 		local text_size = 16
-		table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
-			{x = x + 4, y = y, w = image_w * text_size / image_h * 1.06, h = text_size},
-		}})
 		local num_size = 20
-		table.insert(skin.destination, {id = "exscore", dst = {
-			{x = x + geo.gauge.w * 0.5 - num_size * 6, y = y, w = num_size, h = num_size},
-		}})
+			if isPortraitLayout() then
+				local px = geo.gauge.x + 30
+				local py = geo.gauge.y - geo.gauge.w / 2 - 120
+				local num_w = 18 local num_h = 18
+				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
+					{x = px, y = py, w = image_w * text_size / image_h * 1.06, h = text_size, angle = 270},
+				}})
+				table.insert(skin.destination, {id = "exscore", dst = {
+					{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
+				}})
+			else
+				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
+					{x = x + 4, y = y, w = image_w * text_size / image_h * 1.06, h = text_size},
+				}})
+				table.insert(skin.destination, {id = "exscore", dst = {
+					{x = x + geo.gauge.w * 0.5 - num_size * 6, y = y, w = num_size, h = num_size},
+				}})
+			end
 	end
 	-- hispeed
 	do
@@ -2743,23 +2776,44 @@ local function main(keysNumber)
 		table.insert(skin.image,
 			{id = "text_images_hispeed", src = "src_othertexts", x = 0, y = image_h * 4, w = image_w, h = image_h * 5, divy = 5, len = 5, ref = 55}
 		)
-		local text_x = geo.gauge.x + geo.gauge.w * 0.56 local y = geo.gauge.y - 32 local w = 18 local h = 18
-		local num_x = geo.gauge.x + geo.gauge.w - w * 5
-		local text_images_h = 16
-		append_all(skin.destination, {
-			{id = "text_images_hispeed", filter = 1, dst = {
-				{x = text_x, y = y, w = image_w * text_images_h / image_h * 1.06, h = text_images_h}, -- 1.06は横幅調整
-			}},
-			{id = "hispeed", dst = {
-				{x = num_x, y = y, w = w, h = h},
-			}},
-			{id = "text_image_dot", dst = {
-				{x = num_x + w * 2 + 4, y = y, w = w, h = h},
-			}},
-			{id = "hispeed_ad", dst = {
-				{x = num_x + w * 3 - 6, y = y, w = w, h = h},
-			}},
-		})
+			if isPortraitLayout() then
+				local px = geo.gauge.x + 30
+				local py = geo.gauge.y - geo.gauge.w / 2 - 180
+				local num_w = 18 local num_h = 18
+				local text_images_h = 16
+				append_all(skin.destination, {
+					{id = "text_images_hispeed", filter = 1, dst = {
+						{x = px, y = py, w = image_w * text_images_h / image_h * 1.06, h = text_images_h, angle = 270},
+					}},
+					{id = "hispeed", dst = {
+						{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
+					}},
+					{id = "text_image_dot", dst = {
+						{x = px, y = py - num_h * 4, w = num_w, h = num_h, angle = 270},
+					}},
+					{id = "hispeed_ad", dst = {
+						{x = px, y = py - num_h * 6, w = num_w, h = num_h, angle = 270},
+					}},
+				})
+			else
+				local text_x = geo.gauge.x + geo.gauge.w * 0.56 local y = geo.gauge.y - 32 local w = 18 local h = 18
+				local num_x = geo.gauge.x + geo.gauge.w - w * 5
+				local text_images_h = 16
+				append_all(skin.destination, {
+					{id = "text_images_hispeed", filter = 1, dst = {
+						{x = text_x, y = y, w = image_w * text_images_h / image_h * 1.06, h = text_images_h}, -- 1.06は横幅調整
+					}},
+					{id = "hispeed", dst = {
+						{x = num_x, y = y, w = w, h = h},
+					}},
+					{id = "text_image_dot", dst = {
+						{x = num_x + w * 2 + 4, y = y, w = w, h = h},
+					}},
+					{id = "hispeed_ad", dst = {
+						{x = num_x + w * 3 - 6, y = y, w = w, h = h},
+					}},
+				})
+			end
 	end
 	-- lowerLaneArea
 	do

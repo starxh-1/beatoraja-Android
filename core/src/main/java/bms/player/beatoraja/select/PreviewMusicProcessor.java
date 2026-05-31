@@ -4,10 +4,6 @@ package bms.player.beatoraja.select;
 import java.util.LinkedList;
 import java.util.Objects;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.audio.Music;
-import com.badlogic.gdx.files.FileHandle;
-
 import bms.player.beatoraja.audio.AudioDriver;
 import bms.player.beatoraja.Config;
 import bms.player.beatoraja.Config.SongPreview;
@@ -26,10 +22,6 @@ public class PreviewMusicProcessor {
     private PreviewThread preview;
     private SongData current;
     
-    // Android平台：预览音效已禁用（libGDX native崩溃问题）
-    private Music androidMusicPlayer = null;
-    private String androidMusicPath = null;
-
     public PreviewMusicProcessor(AudioDriver audio, Config config) {
         this.audio = audio;
         this.config = config;
@@ -41,63 +33,6 @@ public class PreviewMusicProcessor {
         }
     }
     
-    /**
-     * Android平台使用Music流式播放（不阻塞）
-     */
-    private void playAndroidMusic(String path, float volume, boolean loop) {
-        if (path == null || path.isEmpty()) {
-            return;
-        }
-
-        try {
-            // 停止之前的播放
-            if (androidMusicPlayer != null) {
-                androidMusicPlayer.stop();
-                androidMusicPlayer.dispose();
-                androidMusicPlayer = null;
-            }
-
-            // 查找音频文件
-            FileHandle fileHandle = null;
-            for (FileHandle fh : AudioDriver.getPaths(path)) {
-                fileHandle = fh;
-                break;
-            }
-
-            if (fileHandle == null || !fileHandle.exists()) {
-                java.util.logging.Logger.getGlobal().warning("Music file not found: " + path);
-                return;
-            }
-
-            // 检查文件大小（防止空文件或损坏文件）
-            long fileSize = fileHandle.length();
-            if (fileSize == 0) {
-                java.util.logging.Logger.getGlobal().warning("Music file is empty: " + path);
-                return;
-            }
-
-            // 创建Music实例（流式播放，不会完整加载文件）
-            androidMusicPlayer = Gdx.audio.newMusic(fileHandle);
-            androidMusicPlayer.setVolume(volume);
-            androidMusicPlayer.setLooping(loop);
-            androidMusicPlayer.play();
-            androidMusicPath = path;
-
-            java.util.logging.Logger.getGlobal().info("Music started: " + path + " (" + fileSize + " bytes)");
-
-        } catch (Exception e) {
-            java.util.logging.Logger.getGlobal().warning("Failed to play music: " + path + " - " + e.getMessage());
-            // 确保清理掉可能损坏的player
-            if (androidMusicPlayer != null) {
-                try {
-                    androidMusicPlayer.dispose();
-                } catch (Exception ignored) {
-                }
-                androidMusicPlayer = null;
-            }
-        }
-    }
-
     public void start(String previewPath) {
         if(preview == null) {
             preview = new PreviewThread();
@@ -158,25 +93,8 @@ public class PreviewMusicProcessor {
         private boolean stop;
         private String playing;
         private float currentVolume;
-        private boolean isAndroid;
 
         public void run() {
-            isAndroid = com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android;
-
-            if (isAndroid) {
-                // Android平台：预览音乐已禁用（libGDX Music会native崩溃）
-                // 音效(Sound)不受影响，可以正常播放
-                while(!stop) {
-                    try {
-                        commands.pollFirst(); // 使用pollFirst避免竞态条件
-                        sleep(50);
-                    } catch (InterruptedException e) {
-                    }
-                }
-                return;
-            }
-            
-            // 桌面平台：正常播放
             float vol = getVolume();
             if (defaultMusic != null) {
                 try {
@@ -204,14 +122,12 @@ public class PreviewMusicProcessor {
                     stopPreview(true);
                     float v = getVolume();
                     if(!Objects.equals(path, defaultMusic) && path != null) {
-                        if (!isAndroid) {
-                            try {
-                                audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
-                            } catch (Exception e) {
-                                java.util.logging.Logger.getGlobal().warning("Failed to play preview: " + path + " - " + e.getMessage());
-                            }
+                        try {
+                            audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
+                        } catch (Exception e) {
+                            java.util.logging.Logger.getGlobal().warning("Failed to play preview: " + path + " - " + e.getMessage());
                         }
-                    } else if (defaultMusic != null && !isAndroid) {
+                    } else if (defaultMusic != null) {
                         try {
                             audio.setVolume(defaultMusic, v);
                         } catch (Exception e) {
@@ -249,7 +165,7 @@ public class PreviewMusicProcessor {
         }
 
         private void stopPreview(boolean fadeout) {
-            if(playing != null && !playing.equals(defaultMusic) && !isAndroid) {
+            if(playing != null && !playing.equals(defaultMusic)) {
                 try {
                     audio.stop(playing);
                 } catch (Exception e) {

@@ -331,13 +331,13 @@ public class LaneRenderer {
 			offsetH += offset.h;
 		}
 
-		time = (main.timer.isTimerOn(TIMER_PLAY) ? time - main.timer.getTimer(TIMER_PLAY) :
+		long jtime = (main.timer.isTimerOn(TIMER_PLAY) ? time - main.timer.getTimer(TIMER_PLAY) :
 			(main.timer.isTimerOn(141) ? time - main.timer.getTimer(141) : 0)) + config.getJudgetiming();
 		if (main.getState() == BMSPlayer.STATE_PRACTICE) {
-			time = main.getPracticeConfiguration().getPracticeProperty().starttime;
+			jtime = main.getPracticeConfiguration().getPracticeProperty().starttime;
 			pos = 0;
 		}
-		final long microtime = time * 1000;
+		final long microtime = jtime * 1000;
 		final boolean showTimeline = (main.getState() == BMSPlayer.STATE_PRACTICE);
 
 		final float hispeed = main.getState() != BMSPlayer.STATE_PRACTICE ? playconfig.getHispeed() : 1.0f;
@@ -371,8 +371,7 @@ public class LaneRenderer {
 		}
 		isPortrait = cachedPortraitValue;
 		final Rectangle[] playerr = skin.getLaneGroupRegion();
-		double bpm = model.getBpm();
-		double nbpm = bpm;
+		double nbpm = model.getBpm();
 		double nscroll = 1.0;
 		for (int i = (pos > 5 ? pos - 5 : 0); i < timelines.length && timelines[i].getMicroTime() <= microtime; i++) {
 			nbpm = timelines[i].getBPM();
@@ -389,17 +388,17 @@ public class LaneRenderer {
 		final double hl;
 		final double rxhs;
 		final double notePosStart;
-					if (isPortrait) {
-						// Portrait: horizontal falling - x decreases from right to left
-						// Judgment line at left (hl), spawn at right (hu)
-						// Add 40px offset to hl to allow drawing note heads behind the judgment line
-						// without shifting the actual hit timing relative to the visual lane.
-						final float trackWidth = lanes[0].region.width;
-						hl = (playconfig.isEnablelift() ? lanes[0].region.x + trackWidth * playconfig.getLift() : lanes[0].region.x) + 40;
-						hu = lanes[0].region.x + trackWidth;
-						rxhs = (hu - hl) * hispeed;
-						notePosStart = hl;  // Distance logic: hl + distance
-					} else {
+		final float trackWidth = isPortrait ? lanes[0].region.width - 40 : lanes[0].region.width; // trackWidth across lanes
+		if (isPortrait) {
+			// Portrait: horizontal falling - x decreases from right to left
+			// Judgment line at left (hl), spawn at right (hu)
+			// Add 40px offset to hl to allow drawing note heads behind the judgment line
+			hl = (lanes[0].region.x + 40) + trackWidth * playconfig.getLift();
+			hu = lanes[0].region.x + lanes[0].region.width;
+			// Matches landscape logic: rxhs is based on the actual visual track length
+			rxhs = (hu - hl) * hispeed;
+			notePosStart = hl;  // Distance logic: hl + distance
+		} else {
 			// Landscape: vertical falling - y increases from bottom to top
 			hu = lanes[0].region.y + lanes[0].region.height;
 			hl = playconfig.isEnablelift() ? lanes[0].region.y + lanes[0].region.height * playconfig.getLift() : lanes[0].region.y;
@@ -415,7 +414,8 @@ public class LaneRenderer {
 			// Portrait: LIFT/LANECOVER affect X direction
 			main.main.getOffset(OFFSET_LIFT).x = (float) ((hu - lanes[0].region.x) * playconfig.getLift());
 			main.main.getOffset(OFFSET_LIFT).y = 0;
-			main.main.getOffset(OFFSET_LANECOVER).x = (float) ((hu - hl) * lanecover);
+			// Lanecover moves from spawn (hu) towards judgment (hl). hl-hu is negative.
+			main.main.getOffset(OFFSET_LANECOVER).x = (float) ((hl - hu) * lanecover);
 			main.main.getOffset(OFFSET_LANECOVER).y = 0;
 		} else {
 			// Landscape: LIFT/LANECOVER affect Y direction
@@ -527,13 +527,15 @@ public class LaneRenderer {
 				int srcW = (int)laneW;
 				int srcH = (int)laneH;
 
+				// Convert Y-down skin coordinates to Y-up FBO texture coordinates
+				int fboSrcY = bgaFrame.getHeight() - srcY - srcH;
 				// Clip to texture bounds to avoid GL errors
 				srcX = Math.max(0, Math.min(srcX, bgaFrame.getWidth() - 1));
-				srcY = Math.max(0, Math.min(srcY, bgaFrame.getHeight() - 1));
+				fboSrcY = Math.max(0, Math.min(fboSrcY, bgaFrame.getHeight() - 1));
 				srcW = Math.max(1, Math.min(srcW, bgaFrame.getWidth() - srcX));
-				srcH = Math.max(1, Math.min(srcH, bgaFrame.getHeight() - srcY));
+				srcH = Math.max(1, Math.min(srcH, bgaFrame.getHeight() - fboSrcY));
 
-				TextureRegion bgaRegion = new TextureRegion(bgaFrame, srcX, srcY, srcW, srcH);
+				TextureRegion bgaRegion = new TextureRegion(bgaFrame, srcX, fboSrcY, srcW, srcH);
 				bgaRegion.flip(false, true); // FBO textures are Y-up, must flip for Y-down display
 				sprite.draw(bgaRegion, laneX, laneY, laneW, laneH);
 			}
@@ -563,13 +565,13 @@ public class LaneRenderer {
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
-							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
 						} else {
-							line.draw(sprite, time, main, 0, (int) (notePos - hl - 80));
+							line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
 						}
 					}
 					for (Rectangle r : playerr) {
-						// TODO 数値もスキンベースへ移行
+						// TODO 数值もスキンベースへ移行
 						if(font != null) {
 							if (isPortrait) {
 								sprite.draw(font, cachedTimeText[i], (float) (hu - notePos), r.y + r.height - 4, COLOR_TIME_TEXT);
@@ -584,9 +586,9 @@ public class LaneRenderer {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+								line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
 							} else {
-								line.draw(sprite, time, main, 0, (int) (notePos - hl));
+								line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -604,9 +606,9 @@ public class LaneRenderer {
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
 							if (isPortrait) {
-								line.draw(sprite, time, main, (int) (notePos - hl), 0);
+								line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
 							} else {
-								line.draw(sprite, time, main, 0, (int) (notePos - hl));
+								line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -625,9 +627,9 @@ public class LaneRenderer {
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
 						if (isPortrait) {
-							line.draw(sprite, time, main, (int) (notePos - hl), 0);
+							line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
 						} else {
-							line.draw(sprite, time, main, 0, (int) (notePos - hl));
+							line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
 						}
 					}
 				}
@@ -680,8 +682,9 @@ public class LaneRenderer {
 					float dstx, dsty, dstw, dsth;
 					if (isPortrait) {
 						// Portrait: notes fall horizontally (x decreases from right to left)
-						// Correct orientation: rotate 270 CCW (Bottom -> Left).
-						// W (thickness) is vertical, H (length/scale) is horizontal.
+						// After 270 CCW rotation around center:
+						// Visual width along Buffer X = Asset Height (thickness)
+						// Visual height along Buffer Y = Asset Width (lane width)
 						dstw = lanes[lane].region.height + offsetH;
 						dsth = scale + offsetW;
 
@@ -744,7 +747,7 @@ public class LaneRenderer {
 								sprite.setColor(1, 1, 1, 1f);
 								if (s != null) {
 									if (isPortrait) {
-									sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
+									sprite.draw(s, dstx + 0.01f, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
 								} else {
 										sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 									}
@@ -757,7 +760,7 @@ public class LaneRenderer {
 							sprite.setColor(1, 1, 1, 1f);
 							if (s != null) {
 								if (isPortrait) {
-								sprite.draw(s, dstx, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
+								sprite.draw(s, dstx + 0.01f, dsty, dstw, dsth, 0.5f, 0.5f, 270.0f);
 							} else {
 									sprite.draw(s, dstx + 0.01f, dsty + 0.01f, dstw, dsth);
 								}
@@ -792,7 +795,7 @@ public class LaneRenderer {
 					if (dy > 0) {
 						if (isPortrait) {
 							// Draw centered on notePos for perfect alignment with visual judge line
-							this.drawLongNote(sprite, lanes[lane].longImage, (float) notePos, lanes[lane].region.y + offsetY, dstw, (float) dy, scale, lane, ln, isPortrait);
+							this.drawLongNote(sprite, lanes[lane].longImage, (float) notePos + 0.01f, lanes[lane].region.y + offsetY, dstw, (float) dy, scale, lane, ln, isPortrait);
 						} else {
 							final float dscale = (dsth > scale ? (dsth - scale) / 2 : 0);
 							this.drawLongNote(sprite, lanes[lane].longImage, dstx, (float) (dsty + dy), dstw,
@@ -824,7 +827,9 @@ public class LaneRenderer {
 						if (lanes[lane].hiddenImage != null) {
 							sprite.setColor(1, 1, 1, 1f);
 							if (isPortrait) {
-								sprite.draw(lanes[lane].hiddenImage, (float) notePos, lanes[lane].region.y, scale, lanes[lane].region.width, 0.5f, 0.5f, 90.0f);
+								// In portrait: rotate 270 for correct orientation.
+								// width (across) = region.height, height (along) = scale
+								sprite.draw(lanes[lane].hiddenImage, (float) notePos, lanes[lane].region.y, scale, lanes[lane].region.height, 0.5f, 0.5f, 270.0f);
 							} else {
 								sprite.draw(lanes[lane].hiddenImage, lanes[lane].region.x, (float) notePos, lanes[lane].region.width, scale);
 							}
@@ -889,7 +894,7 @@ public class LaneRenderer {
 						if(microtime > tl.getMicroTime() + tl.getMicroStop() + badTime) {
 							stopTime = Math.max(tl.getMicroTime() + tl.getMicroStop() + badTime - tl.getMicroTime() - tl.getMicroStop(), 0);
 							if (isPortrait) {
-								notePos += (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
+								notePos -= (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
 							} else {
 								notePos -= (microtime - tl.getMicroTime() - tl.getMicroStop() - stopTime) * rxhs2 * tl.getBPM() / 240000000;
 							}
@@ -908,8 +913,8 @@ public class LaneRenderer {
 							if (isPortrait) {
 								dstx = (float) notePos;
 								dsty = lanes[lane].region.y;
-								dstw = scale;
-								dsth = lanes[lane].region.width;
+								dstw = lanes[lane].region.height;
+								dsth = scale;
 							} else {
 								dstx = lanes[lane].region.x;
 								dsty = (float) notePos;
@@ -921,8 +926,10 @@ public class LaneRenderer {
 									dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
 									dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (now - main.getNowQuarterNoteTime()) / noteExpansionTime;
 									if (isPortrait) {
-										dstx -= (dstw - scale) / 2;
-										dsty -= (dsth - lanes[lane].region.width) / 2;
+										// In portrait: dstw is lane width (buffer Y), dsth is thickness (buffer X)
+										// Shift across lane (dstw) and along lane (dsth)
+										dstx -= (dsth - scale) / 2;
+										dsty -= (dstw - lanes[lane].region.height) / 2;
 									} else {
 										dstx -= (dstw - lanes[lane].region.width) / 2;
 										dsty -= (dsth - scale) / 2;
@@ -931,8 +938,8 @@ public class LaneRenderer {
 									dstw *= 1 + (skin.getNoteExpansionRate()[0]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
 									dsth *= 1 + (skin.getNoteExpansionRate()[1]/100.0f - 1) * (noteContractionTime - (now - main.getNowQuarterNoteTime() - noteExpansionTime)) / noteContractionTime;
 									if (isPortrait) {
-										dstx -= (dstw - scale) / 2;
-										dsty -= (dsth - lanes[lane].region.width) / 2;
+										dstx -= (dsth - scale) / 2;
+										dsty -= (dstw - lanes[lane].region.height) / 2;
 									} else {
 										dstx -= (dstw - lanes[lane].region.width) / 2;
 										dsty -= (dsth - scale) / 2;
@@ -953,18 +960,15 @@ public class LaneRenderer {
 							if (s == null) {
 		// 								Gdx.app.log("NoteDebug", "WARNING: both noteImage and processedImage are null! lane=" + lane);
 							}
-							boolean drawCondition = ((note.getState() == 0 || note.getState() >= 4) && tl.getMicroTime() <= microtime) && (isPortrait ? notePos <= orgNotePos2 : notePos >= orgNotePos2);
+							boolean drawCondition = ((note.getState() == 0 || note.getState() >= 4) && tl.getMicroTime() <= microtime) && (notePos >= orgNotePos2);
 							if (drawCondition) {
 								sprite.setColor(1, 1, 1, 1f);
 									if (isPortrait) {
 										// Align leading edge to notePos and rotate around center
-										float poorX = (float) notePos - dstw / 2f;
-										float poorY = dsty + (dstw - dsth) / 2f;
-										if (notePos < orgNotePos) {
-											if (s != null) sprite.draw(s, (float) notePos - dstw / 2f, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
-										} else if (s != null) {
-											sprite.draw(s, poorX, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
-										}
+										// Pre-rotation x_pre = notePos - dstw/2 + dsth/2
+										float poorX = (float) notePos - dstw / 2f + dsth / 2f;
+										float poorY = dsty;
+										if (s != null) sprite.draw(s, poorX, poorY, dstw, dsth, 0.5f, 0.5f, 270.0f);
 									} else {
 									if (notePos > orgNotePos) {
 										if (s != null) sprite.draw(s, dstx, (float) (orgNotePos - (dsth - scale) / 2), dstw, dsth);
@@ -1023,24 +1027,30 @@ public class LaneRenderer {
 
 		if (isPortrait) {
 			// Portrait mode: notes fall horizontally (x decreases from right to left)
-			// Rotate 270 CCW around center. Origin at (0.5, 0.5) for everything.
-			float W = width;
-			float H = height;
-			float headH = scale;
+			// Leading edge of head is at x. Tail follows at x + height.
+			float W = width;  // Lane width (vertical on screen)
+			float L = height; // LN length (horizontal on screen)
+			float T = scale;  // Note thickness
+			float laneCenterY = y + (W - T) / 2f;
 
-			// Draw Body: centered on x, base at x
-			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
-				sprite.draw(longImage[bodyIdx], x - 0.5f * W, y + 0.5f * W, W, H, 0.5f, 0, 270.0f);
-			}
-
-			// Draw Head: centered on x
-			if (headIdx < longImage.length && longImage[headIdx] != null) {
-				sprite.draw(longImage[headIdx], x - 0.5f * W, y + 0.5f * W, W, headH, 0.5f, 0.5f, 270.0f);
-			}
-
-			// Draw Tail: centered on x + H
+			// Visual Head (Hit side) - Draw at x.
+			// Matches landscape logic where tailIdx is drawn at head position (y - height).
 			if (tailIdx < longImage.length && longImage[tailIdx] != null) {
-				sprite.draw(longImage[tailIdx], x + H - 0.5f * W, y + 0.5f * W, W, headH, 0.5f, 0.5f, 270.0f);
+				sprite.draw(longImage[tailIdx], x + 0.5f * T - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
+			}
+
+			// Visual Body - Draw from x + T to x + L.
+			if (bodyIdx < longImage.length && longImage[bodyIdx] != null) {
+				float bodyL = L - T;
+				if (bodyL > 0.01f) {
+					sprite.draw(longImage[bodyIdx], x + T + 0.5f * bodyL - 0.5f * W, y + (W - bodyL) / 2f, W, bodyL, 0.5f, 0.5f, 270.0f);
+				}
+			}
+
+			// Visual Tail (End side) - Draw at x + L.
+			// Matches landscape logic where headIdx is drawn at tail position (y).
+			if (headIdx < longImage.length && longImage[headIdx] != null) {
+				sprite.draw(longImage[headIdx], x + L + 0.5f * T - 0.5f * W, laneCenterY, W, T, 0.5f, 0.5f, 270.0f);
 			}
 		} else {
 			// Landscape mode: notes fall vertically (y increases from bottom to top)

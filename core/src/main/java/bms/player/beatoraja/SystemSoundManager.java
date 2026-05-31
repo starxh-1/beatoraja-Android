@@ -63,7 +63,7 @@ public class SystemSoundManager {
 			for(File p :getSoundPaths(sound)) {
 				String newpath = p.getPath();
 				String oldpath = soundmap.get(sound);
-				if (newpath.equals(oldpath)) {
+				if (newpath.equals(oldpath) && !sound.equals(SoundType.SELECT)) {
 					break;
 				}
 				if (oldpath != null) {

@@ -204,12 +204,24 @@ public final class SkinNumber extends SkinObject {
 	}
 
 	public void draw(SkinObjectRenderer sprite) {
+		final boolean portrait = (angle == 270 || angle == 90);
 		for (int j = 0; j < currentImages.length; j++) {
 			if (currentImages[j] != null) {
-				if(offsets != null && j < offsets.length) {
-					draw(sprite, currentImages[j], region.x + (region.width + space) * j - shift + offsets[j].x, region.y + offsets[j].y, region.width + offsets[j].w, region.height + offsets[j].h);
+				if (portrait) {
+					// Portrait: arrange digits vertically (Y axis) so they read
+					// left-to-right after the 270-degree rotation is applied
+					final float y = region.y - (region.height + space) * j + shift;
+					if (offsets != null && j < offsets.length) {
+						draw(sprite, currentImages[j], region.x + offsets[j].x, y + offsets[j].y, region.width + offsets[j].w, region.height + offsets[j].h);
+					} else {
+						draw(sprite, currentImages[j], region.x, y, region.width, region.height);
+					}
 				} else {
-					draw(sprite, currentImages[j], region.x + (region.width + space) * j - shift, region.y, region.width, region.height);
+					if (offsets != null && j < offsets.length) {
+						draw(sprite, currentImages[j], region.x + (region.width + space) * j - shift + offsets[j].x, region.y + offsets[j].y, region.width + offsets[j].w, region.height + offsets[j].h);
+					} else {
+						draw(sprite, currentImages[j], region.x + (region.width + space) * j - shift, region.y, region.width, region.height);
+					}
 				}
 			}
 		}
