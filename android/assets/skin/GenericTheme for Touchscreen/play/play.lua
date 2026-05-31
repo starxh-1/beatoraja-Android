@@ -358,28 +358,15 @@ local function main(keysNumber)
 	-- Original landscape: x=horizontal, y=vertical, notes fall in -Y direction
 	-- Portrait rotated: x=vertical, y=horizontal, notes fall in -X direction (leftward)
 	local function initPortraitGeo(geo)
-		-- Lane is now horizontal stripes across the full 1080 height of the landscape buffer
+		-- Lane is now horizontal stripes across the phone width (Landscape Y)
 		geo.lane = {}
 
-		-- Calculate scaling to fill the 1080 height (which is screen width in portrait)
+		-- Calculate scaling to fill the phone width (around 1080 or more)
 		local base_widths = {
 			[1] = geo.note.original_white_w, [2] = geo.note.original_black_w, [3] = geo.note.original_white_w,
 			[4] = geo.note.original_black_w, [5] = geo.note.original_white_w, [6] = geo.note.original_black_w,
 			[7] = geo.note.original_white_w, [8] = geo.note.original_scratch_w
 		}
-		local total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
-		local note_scale_w = 1080 / total_orig_w
-
-		geo.note.scale_w = note_scale_w
-		geo.note.white_w = geo.note.original_white_w * note_scale_w
-		geo.note.black_w = geo.note.original_black_w * note_scale_w
-		geo.note.scratch_w = geo.note.original_scratch_w * note_scale_w
-
-		-- Portrait lane: x=judgment line position, y=bottom of screen
-		geo.lane.x = 226  -- Judgment line position
-		geo.lane.y = 0    -- Fill from bottom of buffer
-		geo.lane.w = 1920 - geo.lane.x - 100  -- Lane length
-		geo.lane.h = 1080 -- Full height of buffer
 
 		-- Lane order and positions
 		geo.lane.order = {7, 6, 5, 4, 3, 2, 1, 8}
@@ -393,17 +380,35 @@ local function main(keysNumber)
 			end
 		end
 
+		local total_orig_w = 0
+		for _, idx in ipairs(geo.lane.order) do
+			total_orig_w = total_orig_w + base_widths[idx]
+		end
+
+		local target_width = 1140 -- Increased to 1140 to ensure it covers the edge on wider-than-16:9 screens
+		local sep_w = 6
+		geo.lane.separateline_w = sep_w
+		local num_seps = #geo.lane.order - 1
+		local total_lane_w = target_width - (num_seps * sep_w)
+
+		local note_scale_w = total_lane_w / total_orig_w
+
+		geo.note.scale_w = note_scale_w
+		geo.note.white_w = geo.note.original_white_w * note_scale_w
+		geo.note.black_w = geo.note.original_black_w * note_scale_w
+		geo.note.scratch_w = geo.note.original_scratch_w * note_scale_w
+
+		-- Portrait lane: x=judgment line position, y=bottom of screen
+		geo.lane.x = 240  -- Judgment line position (Landscape X)
+		geo.lane.y = 0    -- Fill from bottom of buffer (Landscape Y)
+		geo.lane.w = 1920 - geo.lane.x - 20  -- Lane length (to reduce top gap)
+		geo.lane.h = target_width -- Total width across lanes
+
 		geo.lane.each_w = {}
 		geo.lane.each_y = {}
 		geo.lane.each_x = {}
 
 		-- Cumulative distribution with FIXED separator width to ensure seamless gaps
-		local sep_w = 6
-		geo.lane.separateline_w = sep_w
-		local num_seps = #geo.lane.order - 1
-		local total_lane_w = 1080 - (num_seps * sep_w)
-		local base_total_lane_w = total_orig_w - (num_seps * 3)
-
 		local current_lane_y = 0
 		local current_base_lane_w = 0
 		for i = 1, #geo.lane.order do
@@ -414,7 +419,7 @@ local function main(keysNumber)
 			geo.lane.each_y[lane_idx] = current_lane_y + y_offset
 
 			current_base_lane_w = current_base_lane_w + base_widths[lane_idx]
-			local next_lane_y = math.floor(current_base_lane_w * total_lane_w / base_total_lane_w)
+			local next_lane_y = math.floor(current_base_lane_w * total_lane_w / total_orig_w)
 			geo.lane.each_w[lane_idx] = next_lane_y - current_lane_y
 			current_lane_y = next_lane_y
 		end
@@ -430,18 +435,18 @@ local function main(keysNumber)
 		geo.lane.fivekey_center_x = geo.lane.center_x
 		geo.lane.judgeline_h = 10
 
-		-- Gauge area - at top in portrait
+		-- Gauge area - at bottom in portrait
 		geo.gaugearea = {}
 		geo.gaugearea.x = 0
 		geo.gaugearea.w = geo.lane.x - 20
 		geo.gaugearea.y = 0
-		geo.gaugearea.h = geo.lane.y + geo.lane.h / 2
+		geo.gaugearea.h = target_width
 
 		geo.gauge = {}
-		geo.gauge.x = 226 / 2 -- Position on the phone's height axis (Buffer X)
-		geo.gauge.y = 1040    -- Move to the edge (Landscape Y=1040)
-		geo.gauge.w = 1000    -- Length (Buffer X in landscape, width in portrait)
-		geo.gauge.h = 35      -- Thickness
+		geo.gauge.x = 80      -- Below judgment line (Landscape X)
+		geo.gauge.y = 20      -- Bottom edge (Landscape Y)
+		geo.gauge.w = 35      -- Thickness
+		geo.gauge.h = 1000    -- Length (will be vertical due to h > w in SkinGauge)
 
 		-- Score/info area
 		geo.scoreinfoarea = {}
