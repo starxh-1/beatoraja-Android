@@ -358,15 +358,28 @@ local function main(keysNumber)
 	-- Original landscape: x=horizontal, y=vertical, notes fall in -Y direction
 	-- Portrait rotated: x=vertical, y=horizontal, notes fall in -X direction (leftward)
 	local function initPortraitGeo(geo)
-		-- Lane is now horizontal stripes across the phone width (Landscape Y)
+		-- Lane is now horizontal stripes across the full 1080 height of the landscape buffer
 		geo.lane = {}
 
-		-- Calculate scaling to fill the phone width (around 1080 or more)
+		-- Calculate scaling to fill the 1080 height (which is screen width in portrait)
 		local base_widths = {
 			[1] = geo.note.original_white_w, [2] = geo.note.original_black_w, [3] = geo.note.original_white_w,
 			[4] = geo.note.original_black_w, [5] = geo.note.original_white_w, [6] = geo.note.original_black_w,
 			[7] = geo.note.original_white_w, [8] = geo.note.original_scratch_w
 		}
+		local total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+		local note_scale_w = 1080 / total_orig_w
+
+		geo.note.scale_w = note_scale_w
+		geo.note.white_w = geo.note.original_white_w * note_scale_w
+		geo.note.black_w = geo.note.original_black_w * note_scale_w
+		geo.note.scratch_w = geo.note.original_scratch_w * note_scale_w
+
+		-- Portrait lane: x=judgment line position, y=bottom of screen
+		geo.lane.x = 226  -- Judgment line position
+		geo.lane.y = 0    -- Fill from bottom of buffer
+		geo.lane.w = 1920 - geo.lane.x - 100  -- Lane length
+		geo.lane.h = 1080 -- Full height of buffer
 
 		-- Lane order and positions
 		geo.lane.order = {7, 6, 5, 4, 3, 2, 1, 8}
@@ -380,35 +393,17 @@ local function main(keysNumber)
 			end
 		end
 
-		local total_orig_w = 0
-		for _, idx in ipairs(geo.lane.order) do
-			total_orig_w = total_orig_w + base_widths[idx]
-		end
-
-		local target_width = 1080 -- Fixed to standard screen width
-		local sep_w = 6
-		geo.lane.separateline_w = sep_w
-		local num_seps = #geo.lane.order - 1
-		local total_lane_w = target_width - (num_seps * sep_w)
-
-		local note_scale_w = total_lane_w / total_orig_w
-
-		geo.note.scale_w = note_scale_w
-		geo.note.white_w = geo.note.original_white_w * note_scale_w
-		geo.note.black_w = geo.note.original_black_w * note_scale_w
-		geo.note.scratch_w = geo.note.original_scratch_w * note_scale_w
-
-		-- Portrait lane: x=judgment line position, y=bottom of screen
-		geo.lane.x = 240  -- Judgment line position (Landscape X)
-		geo.lane.y = 0    -- Fill from bottom of buffer (Landscape Y)
-		geo.lane.w = 1920 - geo.lane.x - 20  -- Lane length
-		geo.lane.h = target_width -- Total width across lanes
-
 		geo.lane.each_w = {}
 		geo.lane.each_y = {}
 		geo.lane.each_x = {}
 
 		-- Cumulative distribution with FIXED separator width to ensure seamless gaps
+		local sep_w = 6
+		geo.lane.separateline_w = sep_w
+		local num_seps = #geo.lane.order - 1
+		local total_lane_w = 1080 - (num_seps * sep_w)
+		local base_total_lane_w = total_orig_w - (num_seps * 3)
+
 		local current_lane_y = 0
 		local current_base_lane_w = 0
 		for i = 1, #geo.lane.order do
@@ -419,7 +414,7 @@ local function main(keysNumber)
 			geo.lane.each_y[lane_idx] = current_lane_y + y_offset
 
 			current_base_lane_w = current_base_lane_w + base_widths[lane_idx]
-			local next_lane_y = math.floor(current_base_lane_w * total_lane_w / total_orig_w)
+			local next_lane_y = math.floor(current_base_lane_w * total_lane_w / base_total_lane_w)
 			geo.lane.each_w[lane_idx] = next_lane_y - current_lane_y
 			current_lane_y = next_lane_y
 		end
@@ -435,24 +430,24 @@ local function main(keysNumber)
 		geo.lane.fivekey_center_x = geo.lane.center_x
 		geo.lane.judgeline_h = 10
 
-		-- Gauge area - below judge line
+		-- Gauge area - at top in portrait
 		geo.gaugearea = {}
 		geo.gaugearea.x = 0
 		geo.gaugearea.w = geo.lane.x - 20
 		geo.gaugearea.y = 0
-		geo.gaugearea.h = target_width
+		geo.gaugearea.h = geo.lane.y + geo.lane.h / 2
 
 		geo.gauge = {}
-		geo.gauge.x = 140      -- Horizontal bar at bottom area
-		geo.gauge.y = 540      -- Center of screen width
-		geo.gauge.w = 1000     -- Length
-		geo.gauge.h = 35       -- Thickness
+		geo.gauge.x = -280      -- Position on the phone's height axis (Buffer X)
+		geo.gauge.y = 520    -- Move to the edge (Landscape Y=1040)
+		geo.gauge.w = 1040    -- Length (Buffer X in landscape, width in portrait)
+		geo.gauge.h = 35      -- Thickness
 
 		-- Score/info area
 		geo.scoreinfoarea = {}
 		geo.scoreinfoarea.x = 0
-		geo.scoreinfoarea.w = geo.gaugearea.w
-		geo.scoreinfoarea.y = 0
+		geo.scoreinfoarea.w = 20
+		geo.scoreinfoarea.y = 540 -- Middle of phone screen width (Buffer Y)
 
 		-- Scoregraph - hidden in portrait
 		geo.scoregrapharea = {}
@@ -872,7 +867,7 @@ local function main(keysNumber)
 
 			hidden = {},
 			processed = {},
-			size = {72, 72, 72, 72, 72, 72, 72, 72},
+			size = {96, 96, 96, 96, 96, 96, 96, 96},
 			dst = (function()
 				local d = {}
 				for i = 1, keysNumber + 1 do
@@ -880,7 +875,7 @@ local function main(keysNumber)
 						-- Area starts 40px behind judgment line. Offset in LaneRenderer.java compensates hit pos.
 						d[i] = {x = geo.lane.x - 40, y = geo.lane.each_y[i], w = geo.lane.w + 40, h = geo.lane.each_w[i]}
 					else
-						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 18, w = geo.lane.each_w[i], h = geo.lane.h}
+						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 32, w = geo.lane.each_w[i], h = geo.lane.h}
 					end
 				end
 				return d
@@ -945,7 +940,7 @@ local function main(keysNumber)
 						-- Area starts 40px behind judgment line. Offset in LaneRenderer.java compensates hit pos.
 						d[i] = {x = geo.lane.x - 40, y = geo.lane.each_y[i], w = geo.lane.w + 40, h = geo.lane.each_w[i]}
 					else
-						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 18, w = geo.note.white_w, h = geo.lane.h}
+						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 32, w = geo.note.white_w, h = geo.lane.h}
 					end
 				end
 				return d
@@ -2580,19 +2575,16 @@ local function main(keysNumber)
 		local x = geo.gauge.x local w = geo.gauge.w
 		local y = geo.gauge.y local h = geo.gauge.h
 		local angle = 0
+		local cx, cy, center = 0.5, 0.5, 5
 		if isPortraitLayout() then
-			-- Back to horizontal bar across the bottom
-			x = geo.gauge.x
-			y = geo.gauge.y
-			w = geo.gauge.w
-			h = geo.gauge.h
-			angle = 0
+			angle = 270
+			cx, cy, center = 0, 0, 1
 		elseif is2P() then
 			x = geo.gauge.x + geo.gauge.w
 			w = -geo.gauge.w
 		end
 		table.insert(skin.destination, {id = "gauge", dst = {
-			{x = x, y = y, w = w, h = h, angle = angle, cx = 0.5, cy = 0.5, center = 5},
+			{x = x, y = y, w = w, h = h, angle = angle, cx = cx, cy = cy, center = center},
 		}})
 	end
 	-- gaugevalue
@@ -2603,13 +2595,13 @@ local function main(keysNumber)
 		})
 		local w = 35 local h = 35
 		if isPortraitLayout() then
-			local px = 200 -- Above right end of gauge
-			local py = 950 -- Right side
+			local x = geo.gauge.x + 550
+			local start_y = 180
 			append_all(skin.destination, {
-				{id = "gaugevalue", dst = {{x = px, y = py, w = w, h = h, angle = 270}}},
-				{id = "text_image_dot", dst = {{x = px, y = py - h * 3 - 1, w = w, h = h, angle = 270}}},
-				{id = "gaugevalue_ad", dst = {{x = px, y = py - h * 3 - 10, w = w, h = h, angle = 270}}},
-				{id = "text_image_%", dst = {{x = px, y = py - h * 4 - 12, w = 24, h = 20, angle = 270}}},
+				{id = "gaugevalue", dst = {{x = x, y = start_y, w = w, h = h, angle = 270}}},
+				{id = "text_image_dot", dst = {{x = x, y = start_y - h * 3 - 1, w = w, h = h, angle = 270}}},
+				{id = "gaugevalue_ad", dst = {{x = x, y = start_y - h * 3 - 10, w = w, h = h, angle = 270}}},
+				{id = "text_image_%", dst = {{x = x, y = start_y - h * 4 - 12, w = 24, h = 20, angle = 270}}},
 			})
 		else
 			local y = geo.gauge.y + geo.gauge.h + 7
@@ -2642,8 +2634,8 @@ local function main(keysNumber)
 		local random_w = random_image_w * h / random_image_h
 
 		if isPortraitLayout() then
-			local x = geo.gauge.x + 50
-			local y = geo.gauge.y - 100
+			local x = geo.gauge.x + 550
+			local y = geo.gauge.y + 390
 			local space_y = 15
 			-- judgerank alternatives: each shown conditionally via op filter
 			for i = 1, 5 do
@@ -2755,17 +2747,17 @@ local function main(keysNumber)
 		)
 
 		local x = geo.gauge.x local y = geo.gauge.y - 32
-		local text_size = 16
-		local num_size = 20
+		local text_size = 20
+		local num_size = 24
 			if isPortraitLayout() then
-				local px = 80 -- Below gauge
-				local py = 150 -- Left side
+				local px = geo.gauge.x + 400
+				local py = geo.gauge.y + 450
 				local num_w = 18 local num_h = 18
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
 					{x = px, y = py, w = image_w * text_size / image_h * 1.06, h = text_size, angle = 270},
 				}})
 				table.insert(skin.destination, {id = "exscore", dst = {
-					{x = px, y = py + 150, w = num_w, h = num_h, angle = 270},
+					{x = px, y = py, w = num_w, h = num_h, angle = 270},
 				}})
 			else
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
@@ -2787,8 +2779,8 @@ local function main(keysNumber)
 			{id = "text_images_hispeed", src = "src_othertexts", x = 0, y = image_h * 4, w = image_w, h = image_h * 5, divy = 5, len = 5, ref = 55}
 		)
 			if isPortraitLayout() then
-				local px = 80 -- Same horizontal line as EXSCORE
-				local py = 650 -- Right side
+				local px = geo.gauge.x + 400
+				local py = geo.gauge.y - 350
 				local num_w = 18 local num_h = 18
 				local text_images_h = 16
 				append_all(skin.destination, {
@@ -2796,13 +2788,13 @@ local function main(keysNumber)
 						{x = px, y = py, w = image_w * text_images_h / image_h * 1.06, h = text_images_h, angle = 270},
 					}},
 					{id = "hispeed", dst = {
-						{x = px, y = py + 150, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
 					}},
 					{id = "text_image_dot", dst = {
-						{x = px, y = py + 150 + num_w * 2 + 4, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py - num_h * 4, w = num_w, h = num_h, angle = 270},
 					}},
 					{id = "hispeed_ad", dst = {
-						{x = px, y = py + 150 + num_w * 3 - 6, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py - num_h * 6, w = num_w, h = num_h, angle = 270},
 					}},
 				})
 			else

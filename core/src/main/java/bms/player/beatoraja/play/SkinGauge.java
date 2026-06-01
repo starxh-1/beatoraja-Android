@@ -186,12 +186,17 @@ public final class SkinGauge extends SkinObject {
 		}
 
 		final int exgauge = (type >= CLASS ? type - 3 : type) * 6;
-		final int notes = value > 0 ? Math.max(1 , (int) (value * parts / max)) : 0;
+		final int notes = value > 0 ? Math.max(1, (int) (value * parts / max)) : 0;
 		sprite.setColor(color);
 		sprite.setBlend(getBlend());
 		sprite.setType(SkinObjectRenderer.TYPE_NORMAL);
 
-		switch(animationType) {
+		final float cos = (float) Math.cos(Math.toRadians(angle));
+		final float sin = (float) Math.sin(Math.toRadians(angle));
+		final float cx = centerx * region.width;
+		final float cy = centery * region.height;
+
+		switch (animationType) {
 			case ANIMATION_RANDOM, ANIMATION_INCLEASE, ANIMATION_DECLEASE -> {
 				for (int i = 1; i <= parts; i++) {
 					final float border = i * max / parts;
@@ -199,13 +204,20 @@ public final class SkinGauge extends SkinObject {
 							+ (border < this.border ? 1 : 0);
 					if (imageIndex >= 0 && imageIndex < images.length) {
 						if (angle != 0) {
+							float px = region.width * (i - 1) / parts + (region.width / parts) * 0.5f;
+							float py = region.height * 0.5f;
+							float rx = px - cx;
+							float ry = py - cy;
+							float nx = rx * cos - ry * sin;
+							float ny = rx * sin + ry * cos;
 							sprite.draw(images[imageIndex],
-								region.x + region.width * (i - 1) / parts, region.y,
-								region.width / parts, region.height, centerx, centery, angle);
+									region.x + cx + nx - (region.width / parts) * 0.5f,
+									region.y + cy + ny - region.height * 0.5f,
+									region.width / parts, region.height, 0.5f, 0.5f, angle);
 						} else {
 							sprite.draw(images[imageIndex],
-								region.x + region.width * (i - 1) / parts, region.y,
-								region.width / parts, region.height);
+									region.x + region.width * (i - 1) / parts, region.y,
+									region.width / parts, region.height);
 						}
 					}
 				}
@@ -216,30 +228,44 @@ public final class SkinGauge extends SkinObject {
 					final int imageIndex = exgauge + (notes >= i ? 0 : 2) + (border < this.border ? 1 : 0);
 					if (imageIndex >= 0 && imageIndex < images.length) {
 						if (angle != 0) {
+							float px = region.width * (i - 1) / parts + (region.width / parts) * 0.5f;
+							float py = region.height * 0.5f;
+							float rx = px - cx;
+							float ry = py - cy;
+							float nx = rx * cos - ry * sin;
+							float ny = rx * sin + ry * cos;
 							sprite.draw(images[imageIndex],
-								region.x + region.width * (i - 1) / parts, region.y,
-								region.width / parts, region.height, centerx, centery, angle);
+									region.x + cx + nx - (region.width / parts) * 0.5f,
+									region.y + cy + ny - region.height * 0.5f,
+									region.width / parts, region.height, 0.5f, 0.5f, angle);
 						} else {
 							sprite.draw(images[imageIndex],
-								region.x + region.width * (i - 1) / parts, region.y,
-								region.width / parts, region.height);
+									region.x + region.width * (i - 1) / parts, region.y,
+									region.width / parts, region.height);
 						}
 					}
 
-					if(i == notes) {
+					if (i == notes) {
 						final int flickerIndex = exgauge + 4 + (border < this.border ? 1 : 0);
 						if (flickerIndex >= 0 && flickerIndex < images.length) {
 							final Color orgColor = sprite.getColor();
 							flickerColor.set(orgColor.r, orgColor.g, orgColor.b, orgColor.a * (animation < duration / 2 ? animation / ((float) duration / 2 - 1) : ((duration - 1) - animation) / ((float) duration / 2 - 1)));
 							sprite.setColor(flickerColor);
 							if (angle != 0) {
+								float px = region.width * (i - 1) / parts + (region.width / parts) * 0.5f;
+								float py = region.height * 0.5f;
+								float rx = px - cx;
+								float ry = py - cy;
+								float nx = rx * cos - ry * sin;
+								float ny = rx * sin + ry * cos;
 								sprite.draw(images[flickerIndex],
-									region.x + region.width * (i - 1) / parts, region.y,
-									region.width / parts, region.height, centerx, centery, angle);
+										region.x + cx + nx - (region.width / parts) * 0.5f,
+										region.y + cy + ny - region.height * 0.5f,
+										region.width / parts, region.height, 0.5f, 0.5f, angle);
 							} else {
 								sprite.draw(images[flickerIndex],
-									region.x + region.width * (i - 1) / parts, region.y,
-									region.width / parts, region.height);
+										region.x + region.width * (i - 1) / parts, region.y,
+										region.width / parts, region.height);
 							}
 							sprite.setColor(orgColor);
 						}

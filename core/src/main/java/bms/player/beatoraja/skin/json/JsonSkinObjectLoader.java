@@ -574,6 +574,7 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 
 			((SkinGauge)obj).setStarttime(sk.gauge.starttime);
 			((SkinGauge)obj).setEndtime(sk.gauge.endtime);
+			setDestination(skin, obj, dst);
 			return obj;
 		}
 
