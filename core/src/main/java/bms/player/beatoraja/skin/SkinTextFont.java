@@ -315,7 +315,6 @@ public final class SkinTextFont extends SkinText {
 	@Override
     public void draw(SkinObjectRenderer sprite, float offsetX, float offsetY) {
         if(font != null) {
-            // 防止 alpha=0 导致文字完全透明不可见
             if (color.a == 0f) {
                 Gdx.app.log("FontDebug", "Skipping draw: color alpha is 0 for text: " + getText());
                 return;
@@ -329,13 +328,28 @@ public final class SkinTextFont extends SkinText {
             sprite.setType(getFilter() != 0 ? SkinObjectRenderer.TYPE_LINEAR : SkinObjectRenderer.TYPE_NORMAL);
 
             final float x = (getAlign() == 2 ? region.x - region.width : (getAlign() == 1 ? region.x - region.width / 2 : region.x));
-            if(!getShadowOffset().isZero()) {
-            	shadowcolor.set(color.r / 2, color.g / 2, color.b / 2, color.a);
-                setLayout(shadowcolor, region);
-                sprite.draw(font, layout, x + getShadowOffset().x + offsetX, region.y - getShadowOffset().y + offsetY + region.getHeight());
+            if (angle != 0) {
+                final float pivotX = region.x + centerx * region.width + offsetX;
+                final float pivotY = region.y + centery * region.height + offsetY;
+                if(!getShadowOffset().isZero()) {
+                    shadowcolor.set(color.r / 2, color.g / 2, color.b / 2, color.a);
+                    setLayout(shadowcolor, region);
+                    sprite.draw(font, layout, x + getShadowOffset().x + offsetX,
+                        region.y - getShadowOffset().y + offsetY + region.getHeight(),
+                        pivotX, pivotY, angle);
+                }
+                setLayout(color, region);
+                sprite.draw(font, layout, x + offsetX, region.y + offsetY + region.getHeight(),
+                    pivotX, pivotY, angle);
+            } else {
+                if(!getShadowOffset().isZero()) {
+                    shadowcolor.set(color.r / 2, color.g / 2, color.b / 2, color.a);
+                    setLayout(shadowcolor, region);
+                    sprite.draw(font, layout, x + getShadowOffset().x + offsetX, region.y - getShadowOffset().y + offsetY + region.getHeight());
+                }
+                setLayout(color, region);
+                sprite.draw(font, layout, x + offsetX, region.y + offsetY + region.getHeight());
             }
-            setLayout(color, region);
-            sprite.draw(font, layout, x + offsetX, region.y + offsetY + region.getHeight());
         }
     }
 

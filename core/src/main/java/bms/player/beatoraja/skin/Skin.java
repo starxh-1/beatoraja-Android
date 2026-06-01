@@ -549,6 +549,45 @@ public class Skin {
 			postDraw();
 		}
 
+		public void draw(BitmapFont font, GlyphLayout layout, float x, float y,
+		                 float pivotX, float pivotY, float angle) {
+			for (TextureRegion region : font.getRegions()) {
+				setFilter(region);
+			}
+			preDraw();
+			if (angle != 0) {
+				Matrix4 originalTransform = sprite.getTransformMatrix().cpy();
+				Matrix4 tempTransform = sprite.getTransformMatrix().cpy();
+				tempTransform.translate(pivotX, pivotY, 0).rotate(0, 0, 1, angle).translate(-pivotX, -pivotY, 0);
+				sprite.setTransformMatrix(tempTransform);
+				font.draw(sprite, layout, x, y);
+				sprite.setTransformMatrix(originalTransform);
+			} else {
+				font.draw(sprite, layout, x, y);
+			}
+			postDraw();
+		}
+
+		public void draw(BitmapFont font, GlyphLayout layout, float x, float y,
+		                 Consumer<ShaderProgram> shaderVariableSetter,
+		                 float pivotX, float pivotY, float angle) {
+			for (TextureRegion region : font.getRegions()) {
+				setFilter(region);
+			}
+			preDraw(shaderVariableSetter);
+			if (angle != 0) {
+				Matrix4 originalTransform = sprite.getTransformMatrix().cpy();
+				Matrix4 tempTransform = sprite.getTransformMatrix().cpy();
+				tempTransform.translate(pivotX, pivotY, 0).rotate(0, 0, 1, angle).translate(-pivotX, -pivotY, 0);
+				sprite.setTransformMatrix(tempTransform);
+				font.draw(sprite, layout, x, y);
+				sprite.setTransformMatrix(originalTransform);
+			} else {
+				font.draw(sprite, layout, x, y);
+			}
+			postDraw();
+		}
+
 		public void draw(Texture image, float x, float y, float w, float h) {
 			setFilter(image);
 			preDraw();

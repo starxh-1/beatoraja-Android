@@ -2666,9 +2666,35 @@ local function main(keysNumber)
 	do
 		local text_size = 15
 		local text_align = 2
+		local angle = 0
 		if is2P() then
 			text_align = 0
 		end
+
+		local line_x, line_y, line_w, line_h, text_x, text_y
+		if isPortraitLayout() then
+			text_align = 1
+			line_x = geo.gauge.x + 360
+			line_y = 850
+			line_w = 540
+			line_h = 2
+			angle = 270
+			text_x = line_x + 210
+			text_y = line_y - 310
+		else
+			line_x = geo.gauge.x
+			line_y = geo.lane.y - 8
+			line_w = geo.gauge.w * 0.6
+			line_h = 2
+			angle = 0
+			text_x = line_x + line_w
+			text_y = line_y - text_size - 3
+			if is2P() then
+				line_x = geo.gauge.x + geo.gauge.w - line_w
+				text_x = line_x
+			end
+		end
+
 		append_all(skin.text, {
 			{id = "text_MAX", font = "genshin_bold", size = text_size, align = text_align, constantText = "MAX"},
 			{id = "text_PERFECT", font = "genshin_bold", size = text_size, align = text_align, constantText = "PERFECT"},
@@ -2676,12 +2702,6 @@ local function main(keysNumber)
 			{id = "text_AUTOPLAY", font = "genshin_bold", size = text_size, align = text_align, constantText = "AUTOPLAY"},
 		})
 
-		local line_x = geo.gauge.x local line_y = geo.lane.y - 8 local line_w = geo.gauge.w * 0.6 local line_h = 2
-		local text_x = line_x + line_w local text_y = line_y - text_size - 3
-		if is2P() then
-			line_x = geo.gauge.x + geo.gauge.w - line_w
-			text_x = line_x
-		end
 		local cycle = 80
 		local op_gr = 2242 local op_gd = 2243 local op_bd = 2244 local op_pr = 2245
 		local op_auto = 33
@@ -2693,45 +2713,45 @@ local function main(keysNumber)
 		append_all(skin.destination, {
 			-- autoplay
 			{id = -111, op = {op_auto}, dst = {
-				merge_all({x = line_x, y = line_y, w = line_w, h = line_h}, auto_color[1]),
-				merge_all({time = cycle}, auto_color[2])
+				merge_all({x = line_x, y = line_y, w = line_w, h = line_h, angle = angle}, auto_color[1]),
+				merge_all({time = cycle, angle = angle}, auto_color[2])
 			}},
 			{id = "text_AUTOPLAY", op = {op_auto}, filter = 1, dst = {
-				merge_all({x = text_x, y = text_y, w = text_size, h = text_size}, auto_color[1]),
-				merge_all({time = cycle}, auto_color[2])
+				merge_all({x = text_x, y = text_y, w = (angle == 0 and text_size or text_size * 10), h = text_size, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, auto_color[1]),
+				merge_all({time = cycle, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, auto_color[2])
 			}},
 			-- max
 			{id = -111, op = {-op_auto, -op_gr, -op_gd, -op_bd, -op_pr}, dst = {
-				merge_all({x = line_x, y = line_y, w = line_w, h = line_h}, max_color[1]),
-				merge_all({time = cycle}, max_color[2])
+				merge_all({x = line_x, y = line_y, w = line_w, h = line_h, angle = angle}, max_color[1]),
+				merge_all({time = cycle, angle = angle}, max_color[2])
 			}},
 			{id = "text_MAX", op = {-op_auto, -op_gr, -op_gd, -op_bd, -op_pr}, filter = 1, dst = {
-				merge_all({x = text_x, y = text_y, w = text_size, h = text_size}, max_color[1]),
-				merge_all({time = cycle}, max_color[2])
+				merge_all({x = text_x, y = text_y, w = (angle == 0 and text_size or text_size * 10), h = text_size, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, max_color[1]),
+				merge_all({time = cycle, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, max_color[2])
 			}},
 			-- perfect
 			{id = -111, op = {op_gr, -op_gd, -op_bd, -op_pr}, dst = {
-				merge_all({x = line_x, y = line_y, w = line_w, h = line_h}, perfect_color[1]),
-				merge_all({time = cycle}, perfect_color[2])
+				merge_all({x = line_x, y = line_y, w = line_w, h = line_h, angle = angle}, perfect_color[1]),
+				merge_all({time = cycle, angle = angle}, perfect_color[2])
 			}},
 			{id = "text_PERFECT", op = {op_gr, -op_gd, -op_bd, -op_pr}, filter = 1, dst = {
-				merge_all({x = text_x, y = text_y, w = text_size, h = text_size}, perfect_color[1]),
-				merge_all({time = cycle}, perfect_color[2])
+				merge_all({x = text_x, y = text_y, w = (angle == 0 and text_size or text_size * 10), h = text_size, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, perfect_color[1]),
+				merge_all({time = cycle, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, perfect_color[2])
 			}},
 			-- fullcombo
 			{id = -111, op = {op_gd, -op_bd, -op_pr}, dst = {
-				merge_all({x = line_x, y = line_y, w = line_w, h = line_h}, fullcombo_color[1]),
-				merge_all({time = cycle}, fullcombo_color[2])
+				merge_all({x = line_x, y = line_y, w = line_w, h = line_h, angle = angle}, fullcombo_color[1]),
+				merge_all({time = cycle, angle = angle}, fullcombo_color[2])
 			}},
 			{id = "text_FULLCOMBO", op = {op_gd, -op_bd, -op_pr}, filter = 1, dst = {
-				merge_all({x = text_x, y = text_y, w = text_size, h = text_size}, fullcombo_color[1]),
-				merge_all({time = cycle}, fullcombo_color[2])
+				merge_all({x = text_x, y = text_y, w = (angle == 0 and text_size or text_size * 10), h = text_size, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, fullcombo_color[1]),
+				merge_all({time = cycle, angle = angle, cx = (angle == 0 and 0 or 0.5), cy = (angle == 0 and 0 or 0.5)}, fullcombo_color[2])
 			}},
 			-- missed
 			{id = -111, draw = function()
 				return main_state.option(op_bd) or main_state.option(op_pr)
 				end, dst = {
-					merge_all({x = line_x, y = line_y, w = line_w, h = line_h}, missed_color),
+					merge_all({x = line_x, y = line_y, w = line_w, h = line_h, angle = angle}, missed_color),
 				}
 			},
 		})
