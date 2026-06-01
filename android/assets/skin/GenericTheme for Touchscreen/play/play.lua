@@ -994,7 +994,7 @@ local function main(keysNumber)
 	geo.judge = {}
 	geo.judge.scale = 1.2 + offset.judge.w / 100
 	if isPortraitLayout() then
-		geo.judge.y = geo.lane.y + 280
+		geo.judge.y = geo.lane.y + 200
 	else
 		geo.judge.y = geo.lane.y + 140
 	end
@@ -1047,8 +1047,8 @@ local function main(keysNumber)
 
 		local f_x, f_y, f_angle, f_cx, f_cy
 		if isPortraitLayout() then
-			f_x = geo.lane.x + 320 -- Distance from judgment line
-			f_y = 540
+			f_x = geo.lane.x + 140 -- Mirror landscape judge.y offset from lane edge
+			f_y = 540 -- Center vertically (mirrors landscape horizontal centering)
 			f_angle = 270 -- Correct upright orientation for GREAT in portrait
 			f_cx = 0.5
 			f_cy = 0.5
@@ -1070,8 +1070,8 @@ local function main(keysNumber)
 
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then
-			n_x = 0 -- Same Vertical level in portrait (Landscape X)
-			n_y = 180 -- Offset to the right in portrait (Landscape Y)
+			n_x = f_w + between_space - num_space * 4.5 -- Offset to the right in buffer (below in portrait display)
+			n_y = 0 -- Same horizontal level (mirrors landscape n_y=0)
 			n_angle = 270 -- Rotated to match judge_f
 			n_cx = 0.5
 			n_cy = 0.5
@@ -2088,7 +2088,7 @@ local function main(keysNumber)
 		local keybeam_x_offset = 0
 		if isPortraitLayout() then
 			keybeam_y_offset = -600
-			keybeam_x_offset = 0
+			keybeam_x_offset = 400
 		end
 		-- push
 		do
@@ -2112,7 +2112,7 @@ local function main(keysNumber)
 				end
 			end
 			-- スクラッチのキービームのみ伸びる动画をする(オートプレイではオフ)
-			local scratch_ontime = 40
+			local scratch_ontime = 1
 			if isPortraitLayout() then
 				-- Portrait scratch keybeam extends horizontally
 				local thickness = geo.lane.each_w[keysNumber + 1]
