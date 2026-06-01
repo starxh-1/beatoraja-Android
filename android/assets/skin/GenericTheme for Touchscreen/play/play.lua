@@ -2770,14 +2770,15 @@ local function main(keysNumber)
 		local text_size = 20
 		local num_size = 24
 			if isPortraitLayout() then
-				local px = geo.gauge.x + 400
-				local py = geo.gauge.y + 450
-				local num_w = 18 local num_h = 18
+				local px = geo.gauge.x + 360
+				local py = geo.gauge.y + 420
+				local num_w = 26 local num_h = 26
+				local portrait_text_size = 30
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
-					{x = px, y = py, w = image_w * text_size / image_h * 1.06, h = text_size, angle = 270},
+					{x = px, y = py, w = image_w * portrait_text_size / image_h * 1.06, h = portrait_text_size, angle = 270},
 				}})
 				table.insert(skin.destination, {id = "exscore", dst = {
-					{x = px, y = py, w = num_w, h = num_h, angle = 270},
+					{x = px + 10, y = py, w = num_w, h = num_h, angle = 270},
 				}})
 			else
 				table.insert(skin.destination, {id = "text_image_exscore", filter = 1, dst = {
@@ -2799,13 +2800,13 @@ local function main(keysNumber)
 			{id = "text_images_hispeed", src = "src_othertexts", x = 0, y = image_h * 4, w = image_w, h = image_h * 5, divy = 5, len = 5, ref = 55}
 		)
 			if isPortraitLayout() then
-				local px = geo.gauge.x + 400
+				local px = geo.gauge.x + 380
 				local py = geo.gauge.y - 350
-				local num_w = 18 local num_h = 18
-				local text_images_h = 16
+				local num_w = 22 local num_h = 22
+				local portrait_text_images_h = 24
 				append_all(skin.destination, {
 					{id = "text_images_hispeed", filter = 1, dst = {
-						{x = px, y = py, w = image_w * text_images_h / image_h * 1.06, h = text_images_h, angle = 270},
+						{x = px, y = py, w = image_w * portrait_text_images_h / image_h * 1.06, h = portrait_text_images_h, angle = 270},
 					}},
 					{id = "hispeed", dst = {
 						{x = px, y = py - num_h * 2, w = num_w, h = num_h, angle = 270},
@@ -2814,7 +2815,7 @@ local function main(keysNumber)
 						{x = px, y = py - num_h * 4, w = num_w, h = num_h, angle = 270},
 					}},
 					{id = "hispeed_ad", dst = {
-						{x = px, y = py - num_h * 6, w = num_w, h = num_h, angle = 270},
+						{x = px, y = py - num_h * 4.4, w = num_w, h = num_h, angle = 270},
 					}},
 				})
 			else
