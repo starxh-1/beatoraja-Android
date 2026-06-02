@@ -40,7 +40,14 @@ local property = {
 			random = {name = "Random", op = 908}
 		}
 	},
-
+	scoreGraph = {
+		name = "Score Graph",
+		item = {
+			off = {name = "Off", op = 905},
+			normal = {name = "Normal", op = 906},
+			slim = {name = "Slim", op = 907},
+		}
+	},
 	judgeDetail = {
 		name = "Judge Detail",
 		item = {
@@ -80,11 +87,29 @@ local property = {
 			red = {name = "Red When Losing", op = 931},
 		}
 	},
-
-
+	notesGraph = {
+		name = "Notes Graph",
+		item = {
+			off = {name = "Off", op = 940},
+			notesType = {name = "Notes Type", op = 941},
+			judge = {name = "Judge", op = 942},
+			fastSlow = {name = "FAST/SLOW", op = 943},
+		}
+	},
+	timingVisualizer = {
+		name = "Timing Visualizer",
+		item = {
+			off = {name = "Off", op = 945},
+			on = {name = "On", op = 946}
+		}
+	},
 	lowerLaneArea = {
 		name = "Lower Lane Area",
 		item = {
+			notesGraphNotesType = {name = "Notesgraph Notes Type", op = 950},
+			notesGraphJudge = {name = "Notesgraph Judge", op = 951},
+			notesGraphFastSlow = {name = "Notesgraph FAST/SLOW", op = 952},
+			timingVisualizer = {name = "Timing Visualizer", op = 953},
 			customizedImage = {name = "Customized Image", op = 954},
 			banner = {name = "Banner", op = 955},
 		}
@@ -112,7 +137,13 @@ local property = {
 			on = {name = "On", op = 983},
 		}
 	},
-
+	total = {
+		name = "Display #TOTAL",
+		item = {
+			off = {name = "Off", op = 967},
+			on = {name = "On", op = 968},
+		}
+	},
 	layout = {
 		name = "Layout",
 		item = {
@@ -179,7 +210,7 @@ local function isRightScratch()
 		(property.stratchSide.item.random.isSelected() and math.random() >= 0.5)
 end
 local function isScoreGraph()
-	return false
+	return false  -- disabled
 end
 local function isLaneCentering()
 	return true  -- force centering
@@ -1414,6 +1445,55 @@ local function main(keysNumber)
 		end
 
 		-- standby removed
+	end
+	-- notesgraph
+	do
+		local w = geo.bga.w / 2 - 20
+		local h = 130
+		local x = geo.bga.center_x
+		if isBgaArea2P() then
+			x = geo.bga.x + 20
+		end
+		-- notesgraph
+		do
+			append_all(skin.judgegraph, {
+				{id = "notesgraph_notestype", type = 0, backTexOff = 1},
+				{id = "notesgraph_judge", type = 1, backTexOff = 1},
+				{id = "notesgraph_fastslow", type = 2, backTexOff = 1}
+			})
+			table.insert(skin.bpmgraph,
+				{id = "bpmgraph"}
+			)
+			local y = geo.bga.y + 20
+			if property.notesGraph.item.notesType.isSelected() then
+				table.insert(skin.destination, {id = "notesgraph_notestype", timer = 41, offset = offset.notesgraph.id, dst = {
+					{x = x, y = y, w = w, h = h}
+				}})
+			elseif property.notesGraph.item.judge.isSelected() then
+				table.insert(skin.destination, {id = "notesgraph_judge", timer = 41, offset = offset.notesgraph.id, dst = {
+					{x = x, y = y, w = w, h = h}
+				}})
+			elseif property.notesGraph.item.fastSlow.isSelected() then
+				table.insert(skin.destination, {id = "notesgraph_fastslow", timer = 41, offset = offset.notesgraph.id, dst = {
+					{x = x, y = y, w = w, h = h}
+				}})
+			end
+			if not property.notesGraph.item.off.isSelected() then
+				table.insert(skin.destination, {id = "bpmgraph", timer = 41, offset = offset.notesgraph.id, op = {177}, dst = {
+					{x = x, y = y, w = w, h = h}
+				}})
+			end
+		end
+		-- timingVisualizer
+		if property.timingVisualizer.item.on.isSelected() then
+			table.insert(skin.timingvisualizer,
+				{id = "timingvisualizer"}
+			)
+			local y = geo.bga.y + h + 20
+			table.insert(skin.destination, {id = "timingvisualizer", timer = 41, offset = offset.timingvisualizer.id, op = {32}, dst = {
+				{x = x, y = y, w = w, h = h}
+			}})
+		end
 	end
 	-- playinfo (in bga area)
 	if true then
@@ -2759,6 +2839,17 @@ local function main(keysNumber)
 	end
 	-- lowerLaneArea
 	do
+		append_all(skin.judgegraph, {
+			{id = "lla_notesgraph_notestype", type = 0, backTexOff = 1},
+			{id = "lla_notesgraph_judge", type = 1, backTexOff = 1},
+			{id = "lla_notesgraph_fastslow", type = 2, backTexOff = 1}
+		})
+		table.insert(skin.bpmgraph,
+			{id = "lla_bpmgraph"}
+		)
+		table.insert(skin.timingvisualizer,
+			{id = "lla_timingvisualizer"}
+		)
 		table.insert(skin.image,
 			{id = "lla_customizedimage", src = "src_lowerlanearea_customizedimage", x = 0, y = 0, w = -1, h = -1}
 		)
@@ -2772,26 +2863,68 @@ local function main(keysNumber)
 			angle = 270
 		end
 		local lla_id
-		if property.lowerLaneArea.item.customizedImage.isSelected() then
+		if property.lowerLaneArea.item.notesGraphNotesType.isSelected() then
+			lla_id = "lla_notesgraph_notestype"
+		elseif property.lowerLaneArea.item.notesGraphJudge.isSelected() then
+			lla_id = "lla_notesgraph_judge"
+		elseif property.lowerLaneArea.item.notesGraphFastSlow.isSelected() then
+			lla_id = "lla_notesgraph_fastslow"
+		elseif property.lowerLaneArea.item.timingVisualizer.isSelected() then
+			lla_id = "lla_timingvisualizer"
+		elseif property.lowerLaneArea.item.customizedImage.isSelected() then
 			lla_id = "lla_customizedimage"
 		elseif property.lowerLaneArea.item.banner.isSelected() then
 			lla_id = -102
-		else
-			lla_id = "lla_customizedimage"
 		end
 		table.insert(skin.destination,
 			{id = lla_id, dst = {
 				{x = x, y = y, w = w, h = h, angle = angle},
 			}}
 		)
+		if string.match(lla_id, "notesgraph") then
+			table.insert(skin.destination,
+				{id = "bpmgraph", op = {177}, dst = {
+					{x = x, y = y, w = w, h = h, angle = angle},
+				}}
+			)
+		end
 		-- darkness
+		local darkness_a = 0
+		if property.lowerLaneArea.item.notesGraphNotesType.isSelected() or property.lowerLaneArea.item.notesGraphJudge.isSelected() or property.lowerLaneArea.item.notesGraphFastSlow.isSelected() then
+			darkness_a = 130
+		end
 		table.insert(skin.destination,
 			{id = -110, dst = {
-				{x = x, y = y, w = w, h = h, a = offset.lowerlanearea_darkness.a, angle = angle},
+				{x = x, y = y, w = w, h = h, a = darkness_a + offset.lowerlanearea_darkness.a, angle = angle},
 			}}
 		)
 	end
-
+	-- total
+	if property.total.item.on.isSelected() then
+		local align = 0
+		if is2P() then
+			align = 2
+		end
+		append_all(skin.text, {
+			{id = "gaugetotal", font = "genshin_bold", size = 18, align = align, value = function()
+				local total = main_state.number(368)
+				local totalnotes = main_state.number(74)
+				local base_total = math.max(260.0, 7.605 * totalnotes / (0.01 * totalnotes + 6.5))
+				local total_percentage = total / base_total * 100
+				total_percentage = math.ceil(total_percentage * 100) / 100 -- string.format("%.2f", total_percentage) が機能しない代わり
+				return total .. " (" .. total_percentage .. "%)" end},
+		})
+		local w = 11 local h = 16
+		local x = geo.lane.x
+		if is2P() then
+			x = geo.lane.x + geo.lane.w
+		end
+		table.insert(skin.destination,
+			{id = "gaugetotal", filter = 1, dst = {
+				{x = x, y = 196, w = w, h = h, r = 100, g = 100, b = 100},
+			}}
+		)
+	end
 	-- bomb
 	do
 		local w local h
