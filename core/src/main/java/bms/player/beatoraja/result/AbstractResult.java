@@ -60,8 +60,11 @@ public abstract class AbstractResult extends MainState {
 
 	/**
 	 * 旧スコアデータ
+	 * FIX: GL Thread (render/input) とバックグラウンドスレッド
+	 * (OldScoreLoadThread / CourseOldScoreLoadThread) の両方から
+	 * 読み書きされるため volatile にして可視性を保証する。
 	 */
-	protected ScoreData oldscore = new ScoreData();
+	protected volatile ScoreData oldscore = new ScoreData();
 
 	public AbstractResult(MainController main) {
 		super(main);

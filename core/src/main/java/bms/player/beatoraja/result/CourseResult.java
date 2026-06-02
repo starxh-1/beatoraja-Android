@@ -60,14 +60,8 @@ public class CourseResult extends AbstractResult {
 
 		updateScoreDatabase();
 
-		// リプレイの自動保存
-		if(resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY){
-			for(int i=0;i<REPLAY_SIZE;i++){
-				if(MusicResult.ReplayAutoSaveConstraint.get(resource.getPlayerConfig().getAutoSaveReplay()[i]).isQualified(oldscore ,getNewScore())) {
-					saveReplayData(i);
-				}
-			}
-		}
+		// FIX: リプレイの自動保存は updateScoreDatabase() 内の CourseOldScoreLoadThread で
+		// oldscore 読み込み完了後に非同期実行する（GL Thread を DB 待ちでブロックしないため）
 
 		gaugeType = resource.getGrooveGauge().getType();
 
@@ -266,26 +260,55 @@ public class CourseResult extends AbstractResult {
 				&& (!dp || (config.getRandom2() == 1 && config.getDoubleoption() == 1))) {
 			random = 1;
 		}
-		final ScoreData score = main.getPlayDataAccessor().readScoreData(models,
-				config.getLnmode(), random, resource.getConstraint());
-		oldscore = score != null ? score : new ScoreData();
 
-		getScoreDataProperty().setTargetScore(oldscore.getExscore(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0,
-				Arrays.asList(resource.getCourseData().getSong()).stream().mapToInt(sd -> sd.getNotes()).sum());
+		// FIX: GL Thread 立即返回默认值，DB 读改为异步
+		// 否则 GL Thread 在 SQLite 锁上阻塞时会卡住首帧渲染
+		oldscore = new ScoreData();
+		final int courseTotalNotes = Arrays.asList(resource.getCourseData().getSong()).stream().mapToInt(sd -> sd.getNotes()).sum();
+		final int targetExscore = resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0;
+		getScoreDataProperty().setTargetScore(0, targetExscore, courseTotalNotes);
 		getScoreDataProperty().update(newscore);
 
-		if (resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY) {
+		final boolean isPlayMode = resource.getPlayMode().mode == BMSPlayerMode.Mode.PLAY;
+		final int randomToSave = random;
+		final int lnModeToSave = config.getLnmode();
+		final bms.player.beatoraja.CourseData.CourseDataConstraint[] constraintToSave = resource.getConstraint();
+		final boolean isUpdateCourseScore = resource.isUpdateCourseScore();
+		final ScoreData newscoreFinal = newscore;
+		final BMSModel[] modelsFinal = models;
+
+		// FIX: 异步加载旧分，GL Thread 立即继续
+		new Thread(() -> {
+			try {
+				final ScoreData oldsc = main.getPlayDataAccessor().readScoreData(modelsFinal,
+						lnModeToSave, randomToSave, constraintToSave);
+				oldscore = oldsc != null ? oldsc : new ScoreData();
+				getScoreDataProperty().setTargetScore(oldscore.getExscore(), targetExscore, courseTotalNotes);
+
+				// replay 自动保存：需要在 oldscore 加载完成后才能正确判断
+				if (isPlayMode) {
+					for (int i = 0; i < REPLAY_SIZE; i++) {
+						if (MusicResult.ReplayAutoSaveConstraint.get(resource.getPlayerConfig().getAutoSaveReplay()[i]).isQualified(oldscore, newscoreFinal)) {
+							saveReplayData(i);
+						}
+					}
+				}
+			} catch (Exception e) {
+				Logger.getGlobal().severe("Failed to load old course score: " + e.getMessage());
+				e.printStackTrace();
+			}
+		}, "CourseOldScoreLoadThread").start();
+
+		if (isPlayMode) {
 			final ScoreData scoreToSave = newscore;
 			final BMSModel[] modelsToSave = models;
-			final int lnModeToSave = config.getLnmode();
-			final int randomToSave = random;
-			final bms.player.beatoraja.CourseData.CourseDataConstraint[] constraintToSave = resource.getConstraint();
-			final boolean isUpdateScore = resource.isUpdateCourseScore();
+			final int randomForWrite = randomToSave;
 
-			// Run database write in a background thread to prevent UI hangs if SQLite is locked.
+			// 写分线程：异步执行，与读线程先后顺序无关，
+			// 避免与 CourseOldScoreLoadThread 在同一 SQLite 文件上锁竞争
 			new Thread(() -> {
 				try {
-					main.getPlayDataAccessor().writeScoreData(scoreToSave, modelsToSave, lnModeToSave, randomToSave, constraintToSave, isUpdateScore);
+					main.getPlayDataAccessor().writeScoreData(scoreToSave, modelsToSave, lnModeToSave, randomForWrite, constraintToSave, isUpdateCourseScore);
 					Logger.getGlobal().info("Course score database update completed ");
 				} catch (Exception e) {
 					Logger.getGlobal().severe("Failed to save course score: " + e.getMessage());

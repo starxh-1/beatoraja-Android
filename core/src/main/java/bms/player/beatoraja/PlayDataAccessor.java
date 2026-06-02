@@ -19,6 +19,8 @@ import bms.player.beatoraja.ScoreDatabaseAccessor.ScoreDataCollector;
 import bms.player.beatoraja.ScoreDatabaseAccessor.ScoreLog;
 import bms.player.beatoraja.song.SongData;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.Json;
 import com.badlogic.gdx.utils.JsonWriter.OutputType;
 import java.lang.StringBuilder;
@@ -491,11 +493,11 @@ public final class PlayDataAccessor {
 
 	public boolean existsReplayData(BMSModel model, int lnmode, int index) {
 		boolean ln = model.containsUndefinedLongNote();
-		return new File(this.getReplayDataFilePath(model.getSHA256(), ln, lnmode, index) + ".brd").exists();
+		return existsReplayFile(this.getReplayDataFilePath(model.getSHA256(), ln, lnmode, index));
 	}
 
 	public boolean existsReplayData(String hash, boolean ln, int lnmode, int index) {
-		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index) + ".brd").exists();
+		return existsReplayFile(this.getReplayDataFilePath(hash, ln, lnmode, index));
 	}
 
 	public boolean existsReplayData(BMSModel[] models, int lnmode, int index,
@@ -507,12 +509,22 @@ public final class PlayDataAccessor {
 			hash[i] = model.getSHA256();
 			ln |= model.containsUndefinedLongNote();
 		}
-		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd").exists();
+		return existsReplayFile(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint));
 	}
 
 	public boolean existsReplayData(String[] hash, boolean ln, int lnmode, int index,
 			CourseData.CourseDataConstraint[] constraint) {
-		return new File(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint) + ".brd").exists();
+		return existsReplayFile(this.getReplayDataFilePath(hash, ln, lnmode, index, constraint));
+	}
+
+	/**
+	 * Replay存在確認: GL Threadで呼ばれても安全なようにFileCache.exists経由で
+	 * 親ディレクトリのリストを1回キャッシュして、4回呼ばれるケースで
+	 * 追加のsyscallを発生させない。
+	 */
+	private boolean existsReplayFile(String basePath) {
+		FileHandle fh = Gdx.files.absolute(basePath + ".brd");
+		return FileCache.exists(fh);
 	}
 
 	/**
