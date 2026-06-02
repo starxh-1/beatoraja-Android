@@ -15,8 +15,10 @@ import com.badlogic.gdx.files.FileHandle;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -40,8 +42,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final String TAG = "AndroidSongDB";
     private final DBHelper helper;
     private final String[] bmsroot;
-    // 多线程扫描：最少2个
-    private static final int PARALLEL_THREAD_COUNT = Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+    // 多线程扫描：32位设备适当限制，平衡性能与内存安全
+    private static final int PARALLEL_THREAD_COUNT = "true".equals(System.getProperty("beatoraja.32bit"))
+            ? Math.max(1, Math.min(Runtime.getRuntime().availableProcessors() - 1, 4))
+            : Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
     // 小于此数量则使用串行处理（避免线程创建开销）
     private static final int PARALLEL_THRESHOLD = 50;
 
@@ -807,115 +811,126 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         long collectElapsed = System.currentTimeMillis() - collectStart;
         Log.i(TAG, "updateSongDatasParallel: Phase1 collected " + allFiles.size() + " BMS files in " + collectElapsed + "ms");
 
-        int totalFiles = allFiles.size();
-        if (progress != null) {
-            progress.onFileScanned(0, totalFiles);
-        }
-
         if (allFiles.isEmpty()) {
             Log.i(TAG, "updateSongDatasParallel: No BMS files found, skipping");
             return;
         }
 
-        // 阶段2: 多线程解码
-        Log.i(TAG, "updateSongDatasParallel: Phase2 starting decoding with " + PARALLEL_THREAD_COUNT + " threads...");
+        // 阶段1.5: 预加载数据库中的文件日期，用于快速增量更新检查
+        Map<String, Integer> dateCache = new HashMap<>();
+        if (!forceRefresh) {
+            long cacheStart = System.currentTimeMillis();
+            SQLiteDatabase db = helper.getReadableDatabase();
+            try (Cursor cursor = db.rawQuery("SELECT path, date FROM song", null)) {
+                while (cursor.moveToNext()) {
+                    dateCache.put(cursor.getString(0), cursor.getInt(1));
+                }
+            }
+            Log.i(TAG, "updateSongDatasParallel: Phase1.5 cached " + dateCache.size() + " existing files in " + (System.currentTimeMillis() - cacheStart) + "ms");
+        }
+
+        // 阶段2: 过滤未修改的文件并多线程解码
+        List<FileHandle> filesToScan = new ArrayList<>();
+        if (forceRefresh) {
+            filesToScan.addAll(allFiles);
+        } else {
+            for (FileHandle file : allFiles) {
+                String pathName = file.path().replace('\\', '/');
+                Integer cachedDate = dateCache.get(pathName);
+                int lastModifiedTime = (int) (file.lastModified() / 1000);
+                if (cachedDate == null || cachedDate != lastModifiedTime) {
+                    filesToScan.add(file);
+                }
+            }
+        }
+
+        int totalToScan = filesToScan.size();
+        Log.i(TAG, "updateSongDatasParallel: Phase2 filtering done, " + totalToScan + "/" + allFiles.size() + " files need scanning.");
+
+        if (totalToScan == 0) {
+            Log.i(TAG, "updateSongDatasParallel: No new or modified files found, scan completed.");
+            if (progress != null) {
+                progress.onFileScanned(allFiles.size(), allFiles.size());
+            }
+            return;
+        }
+
         long decodeStart = System.currentTimeMillis();
         final AtomicInteger processedCount = new AtomicInteger(0);
         ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
         List<Future<DecodeResult>> futures = new ArrayList<>();
 
-        for (final FileHandle file : allFiles) {
+        for (final FileHandle file : filesToScan) {
             futures.add(executor.submit(() -> {
                 // 每个线程创建自己的解码器，确保线程安全
                 BMSDecoder localDecoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
-                DecodeResult result = processBmsFileParallel(file, localDecoder, forceRefresh);
+                // 已经在外层过滤过，此处直接强制解码
+                DecodeResult result = processBmsFileParallel(file, localDecoder, true);
 
-                // 无论是否跳过，都上报进度
+                // 无论是否跳过，都上报进度（增加节流，每 10 个文件更新一次，避免主线程洪水）
                 int current = processedCount.incrementAndGet();
-                if (progress != null) {
-                    progress.onFileScanned(current, totalFiles);
+                if (progress != null && (current % 2 == 0 || current == totalToScan)) {
+                    progress.onFileScanned(current, totalToScan);
                 }
                 return result;
             }));
         }
 
-        List<DecodeResult> results = new ArrayList<>();
-        int successCount = 0;
-        int scannedCount = 0;
-        for (Future<DecodeResult> f : futures) {
-            try {
-                DecodeResult result = f.get(30, TimeUnit.SECONDS);
-                if (result != null && result.songData != null) {
-                    results.add(result);
-                    successCount++;
-                }
-                scannedCount++;
-                if (progress != null) {
-                    progress.onFileScanned(scannedCount, totalFiles);
-                }
-            } catch (Exception e) {
-                Log.w(TAG, "updateSongDatasParallel: Decode failed", e);
-                scannedCount++;
-                if (progress != null) {
-                    progress.onFileScanned(scannedCount, totalFiles);
-                }
-            }
-        }
-
-        executor.shutdown();
-        try {
-            executor.awaitTermination(60, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Log.e(TAG, "updateSongDatasParallel: Executor interrupted", e);
-        }
-        long decodeElapsed = System.currentTimeMillis() - decodeStart;
-        Log.i(TAG, "updateSongDatasParallel: Phase2 decoded " + successCount + "/" + allFiles.size() + " files in " + decodeElapsed + "ms with " + PARALLEL_THREAD_COUNT + " threads");
-
-        if (results.isEmpty()) {
-            Log.i(TAG, "updateSongDatasParallel: No valid BMS files after decoding");
-            return;
-        }
-
-        // 阶段3: 批量写入数据库（单线程事务）
+        // 阶段3 & 4: 流式写入数据库（单线程事务），避免一次性缓存大量结果导致内存溢出
         long writeStart = System.currentTimeMillis();
         SQLiteDatabase db = helper.getWritableDatabase();
+        int successCount = 0;
+        int batchCount = 0;
+        final int BATCH_SIZE = 100; // 每 100 条记录提交一次事务
+
         db.beginTransaction();
         try {
-            for (DecodeResult result : results) {
-                insertSongData(result.songData, db);
+            for (int i = 0; i < futures.size(); i++) {
+                Future<DecodeResult> f = futures.get(i);
+                try {
+                    // 设置较长的超时，防止低端设备卡死
+                    DecodeResult result = f.get(60, TimeUnit.SECONDS);
+                    if (result != null && result.songData != null) {
+                        insertSongData(result.songData, db);
+                        if (result.model != null) {
+                            insertInformation(new bms.player.beatoraja.song.SongInformation(result.model), db);
+                        }
+                        successCount++;
+                        batchCount++;
+
+                        // 分批提交事务，降低 32 位系统内存压力
+                        if (batchCount >= BATCH_SIZE) {
+                            db.setTransactionSuccessful();
+                            db.endTransaction();
+                            db.beginTransaction();
+                            batchCount = 0;
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "updateSongDatasParallel: Decode failed", e);
+                } finally {
+                    // 处理完一个结果后立即释放 Future 引用，允许 GC 回收庞大的 BMSModel
+                    futures.set(i, null);
+                }
             }
             db.setTransactionSuccessful();
         } catch (Throwable t) {
-            Log.e(TAG, "updateSongDatasParallel: Batch insert failed", t);
+            Log.e(TAG, "updateSongDatasParallel: Database batch process failed", t);
         } finally {
             db.endTransaction();
-            // 强制 checkpoint 将 WAL 写入主数据库文件，确保后续读取可见
+            // 强制 checkpoint
             try {
                 db.execSQL("PRAGMA wal_checkpoint(FULL)");
             } catch (Throwable e) {
                 Log.w(TAG, "wal_checkpoint failed: " + e.getMessage());
             }
         }
-        long writeElapsed = System.currentTimeMillis() - writeStart;
-        long totalElapsed = System.currentTimeMillis() - startTime;
-        Log.i(TAG, "updateSongDatasParallel: Phase3 wrote " + results.size() + " songs in " + writeElapsed + "ms, total: " + totalElapsed + "ms");
 
-        long infoStart = System.currentTimeMillis();
-        int infoCount = 0;
-        db.beginTransaction();
-        try {
-            for (DecodeResult result : results) {
-                if (result.model != null) {
-                    insertInformation(new bms.player.beatoraja.song.SongInformation(result.model), db);
-                    infoCount++;
-                }
-            }
-            db.setTransactionSuccessful();
-        } finally {
-            db.endTransaction();
-        }
-        long infoElapsed = System.currentTimeMillis() - infoStart;
-        Log.i(TAG, "updateSongDatasParallel: Phase4 wrote " + infoCount + " SongInformation rows in " + infoElapsed + "ms");
+        executor.shutdown();
+        long totalElapsed = System.currentTimeMillis() - startTime;
+        long decodeElapsed = System.currentTimeMillis() - decodeStart;
+        long writeElapsed = System.currentTimeMillis() - writeStart;
+        Log.i(TAG, "updateSongDatasParallel completed: wrote " + successCount + " songs (decode: " + decodeElapsed + "ms, write: " + writeElapsed + "ms), total: " + totalElapsed + "ms");
     }
 
     /**
@@ -999,7 +1014,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             String pathName = file.path().replace('\\', '/');
             int lastModifiedTime = (int) (file.lastModified() / 1000);
 
-            // 增量更新检查
+            // 增量更新检查：如果传入 forceRefresh 为 false，则尝试从库中读取。
+            // 优化：updateSongDatasParallel 已在前置阶段通过 dateCache 过滤，通常这里 forceRefresh 应为 true。
             if (!forceRefresh) {
                 SQLiteDatabase db = helper.getReadableDatabase();
                 try (Cursor cursor = db.rawQuery("SELECT date FROM song WHERE path = ?", new String[]{pathName})) {

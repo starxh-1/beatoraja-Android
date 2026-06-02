@@ -1626,47 +1626,7 @@ local function main(keysNumber)
 			local MAX_y = geo.scoregraph.y + geo.scoregraph.bar_h
 			rank_dst(MAX_y, max_timer, "text_scoregraph_MAX", text_img_max_w)
 		end
-		-- bar graph
-		do
-			append_all(skin.graph, {
-				{id = "graph_now", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1, type = 110},
-				{id = "graph_best", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1, type = 112},
-				{id = "graph_best_final", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1, type = 113},
-				{id = "graph_target", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1, type = 114},
-				{id = "graph_target_final", src = "src_white1dot", x = 0, y = 0, w = 1, h = 1, type = 115},
-			})
-
-			local bar_now_x = geo.scoregraph.x + geo.scoregraph.bar_w
-			local bar_best_x = geo.scoregraph.x + geo.scoregraph.bar_w * 2 + geo.scoregraph.bar_space
-			local bar_target_x = geo.scoregraph.x + geo.scoregraph.bar_w * 3 + geo.scoregraph.bar_space * 2
-			if isScoregraph2P() then
-				bar_now_x = geo.scoregraph.x + geo.scoregraph.bar_w * 2 + geo.scoregraph.bar_space * 3
-				bar_best_x = geo.scoregraph.x + geo.scoregraph.bar_w + geo.scoregraph.bar_space * 2
-				bar_target_x = geo.scoregraph.x + geo.scoregraph.bar_space
-			end
-			local bar_a = 240
-			local now_color = {r = 50, g = 50, b = 200, a = bar_a}
-			local best_color = {r = 50, g = 200, b = 50, a = bar_a}
-			local target_color = {r = 200, g = 50, b = 50, a = bar_a}
-			local final_color = {r = 40, g = 40, b = 40, a = 160}
-			append_all(skin.destination, {
-				{id = "graph_now", dst = {
-					merge_all({x = bar_now_x, y = geo.scoregraph.y, w = geo.scoregraph.bar_w, h = geo.scoregraph.bar_h}, now_color)
-				}},
-				{id = "graph_best_final", dst = {
-					merge_all({x = bar_best_x, y = geo.scoregraph.y, w = geo.scoregraph.bar_w, h = geo.scoregraph.bar_h}, final_color)
-				}},
-				{id = "graph_best", dst = {
-					merge_all({x = bar_best_x, y = geo.scoregraph.y, w = geo.scoregraph.bar_w, h = geo.scoregraph.bar_h}, best_color)
-				}},
-				{id = "graph_target_final", dst = {
-					merge_all({x = bar_target_x, y = geo.scoregraph.y, w = geo.scoregraph.bar_w, h = geo.scoregraph.bar_h}, final_color)
-				}},
-				{id = "graph_target", dst = {
-					merge_all({x = bar_target_x, y = geo.scoregraph.y, w = geo.scoregraph.bar_w, h = geo.scoregraph.bar_h}, target_color)
-				}},
-			})
-		end
+		-- bar graph 已移除
 		-- darkness
 		table.insert(skin.destination,
 			{id = -110, dst = {
@@ -2466,84 +2426,94 @@ local function main(keysNumber)
 			{id = "graph_loading_progress", src = "src_white1dot", x = 0, y = 0, w = 400, h = 10, angle = 0, type = 102}
 		)
 
-		local stagefile_w, stagefile_h, stagefile_x, stagefile_y, y, graph_h
-		local number_w = 22 local number_h = 20
-		local space_h = 4
+		local stagefile_w, stagefile_h, stagefile_x, stagefile_y
 		local sf_angle = 0
 		local sf_cx, sf_cy = 0, 0
+		local frame_w = 5 local frame_h = 5
+
 		if isPortraitLayout() then
-			graph_h = 24
-			local gauge_center_x = geo.gaugearea.x + geo.gaugearea.w / 2
-			stagefile_h = geo.gaugearea.w * 0.75
-			stagefile_w = stagefile_h * 3 / 4
-			stagefile_x = gauge_center_x - stagefile_w / 2
-			stagefile_y = 200
-			y = stagefile_y + stagefile_h + space_h
+			-- portrait: 只显示 stagefile，不显示 loading progress
+			stagefile_h = 480
+			stagefile_w = 640
+			stagefile_x = 960
+			stagefile_y = 320
 			sf_angle = 270
 			sf_cx = 0.5
 			sf_cy = 0.5
+			local dst = {
+				{id = -110, op = {80}, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
+				}},
+				{id = -100, op = {80, 191}, stretch = 1, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
+				}},
+				{id = "stagefile_default", op = {80, 190}, stretch = 1, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
+				}},
+			}
+			dst = merge_all(dst, frame_dst(stagefile_x, stagefile_y, stagefile_w, stagefile_h, 255, frame_w, frame_h, {op = {80}}))
+			local dst_default = deepcopy(dst)
+			for i, v in ipairs(dst_default) do
+				table.insert(dst_default[i].op, -270)
+			end
+			append_all(skin.destination, dst_default)
 		else
-			graph_h = 24
-			y = geo.lane.y + 180
+			-- landscape: 完整的 stagefile + loading progress
+			local y = geo.lane.y + 180
+			local graph_h = 24
+			local number_w = 22 local number_h = 20
+			local space_h = 4
 			stagefile_w = geo.lane.w * 0.75
 			stagefile_h = stagefile_w * 3 / 4
-			-- set max size
 			if stagefile_h > header.h / 3 then
 				stagefile_h = header.h / 3
 				stagefile_w = stagefile_h * 4 / 3
 			end
 			stagefile_x = geo.lane.center_x - stagefile_w / 2
 			stagefile_y = y + graph_h + space_h
+			local number_center_x = geo.lane.center_x
+			local dst = {
+				-- stagefile
+				{id = -110, op = {80}, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				}},
+				{id = -100, op = {80, 191}, stretch = 1, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				}},
+				{id = "stagefile_default", op = {80, 190}, stretch = 1, dst = {
+					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				}},
+				-- loading progress
+				{id = -110, op = {80}, dst = {
+					{x = stagefile_x, y = y, w = stagefile_w, h = graph_h},
+				}},
+				{id = "loading_progress_number", op = {80}, filter = 1, dst = {
+					{x = number_center_x - number_w * 3 / 2, y = y + 2, w = number_w, h = number_h},
+				}},
+				{id = "text_image_%", op = {80}, filter = 1, dst = {
+					{x = number_center_x + number_w * 3 / 2 + 2, y = y + 2, w = number_w, h = number_h},
+				}},
+				{id = "graph_loading_progress", op = {80}, blend = 9, dst = {
+					{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, r = 220, g = 220, b = 220},
+				}},
+				-- stagefileとprogressの間のスペースの穴埋め
+				{id = -111, op = {80}, dst = {
+					{x = stagefile_x, y = y + graph_h, w = stagefile_w, h = space_h, r = 100, g = 100, b = 100},
+				}},
+			}
+			dst = merge_all(dst, frame_dst(stagefile_x, y, stagefile_w, stagefile_h + graph_h + space_h, 255, frame_w, frame_h, {op = {80}}))
+			local dst_default = deepcopy(dst)
+			for i, v in ipairs(dst_default) do
+					table.insert(dst_default[i].op, -270)
+			end
+			append_all(skin.destination, dst_default)
+			local dst_lanecover_changing = deepcopy(dst)
+			for i, v in ipairs(dst_lanecover_changing) do
+					table.insert(dst_lanecover_changing[i].op, 270)
+				dst_lanecover_changing[i].dst[1].a = 100
+			end
+			append_all(skin.destination, dst_lanecover_changing)
 		end
-		local frame_w = 5 local frame_h = 5
-		local number_center_x
-		if isPortraitLayout() then
-			number_center_x = stagefile_x + stagefile_w / 2
-		else
-			number_center_x = geo.lane.center_x
-		end
-		local dst = {
-			-- stagefile
-			{id = -110, op = {80}, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-			{id = -100, op = {80, 191}, stretch = 1, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-			{id = "stagefile_default", op = {80, 190}, stretch = 1, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-			-- loading progress
-			{id = -110, op = {80}, dst = {
-				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-			{id = "loading_progress_number", op = {80}, filter = 1, dst = {
-				{x = number_center_x - number_w * 3 / 2, y = y + 2, w = number_w, h = number_h},
-			}},
-			{id = "text_image_%", op = {80}, filter = 1, dst = {
-				{x = number_center_x + number_w * 3 / 2 + 2, y = y + 2, w = number_w, h = number_h},
-			}},
-			{id = "graph_loading_progress", op = {80}, blend = 9, dst = {
-				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, r = 220, g = 220, b = 220, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-			-- stagefileとprogressの間のスペースの穴埋め
-			{id = -111, op = {80}, dst = {
-				{x = stagefile_x, y = y + graph_h, w = stagefile_w, h = space_h, r = 100, g = 100, b = 100, angle = sf_angle, cx = sf_cx, cy = sf_cy},
-			}},
-		}
-		dst = merge_all(dst, frame_dst(stagefile_x, y, stagefile_w, stagefile_h + graph_h + space_h, 255, frame_w, frame_h, {op = {80}}))
-		-- レーンカバー変更中は透過(緑数字が見えるようにするため)
-		local dst_default = deepcopy(dst)
-		for i, v in ipairs(dst_default) do
-			table.insert(dst_default[i].op, -270)
-		end
-		append_all(skin.destination, dst_default)
-		local dst_lanecover_changing = deepcopy(dst)
-		for i, v in ipairs(dst_lanecover_changing) do
-			table.insert(dst_lanecover_changing[i].op, 270)
-			dst_lanecover_changing[i].dst[1].a = 100
-		end
-		append_all(skin.destination, dst_lanecover_changing)
 	end
 	-- ready and finish display
 	do
@@ -2904,7 +2874,7 @@ local function main(keysNumber)
 		if isPortraitLayout() then
 			x = -500
 			y = 500
-			w = 1080
+			w = 1060
 			angle = 270
 		end
 		local lla_id
