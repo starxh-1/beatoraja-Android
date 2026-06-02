@@ -1029,7 +1029,10 @@ local function main(keysNumber)
 		local n_total_w = n_w * 10
 		num_space = num_space * geo.judge.scale
 		local judge_align = 0
-		if isPortraitLayout() then judge_align = 1 end
+		if isPortraitLayout() then
+            judge_align = 0
+            num_space = num_space - 23
+        end
 		append_all(skin.value, {
 			{id = "judge_n_pg", src = "src_judge", x = 227, y = 0, w = n_total_w, h = 252, divx = 10, divy = 3, digit = 6, ref = 75, cycle = 120, space = num_space, align = judge_align},
 			{id = "judge_n_gr", src = "src_judge", x = 227, y = 252, w = n_total_w, h = 168, divx = 10, divy = 2, digit = 6, ref = 75, cycle = 80, space = num_space, align = judge_align},
@@ -1046,10 +1049,10 @@ local function main(keysNumber)
 		between_space = between_space * geo.judge.scale
 
 		local f_x, f_y, f_angle, f_cx, f_cy
-		if isPortraitLayout() then
-			f_x = geo.lane.x + 140 -- Mirror landscape judge.y offset from lane edge
-			f_y = 540 -- Center vertically (mirrors landscape horizontal centering)
-			f_angle = 270 -- Correct upright orientation for GREAT in portrait
+		if isPortraitLayout() then -- number + image adjustment
+			f_x = geo.lane.x + 140 -- 统一的 X 轴高度 (相对于判定线)
+			f_y = 570 -- 向左偏移文字，为右侧数字腾出位置
+			f_angle = 270
 			f_cx = 0.5
 			f_cy = 0.5
 		else
@@ -1069,9 +1072,9 @@ local function main(keysNumber)
 		end
 
 		local n_x, n_y, n_angle, n_cx, n_cy
-		if isPortraitLayout() then
-			n_x = f_w + between_space - num_space * 4.5 -- Offset to the right in buffer (below in portrait display)
-			n_y = 0 -- Same horizontal level (mirrors landscape n_y=0)
+		if isPortraitLayout() then -- number adjustment
+			n_x = geo.lane.x + 75  -- 75才能同一个高度上
+			n_y = - 40 -- 水平偏移量，将数字放在文字右边
 			n_angle = 270 -- Rotated to match judge_f
 			n_cx = 0.5
 			n_cy = 0.5
@@ -1917,30 +1920,42 @@ local function main(keysNumber)
 	-- musicProgressBar
 	do
 		local w = 10 local slider_h = 20
-		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h - 30 * 2, type = 6}
-		)
-		local margin_y = 34
-		local bar_h = geo.lane.h - margin_y * 2
-		local x = geo.lanearea.x + 24
-		if is2P() then
-			x = geo.lanearea.x + geo.lanearea.w - 24 - w
+		local margin = 34
+		local x, y, bar_h, bar_angle
+		if isPortraitLayout() then
+			bar_h = 1080 - margin * 2
+			x = geo.gaugearea.x + geo.gaugearea.w - 30
+			y = margin
+			bar_angle = 270
+			table.insert(skin.slider,
+				{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 1, range = bar_h - slider_h, type = 6}
+			)
+		else
+			bar_h = geo.lane.h - margin * 2
+			x = geo.lanearea.x + 24
+			if is2P() then
+				x = geo.lanearea.x + geo.lanearea.w - 24 - w
+			end
+			x = x + offset.lane.x
+			y = geo.lane.y + margin
+			bar_angle = 0
+			table.insert(skin.slider,
+				{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
+			)
 		end
-		x = x + offset.lane.x
-		local y = geo.lane.y + margin_y
 		if property.hideFrames.item.off.isSelected() then
 			append_all(skin.destination, {
 				{id = -111, dst = {
-					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40}
+					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40, angle = bar_angle, cx = 0, cy = 0}
 				}},
 			})
 		end
 		append_all(skin.destination, {
 			{id = -110, dst = {
-				{x = x, y = y, w = w, h = bar_h}
+				{x = x, y = y, w = w, h = bar_h, angle = bar_angle, cx = 0, cy = 0}
 			}},
 			{id = "musicprogress", dst = {
-				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h},
+				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h, angle = bar_angle, cx = 0, cy = 0},
 				{time = 1000, a = 100},
 			}},
 		})
@@ -2316,8 +2331,8 @@ local function main(keysNumber)
 			local x, y, angle
 			if pos_property.typeA.isSelected() then
 				if isPortraitLayout() then
-					x = geo.lane.x + 320
-					y = 540 - 300 -- Large offset in Landscape Y (Horizontal in portrait)
+					x = geo.lane.x + 330
+					y = 540 -- Large offset in Landscape Y (Horizontal in portrait)
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
@@ -2384,8 +2399,12 @@ local function main(keysNumber)
 				if not property.ghostScorePosition.item.typeA.isSelected() and is1P() then
 					align = 1
 				end
+				local ms_space = 0
+				if isPortraitLayout() then
+					ms_space = -6
+				end
 				append_all(skin.value, {
-					number({id = "judge_diff_ms", src = "src_number_genshin_monospace_border", divx = 12, divy = 2, digit = digit, align = align, ref = 525}),
+					number({id = "judge_diff_ms", src = "src_number_genshin_monospace_border", divx = 12, divy = 2, digit = digit, align = align, space = ms_space, ref = 525}),
 				})
 
 				local total_w = num_w * digit
@@ -2447,44 +2466,69 @@ local function main(keysNumber)
 			{id = "graph_loading_progress", src = "src_white1dot", x = 0, y = 0, w = 400, h = 10, angle = 0, type = 102}
 		)
 
-		local y = geo.lane.y + 180
-		local graph_h = 24 local number_w = 22 local number_h = 20
+		local stagefile_w, stagefile_h, stagefile_x, stagefile_y, y, graph_h
+		local number_w = 22 local number_h = 20
 		local space_h = 4
-		local stagefile_w = geo.lane.w * 0.75 local stagefile_h = stagefile_w * 3 / 4
-		-- set max size
-		if stagefile_h > header.h / 3 then
-			stagefile_h = header.h / 3
-			stagefile_w = stagefile_h * 4 / 3
+		local sf_angle = 0
+		local sf_cx, sf_cy = 0, 0
+		if isPortraitLayout() then
+			graph_h = 24
+			local gauge_center_x = geo.gaugearea.x + geo.gaugearea.w / 2
+			stagefile_h = geo.gaugearea.w * 0.75
+			stagefile_w = stagefile_h * 3 / 4
+			stagefile_x = gauge_center_x - stagefile_w / 2
+			stagefile_y = 200
+			y = stagefile_y + stagefile_h + space_h
+			sf_angle = 270
+			sf_cx = 0.5
+			sf_cy = 0.5
+		else
+			graph_h = 24
+			y = geo.lane.y + 180
+			stagefile_w = geo.lane.w * 0.75
+			stagefile_h = stagefile_w * 3 / 4
+			-- set max size
+			if stagefile_h > header.h / 3 then
+				stagefile_h = header.h / 3
+				stagefile_w = stagefile_h * 4 / 3
+			end
+			stagefile_x = geo.lane.center_x - stagefile_w / 2
+			stagefile_y = y + graph_h + space_h
 		end
-		local stagefile_x = geo.lane.center_x - stagefile_w / 2 local stagefile_y = y + graph_h + space_h
 		local frame_w = 5 local frame_h = 5
+		local number_center_x
+		if isPortraitLayout() then
+			number_center_x = stagefile_x + stagefile_w / 2
+		else
+			number_center_x = geo.lane.center_x
+		end
 		local dst = {
 			-- stagefile
 			{id = -110, op = {80}, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 			{id = -100, op = {80, 191}, stretch = 1, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 			{id = "stagefile_default", op = {80, 190}, stretch = 1, dst = {
-				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h},
+				{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 			-- loading progress
 			{id = -110, op = {80}, dst = {
-				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h},
+				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 			{id = "loading_progress_number", op = {80}, filter = 1, dst = {
-				{x = geo.lane.center_x - number_w * 3 / 2, y = y + 2, w = number_w, h = number_h},
+				{x = number_center_x - number_w * 3 / 2, y = y + 2, w = number_w, h = number_h},
 			}},
 			{id = "text_image_%", op = {80}, filter = 1, dst = {
-				{x = geo.lane.center_x + number_w * 3 / 2 + 2, y = y + 2, w = number_w, h = number_h},
+				{x = number_center_x + number_w * 3 / 2 + 2, y = y + 2, w = number_w, h = number_h},
 			}},
 			{id = "graph_loading_progress", op = {80}, blend = 9, dst = {
-				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, r = 220, g = 220, b = 220},
+				{x = stagefile_x, y = y, w = stagefile_w, h = graph_h, r = 220, g = 220, b = 220, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 			-- stagefileとprogressの間のスペースの穴埋め
 			{id = -111, op = {80}, dst = {
-				{x = stagefile_x, y = y + graph_h, w = stagefile_w, h = space_h, r = 100, g = 100, b = 100},
+				{x = stagefile_x, y = y + graph_h, w = stagefile_w, h = space_h, r = 100, g = 100, b = 100, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 			}},
 		}
 		dst = merge_all(dst, frame_dst(stagefile_x, y, stagefile_w, stagefile_h + graph_h + space_h, 255, frame_w, frame_h, {op = {80}}))
@@ -3067,15 +3111,27 @@ local function main(keysNumber)
 			append_all(skin.image, {
 				{id = "fullcombo_glow", src = "src_fullcombo_glow", x = 0, y = 0, w = -1, h = -1},
 			})
-			append_all(skin.destination, {
-				{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
-					-- 下から伸びて、細くなって消える
-					merge_all({time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = 0}, color),
-					{time = 100, h = geo.lane.h, acc = 2},
-					{time = 1000, x = geo.lane.visual_x + geo.lane.w / 2 - 10, w = 20, a = 230},
-					{time = 1400, x = geo.lane.visual_x + geo.lane.w / 2, w = 0, a = 0}
-				}},
-			})
+			if isPortraitLayout() then
+				local glow_y = geo.lane.y + geo.lane.h / 2
+				append_all(skin.destination, {
+					{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
+						merge_all({time = 0, x = geo.lane.x, y = glow_y, w = 0, h = geo.lane.h, angle = 270, cx = 0.5, cy = 0.5}, color),
+						{time = 100, w = geo.lane.w, acc = 2},
+						{time = 1000, y = glow_y - 10, w = geo.lane.w, h = 20, a = 230},
+						{time = 1400, y = glow_y, w = geo.lane.w, h = 0, a = 0}
+					}},
+				})
+			else
+				append_all(skin.destination, {
+					{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
+						-- 下から伸びて、細くなって消える
+						merge_all({time = 0, x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = 0}, color),
+						{time = 100, h = geo.lane.h, acc = 2},
+						{time = 1000, x = geo.lane.visual_x + geo.lane.w / 2 - 10, w = 20, a = 230},
+						{time = 1400, x = geo.lane.visual_x + geo.lane.w / 2, w = 0, a = 0}
+					}},
+				})
+			end
 		end
 
 		-- circle
@@ -3083,14 +3139,26 @@ local function main(keysNumber)
 			append_all(skin.image, {
 				{id = "fullcombo_circle", src = "src_fullcombo_circle", x = 0, y = 0, w = -1, h = -1},
 			})
-			local size = geo.lane.w * 1.2
-			append_all(skin.destination, {
-				{id = "fullcombo_circle", timer = 48, loop = -1, dst = {
-					merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
-					{time = 250, x = geo.lane.center_x - size / 2, y = geo.lane.y - size / 2, w = size, h = size},
-					{time = 500, x = geo.lane.center_x - size * 1.2 / 2, y = geo.lane.y - size * 1.2 / 2, w = size * 1.2, h = size * 1.2, a = 0}
-				}},
-			})
+			if isPortraitLayout() then
+				local size = geo.lane.h * 1.2
+				local circle_y = geo.lane.y + geo.lane.h / 2
+				append_all(skin.destination, {
+					{id = "fullcombo_circle", timer = 48, loop = -1, dst = {
+						merge_all({time = 0, x = geo.lane.x, y = circle_y, w = 0, h = 0, acc = 2, angle = 270, cx = 0.5, cy = 0.5}, color),
+						{time = 250, x = geo.lane.x - size / 2, y = circle_y - size / 2, w = size, h = size},
+						{time = 500, x = geo.lane.x - size * 1.2 / 2, y = circle_y - size * 1.2 / 2, w = size * 1.2, h = size * 1.2, a = 0}
+					}},
+				})
+			else
+				local size = geo.lane.w * 1.2
+				append_all(skin.destination, {
+					{id = "fullcombo_circle", timer = 48, loop = -1, dst = {
+						merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
+						{time = 250, x = geo.lane.center_x - size / 2, y = geo.lane.y - size / 2, w = size, h = size},
+						{time = 500, x = geo.lane.center_x - size * 1.2 / 2, y = geo.lane.y - size * 1.2 / 2, w = size * 1.2, h = size * 1.2, a = 0}
+					}},
+				})
+			end
 		end
 
 		-- ring
@@ -3099,12 +3167,22 @@ local function main(keysNumber)
 				{id = "fullcombo_ring", src = "src_fullcombo_ring", x = 0, y = 0, w = -1, h = -1},
 			})
 			local size = 2500
-			append_all(skin.destination, {
-				{id = "fullcombo_ring", timer = 48, loop = -1, dst = {
-					merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
-					{time = 600, x = geo.lane.center_x - size / 2, y = geo.lane.y - size / 2, w = size, h = size, a = 0}
-				}},
-			})
+			if isPortraitLayout() then
+				local ring_y = geo.lane.y + geo.lane.h / 2
+				append_all(skin.destination, {
+					{id = "fullcombo_ring", timer = 48, loop = -1, dst = {
+						merge_all({time = 0, x = geo.lane.x, y = ring_y, w = 0, h = 0, acc = 2, angle = 270, cx = 0.5, cy = 0.5}, color),
+						{time = 600, x = geo.lane.x - size / 2, y = ring_y - size / 2, w = size, h = size, a = 0}
+					}},
+				})
+			else
+				append_all(skin.destination, {
+					{id = "fullcombo_ring", timer = 48, loop = -1, dst = {
+						merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
+						{time = 600, x = geo.lane.center_x - size / 2, y = geo.lane.y - size / 2, w = size, h = size, a = 0}
+					}},
+				})
+			end
 		end
 
 		-- text

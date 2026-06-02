@@ -449,8 +449,20 @@ public class AndroidLauncher extends AndroidApplication {
         for (File zip : zipFiles) {
             String songName = zip.getName().replace(".zip", "");
             File extractDir = new File(songsDir, songName);
-            if (extractDir.exists() && extractDir.isDirectory() && extractDir.list() != null && extractDir.list().length > 0) {
-                continue;
+
+            // If a non-directory file with the target name exists (e.g., a leftover file),
+            // remove it so we can recreate the directory.
+            if (extractDir.exists() && !extractDir.isDirectory()) {
+                extractDir.delete();
+            }
+
+            // Skip only when extraction has actually completed (a non-empty dir exists).
+            // If extractDir exists but is empty, retry extraction (in case a previous attempt failed).
+            if (extractDir.exists() && extractDir.isDirectory()) {
+                String[] children = extractDir.list();
+                if (children != null && children.length > 0) {
+                    continue;
+                }
             }
             if (extractSongZip(zip, extractDir)) {
                 zip.delete();
@@ -487,7 +499,7 @@ public class AndroidLauncher extends AndroidApplication {
                          OutputStream os = new FileOutputStream(outFile)) {
                         byte[] buf = new byte[8192];
                         int len;
-                        while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
+                        while ((len = is.read(buf)) != -1) os.write(buf, 0, len);
                     }
                 }
             }
@@ -523,7 +535,7 @@ public class AndroidLauncher extends AndroidApplication {
                 mostCommon = e.getKey();
             }
         }
-        if (mostCommon != null && maxCount > 1) {
+        if (mostCommon != null) {
             String candidate = mostCommon.endsWith("/") ? mostCommon.substring(0, mostCommon.length() - 1) : mostCommon;
             if (candidate.equalsIgnoreCase(zipBaseName)) {
                 return mostCommon;

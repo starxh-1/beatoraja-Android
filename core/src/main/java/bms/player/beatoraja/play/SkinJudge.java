@@ -106,8 +106,14 @@ public final class SkinJudge extends SkinObject {
     	if(nowJudge.draw) {
             if(nowCount != null) {
             	nowCount.prepare(time, state, ((BMSPlayer)state).getJudgeManager().getNowCombo(player), nowJudge.region.x, nowJudge.region.y);
-            	nowJudge.region.x += shift ? -nowCount.getLength() / 2 : 0;
-            }        		
+            	if (shift) {
+            		if (nowJudge.angle == 270 || nowJudge.angle == 90) {
+            			nowJudge.region.y += nowCount.getLength() / 2;
+            		} else {
+            			nowJudge.region.x += -nowCount.getLength() / 2;
+            		}
+            	}
+            }
     	} else {
         	draw = false;
         	return;    		

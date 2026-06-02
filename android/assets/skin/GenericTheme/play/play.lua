@@ -2044,7 +2044,7 @@ local function main(keysNumber)
 	do
 		local w = 10 local slider_h = 20
 		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h - 30 * 2, type = 6}
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h, type = 6}
 		)
 		local margin_y = 34
 		local bar_h = geo.lane.h - margin_y * 2
