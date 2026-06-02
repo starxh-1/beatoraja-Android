@@ -35,19 +35,12 @@ local property = {
 	stratchSide = {
 		name = "Scratch Side",
 		item = {
-			default = {name = "1P", op = 902},
 			left = {name = "Left", op = 903},
-			right = {name = "Right", op = 904}
+			right = {name = "Right", op = 904},
+			random = {name = "Random", op = 908}
 		}
 	},
-	scoreGraph = {
-		name = "Score Graph",
-		item = {
-			off = {name = "Off", op = 905},
-			normal = {name = "Normal", op = 906},
-			slim = {name = "Slim", op = 907},
-		}
-	},
+
 	judgeDetail = {
 		name = "Judge Detail",
 		item = {
@@ -87,22 +80,8 @@ local property = {
 			red = {name = "Red When Losing", op = 931},
 		}
 	},
-	notesGraph = {
-		name = "Notes Graph",
-		item = {
-			off = {name = "Off", op = 940},
-			notesType = {name = "Notes Type", op = 941},
-			judge = {name = "Judge", op = 942},
-			fastSlow = {name = "FAST/SLOW", op = 943},
-		}
-	},
-	timingVisualizer = {
-		name = "Timing Visualizer",
-		item = {
-			off = {name = "Off", op = 945},
-			on = {name = "On", op = 946}
-		}
-	},
+
+
 	lowerLaneArea = {
 		name = "Lower Lane Area",
 		item = {
@@ -137,13 +116,7 @@ local property = {
 			on = {name = "On", op = 983},
 		}
 	},
-	total = {
-		name = "Display #TOTAL",
-		item = {
-			off = {name = "Off", op = 967},
-			on = {name = "On", op = 968},
-		}
-	},
+
 	layout = {
 		name = "Layout",
 		item = {
@@ -155,19 +128,15 @@ local property = {
 local property_order = {
 	"layout",
 	"stratchSide",
-	"scoreGraph",
 	"judgeDetail",
 	"judgeDetailPosition",
 	"ghostScore",
 	"ghostScorePosition",
 	"ghostScoreColor",
-	"notesGraph",
-	"timingVisualizer",
 	"lowerLaneArea",
 	"failedAnimation",
 	"hideFrames",
-	"inGameSpectrum",
-	"total"
+	"inGameSpectrum"
 }
 -- 全itemに、そのオプションが選択中か返すisSelected()をセットする
 for property_key, property_value in pairs(property) do
@@ -206,25 +175,14 @@ local function is2P()
 end
 local function isLeftScratch()
 	return property.stratchSide.item.left.isSelected() or
-		(is1P() and property.stratchSide.item.default.isSelected())
+		(is1P() and property.stratchSide.item.random.isSelected() and math.random() < 0.5)
 end
 local function isRightScratch()
 	return property.stratchSide.item.right.isSelected() or
-		(is2P() and property.stratchSide.item.default.isSelected())
+		(is2P() and property.stratchSide.item.random.isSelected() and math.random() < 0.5) or
+		(property.stratchSide.item.random.isSelected() and math.random() >= 0.5)
 end
 local function isScoreGraph()
-	return not property.scoreGraph.item.off.isSelected()
-end
-local function isScoreGraphNormal()
-	return property.scoreGraph.item.normal.isSelected()
-end
-local function isScoreGraphSlim()
-	return property.scoreGraph.item.slim.isSelected()
-end
-local function isScoreGraphNear()
-	return true
-end
-local function isScoreGraphFar()
 	return false
 end
 local function isLaneCentering()
