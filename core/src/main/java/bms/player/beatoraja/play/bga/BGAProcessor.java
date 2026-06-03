@@ -624,7 +624,13 @@ public class BGAProcessor {
 			stretch.stretchRect(tmpRect, image, image);
 			float centerX = r.x + r.width / 2f;
 			float centerY = r.y + r.height / 2f;
-			batch.draw(image, centerX - tmpRect.height / 2f, centerY - tmpRect.width / 2f, tmpRect.height / 2f, tmpRect.width / 2f, tmpRect.width, tmpRect.height, 1f, 1f, 270f);
+			// Pivot must coincide with the image's center for the rotation to be visually centered.
+			// batch.draw originX/Y are absolute pixel offsets of the pivot inside the unrotated image,
+			// so originX = imageWidth/2 and originY = imageHeight/2; position the image's bottom-left
+			// at (centerX - W/2, centerY - H/2). Using height/width swapped here leaves the pivot at
+			// (centerX, centerY) but the image center offset by ((W-H)/2, (H-W)/2), which is what
+			// was misaligning the FBO-rendered BGA used by LaneRenderer's lane background.
+			batch.draw(image, centerX - tmpRect.width / 2f, centerY - tmpRect.height / 2f, tmpRect.width / 2f, tmpRect.height / 2f, tmpRect.width, tmpRect.height, 1f, 1f, 270f);
 		} else {
 			tmpRect.set(r);
 			stretch.stretchRect(tmpRect, image, image);

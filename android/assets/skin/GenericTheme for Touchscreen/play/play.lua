@@ -488,7 +488,7 @@ local function main(keysNumber)
 	geo.lane = {}
 	geo.lane.separateline_w = 3
 	geo.lane.y = 226
-	geo.lane.h = header.h - geo.lane.y + 18
+	geo.lane.h = header.h - geo.lane.y + 32
 	geo.lane.w = lane_w
 	geo.lane.fivekeycover_w = note_white_w + note_black_w + geo.lane.separateline_w * 2
 	geo.lane.judgeline_h = 10
@@ -728,8 +728,6 @@ local function main(keysNumber)
 	end
 
 	skin.font = {
-		{id = "genshin_bold", path = "../common/font/GenShinGothic-Bold.ttf"},
-		{id = "genshin_monospace_bold_bitmap", path = "../common/font/GenShinGothic-Monospace-Bold-bmp.fnt"},
 		{id = "newtown", path = "../common/font/Newtown-8e6M.ttf"},
 	}
 
@@ -1805,7 +1803,7 @@ local function main(keysNumber)
 			})
 
 			local target_text_size = 23
-			table.insert(skin.text, {id = "graphinfo_text_target", font = "genshin_monospace_bold_bitmap", size = target_text_size, align = 1, overflow = 1, ref = 3})
+			table.insert(skin.text, {id = "graphinfo_text_target", font = "newtown", size = target_text_size, align = 1, overflow = 1, ref = 3})
 
 			-- background
 			local base_y = 12
@@ -2695,10 +2693,10 @@ local function main(keysNumber)
 		end
 
 		append_all(skin.text, {
-			{id = "text_MAX", font = "genshin_bold", size = text_size, align = text_align, constantText = "MAX"},
-			{id = "text_PERFECT", font = "genshin_bold", size = text_size, align = text_align, constantText = "PERFECT"},
-			{id = "text_FULLCOMBO", font = "genshin_bold", size = text_size, align = text_align, constantText = "FULLCOMBO"},
-			{id = "text_AUTOPLAY", font = "genshin_bold", size = text_size, align = text_align, constantText = "AUTOPLAY"},
+			{id = "text_MAX", font = "newtown", size = text_size, align = text_align, constantText = "MAX"},
+			{id = "text_PERFECT", font = "newtown", size = text_size, align = text_align, constantText = "PERFECT"},
+			{id = "text_FULLCOMBO", font = "newtown", size = text_size, align = text_align, constantText = "FULLCOMBO"},
+			{id = "text_AUTOPLAY", font = "newtown", size = text_size, align = text_align, constantText = "AUTOPLAY"},
 		})
 
 		local cycle = 80
@@ -2906,7 +2904,7 @@ local function main(keysNumber)
 			align = 2
 		end
 		append_all(skin.text, {
-			{id = "gaugetotal", font = "genshin_bold", size = 18, align = align, value = function()
+			{id = "gaugetotal", font = "newtown", size = 18, align = align, value = function()
 				local total = main_state.number(368)
 				local totalnotes = main_state.number(74)
 				local base_total = math.max(260.0, 7.605 * totalnotes / (0.01 * totalnotes + 6.5))

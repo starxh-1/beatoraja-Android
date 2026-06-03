@@ -527,15 +527,13 @@ public class LaneRenderer {
 				int srcW = (int)laneW;
 				int srcH = (int)laneH;
 
-				// Convert Y-down skin coordinates to Y-up FBO texture coordinates
-				int fboSrcY = bgaFrame.getHeight() - srcY - srcH;
 				// Clip to texture bounds to avoid GL errors
 				srcX = Math.max(0, Math.min(srcX, bgaFrame.getWidth() - 1));
-				fboSrcY = Math.max(0, Math.min(fboSrcY, bgaFrame.getHeight() - 1));
+				srcY = Math.max(0, Math.min(srcY, bgaFrame.getHeight() - 1));
 				srcW = Math.max(1, Math.min(srcW, bgaFrame.getWidth() - srcX));
-				srcH = Math.max(1, Math.min(srcH, bgaFrame.getHeight() - fboSrcY));
+				srcH = Math.max(1, Math.min(srcH, bgaFrame.getHeight() - srcY));
 
-				TextureRegion bgaRegion = new TextureRegion(bgaFrame, srcX, fboSrcY, srcW, srcH);
+				TextureRegion bgaRegion = new TextureRegion(bgaFrame, srcX, srcY, srcW, srcH);
 				bgaRegion.flip(false, true); // FBO textures are Y-up, must flip for Y-down display
 				sprite.draw(bgaRegion, laneX, laneY, laneW, laneH);
 			}
