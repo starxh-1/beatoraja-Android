@@ -121,6 +121,12 @@ public class SkinGaugeGraphObject extends SkinObject {
 	public void prepare(long time, MainState state) {
 		render = time >= delay ? 1.0f : (float) time / delay;
 
+		// FIX: super.prepare() を先に呼んで region を確定させる。
+		// 旧実装では rebuild チェックの後に呼んでいたため、初フレームで
+		// region.width/height が 0 のまま scheduleRebuild() が起動され、
+		// 1×1 のテクスチャが作られていた（次フレームで再構築され無駄が発生）。
+		super.prepare(time, state);
+
 		final PlayerResource resource = state.resource;
 		int type = resource.getGrooveGauge().getType();
 		if(state instanceof AbstractResult) {
@@ -144,7 +150,9 @@ public class SkinGaugeGraphObject extends SkinObject {
 			needRebuild = true;
 		}
 		// Check if dimensions have changed - need to rebuild in that case too
-		if(shapetex != null && (shapetex.getTexture().getWidth() != (int) region.width || shapetex.getTexture().getHeight() != (int) region.height)) {
+		final int rw = Math.max(1, (int) region.width);
+		final int rh = Math.max(1, (int) region.height);
+		if(shapetex != null && (shapetex.getTexture().getWidth() != rw || shapetex.getTexture().getHeight() != rh)) {
 			needRebuild = true;
 		}
 
@@ -156,7 +164,6 @@ public class SkinGaugeGraphObject extends SkinObject {
 		if(needRebuild && !rebuildPending) {
 			scheduleRebuild();
 		}
-		super.prepare(time, state);
 	}
 
 	/**

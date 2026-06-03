@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
@@ -86,6 +87,12 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 
 	private static final Color TRANSPARENT_COLOR = Color.valueOf("00000000");
 
+	/**
+	 * 非同期テクスチャ再構築中フラグ。
+	 * バックグラウンドスレッドで Pixmap 構築が進行中の間は true。
+	 */
+	private volatile boolean rebuildPending = false;
+
 	public SkinNoteDistributionGraph() {
 		this(TYPE_NORMAL, 500, 0, 0, 0, 0);
 	}
@@ -122,14 +129,14 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		render = time >= delay ? 1.0f : (float) time / delay;
 	}
 
-	public void draw(SkinObjectRenderer sprite) {	
-		
+	public void draw(SkinObjectRenderer sprite) {
+
 		final SongData song = state.resource.getSongdata();
 		final BMSModel model = song != null ? song.getBMSModel() : null;
-		
+
 		// TODO スキン定義側で分岐できないか？
 		if(chips == null) {
-			Color[] graphcolor = type != TYPE_NORMAL && model != null && model.getMode() == Mode.POPN_9K  ? 
+			Color[] graphcolor = type != TYPE_NORMAL && model != null && model.getMode() == Mode.POPN_9K  ?
 					pmsGraphColor[type] : JGRAPH[type];
 			chips = new Pixmap[graphcolor.length];
 			for(int i = 0;i < graphcolor.length;i++) {
@@ -138,23 +145,29 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 			}
 		}
 
+		// FIX: テクスチャ初期化を非同期化。
+		// 旧実装は draw() 内で updateGraph()→updateTexture(true) を同期実行し、
+		// 3つの Pixmap(w×h) + 2つの Texture + 大量 drawPixmap を GL Thread で行っていた。
+		// これにより GL Thread が数百ms〜数秒ブロックされ、SkinGaugeGraphObject の
+		// postRunnable も遅延して result 画面の gauge 表示が30秒遅れる原因となっていた。
+		// Pixmap ラスタライズは CPU バウンドなのでワーカスレッドで実行し、
+		// Texture 上伝（GL 呼び出し）のみを Gdx.app.postRunnable で GL Thread に戻す。
 		if(shapetex == null || song != current || (this.model == null && model != null)) {
 			current = song;
 			this.model = model;
 			if(type == TYPE_NORMAL && song != null && song.getInformation() != null) {
-				updateGraph(song.getInformation().getDistributionValues());				
+				updateGraphData(song.getInformation().getDistributionValues());
 			} else {
-				updateGraph();
+				updateGraphData();
+			}
+			if (!rebuildPending) {
+				scheduleAsyncRebuild();
 			}
 		}
 
-		//プレイ時、判定をリアルタイムで更新する
-		/*
-		 * TODO 高速化のアイデア
-		 * BMSPlayerから更新したノーツの時間だけを渡し。指定時間のデータ/イメージのみ更新する
-		 * backtex更新は初回のみ
-		 */
-		if(model != null && state instanceof BMSPlayer) {
+		// BMSPlayer のみ同期パス: リアルタイム判定更新
+		// 初期非同期ビルド完了後のみ実行（rebuildPending == false でガード）
+		if(model != null && state instanceof BMSPlayer && !rebuildPending && backtex != null && shapetex != null) {
 			if(System.currentTimeMillis() > notesLastUpdateTime + 750) {
 				if(type != TYPE_NORMAL && pastNotes != ((BMSPlayer)state).getPastNotes()) {
 					pastNotes = ((BMSPlayer)state).getPastNotes();
@@ -170,7 +183,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 				final int h = max * 5;
 				cursor.setColor(TRANSPARENT_COLOR);
 				cursor.fill();
-				// スタートカーソル描画		
+				// スタートカーソル描画
 				if (starttime >= 0) {
 					int dx = (int) (starttime * w / (data.length * 1000));
 					cursor.setColor(Color.toIntBits(255, 128, 255, 128));
@@ -192,7 +205,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 					cursor.setColor(Color.toIntBits(255, 255, 255, 255));
 					cursor.fillRectangle(dx, 0, 3, h);
 				}
-				
+
 				if(cursortex == null) {
 					cursortex = new TextureRegion(new Texture(cursor));
 				} else if(oldw != w || oldh != h) {
@@ -201,17 +214,19 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 				} else {
 					cursortex.getTexture().draw(cursor, 0, 0);
 				}
-				cursorLastUpdateTime = System.currentTimeMillis();				
+				cursorLastUpdateTime = System.currentTimeMillis();
 			}
 			draw(sprite, backtex, region.x, region.y + region.height, region.width, -region.height);
 			shapetex.setRegionWidth((int) (shapetex.getTexture().getWidth() * render));
-			draw(sprite, shapetex, region.x, region.y + region.height, region.width * render, -region.height);			
+			draw(sprite, shapetex, region.x, region.y + region.height, region.width * render, -region.height);
 			draw(sprite, cursortex, region.x, region.y + region.height, region.width, -region.height);
-		} else {
+		} else if(backtex != null && shapetex != null) {
+			// 非同期ビルド完了後: テクスチャ描画
 			draw(sprite, backtex, region.x, region.y + region.height, region.width, -region.height);
 			shapetex.setRegionWidth((int) (shapetex.getTexture().getWidth() * render));
 			draw(sprite, shapetex, region.x, region.y + region.height, region.width * render, -region.height);
 		}
+		// else: 非同期再構築中はテクスチャがまだないためスキップ
 
 	}
 	
@@ -222,7 +237,11 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		}
 	}
 
-	private void updateGraph(int[][] distribution) {
+	/**
+	 * データのみ更新（テクスチャ構築はしない）。
+	 * updateGraphData() の後、scheduleAsyncRebuild() で非同期にテクスチャを構築する。
+	 */
+	private void updateGraphData(int[][] distribution) {
 		data = distribution;
 		max = 20;
 		for(int i = 0;i < distribution.length;i++) {
@@ -234,21 +253,145 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 				max = Math.min((count / 10) * 10 + 10, 100);
 			}
 		}
-
-		updateTexture(true);
 	}
 
-	
-	private void updateGraph() {
+	/**
+	 * データのみ更新（テクスチャ構築はしない）。
+	 */
+	private void updateGraphData() {
 		if (model == null) {
 			data = new int[0][DATA_LENGTH[type]];
 		} else {
 			data = new int[model.getLastTime() / 1000 + 1][DATA_LENGTH[type]];
-			
 			updateData();
 		}
-		
-		updateTexture(true);
+	}
+
+	/**
+	 * バックグラウンドスレッドで Pixmap を構築し、GL Thread で Texture にアップロードする。
+	 * SkinGaugeGraphObject と同じ非同期パターン。
+	 */
+	private void scheduleAsyncRebuild() {
+		// 現在の状態をキャプチャ（不変スナップショット）
+		final int[][] capturedData = new int[data.length][];
+		for (int i = 0; i < data.length; i++) {
+			capturedData[i] = Arrays.copyOf(data[i], data[i].length);
+		}
+		final int capturedMax = max;
+		final Pixmap[] capturedChips = chips;
+		final boolean capturedIsBackTexOff = isBackTexOff;
+		final boolean capturedIsOrderReverse = isOrderReverse;
+		final boolean capturedIsNoGap = isNoGap;
+		final boolean capturedIsNoGapX = isNoGapX;
+		final int capturedType = type;
+
+		rebuildPending = true;
+		new Thread(() -> {
+			Pixmap newBack = null;
+			Pixmap newShape = null;
+			Pixmap newCursor = null;
+			try {
+				final int w = capturedData.length * 5;
+				final int h = capturedMax * 5;
+				if (w <= 0 || h <= 0) {
+					Gdx.app.postRunnable(() -> rebuildPending = false);
+					return;
+				}
+
+				// --- back Pixmap ---
+				newBack = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+				if (!capturedIsBackTexOff) {
+					newBack.setColor(0, 0, 0, 0.8f);
+					newBack.fill();
+					for (int i = 10; i < capturedMax; i += 10) {
+						newBack.setColor(0.007f * i, 0.007f * i, 0, 1.0f);
+						newBack.fillRectangle(0, i * 5, capturedData.length * 5, 50);
+					}
+					for (int i = 0; i < capturedData.length; i++) {
+						if (i % 60 == 0) {
+							newBack.setColor(0.25f, 0.25f, 0.25f, 1.0f);
+							newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
+						} else if (i % 10 == 0) {
+							newBack.setColor(0.125f, 0.125f, 0.125f, 1.0f);
+							newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
+						}
+					}
+				} else {
+					newBack.setColor(TRANSPARENT_COLOR);
+					newBack.fill();
+				}
+
+				// --- shape Pixmap ---
+				newShape = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+				newShape.setColor(TRANSPARENT_COLOR);
+				newShape.fill();
+				for (int i = 0; i < capturedData.length; i++) {
+					final int[] n = capturedData[i];
+					if (!capturedIsOrderReverse) {
+						for (int j = 0, k = n[0], index = 0; j < capturedMax && index < n.length;) {
+							if (k > 0) {
+								k--;
+								newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
+								j++;
+							} else {
+								index++;
+								if (index == n.length) break;
+								k = n[index];
+							}
+						}
+					} else {
+						for (int j = 0, k = n[n.length - 1], index = n.length - 1; j < capturedMax && index < n.length;) {
+							if (k > 0) {
+								k--;
+								newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
+								j++;
+							} else {
+								index--;
+								if (index < 0) break;
+								k = n[index];
+							}
+						}
+					}
+				}
+
+				// --- cursor Pixmap (空、BMSPlayer が後で更新) ---
+				newCursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+				newCursor.setColor(TRANSPARENT_COLOR);
+				newCursor.fill();
+
+			} catch (Throwable t) {
+				t.printStackTrace();
+				if (newBack != null) newBack.dispose();
+				if (newShape != null) newShape.dispose();
+				if (newCursor != null) newCursor.dispose();
+				Gdx.app.postRunnable(() -> rebuildPending = false);
+				return;
+			}
+
+			final Pixmap finalBack = newBack;
+			final Pixmap finalShape = newShape;
+			final Pixmap finalCursor = newCursor;
+			Gdx.app.postRunnable(() -> {
+				try {
+					// 旧テクスチャを破棄
+					if (backtex != null) { backtex.getTexture().dispose(); backtex = null; }
+					if (shapetex != null) { shapetex.getTexture().dispose(); shapetex = null; }
+					if (cursortex != null) { cursortex.getTexture().dispose(); cursortex = null; }
+					// 旧 Pixmap を破棄
+					if (back != null) back.dispose();
+					if (shape != null) shape.dispose();
+					if (cursor != null) cursor.dispose();
+					// GL Thread で Texture を生成（唯一の GL 呼び出し）
+					back = finalBack;
+					shape = finalShape;
+					cursor = finalCursor;
+					backtex = new TextureRegion(new Texture(back));
+					shapetex = new TextureRegion(new Texture(shape));
+				} finally {
+					rebuildPending = false;
+				}
+			});
+		}, "NoteDistGraphRebuildThread").start();
 	}
 	
 	private void updateData() {

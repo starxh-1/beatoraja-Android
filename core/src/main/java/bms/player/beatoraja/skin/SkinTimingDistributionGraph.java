@@ -2,6 +2,7 @@ package bms.player.beatoraja.skin;
 
 import java.util.Optional;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.graphics.Pixmap.Blending;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
@@ -23,6 +24,9 @@ public class SkinTimingDistributionGraph extends SkinObject {
 
 	private TextureRegion tex = null;
 	private Pixmap shape = null;
+
+	/** 非同期テクスチャ構築中フラグ */
+	private volatile boolean rebuildPending = false;
 
 	private final int gx;
 	private final int c;
@@ -69,77 +73,113 @@ public class SkinTimingDistributionGraph extends SkinObject {
 	}
 	
 	public void draw(SkinObjectRenderer sprite) {
-		// Texture生成は一度だけ
-		if (tex == null) {
-			TimingDistribution td = state.getTimingDistribution();
-			int[] dist = td.getTimingDistribution();
-			final int center = td.getArrayCenter();
-			int[][] judgeArea = SkinTimingVisualizer.getJudgeArea(state.resource);
-
-			for (int d : dist) {
-				if (max < d) {
-					max = (d / 10) * 10 + 10;
-				}
-			}
-
-			Pixmap shape = new Pixmap(gx, max, Pixmap.Format.RGBA8888);
-			//グラフエリア描画
-			shape.setColor(JColor[0]);
-			shape.fillRectangle(c, 0, 1, max);// ジャスト
-			int beforex1 = c;
-			int beforex2 = c + 1;
-			for (int i = 0; i < JColor.length; i++) {
-				shape.setColor(JColor[i]);
-				int x1 = c + MathUtils.clamp(judgeArea[i][0], -c, c);
-				int x2 = c + MathUtils.clamp(judgeArea[i][1], -c, c) + 1;
-
-				if (beforex1 > x1) {
-					shape.fillRectangle(x1, 0, Math.abs(x1 - beforex1), max);
-					beforex1 = x1;
-				}
-
-				if (x2 > beforex2) {
-					shape.fillRectangle(beforex2, 0, Math.abs(x2 - beforex2), max);
-					beforex2 = x2;
-				}
-			}
-			
-			shape.setColor(0f, 0f, 0f, 0.25f);
-			for(int x = c % 10;x < c * 2 + 1;x += 10) {
-				shape.drawLine(x, 0, x, 1);
-			}
-
-			//平均描画
-			if (drawAverage && td.getAverage() != Float.MAX_VALUE) {
-				int avg = Math.round(td.getAverage());
-				shape.setColor(averageColor);
-				shape.drawLine(c + avg, 0, c + avg, max);
-			}
-
-			//偏差エリア描画
-			if (drawDev && td.getStdDev() != -1.0f) {
-				int avg = Math.round(td.getAverage());
-				int dev = Math.round(td.getStdDev());
-				shape.setColor(devColor);
-				shape.drawLine(c + avg + dev, 0, c + avg + dev, max);
-				shape.drawLine(c + avg - dev, 0, c + avg - dev, max);
-			}
-
-			//グラフ描画
-			shape.setColor(graphColor);
-			for (int i = -c; i < gx - c ; i++) {
-				if (-center < i && i < center) {
-					shape.fillRectangle(c + i, max - dist[center + i], 1, dist[center + i]);
-				}
-			}
-
-
-			tex = new TextureRegion(new Texture(shape));
-			shape.dispose();
+		// FIX: Texture生成を非同期化。
+		// 旧実装は draw() 内で Pixmap 構築 + Texture 生成を同期実行しており、
+		// GL Thread をブロックする原因となっていた。
+		if (tex == null && !rebuildPending) {
+			scheduleAsyncBuild();
 		}
 
-		draw(sprite, tex);
+		if (tex != null) {
+			draw(sprite, tex);
+		}
+		// else: 非同期構築中はスキップ
+	}
 
+	/**
+	 * バックグラウンドスレッドで Pixmap を構築し、GL Thread で Texture にアップロードする。
+	 */
+	private void scheduleAsyncBuild() {
+		final TimingDistribution td = state.getTimingDistribution();
+		final int[] dist = td.getTimingDistribution();
+		final int center = td.getArrayCenter();
+		final int[][] judgeArea = SkinTimingVisualizer.getJudgeArea(state.resource);
+
+		// max を計算（GL Thread で安全）
+		for (int d : dist) {
+			if (max < d) {
+				max = (d / 10) * 10 + 10;
+			}
+		}
+		final int capturedMax = max;
+		final int capturedGx = gx;
+		final int capturedC = c;
+		final Color[] capturedJColor = JColor;
+		final Color capturedGraphColor = graphColor;
+		final Color capturedAverageColor = averageColor;
+		final Color capturedDevColor = devColor;
+		final boolean capturedDrawAverage = drawAverage;
+		final boolean capturedDrawDev = drawDev;
+		final float tdAverage = td.getAverage();
+		final float tdStdDev = td.getStdDev();
+
+		rebuildPending = true;
+		new Thread(() -> {
+			Pixmap pixmap = null;
+			try {
+				pixmap = new Pixmap(capturedGx, capturedMax, Pixmap.Format.RGBA8888);
+				//グラフエリア描画
+				pixmap.setColor(capturedJColor[0]);
+				pixmap.fillRectangle(capturedC, 0, 1, capturedMax);
+				int beforex1 = capturedC;
+				int beforex2 = capturedC + 1;
+				for (int i = 0; i < capturedJColor.length; i++) {
+					pixmap.setColor(capturedJColor[i]);
+					int x1 = capturedC + MathUtils.clamp(judgeArea[i][0], -capturedC, capturedC);
+					int x2 = capturedC + MathUtils.clamp(judgeArea[i][1], -capturedC, capturedC) + 1;
+
+					if (beforex1 > x1) {
+						pixmap.fillRectangle(x1, 0, Math.abs(x1 - beforex1), capturedMax);
+						beforex1 = x1;
+					}
+					if (x2 > beforex2) {
+						pixmap.fillRectangle(beforex2, 0, Math.abs(x2 - beforex2), capturedMax);
+						beforex2 = x2;
+					}
+				}
+
+				pixmap.setColor(0f, 0f, 0f, 0.25f);
+				for(int x = capturedC % 10; x < capturedC * 2 + 1; x += 10) {
+					pixmap.drawLine(x, 0, x, 1);
+				}
+
+				if (capturedDrawAverage && tdAverage != Float.MAX_VALUE) {
+					int avg = Math.round(tdAverage);
+					pixmap.setColor(capturedAverageColor);
+					pixmap.drawLine(capturedC + avg, 0, capturedC + avg, capturedMax);
+				}
+
+				if (capturedDrawDev && tdStdDev != -1.0f) {
+					int avg = Math.round(tdAverage);
+					int dev = Math.round(tdStdDev);
+					pixmap.setColor(capturedDevColor);
+					pixmap.drawLine(capturedC + avg + dev, 0, capturedC + avg + dev, capturedMax);
+					pixmap.drawLine(capturedC + avg - dev, 0, capturedC + avg - dev, capturedMax);
+				}
+
+				pixmap.setColor(capturedGraphColor);
+				for (int i = -capturedC; i < capturedGx - capturedC; i++) {
+					if (-center < i && i < center) {
+						pixmap.fillRectangle(capturedC + i, capturedMax - dist[center + i], 1, dist[center + i]);
+					}
+				}
+			} catch (Throwable t) {
+				t.printStackTrace();
+				if (pixmap != null) pixmap.dispose();
+				Gdx.app.postRunnable(() -> rebuildPending = false);
+				return;
+			}
+
+			final Pixmap finalPixmap = pixmap;
+			Gdx.app.postRunnable(() -> {
+				try {
+					tex = new TextureRegion(new Texture(finalPixmap));
+					finalPixmap.dispose();
+				} finally {
+					rebuildPending = false;
+				}
+			});
+		}, "TimingDistGraphRebuildThread").start();
 	}
 
 	@Override
