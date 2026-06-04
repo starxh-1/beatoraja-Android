@@ -1119,6 +1119,16 @@ public class MainController {
         }
     }
 
+    public void addMainStateListener(MainStateListener listener) {
+        if (listener != null && !stateListener.contains(listener, true)) {
+            stateListener.add(listener);
+        }
+    }
+
+    public void removeMainStateListener(MainStateListener listener) {
+        stateListener.removeValue(listener, true);
+    }
+
     public long getPlayTime() { return System.currentTimeMillis() - boottime; }
     public Calendar getCurrnetTime() {
         cl.setTimeInMillis(System.currentTimeMillis());

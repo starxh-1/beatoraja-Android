@@ -17,7 +17,7 @@ import com.badlogic.gdx.math.Rectangle;
 
 /**
  * ノーツ分布を表示するグラフ
- * 
+ *
  * @author exch
  */
 public final class SkinNoteDistributionGraph extends SkinObject {
@@ -28,7 +28,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 	private TextureRegion backtex;
 	private TextureRegion shapetex;
 	private TextureRegion cursortex;
-	
+
 	private Pixmap back = null;
 	private Pixmap shape = null;
 	private Pixmap cursor = null;
@@ -64,7 +64,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 	public static final int TYPE_NORMAL = 0;
 	public static final int TYPE_JUDGE = 1;
 	public static final int TYPE_EARLYLATE = 2;
-	
+
 	private static final int[] DATA_LENGTH = {7, 6, 10};
 
 	private boolean isBackTexOff = false;
@@ -79,7 +79,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 	private int pastNotes = 0;
 	private long notesLastUpdateTime;
 	private long cursorLastUpdateTime;
-	
+
 	private int starttime;
 	private int endtime;
 	private float freq;
@@ -100,7 +100,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 	public SkinNoteDistributionGraph(int type, int delay, int backTexOff, int orderReverse, int noGap, int noGapX) {
 		this(null, type, delay, backTexOff, orderReverse, noGap, noGapX);
 	}
-	
+
 	public SkinNoteDistributionGraph(Pixmap[] chips, int type, int delay, int backTexOff, int orderReverse, int noGap, int noGapX) {
 		this.chips = chips;
 		this.type = type;
@@ -111,13 +111,13 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		this.isNoGapX = noGapX == 1;
 		pastNotes = 0;
 	}
-	
+
 	public void prepare(long time, MainState state) {
 		prepare(time, state, null, -1, -1, -1);
 	}
 
 	public void prepare(long time, MainState state, Rectangle r, int starttime, int endtime, float freq) {
-		super.prepare(time, state);			
+		super.prepare(time, state);
 		if(r != null) {
 			region.set(r);
 			draw = true;
@@ -152,7 +152,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		// postRunnable も遅延して result 画面の gauge 表示が30秒遅れる原因となっていた。
 		// Pixmap ラスタライズは CPU バウンドなのでワーカスレッドで実行し、
 		// Texture 上伝（GL 呼び出し）のみを Gdx.app.postRunnable で GL Thread に戻す。
-		if(shapetex == null || song != current || (this.model == null && model != null)) {
+		if(!rebuildPending && (song != current || (this.model == null && model != null) || (shapetex == null && model != null))) {
 			current = song;
 			this.model = model;
 			if(type == TYPE_NORMAL && song != null && song.getInformation() != null) {
@@ -160,9 +160,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 			} else {
 				updateGraphData();
 			}
-			if (!rebuildPending) {
-				scheduleAsyncRebuild();
-			}
+			scheduleAsyncRebuild();
 		}
 
 		// BMSPlayer のみ同期パス: リアルタイム判定更新
@@ -229,7 +227,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		// else: 非同期再構築中はテクスチャがまだないためスキップ
 
 	}
-	
+
 	public void draw(SkinObjectRenderer sprite, long time, MainState state, Rectangle r, int starttime, int endtime, float freq) {
 		prepare(time, state, r, starttime, endtime, freq);
 		if(draw) {
@@ -293,71 +291,68 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 			try {
 				final int w = capturedData.length * 5;
 				final int h = capturedMax * 5;
-				if (w <= 0 || h <= 0) {
-					Gdx.app.postRunnable(() -> rebuildPending = false);
-					return;
-				}
-
-				// --- back Pixmap ---
-				newBack = new Pixmap(w, h, Pixmap.Format.RGBA8888);
-				if (!capturedIsBackTexOff) {
-					newBack.setColor(0, 0, 0, 0.8f);
-					newBack.fill();
-					for (int i = 10; i < capturedMax; i += 10) {
-						newBack.setColor(0.007f * i, 0.007f * i, 0, 1.0f);
-						newBack.fillRectangle(0, i * 5, capturedData.length * 5, 50);
-					}
-					for (int i = 0; i < capturedData.length; i++) {
-						if (i % 60 == 0) {
-							newBack.setColor(0.25f, 0.25f, 0.25f, 1.0f);
-							newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
-						} else if (i % 10 == 0) {
-							newBack.setColor(0.125f, 0.125f, 0.125f, 1.0f);
-							newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
+				if (w > 0 && h > 0) {
+					// --- back Pixmap ---
+					newBack = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+					if (!capturedIsBackTexOff) {
+						newBack.setColor(0, 0, 0, 0.8f);
+						newBack.fill();
+						for (int i = 10; i < capturedMax; i += 10) {
+							newBack.setColor(0.007f * i, 0.007f * i, 0, 1.0f);
+							newBack.fillRectangle(0, i * 5, capturedData.length * 5, 50);
 						}
-					}
-				} else {
-					newBack.setColor(TRANSPARENT_COLOR);
-					newBack.fill();
-				}
-
-				// --- shape Pixmap ---
-				newShape = new Pixmap(w, h, Pixmap.Format.RGBA8888);
-				newShape.setColor(TRANSPARENT_COLOR);
-				newShape.fill();
-				for (int i = 0; i < capturedData.length; i++) {
-					final int[] n = capturedData[i];
-					if (!capturedIsOrderReverse) {
-						for (int j = 0, k = n[0], index = 0; j < capturedMax && index < n.length;) {
-							if (k > 0) {
-								k--;
-								newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
-								j++;
-							} else {
-								index++;
-								if (index == n.length) break;
-								k = n[index];
+						for (int i = 0; i < capturedData.length; i++) {
+							if (i % 60 == 0) {
+								newBack.setColor(0.25f, 0.25f, 0.25f, 1.0f);
+								newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
+							} else if (i % 10 == 0) {
+								newBack.setColor(0.125f, 0.125f, 0.125f, 1.0f);
+								newBack.drawLine(i * 5, 0, i * 5, capturedMax * 5);
 							}
 						}
 					} else {
-						for (int j = 0, k = n[n.length - 1], index = n.length - 1; j < capturedMax && index < n.length;) {
-							if (k > 0) {
-								k--;
-								newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
-								j++;
-							} else {
-								index--;
-								if (index < 0) break;
-								k = n[index];
+						newBack.setColor(TRANSPARENT_COLOR);
+						newBack.fill();
+					}
+
+					// --- shape Pixmap ---
+					newShape = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+					newShape.setColor(TRANSPARENT_COLOR);
+					newShape.fill();
+					for (int i = 0; i < capturedData.length; i++) {
+						final int[] n = capturedData[i];
+						if (!capturedIsOrderReverse) {
+							for (int j = 0, k = n[0], index = 0; j < capturedMax && index < n.length;) {
+								if (k > 0) {
+									k--;
+									newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
+									j++;
+								} else {
+									index++;
+									if (index == n.length) break;
+									k = n[index];
+								}
+							}
+						} else {
+							for (int j = 0, k = n[n.length - 1], index = n.length - 1; j < capturedMax && index < n.length;) {
+								if (k > 0) {
+									k--;
+									newShape.drawPixmap(capturedChips[index], 0, 0, 1, 1, i * 5, j * 5, 4 + (capturedIsNoGapX ? 1 : 0), 4 + (capturedIsNoGap ? 1 : 0));
+									j++;
+								} else {
+									index--;
+									if (index < 0) break;
+									k = n[index];
+								}
 							}
 						}
 					}
-				}
 
-				// --- cursor Pixmap (空、BMSPlayer が後で更新) ---
-				newCursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);
-				newCursor.setColor(TRANSPARENT_COLOR);
-				newCursor.fill();
+					// --- cursor Pixmap (空、BMSPlayer が後で更新) ---
+					newCursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+					newCursor.setColor(TRANSPARENT_COLOR);
+					newCursor.fill();
+				}
 
 			} catch (Throwable t) {
 				t.printStackTrace();
@@ -385,21 +380,21 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 					back = finalBack;
 					shape = finalShape;
 					cursor = finalCursor;
-					backtex = new TextureRegion(new Texture(back));
-					shapetex = new TextureRegion(new Texture(shape));
+					if (back != null) backtex = new TextureRegion(new Texture(back));
+					if (shape != null) shapetex = new TextureRegion(new Texture(shape));
 				} finally {
 					rebuildPending = false;
 				}
 			});
 		}, "NoteDistGraphRebuildThread").start();
 	}
-	
+
 	private void updateData() {
 		int pos = -1;
 		int count = 0;
 		max = 20;
 		for(int[] d : data) {
-			Arrays.fill(d, 0);				
+			Arrays.fill(d, 0);
 		}
 
 		final Mode mode = model.getMode();
@@ -437,7 +432,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 							}
 							if((ignoreLNEnd && ((LongNote) n).isEnd())) {
 								data[index][mode.isScratchKey(i) ? 0 : 3]++;
-								data[index][mode.isScratchKey(i) ? 1 : 4]--;									
+								data[index][mode.isScratchKey(i) ? 1 : 4]--;
 							}
 						} else if (n instanceof MineNote) {
 							data[index][6]++;
@@ -462,13 +457,13 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 						}
 						count++;
 						break;
-					}							 
+					}
 				}
 			}
 		}
 
 	}
-	
+
 	private void updateTexture(boolean updateall) {
 		final int oldw = shape != null ? shape.getWidth() : 0;
 		final int oldh = shape != null ? shape.getHeight() : 0;
@@ -476,17 +471,17 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 		final int h = max * 5;
 		boolean refresh = false;
 		if(shape == null) {
-			back = new Pixmap(w, h, Pixmap.Format.RGBA8888);									
+			back = new Pixmap(w, h, Pixmap.Format.RGBA8888);
 			shape = new Pixmap(w, h, Pixmap.Format.RGBA8888);
 			cursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);
 			refresh = true;
 		} else if(oldw != w || oldh != h) {
-			back.dispose();				
+			back.dispose();
 			shape.dispose();
 			cursor.dispose();
-			back = new Pixmap(w, h, Pixmap.Format.RGBA8888);									
-			shape = new Pixmap(w, h, Pixmap.Format.RGBA8888);						
-			cursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);						
+			back = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+			shape = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+			cursor = new Pixmap(w, h, Pixmap.Format.RGBA8888);
 			refresh = true;
 		} else if(updateall){
 			back.setColor(TRANSPARENT_COLOR);
@@ -527,18 +522,18 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 						end = Math.min(data.length, i + 3);
 						break;
 					}
-				}				
+				}
 			}
-			
+
 			if(backtex == null) {
-				backtex = new TextureRegion(new Texture(back));			
+				backtex = new TextureRegion(new Texture(back));
 			} else if(oldw != w || oldh != h) {
 				backtex.getTexture().dispose();
 				backtex = new TextureRegion(new Texture(back));
 			} else {
 				backtex.getTexture().draw(back, 0, 0);
 			}
-			
+
 		}
 
 		for (int i = start; i < end; i++) {
@@ -573,7 +568,7 @@ public final class SkinNoteDistributionGraph extends SkinObject {
 				}
 			}
 		}
-		
+
 		if(shapetex == null) {
 			shapetex = new TextureRegion(new Texture(shape));
 		} else if(oldw != w || oldh != h) {

@@ -25,12 +25,18 @@ import com.starxh.beatoraja.BeatorajaGame;
 import barsoosayque.libgdxoboe.OboeAudio;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.graphics.Rect;
 import org.json.JSONObject;
 
 import bms.player.beatoraja.Config;
+import bms.player.beatoraja.MainState;
+import bms.player.beatoraja.MainStateListener;
 import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.BMSPlayerMode;
 
@@ -95,6 +101,14 @@ public class AndroidLauncher extends AndroidApplication {
     private volatile boolean isUserTouching = false;
     private boolean isSimulatingTouch = false;
     private boolean isWaitingForPermissionResult = false;
+    private volatile boolean isPlayStateActive = false;
+    private final MainStateListener systemGestureExclusionListener = (state, status) -> {
+        boolean isPlay = state instanceof bms.player.beatoraja.play.BMSPlayer;
+        if (isPlay != isPlayStateActive) {
+            isPlayStateActive = isPlay;
+            runOnUiThread(() -> applySystemGestureExclusion(isPlay));
+        }
+    };
 
     private final Runnable keepAliveRunnable = new Runnable() {
         @Override
@@ -270,6 +284,16 @@ public class AndroidLauncher extends AndroidApplication {
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
         Gdx.input.setCatchKey(Keys.BACK, true);
+
+        // 监听MainController状态变化，在PLAY界面启用全面屏边缘手势排除
+        try {
+            BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
+            if (game != null && game.getMainController() != null) {
+                game.getMainController().addMainStateListener(systemGestureExclusionListener);
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "Failed to register systemGestureExclusionListener: " + e.getMessage());
+        }
 
         // WindowManager 刷新率 + maxRefreshRate 检测
         setupHighRefreshRate();
@@ -764,6 +788,38 @@ public class AndroidLauncher extends AndroidApplication {
         return null;
     }
 
+    /**
+     * 在 PLAY 状态时把屏幕左右边缘登记为系统手势排除区，避免全面屏上滑回桌面
+     * 退出 PLAY 时清空排除区，其他界面行为不受影响
+     */
+    private void applySystemGestureExclusion(boolean enable) {
+        if (Build.VERSION.SDK_INT < 29) return;
+        try {
+            android.view.SurfaceView sv = findSurfaceView(getWindow().getDecorView());
+            if (sv == null || sv.getWidth() <= 0 || sv.getHeight() <= 0) return;
+            List<Rect> rects;
+            if (enable) {
+                int edgePx = dpToPx(48);
+                int w = sv.getWidth();
+                int h = sv.getHeight();
+                rects = new ArrayList<>(2);
+                rects.add(new Rect(0, 0, Math.min(edgePx, w), h));
+                rects.add(new Rect(Math.max(0, w - edgePx), 0, w, h));
+            } else {
+                rects = Collections.emptyList();
+            }
+            sv.setSystemGestureExclusionRects(rects);
+            Log.i(TAG, "System gesture exclusion " + (enable ? "enabled" : "disabled") + ", rects=" + rects.size());
+        } catch (Throwable t) {
+            Log.e(TAG, "setSystemGestureExclusionRects fail", t);
+        }
+    }
+
+    private int dpToPx(int dp) {
+        float density = getResources().getDisplayMetrics().density;
+        return Math.round(dp * density);
+    }
+
     public void setAndroidBackPressedFlag() {
         try {
             BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
@@ -863,6 +919,12 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     protected void onDestroy() {
+        try {
+            BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
+            if (game != null && game.getMainController() != null) {
+                game.getMainController().removeMainStateListener(systemGestureExclusionListener);
+            }
+        } catch (Exception ignored) {}
         stopKeepAlive();
         super.onDestroy();
     }
