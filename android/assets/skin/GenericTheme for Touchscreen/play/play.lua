@@ -2271,7 +2271,15 @@ local function main(keysNumber)
 			if pos_property.typeA.isSelected() then
 				if isPortraitLayout() then
 					x = geo.lane.x + 330
-					y = 570 -- Large offset in Landscape Y (Horizontal in portrait)
+					y = 540 -- Large offset in Landscape Y (Horizontal in portrait)
+					if anotherIsOnAndTypeA then
+						local between_space = 80 -- 竖屏下的水平间距
+						if isJudgeDetail then
+							y = y - between_space
+						else
+							y = y + between_space
+						end
+					end
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
