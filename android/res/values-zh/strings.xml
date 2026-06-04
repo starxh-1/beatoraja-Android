@@ -12,7 +12,7 @@
     <string name="new_player">+ 新建玩家</string>
     <string name="delete">删除</string>
     <string name="export">导出</string>
-    <string name="import_score_db">导入 Score.db</string>
+    <string name="import_score_db">导入 Score.zip</string>
     <string name="section_bms_path">BMS 路径</string>
     <string name="add">+ 添加</string>
     <string name="tap_to_remove">点击以移除</string>

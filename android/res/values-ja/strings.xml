@@ -12,7 +12,7 @@
     <string name="new_player">+ 新規プレイヤー</string>
     <string name="delete">削除</string>
     <string name="export">書き出し</string>
-    <string name="import_score_db">Score.db をインポート</string>
+    <string name="import_score_db">Score.zip をインポート</string>
     <string name="section_bms_path">BMSパス</string>
     <string name="add">+ 追加</string>
     <string name="tap_to_remove">タップして削除</string>
