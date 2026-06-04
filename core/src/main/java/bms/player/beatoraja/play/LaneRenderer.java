@@ -473,8 +473,8 @@ public class LaneRenderer {
 		boolean isTouchscreenSkin = main.getSkin() != null && main.getSkin().header != null &&
 			main.getSkin().header.getPath() != null &&
 			main.getSkin().header.getPath().toString().contains("Touchscreen");
-		boolean actuallyPortrait = main.getSkin() != null && main.getSkin().getHeight() > main.getSkin().getWidth();
-		if (isTouchscreenSkin && lanes != null && lanes.length > 0 && skin != null) {
+        boolean actuallyPortrait = isPortrait;
+        if (isTouchscreenSkin && lanes != null && lanes.length > 0 && skin != null) {
 			int skinW = (int)main.getSkin().getWidth();
 			int skinH = (int)main.getSkin().getHeight();
 			Texture bgaFrame = main.resource.getBGAManager().getCurrentBGAFrame(skinW, skinH);

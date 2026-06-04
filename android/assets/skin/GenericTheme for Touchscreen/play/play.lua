@@ -60,8 +60,6 @@ local property = {
 		name = "Judge Detail Position",
 		item = {
 			typeA = {name = "Type A (on judge)", op = 915},
-			typeB = {name = "Type B (side of judge)", op = 916},
-			typeC = {name = "Type C (side of judgeline)", op = 917},
 		}
 	},
 	ghostScore = {
@@ -76,8 +74,6 @@ local property = {
 		name = "Ghost Score Position",
 		item = {
 			typeA = {name = "Type A (on judge)", op = 925},
-			typeB = {name = "Type B (side of judge)", op = 926},
-			typeC = {name = "Type C (side of judgeline)", op = 927},
 		}
 	},
 	ghostScoreColor = {
@@ -363,7 +359,7 @@ local function main(keysNumber)
 		-- Portrait lane: x=judgment line position, y=bottom of screen
 		geo.lane.x = 226  -- Judgment line position
 		geo.lane.y = 0    -- Fill from bottom of buffer
-		geo.lane.w = 1920 - geo.lane.x - 100  -- Lane length
+		geo.lane.w = 1920 - geo.lane.x  -- Lane length
 		geo.lane.h = 1080 -- Full height of buffer
 
 		-- Lane order and positions
@@ -2275,7 +2271,7 @@ local function main(keysNumber)
 			if pos_property.typeA.isSelected() then
 				if isPortraitLayout() then
 					x = geo.lane.x + 330
-					y = 540 -- Large offset in Landscape Y (Horizontal in portrait)
+					y = 570 -- Large offset in Landscape Y (Horizontal in portrait)
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
@@ -2344,7 +2340,7 @@ local function main(keysNumber)
 				end
 				local ms_space = 0
 				if isPortraitLayout() then
-					ms_space = -6
+					ms_space = -8
 				end
 				append_all(skin.value, {
 					number({id = "judge_diff_ms", src = "src_number_genshin_monospace_border", divx = 12, divy = 2, digit = digit, align = align, space = ms_space, ref = 525}),
@@ -2378,13 +2374,17 @@ local function main(keysNumber)
 			if not property.ghostScorePosition.item.typeA.isSelected() and is1P() then
 				align = 1
 			end
+			local ms_space = 0
+			if isPortraitLayout() then
+				ms_space = -8
+			end
 
 			local src = "src_number_genshin_monospace_border"
 			if property.ghostScoreColor.item.red.isSelected() then
 				src = "src_number_genshin_monospace_border_red"
 			end
 			append_all(skin.value, {
-				number({id = "ghostscore", src = src, divx = 12, divy = 2, digit = digit, align = align, ref = ref}),
+				number({id = "ghostscore", src = src, divx = 12, divy = 2, digit = digit, align = align, space = ms_space, ref = ref}),
 			})
 
 			local total_w = num_w * digit

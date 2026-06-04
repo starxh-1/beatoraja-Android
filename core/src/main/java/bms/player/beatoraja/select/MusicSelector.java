@@ -402,6 +402,7 @@ public final class MusicSelector extends MainState {
 
 	public void shutdown() {
 		preview.stop();
+		stop(SELECT);
 		if (search != null) {
 			search.unfocus(this);
 		}
