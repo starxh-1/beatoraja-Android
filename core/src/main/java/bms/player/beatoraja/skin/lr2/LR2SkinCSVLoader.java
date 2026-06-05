@@ -801,7 +801,15 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		for (CustomFile cf : skin.header.getCustomFiles()) {
 			String filename = cf.getSelectedFilename();
 			if(filename != null) {
-				filemap.put(cf.path, filename);
+				// Normalize key to match SkinLoader.getPath()'s normalizePath() processing
+				String normalizedKey = cf.path.replace("\\", "/").replaceAll("/+", "/");
+				try {
+					String np = SkinLoader.normalizePath(normalizedKey);
+					if (np != null && !np.isEmpty()) {
+						normalizedKey = np.replace("\\", "/");
+					}
+				} catch (Exception ignore) {}
+				filemap.put(normalizedKey, filename);
 			}
 		}
 

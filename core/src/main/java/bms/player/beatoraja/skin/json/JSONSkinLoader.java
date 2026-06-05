@@ -271,7 +271,15 @@ public class JSONSkinLoader extends SkinLoader {
 			filemap = new ObjectMap<>();
 			for(SkinHeader.CustomFile customFile : header.getCustomFiles()) {
 				if(customFile.getSelectedFilename() != null) {
-					filemap.put(customFile.path, customFile.getSelectedFilename());
+					// Normalize key to match SkinLoader.getPath()'s normalizePath() processing
+					String normalizedKey = customFile.path.replace("\\", "/").replaceAll("/+", "/");
+					try {
+						String np = SkinLoader.normalizePath(normalizedKey);
+						if (np != null && !np.isEmpty()) {
+							normalizedKey = np.replace("\\", "/");
+						}
+					} catch (Exception ignore) {}
+					filemap.put(normalizedKey, customFile.getSelectedFilename());
 				}
 			}
 

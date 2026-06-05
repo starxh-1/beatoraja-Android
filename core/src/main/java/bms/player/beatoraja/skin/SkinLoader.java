@@ -103,7 +103,27 @@ public abstract class SkinLoader {
         File imagefile = new File(imagepath);
         String currentPath = imagepath;
         for (String key : filemap.keys()) {
-            if (currentPath.equalsIgnoreCase(key) || currentPath.toLowerCase().endsWith("/" + key.toLowerCase())) {
+            // Normalize key the same way currentPath was normalized above, so that
+            // getCanonicalPath() vs getAbsolutePath() differences don't break matching.
+            String cmpKey = key.replace("\\", "/").replaceAll("/+", "/");
+            try {
+                String nk = normalizePath(cmpKey);
+                if (nk != null && !nk.isEmpty()) {
+                    cmpKey = nk.replace("\\", "/");
+                }
+            } catch (Exception ignore) {}
+
+            boolean matched = currentPath.equalsIgnoreCase(cmpKey);
+            if (!matched) {
+                // Suffix match: try with both raw and normalized key
+                matched = currentPath.toLowerCase().endsWith("/" + cmpKey.toLowerCase());
+                if (!matched && cmpKey.startsWith("/")) {
+                    // If key is absolute, try without leading / for suffix matching
+                    matched = currentPath.toLowerCase().endsWith(cmpKey.toLowerCase());
+                }
+            }
+
+            if (matched) {
                 String value = filemap.get(key);
                 if ("Random".equalsIgnoreCase(value)) {
                     break;

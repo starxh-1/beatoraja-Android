@@ -56,9 +56,6 @@ public class SettingsActivity extends Activity {
     private static final int REQUEST_CODE_EXPORT_SCORE = 1236;
     private static final int REQUEST_CODE_IMPORT_PLAYER = 1237;
     private static final int REQUEST_CODE_IMPORT_SCORE = 1238;
-    private static final int REQUEST_CODE_PICK_FONT = 1239;
-    private static final String DEFAULT_FONT_PATH = "font/VL-Gothic-Regular.ttf";
-
     private int selectedVolume = 100;
     private int selectedKeyVolume = 100;
     private int selectedBgmVolume = 100;
@@ -75,8 +72,6 @@ public class SettingsActivity extends Activity {
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
-    private String selectedFontPath = DEFAULT_FONT_PATH;
-    private List<String> builtInFontNames = new ArrayList<>();
     // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
 
@@ -183,7 +178,6 @@ public class SettingsActivity extends Activity {
                 selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
-                selectedFontPath = findJsonStringValue(json, "systemfontpath", DEFAULT_FONT_PATH);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
             } else {
@@ -557,9 +551,6 @@ public class SettingsActivity extends Activity {
         bgaExpandSpinner.setAdapter(bgaExpandAdapter);
         bgaExpandSpinner.setSelection(selectedBgaExpand);
 
-        // Font
-        setupFontControls();
-
         // Table URL
         tableUrlContainer = findViewById(R.id.tableUrlContainer);
         findViewById(R.id.addTableUrlBtn).setOnClickListener(v -> { tableUrls.add(""); refreshTableUrlList(); });
@@ -603,151 +594,6 @@ public class SettingsActivity extends Activity {
             Toast.makeText(this, getString(R.string.msg_settings_saved), Toast.LENGTH_SHORT).show();
             launchGame();
         });
-    }
-
-    private void setupFontControls() {
-        builtInFontNames.clear();
-        try {
-            String[] assets = getAssets().list("font");
-            if (assets != null) {
-                java.util.Collections.sort(java.util.Arrays.asList(assets));
-                for (String name : assets) {
-                    String lower = name.toLowerCase(java.util.Locale.ROOT);
-                    if (lower.endsWith(".ttf") || lower.endsWith(".otf")) {
-                        builtInFontNames.add(name);
-                    }
-                }
-            }
-        } catch (IOException e) {
-            Log.e("SettingsActivity", "Failed to list assets/font", e);
-        }
-        if (builtInFontNames.isEmpty()) {
-            builtInFontNames.add(DEFAULT_FONT_PATH.substring(DEFAULT_FONT_PATH.lastIndexOf('/') + 1));
-        }
-
-        final List<String> spinnerItems = new ArrayList<>(builtInFontNames);
-        final String customLabel = getString(R.string.font_custom_option);
-        spinnerItems.add(customLabel);
-
-        Spinner fontSpinner = findViewById(R.id.fontSpinner);
-        ArrayAdapter<String> fontAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, spinnerItems);
-        fontAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
-        fontSpinner.setAdapter(fontAdapter);
-
-        final TextView fontCurrentLabel = findViewById(R.id.fontCurrentCustomLabel);
-        Button chooseFileBtn = findViewById(R.id.fontChooseFileButton);
-        Button resetBtn = findViewById(R.id.fontResetButton);
-
-        Runnable refreshLabel = () -> fontCurrentLabel.setText(getString(R.string.font_current_custom_hint, fontBaseName(selectedFontPath)));
-
-        int initialSelection = spinnerItems.size() - 1; // default: Custom
-        for (int i = 0; i < builtInFontNames.size(); i++) {
-            if (("font/" + builtInFontNames.get(i)).equalsIgnoreCase(selectedFontPath)) {
-                initialSelection = i;
-                break;
-            }
-        }
-        fontSpinner.setSelection(initialSelection);
-
-        chooseFileBtn.setOnClickListener(v -> {
-            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"*/*"});
-            intent.putExtra(Intent.EXTRA_TITLE, getString(R.string.font_picker_title));
-            try {
-                startActivityForResult(intent, REQUEST_CODE_PICK_FONT);
-            } catch (Exception e) {
-                Log.e("SettingsActivity", "No SAF picker available", e);
-                Toast.makeText(this, getString(R.string.msg_font_copy_failed, "no picker"), Toast.LENGTH_LONG).show();
-            }
-        });
-
-        resetBtn.setOnClickListener(v -> {
-            selectedFontPath = DEFAULT_FONT_PATH;
-            int idx = 0;
-            for (int i = 0; i < builtInFontNames.size(); i++) {
-                if (builtInFontNames.get(i).equalsIgnoreCase(DEFAULT_FONT_PATH.substring(DEFAULT_FONT_PATH.lastIndexOf('/') + 1))) {
-                    idx = i; break;
-                }
-            }
-            fontSpinner.setSelection(idx);
-            refreshLabel.run();
-            Toast.makeText(this, getString(R.string.msg_font_default_applied), Toast.LENGTH_SHORT).show();
-        });
-
-        fontSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
-                if (position < 0 || position >= spinnerItems.size()) return;
-                if (position < builtInFontNames.size()) {
-                    selectedFontPath = "font/" + builtInFontNames.get(position);
-                }
-                refreshLabel.run();
-            }
-            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
-        });
-
-        refreshLabel.run();
-    }
-
-    private static String fontBaseName(String path) {
-        if (path == null) return "";
-        int slash = path.lastIndexOf('/');
-        return slash >= 0 ? path.substring(slash + 1) : path;
-    }
-
-    private void copyFontFromUri(Uri uri) {
-        try {
-            String displayName = null;
-            try (android.database.Cursor cursor = getContentResolver().query(uri, null, null, null, null)) {
-                if (cursor != null && cursor.moveToFirst()) {
-                    int idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
-                    if (idx >= 0) displayName = cursor.getString(idx);
-                }
-            }
-            if (displayName == null || displayName.isEmpty()) {
-                String last = uri.getLastPathSegment();
-                if (last != null) {
-                    int slash = last.lastIndexOf('/');
-                    displayName = slash >= 0 ? last.substring(slash + 1) : last;
-                }
-            }
-            if (displayName == null || displayName.isEmpty()) displayName = "customfont.ttf";
-
-            String safeName = displayName.replaceAll("[^A-Za-z0-9._-]", "_");
-            if (!safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".ttf")
-                    && !safeName.toLowerCase(java.util.Locale.ROOT).endsWith(".otf")) {
-                safeName = safeName + ".ttf";
-            }
-
-            File fontDir = new File(getExternalFilesDir(null), "font");
-            if (!fontDir.exists()) fontDir.mkdirs();
-            File outFile = new File(fontDir, safeName);
-            int dup = 1;
-            while (outFile.exists()) {
-                String stem = safeName;
-                String ext = "";
-                int dot = safeName.lastIndexOf('.');
-                if (dot > 0) { stem = safeName.substring(0, dot); ext = safeName.substring(dot); }
-                outFile = new File(fontDir, stem + "_" + dup + ext);
-                dup++;
-            }
-
-            try (java.io.InputStream in = getContentResolver().openInputStream(uri);
-                 FileOutputStream out = new FileOutputStream(outFile)) {
-                if (in == null) throw new IOException("openInputStream returned null");
-                byte[] buf = new byte[8192];
-                int n;
-                while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
-            }
-            selectedFontPath = "font/" + outFile.getName();
-            TextView fontCurrentLabel = findViewById(R.id.fontCurrentCustomLabel);
-            fontCurrentLabel.setText(getString(R.string.font_current_custom_hint, outFile.getName()));
-            Toast.makeText(this, getString(R.string.msg_font_copied, outFile.getName()), Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Log.e("SettingsActivity", "Failed to import font", e);
-            Toast.makeText(this, getString(R.string.msg_font_copy_failed, e.getMessage()), Toast.LENGTH_LONG).show();
-        }
     }
 
     private void refreshBmsPathList() {
@@ -960,8 +806,6 @@ public class SettingsActivity extends Activity {
             config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
-            config.put("systemfontpath", selectedFontPath);
-            config.put("messagefontpath", selectedFontPath);
 
             // 自动同步当前系统语言给游戏内核
             String currentLang = Locale.getDefault().getLanguage();
@@ -1058,8 +902,6 @@ public class SettingsActivity extends Activity {
             importScoreFromUri(uri);
         } else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) {
             importPlayerFromUri(uri);
-        } else if (requestCode == REQUEST_CODE_PICK_FONT) {
-            copyFontFromUri(uri);
         }
     }
 
