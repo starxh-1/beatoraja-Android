@@ -471,6 +471,8 @@ public class MainController {
         // 高BPM谱面会有数百音符同时渲染，默认1000会频繁flush导致性能问题
         sprite = new SpriteBatch(4096);
         SkinLoader.initPixmapResourcePool(config.getSkinPixmapGen());
+        // 清空上次进程残留的 BitmapFont 缓存（Android process restart 时 static 变量可能保留）
+        bms.player.beatoraja.skin.BitmapFontCache.invalidate();
 
         try {
             FileHandle fontFile = resolveFontFileHandle(config.getSystemfontpath());

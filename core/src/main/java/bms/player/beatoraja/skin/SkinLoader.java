@@ -122,40 +122,134 @@ public abstract class SkinLoader {
         }
 
         if (imagepath.contains("*")) {
-            String ext = imagepath.substring(imagepath.lastIndexOf("*") + 1).toLowerCase();
-            if(imagepath.contains("|")) {
-                if(imagepath.length() > imagepath.lastIndexOf('|') + 1) {
-                    ext = imagepath.substring(imagepath.lastIndexOf("*") + 1, imagepath.indexOf('|')) + imagepath.substring(imagepath.lastIndexOf('|') + 1);
+            // Determine whether this is a directory-level wildcard (e.g. "frame/SP/*/main.png")
+            // or a file-level wildcard (e.g. "bomb/*.png")
+            int firstStar = imagepath.indexOf('*');
+            int slashAfterStar = imagepath.indexOf('/', firstStar);
+            boolean isDirectoryWildcard = (slashAfterStar != -1);
+
+            if (isDirectoryWildcard) {
+                // Directory-level: "*" is a subdirectory name, e.g. "frame/SP/*/main.png"
+                int baseEnd = imagepath.lastIndexOf('/', firstStar - 1);
+                String basePath = (baseEnd > 0) ? imagepath.substring(0, baseEnd) : "";
+                String afterWildcard = imagepath.substring(slashAfterStar); // e.g. "/main.png"
+
+                // Extract the subdir matching extension (optional, e.g. "*|.png/default")
+                String subdirExt = "";
+                int pipeIdx = imagepath.indexOf('|', firstStar);
+                if (pipeIdx > firstStar && pipeIdx < slashAfterStar) {
+                    subdirExt = imagepath.substring(firstStar + 1, pipeIdx).toLowerCase();
                 } else {
-                    ext = imagepath.substring(imagepath.lastIndexOf("*") + 1, imagepath.indexOf('|'));
+                    subdirExt = imagepath.substring(firstStar + 1, slashAfterStar).toLowerCase();
                 }
-            }
-            ext = ext.toLowerCase();
 
-            String dirPath = imagepath.substring(0, imagepath.lastIndexOf('/'));
-            com.badlogic.gdx.files.FileHandle dirHandle;
+                com.badlogic.gdx.files.FileHandle baseDir = resolveWildcardDir(basePath);
 
-            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !dirPath.startsWith("/")) {
-                String root = System.getProperty("beatoraja.root", ".");
-                dirHandle = Gdx.files.absolute(new File(root, dirPath).getAbsolutePath());
+                if (baseDir != null && baseDir.exists() && baseDir.isDirectory()) {
+                    java.util.List<com.badlogic.gdx.files.FileHandle> matchingDirs = new java.util.ArrayList<>();
+                    for (com.badlogic.gdx.files.FileHandle sub : baseDir.list()) {
+                        if (sub.isDirectory() && (subdirExt.isEmpty() || sub.name().toLowerCase().endsWith(subdirExt))) {
+                            matchingDirs.add(sub);
+                        }
+                    }
+                    if (!matchingDirs.isEmpty()) {
+                        com.badlogic.gdx.files.FileHandle chosen = matchingDirs.get((int) (Math.random() * matchingDirs.size()));
+                        String finalPath = chosen.path().replace("\\", "/") + afterWildcard;
+                        com.badlogic.gdx.files.FileHandle finalFile = Gdx.files.absolute(finalPath);
+                        if (finalFile.exists()) {
+                            imagefile = new File(finalPath);
+                        } else {
+                            imagefile = new File(finalPath);
+                            Gdx.app.log("SkinPath", "Dir wildcard: chosen dir but inner file missing: " + finalPath);
+                        }
+                    } else {
+                        Gdx.app.log("SkinPath", "Dir wildcard: no matching subdirs in " + basePath + " (ext=" + subdirExt + ")");
+                    }
+                } else {
+                    Gdx.app.log("SkinPath", "Dir wildcard: base dir not found: " + basePath);
+                }
             } else {
-                dirHandle = Gdx.files.internal(dirPath);
-                if (!dirHandle.exists()) dirHandle = Gdx.files.absolute(dirPath);
-            }
-
-            if (dirHandle.exists() && dirHandle.isDirectory()) {
-                Array<com.badlogic.gdx.files.FileHandle> l = new Array<>();
-                for (com.badlogic.gdx.files.FileHandle subfile : dirHandle.list()) {
-                    if (subfile.path().toLowerCase().endsWith(ext)) {
-                        l.add(subfile);
+                // File-level wildcard: e.g. "bomb/*.png"
+                String ext = imagepath.substring(firstStar + 1).toLowerCase();
+                if (ext.startsWith(".")) ext = ext.substring(1);
+                if (imagepath.contains("|")) {
+                    int pipePos = imagepath.indexOf('|', firstStar);
+                    if (pipePos > firstStar) {
+                        ext = imagepath.substring(firstStar + 1, pipePos).toLowerCase();
+                        if (imagepath.length() > pipePos + 1) {
+                            ext += imagepath.substring(pipePos + 1).toLowerCase();
+                        }
                     }
                 }
-                if (l.size > 0) {
-                    imagefile = l.get((int) (Math.random() * l.size)).file();
+
+                String dirPath = imagepath.substring(0, imagepath.lastIndexOf('/'));
+                com.badlogic.gdx.files.FileHandle dirHandle = resolveWildcardDir(dirPath);
+
+                if (dirHandle != null && dirHandle.exists() && dirHandle.isDirectory()) {
+                    Array<com.badlogic.gdx.files.FileHandle> matches = new Array<>();
+                    for (com.badlogic.gdx.files.FileHandle sub : dirHandle.list()) {
+                        String subName = sub.name().toLowerCase();
+                        if (sub.isDirectory() || subName.endsWith(ext) || subName.endsWith("." + ext)) {
+                            matches.add(sub);
+                        }
+                    }
+                    // Prefer files over directories
+                    Array<com.badlogic.gdx.files.FileHandle> files = new Array<>();
+                    Array<com.badlogic.gdx.files.FileHandle> dirs = new Array<>();
+                    for (com.badlogic.gdx.files.FileHandle m : matches) {
+                        if (m.isDirectory()) dirs.add(m);
+                        else files.add(m);
+                    }
+                    if (files.size > 0) {
+                        imagefile = files.get((int) (Math.random() * files.size)).file();
+                    } else if (dirs.size > 0) {
+                        imagefile = dirs.get((int) (Math.random() * dirs.size)).file();
+                    }
                 }
             }
         }
         return imagefile;
+    }
+
+    /**
+     * Resolve a directory path for wildcard scanning, with Android fallbacks.
+     * Tries: absolute path → beatoraja.root + relative → internal (assets).
+     */
+    private static com.badlogic.gdx.files.FileHandle resolveWildcardDir(String dirPath) {
+        boolean isAndroid = Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android;
+        String androidRoot = isAndroid ? System.getProperty("beatoraja.root", null) : null;
+
+        // 1. If absolute path, try directly
+        if (dirPath.startsWith("/")) {
+            com.badlogic.gdx.files.FileHandle fh = Gdx.files.absolute(dirPath);
+            if (fh.exists()) return fh;
+        }
+
+        // 2. On Android, try beatoraja.root + relative path
+        if (androidRoot != null && !dirPath.startsWith("/")) {
+            String resolved = (androidRoot + "/" + dirPath).replace("\\", "/").replaceAll("/+", "/");
+            com.badlogic.gdx.files.FileHandle fh = Gdx.files.absolute(resolved);
+            if (fh.exists()) return fh;
+        }
+
+        // 3. Try internal (APK assets)
+        com.badlogic.gdx.files.FileHandle fhInt = Gdx.files.internal(dirPath);
+        if (fhInt.exists()) return fhInt;
+
+        // 4. Try as absolute path even without leading /
+        com.badlogic.gdx.files.FileHandle fhAbs = Gdx.files.absolute(dirPath);
+        if (fhAbs.exists()) return fhAbs;
+
+        // 5. If the path looks like an absolute path missing its leading / (common on Android),
+        //    try prepending / to make it absolute
+        if (!dirPath.startsWith("/")
+                && (dirPath.startsWith("storage/") || dirPath.startsWith("sdcard/")
+                    || dirPath.startsWith("Android/data") || dirPath.startsWith("data/data"))) {
+            com.badlogic.gdx.files.FileHandle fhSlash = Gdx.files.absolute("/" + dirPath);
+            if (fhSlash.exists()) return fhSlash;
+        }
+
+        return Gdx.files.absolute(dirPath);
     }
 
     public static Texture getTexture(String path, boolean usecim) {
