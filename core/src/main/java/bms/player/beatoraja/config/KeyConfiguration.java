@@ -112,7 +112,7 @@ public class KeyConfiguration extends MainState {
 
 		try {
 			FreeTypeFontGenerator generator = new FreeTypeFontGenerator(
-					Gdx.files.internal(main.getConfig().getSystemfontpath()));
+					MainController.resolveFontFileHandle(main.getConfig().getSystemfontpath()));
 			FreeTypeFontParameter parameter = new FreeTypeFontParameter();
 			parameter.size = (int) (20 * getSkin().getScaleY());
 			titlefont = generator.generateFont(parameter);

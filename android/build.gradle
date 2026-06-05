@@ -50,9 +50,6 @@ android {
   kotlinOptions {
     jvmTarget = '17'
   }
-  composeOptions {
-    kotlinCompilerExtensionVersion = "1.5.10"
-  }
   buildTypes {
     release {
       minifyEnabled true
@@ -82,26 +79,7 @@ dependencies {
   implementation 'org.sqldroid:sqldroid:1.0.3'
   implementation "com.badlogicgames.gdx-video:gdx-video-android:$gdxVideoVersion"
 
-  // Compose BOM
-  def composeBom = platform('androidx.compose:compose-bom:2023.06.01')
-  implementation composeBom
-  androidTestImplementation composeBom
-
-  // Compose UI
-  implementation 'androidx.compose.ui:ui'
-  implementation 'androidx.compose.ui:ui-graphics'
-  implementation 'androidx.compose.ui:ui-tooling-preview'
-  implementation 'androidx.compose.material3:material3'
-  implementation 'androidx.compose.material:material-icons-extended'
-  implementation 'androidx.activity:activity-compose:1.8.2'
-  implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0'
-  implementation 'androidx.navigation:navigation-compose:2.7.7'
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0'
-
-  // Debug
-  debugImplementation 'androidx.compose.ui:ui-tooling'
-  debugImplementation 'androidx.compose.ui:ui-test-manifest'
-
 
   natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-arm64-v8a"
   natives "com.badlogicgames.gdx:gdx-freetype-platform:$gdxVersion:natives-armeabi-v7a"

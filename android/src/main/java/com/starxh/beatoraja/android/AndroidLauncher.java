@@ -338,12 +338,24 @@ public class AndroidLauncher extends AndroidApplication {
         // 创建内部存储中的必要目录 (table, songinfo, etc.)
         File filesDir = getExternalFilesDir(null);
         if (filesDir != null) {
-            String[] internalDirs = {"table", "songinfo", "player", "irconfig", "sound", "bgm"};
+            String[] internalDirs = {"table", "songinfo", "player", "irconfig", "sound", "bgm", "font"};
             for (String dir : internalDirs) {
                 File d = new File(filesDir, dir);
                 if (!d.exists()) {
                     d.mkdirs();
                     Log.i(TAG, "Created internal directory: " + d.getAbsolutePath());
+                }
+            }
+
+            // 首次启动时将内置字体 VL-Gothic-Regular.ttf 复制到 beatoraja.root/font/，
+            // 作为 skin / 系统的字体兜底（确保 resolveFontFileHandle 链的 absolute 分支能找到）
+            File fallbackFont = new File(filesDir, "font/VL-Gothic-Regular.ttf");
+            if (!fallbackFont.exists()) {
+                try {
+                    copyAssetFile(getAssets(), "font/VL-Gothic-Regular.ttf", fallbackFont);
+                    Log.i(TAG, "Seeded fallback font: " + fallbackFont.getAbsolutePath());
+                } catch (Exception e) {
+                    Log.w(TAG, "Failed to seed fallback font: " + e.getMessage());
                 }
             }
         }

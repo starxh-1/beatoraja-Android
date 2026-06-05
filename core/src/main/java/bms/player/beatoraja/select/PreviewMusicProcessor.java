@@ -122,6 +122,14 @@ public class PreviewMusicProcessor {
                     stopPreview(true);
                     float v = getVolume();
                     if(!Objects.equals(path, defaultMusic) && path != null) {
+                        // 播放 preview 时静音 select BGM
+                        if (defaultMusic != null) {
+                            try {
+                                audio.setVolume(defaultMusic, 0);
+                            } catch (Exception e) {
+                                java.util.logging.Logger.getGlobal().warning("Failed to mute BGM: " + e.getMessage());
+                            }
+                        }
                         try {
                             audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
                         } catch (Exception e) {

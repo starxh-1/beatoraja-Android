@@ -27,6 +27,16 @@
     <string name="enable_lanecover">ENABLE LANECOVER</string>
     <string name="enable_lift">ENABLE LIFT</string>
     <string name="floating_menu_position">Floating Menu Position</string>
+    <string name="section_font">Font</string>
+    <string name="font_label">UI Font</string>
+    <string name="font_choose_file">Select File…</string>
+    <string name="font_reset">Reset</string>
+    <string name="font_current_custom_hint">Current: %1$s</string>
+    <string name="font_picker_title">Select a .ttf font file</string>
+    <string name="font_custom_option">Custom…</string>
+    <string name="msg_font_copied">Font applied: %1$s</string>
+    <string name="msg_font_copy_failed">Failed to import font: %1$s</string>
+    <string name="msg_font_default_applied">Restored default font</string>
     <string name="section_tables">Difficulty Tables</string>
     <string name="update_all">Update All</string>
     <string name="start_game">Start</string>

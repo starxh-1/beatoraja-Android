@@ -80,15 +80,9 @@ public final class SkinTextFont extends SkinText {
             String normalizedPath = fontpath;
             try {
                 String tmp = normalizePath(fontpath);
-                // Android上绝对路径规范化后不应丢失开头的 /
-                if (fontpath.startsWith("/") && !tmp.startsWith("/")) {
-                    Gdx.app.error("FontDebug", "normalize() broke absolute path: " + fontpath + " -> " + tmp + ", keeping original");
-                } else {
-                    normalizedPath = tmp;
-                }
+                normalizedPath = tmp;
             } catch (Exception e) {
                 Gdx.app.error("FontDebug", "Path normalize failed for: " + fontpath + ", keeping original", e);
-                e.printStackTrace();
             }
             // [DEBUG] 暴露 FileHandle 路径和 exists 状态
             // 注意：Gdx.files.internal() 只适用于 APK 内置 assets，对外部存储的绝对路径始终返回 exists:false
@@ -99,7 +93,8 @@ public final class SkinTextFont extends SkinText {
                 fontFile = com.badlogic.gdx.Gdx.files.absolute(normalizedPath);
                 Gdx.app.log("FontDebug", "Absolute path font: " + fontFile.path() + ", exists: " + fontFile.exists() + ", size=" + size);
             } else {
-                // 相对路径：先尝试 internal（用于 assets 内路径），失败则 fallback 到 absolute
+                // 相对路径：先尝试 internal（用于 assets 内路径），失败则 fallback 到 absolute，
+                // 最后 fallback 到 beatoraja.root 相对路径（Android 外部存储上的皮肤目录）
                 fontFile = com.badlogic.gdx.Gdx.files.internal(normalizedPath);
                 Gdx.app.log("FontDebug", "Trying to load font from: " + fontFile.path() + ", exists: " + fontFile.exists() + ", size=" + size);
                 if (!fontFile.exists()) {
@@ -108,6 +103,21 @@ public final class SkinTextFont extends SkinText {
                     Gdx.app.log("FontDebug", "Internal not found, trying absolute: " + fontFileAbs.path() + ", exists: " + fontFileAbs.exists());
                     if (fontFileAbs.exists()) {
                         fontFile = fontFileAbs;
+                    } else {
+                        // Android 上皮肤文件在外部存储，相对路径需要相对于 beatoraja.root 解析
+                        String root = System.getProperty("beatoraja.root", null);
+                        if (root != null) {
+                            String rootResolved = root + "/" + normalizedPath;
+                            // 规范化路径（去除 ./ 和重复斜杠）
+                            rootResolved = rootResolved.replace("\\", "/").replaceAll("/+", "/");
+                            com.badlogic.gdx.files.FileHandle fontFileRoot = com.badlogic.gdx.Gdx.files.absolute(rootResolved);
+                            Gdx.app.log("FontDebug", "Absolute not found, trying beatoraja.root: " + fontFileRoot.path() + ", exists: " + fontFileRoot.exists());
+                            if (fontFileRoot.exists()) {
+                                fontFile = fontFileRoot;
+                                // 更新 normalizedPath 以便后续缓存使用正确的路径
+                                normalizedPath = rootResolved;
+                            }
+                        }
                     }
                 }
             }
@@ -135,7 +145,10 @@ public final class SkinTextFont extends SkinText {
     		// Try fallback font
     		try {
     			String fallbackPath = "font/VL-Gothic-Regular.ttf";
-    			com.badlogic.gdx.files.FileHandle fallbackFile = Gdx.files.internal(fallbackPath);
+    			com.badlogic.gdx.files.FileHandle fallbackFile = bms.player.beatoraja.MainController.resolveFontFileHandle(fallbackPath);
+    			if (fallbackFile == null) {
+    				fallbackFile = Gdx.files.internal(fallbackPath);
+    			}
     			Gdx.app.log("FontDebug", "Fallback font: " + fallbackFile.path() + ", exists: " + fallbackFile.exists());
     			generator = generatorCache.get(fallbackPath);
     			if(generator == null) {
@@ -208,10 +221,18 @@ public final class SkinTextFont extends SkinText {
                 if (!fontFile.exists()) {
                     fontFile = Gdx.files.absolute(cachedFontPath);
                 }
+                // Android 上皮肤字体可能在外部存储，需相对于 beatoraja.root 解析
+                if (!fontFile.exists()) {
+                    String root = System.getProperty("beatoraja.root", null);
+                    if (root != null) {
+                        String rootResolved = (root + "/" + cachedFontPath).replace("\\", "/").replaceAll("/+", "/");
+                        fontFile = Gdx.files.absolute(rootResolved);
+                    }
+                }
                 if (fontFile.exists()) {
                     generator = new FreeTypeFontGenerator(fontFile);
                     generatorCache.put(cachedFontPath, generator);
-                    Gdx.app.log("FontDebug", "Re-created generator after resume: " + cachedFontPath);
+                    Gdx.app.log("FontDebug", "Re-created generator after resume: " + cachedFontPath + " -> " + fontFile.path());
                 } else {
                     Gdx.app.error("FontDebug", "Cannot re-create generator, file not found: " + cachedFontPath);
                 }
@@ -384,16 +405,19 @@ public final class SkinTextFont extends SkinText {
 
     private static String normalizePath(String path) {
         if (path == null) return null;
-        String[] parts = path.replace("\\", "/").split("/");
+        String p = path.replace("\\", "/");
+        boolean isAbsolute = p.startsWith("/");
+        String[] parts = p.split("/");
         java.util.ArrayList<String> result = new java.util.ArrayList<>();
-        for (String p : parts) {
-            if (p.equals("..") && !result.isEmpty() && !result.get(result.size()-1).equals("..")) {
+        for (String part : parts) {
+            if (part.equals("..") && !result.isEmpty() && !result.get(result.size()-1).equals("..")) {
                 result.remove(result.size() - 1);
-            } else if (!p.isEmpty() && !p.equals(".")) {
-                result.add(p);
+            } else if (!part.isEmpty() && !part.equals(".")) {
+                result.add(part);
             }
         }
         StringBuilder sb = new StringBuilder();
+        if (isAbsolute) sb.append("/");
         for (int i = 0; i < result.size(); i++) {
             if (i > 0) sb.append("/");
             sb.append(result.get(i));

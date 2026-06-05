@@ -645,7 +645,7 @@ local function main(keysNumber)
 
 	skin.font = {
 		{id = "genshin_bold", path = "../common/font/GenShinGothic-Bold.ttf"},
-		{id = "genshin_monospace_bold_bitmap", path = "../common/font/GenShinGothic-Monospace-Bold-bmp.fnt"},
+		{id = "genshin_monospace_bold", path = "../common/font/GenShinGothic-Monospace-Bold.ttf"},
 		{id = "newtown", path = "../common/font/Newtown-8e6M.ttf"},
 	}
 

@@ -728,12 +728,18 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		for (JsonSkin.Font font : loader.sk.font) {
 			if (font.id.equals(text.font)) {
 				// 智能处理字体路径
-				File path;
 				String fontPathStr = font.path.replace("\\", "/");
 
 				// Android 上，skin 文件在外部存储而非 assets，所以始终相对于 skinPath.getParent() 来解析
-				// 这样 font/fnt/main.fnt 会被解析为 /storage/emulated/0/.../skin/ModernChic/Select/font/fnt/main.fnt
-				path = new File(skinPath.getParentFile(), font.path);
+				File path = new File(skinPath.getParentFile(), font.path);
+				// 规范化路径，解析 .. 和 . （Android 上 Gdx.files.absolute 不支持含 .. 的路径）
+				try {
+					path = path.getCanonicalFile();
+				} catch (Exception e) {
+					// getCanonicalFile 失败时用手动规范化
+					String normalized = manualNormalizePath(path.getPath());
+					path = new File(normalized);
+				}
 
 				// [DEBUG] 记录 font.path 解析结果以便排查路径问题
 				com.badlogic.gdx.Gdx.app.log("FontDebug", "createText: font.id=" + font.id
@@ -741,26 +747,70 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 						+ ", skinPath.parent=" + skinPath.getParent()
 						+ ", resolved+normalized=" + path
 						+ ", text.size=" + text.size);
-				// Android 上检验路径是否实际存在
-				com.badlogic.gdx.files.FileHandle fontFh = com.badlogic.gdx.Gdx.files.internal(path.toString().replace("\\", "/"));
-				if (!fontFh.exists()) {
-					com.badlogic.gdx.files.FileHandle fontFhAbs = com.badlogic.gdx.Gdx.files.absolute(path.toString());
-					com.badlogic.gdx.Gdx.app.log("FontDebug", "Font internal not found, trying absolute: " + fontFhAbs.path() + ", exists: " + fontFhAbs.exists());
-				} else {
-					com.badlogic.gdx.Gdx.app.log("FontDebug", "Font file exists (internal): " + fontFh.path());
+
+				// 检查字体是否存在，如果不存在则尝试多个 fallback 路径
+				boolean fontExists = checkFontFileExists(path.toString());
+				if (!fontExists) {
+					// Fallback 1: 尝试皮肤根目录（皮肤文件的父目录的父目录）
+					// 处理子目录皮肤（如 skin/default/skinselect/）引用根级字体的情况
+					File skinRoot = skinPath.getParentFile().getParentFile();
+					if (skinRoot != null) {
+						File rootFallback = new File(skinRoot, font.path);
+						if (checkFontFileExists(rootFallback.toString())) {
+							com.badlogic.gdx.Gdx.app.log("FontDebug", "Font fallback to skin root: " + rootFallback);
+							path = rootFallback;
+							fontExists = true;
+						}
+					}
 				}
+				if (!fontExists) {
+					// Fallback 2: 尝试全局 font/ 目录（assets 下的 font/ 或 beatoraja.root/font/）
+					File globalFontFile = new File(fontPathStr);
+					String fontFileName = globalFontFile.getName();
+					// 尝试 font/<filename> 路径
+					File globalFont = new File("font", fontFileName);
+					if (checkFontFileExists(globalFont.toString())) {
+						com.badlogic.gdx.Gdx.app.log("FontDebug", "Font fallback to global font/: " + globalFont);
+						path = globalFont;
+						fontExists = true;
+					}
+				}
+				if (!fontExists) {
+					// Fallback 3: 尝试 beatoraja.root/font/<filename>
+					String root = System.getProperty("beatoraja.root", null);
+					if (root != null) {
+						String fontFileName2 = new File(fontPathStr).getName();
+						File rootGlobalFont = new File(root + "/font/" + fontFileName2);
+						if (checkFontFileExists(rootGlobalFont.toString())) {
+							com.badlogic.gdx.Gdx.app.log("FontDebug", "Font fallback to beatoraja.root/font/: " + rootGlobalFont);
+							path = rootGlobalFont;
+							fontExists = true;
+						}
+					}
+				}
+				if (!fontExists) {
+					com.badlogic.gdx.Gdx.app.error("FontDebug", "Font not found in any location: " + font.path
+							+ ", resolved=" + path + ", skinPath=" + skinPath);
+				}
+
 				SkinText skinText;
 				StringProperty property = text.value;
 				if (property == null) {
 					property = StringPropertyFactory.getStringProperty(text.ref);
 				}
 				if (path.toString().toLowerCase().endsWith(".fnt")) {
-					if (!loader.bitmapSourceMap.containsKey(font.id)) {
-						SkinTextBitmap.SkinTextBitmapSource source = new SkinTextBitmap.SkinTextBitmapSource(path, loader.usecim);
-						source.setType(font.type);
-						loader.bitmapSourceMap.put(font.id, source);
+					if (fontExists) {
+						if (!loader.bitmapSourceMap.containsKey(font.id)) {
+							SkinTextBitmap.SkinTextBitmapSource source = new SkinTextBitmap.SkinTextBitmapSource(path, loader.usecim);
+							source.setType(font.type);
+							loader.bitmapSourceMap.put(font.id, source);
+						}
+						skinText = new SkinTextBitmap(loader.bitmapSourceMap.get(font.id), text.size * ((float)loader.dstr.width / loader.sk.w), property);
+					} else {
+						// .fnt 文件找不到，回退到 TTF 字体渲染
+						com.badlogic.gdx.Gdx.app.error("FontDebug", ".fnt not found, falling back to TTF: " + font.path);
+						skinText = new SkinTextFont(loader.config != null ? loader.config.getSystemfontpath() : "font/VL-Gothic-Regular.ttf", 0, text.size, 0, property);
 					}
-					skinText = new SkinTextBitmap(loader.bitmapSourceMap.get(font.id), text.size * ((float)loader.dstr.width / loader.sk.w), property);
 				} else {
 					skinText = new SkinTextFont(path.toString(), 0, text.size, 0, property);
 				}
@@ -785,6 +835,71 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		} catch (Exception e) {
 			return fallbackColor;
 		}
+	}
+
+	/**
+	 * 规范化文件路径，解析 .. 和 . 等相对路径符号。
+	 * Android 上 Gdx.files.absolute() 不支持含 .. 的路径，必须先规范化。
+	 * 兼容 API 21（不使用 java.nio.file.Path）。
+	 */
+	private String normalizeFilePath(String path) {
+		try {
+			java.io.File f = new java.io.File(path);
+			// getCanonicalPath 会解析 .. 和符号链接
+			return f.getCanonicalPath().replace("\\", "/");
+		} catch (Exception e) {
+			// fallback: 手动解析 .. 和 .
+			return manualNormalizePath(path);
+		}
+	}
+
+	/**
+	 * 手动规范化路径（不依赖 java.nio.file），兼容 API 21。
+	 * 解析 . 和 .. 以及多余的 /
+	 */
+	private static String manualNormalizePath(String path) {
+		String p = path.replace("\\", "/");
+		boolean isAbsolute = p.startsWith("/");
+		String[] parts = p.split("/");
+		java.util.ArrayList<String> stack = new java.util.ArrayList<>();
+		for (String part : parts) {
+			if (part.isEmpty() || part.equals(".")) continue;
+			if (part.equals("..")) {
+				if (!stack.isEmpty()) {
+					stack.remove(stack.size() - 1);
+				}
+			} else {
+				stack.add(part);
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		if (isAbsolute) sb.append("/");
+		for (int i = 0; i < stack.size(); i++) {
+			if (i > 0) sb.append("/");
+			sb.append(stack.get(i));
+		}
+		return sb.toString();
+	}
+
+	/**
+	 * 检查字体文件是否存在（支持 internal assets、absolute 路径和 beatoraja.root 相对路径）
+	 */
+	private boolean checkFontFileExists(String fontPath) {
+		String normalized = normalizeFilePath(fontPath);
+		// 1. 尝试 absolute (文件系统) — 优先，因为 Android 皮肤文件在外部存储
+		com.badlogic.gdx.files.FileHandle fhAbs = com.badlogic.gdx.Gdx.files.absolute(normalized);
+		if (fhAbs.exists()) return true;
+		// 2. 尝试 internal (APK assets)
+		com.badlogic.gdx.files.FileHandle fh = com.badlogic.gdx.Gdx.files.internal(normalized);
+		if (fh.exists()) return true;
+		// 3. Android 上尝试 beatoraja.root 相对路径
+		String root = System.getProperty("beatoraja.root", null);
+		if (root != null && !normalized.startsWith("/")) {
+			String rootResolved = normalizeFilePath(root + "/" + normalized);
+			com.badlogic.gdx.files.FileHandle fhRoot = com.badlogic.gdx.Gdx.files.absolute(rootResolved);
+			if (fhRoot.exists()) return true;
+		}
+		return false;
 	}
 
 	protected File getSrcIdPath(String srcid, File p) {

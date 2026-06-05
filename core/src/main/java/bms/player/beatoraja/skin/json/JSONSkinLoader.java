@@ -22,6 +22,7 @@ import bms.player.beatoraja.skin.lua.SkinLuaAccessor;
  */
 public class JSONSkinLoader extends SkinLoader {
 
+	protected Config config;
 	protected Resolution dstr;
 	protected boolean usecim;
 	protected int bgaExpand = -1;
@@ -71,6 +72,7 @@ public class JSONSkinLoader extends SkinLoader {
 
 	public JSONSkinLoader(MainState state, Config c, SkinLuaAccessor lua) {
 		this.lua = lua;
+		this.config = c;
 		dstr = c.getResolution();
 		usecim = false;
 		bgaExpand = c.getBgaExpand();

@@ -88,7 +88,10 @@ public abstract class SkinLoader {
 
     public static File getPath(String imagepath, ObjectMap<String, String> filemap) {
         imagepath = imagepath.replace("\\", "/").replaceAll("/+", "/");
-        if (imagepath.startsWith("/")) imagepath = imagepath.substring(1);
+        // 只对非绝对路径去除前导 /，保留 Android 上的绝对路径
+        if (imagepath.startsWith("/") && !imagepath.startsWith("/storage/") && !imagepath.startsWith("/Android/")) {
+            imagepath = imagepath.substring(1);
+        }
 
         try {
             String normalized = normalizePath(imagepath).replace("\\", "/");
@@ -222,9 +225,16 @@ public abstract class SkinLoader {
 
     public static String normalizePath(String path) {
         if (path == null || path.isEmpty()) return path;
+        boolean isAbsolute = path.startsWith("/");
         File f = new File(path);
-        String abs = f.getAbsolutePath();
-        // 简单的 ".." 处理
+        // 优先用 getCanonicalPath 解析 .. 和符号链接，失败时降级到手动处理
+        String abs;
+        try {
+            abs = f.getCanonicalPath();
+        } catch (Exception e) {
+            abs = f.getAbsolutePath();
+        }
+        // 简单的 ".." 处理（作为 fallback 保护）
         String[] parts = abs.replace("\\", "/").split("/");
         java.util.ArrayList<String> result = new java.util.ArrayList<>();
         for (String p : parts) {
@@ -235,8 +245,11 @@ public abstract class SkinLoader {
             }
         }
         StringBuilder sb = new StringBuilder();
+        if (isAbsolute) {
+            sb.append("/");
+        }
         for (int i = 0; i < result.size(); i++) {
-            if (i > 0) sb.append("/");
+            if (i > 0 || isAbsolute) sb.append("/");
             sb.append(result.get(i));
         }
         return sb.toString();

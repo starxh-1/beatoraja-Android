@@ -34,4 +34,18 @@ public class BitmapFontCache {
     static public CacheableBitmapFont Get(File path) {
         return _cacheStore.get(path);
     }
+
+    /**
+     * 清空所有缓存并 dispose 缓存中的 BitmapFont。
+     * 必须在 Android OpenGL 上下文重建（resume）时调用，
+     * 否则缓存中的 TextureRegion 仍引用已销毁的 GPU 纹理，导致 .fnt 渲染失败。
+     */
+    static public void invalidate() {
+        for (CacheableBitmapFont c : _cacheStore.values()) {
+            if (c != null && c.font != null) {
+                try { c.font.dispose(); } catch (Throwable ignore) {}
+            }
+        }
+        _cacheStore.clear();
+    }
 }

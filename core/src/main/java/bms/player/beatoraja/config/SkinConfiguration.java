@@ -313,6 +313,13 @@ public class SkinConfiguration extends MainState {
 			} else {
 				dirpath = new File(dirStr);
 			}
+			// 规范化路径，解析 .. 和 . （Android 上含 .. 的路径可能导致 File.exists() 失败）
+			try {
+				dirpath = dirpath.getCanonicalFile();
+			} catch (Exception e) {
+				// getCanonicalFile 失败时尝试手动规范化
+				dirpath = new File(manualNormalizePath(dirpath.getPath()));
+			}
 
 			if (!dirpath.exists()) {
 				java.util.logging.Logger.getGlobal().warning("SkinConfiguration: custom file directory does NOT exist: " + dirpath + " (from " + file.path + ")");
@@ -710,5 +717,33 @@ public class SkinConfiguration extends MainState {
 			displayValue = String.valueOf(value);
 			setCustomOffset(offsetName, kind, value);
 		}
+	}
+
+	/**
+	 * 手动规范化路径（不依赖 java.nio.file），兼容 API 21。
+	 * 解析 . 和 .. 以及多余的 /
+	 */
+	private static String manualNormalizePath(String path) {
+		String p = path.replace("\\", "/");
+		boolean isAbsolute = p.startsWith("/");
+		String[] parts = p.split("/");
+		java.util.ArrayList<String> stack = new java.util.ArrayList<>();
+		for (String part : parts) {
+			if (part.isEmpty() || part.equals(".")) continue;
+			if (part.equals("..")) {
+				if (!stack.isEmpty()) {
+					stack.remove(stack.size() - 1);
+				}
+			} else {
+				stack.add(part);
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		if (isAbsolute) sb.append("/");
+		for (int i = 0; i < stack.size(); i++) {
+			if (i > 0) sb.append("/");
+			sb.append(stack.get(i));
+		}
+		return sb.toString();
 	}
 }

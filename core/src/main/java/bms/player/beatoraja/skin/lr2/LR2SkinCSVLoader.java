@@ -46,6 +46,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 	public final Resolution dst;
 	boolean usecim;
 	String skinpath;
+	protected Config config;
 
 	protected S skin;
 
@@ -56,6 +57,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 	public LR2SkinCSVLoader(Resolution src, Config c) {
 		this.src = src;
 		this.dst = c.getResolution();
+		this.config = c;
 		usecim = c.isCacheSkinImage();
 		skinpath = c.getSkinpath();
 
@@ -360,7 +362,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 				if (values[2] < fontlist.size && fontlist.get(values[2]) != null) {
 					text = new SkinTextImage(fontlist.get(values[2]), values[3]);
 				} else {
-					text = new SkinTextFont("skin/default/VL-Gothic-Regular.ttf", 0, 48, 2);
+					text = new SkinTextFont(config != null ? config.getSystemfontpath() : "skin/default/VL-Gothic-Regular.ttf", 0, 48, 2);
 				}
 				text.setAlign(values[4]);
 				text.setEditable(values[5] != 0);

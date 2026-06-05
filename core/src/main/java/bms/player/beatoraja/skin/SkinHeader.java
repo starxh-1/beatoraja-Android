@@ -194,6 +194,13 @@ public class SkinHeader {
 						} else {
 							dir = new File(dirStr);
 						}
+						// 规范化路径，解析 .. 和 .（Android 上含 .. 的路径可能导致 File.exists() 失败）
+						try {
+							dir = dir.getCanonicalFile();
+						} catch (Exception e) {
+							// fallback: 手动规范化
+							dir = new File(manualNormalizePath(dir.getPath()));
+						}
 						if (dir.exists() && dir.isDirectory()) {
 							List<File> l = new ArrayList<File>();
 							for (File subfile : dir.listFiles()) {
@@ -407,5 +414,32 @@ public class SkinHeader {
 			this.items = items;
 		}
 
+	}
+
+	/**
+	 * 手动规范化路径（不依赖 java.nio.file），兼容 API 21。
+	 */
+	private static String manualNormalizePath(String path) {
+		String p = path.replace("\\", "/");
+		boolean isAbsolute = p.startsWith("/");
+		String[] parts = p.split("/");
+		java.util.ArrayList<String> stack = new java.util.ArrayList<>();
+		for (String part : parts) {
+			if (part.isEmpty() || part.equals(".")) continue;
+			if (part.equals("..")) {
+				if (!stack.isEmpty()) {
+					stack.remove(stack.size() - 1);
+				}
+			} else {
+				stack.add(part);
+			}
+		}
+		StringBuilder sb = new StringBuilder();
+		if (isAbsolute) sb.append("/");
+		for (int i = 0; i < stack.size(); i++) {
+			if (i > 0) sb.append("/");
+			sb.append(stack.get(i));
+		}
+		return sb.toString();
 	}
 }

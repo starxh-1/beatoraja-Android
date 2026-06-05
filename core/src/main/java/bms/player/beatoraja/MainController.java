@@ -222,6 +222,42 @@ public class MainController {
     public Object getBeatorajaGame() { return beatorajaGame; }
     public void setBeatorajaGame(Object game) { this.beatorajaGame = game; }
 
+    /**
+     * 解析字体文件 FileHandle，支持 Android 多路径查找：
+     * 1. beatoraja.root 相对路径（外部存储皮肤/字体）
+     * 2. internal（APK assets）
+     * 3. absolute（绝对路径）
+     * Desktop 直接使用 internal。
+     */
+    public static FileHandle resolveFontFileHandle(String fontpath) {
+        if (fontpath == null || fontpath.isEmpty()) return null;
+        String path = fontpath.replace("\\", "/");
+
+        if (com.badlogic.gdx.Gdx.app.getType() == Application.ApplicationType.Android) {
+            // 1. beatoraja.root 相对路径
+            String root = System.getProperty("beatoraja.root", null);
+            if (root != null && !path.startsWith("/")) {
+                String rootPath = root + "/" + path;
+                FileHandle fh = com.badlogic.gdx.Gdx.files.absolute(rootPath);
+                com.badlogic.gdx.Gdx.app.log("FontDebug", "resolveFont [beatoraja.root]: " + rootPath + " -> exists=" + fh.exists());
+                if (fh.exists()) return fh;
+            }
+            // 2. absolute
+            FileHandle fhAbs = com.badlogic.gdx.Gdx.files.absolute(path);
+            com.badlogic.gdx.Gdx.app.log("FontDebug", "resolveFont [absolute]: " + path + " -> exists=" + fhAbs.exists());
+            if (fhAbs.exists()) return fhAbs;
+            // 3. internal (APK assets)
+            FileHandle fhInt = com.badlogic.gdx.Gdx.files.internal(path);
+            com.badlogic.gdx.Gdx.app.log("FontDebug", "resolveFont [internal]: " + path + " -> exists=" + fhInt.exists());
+            if (fhInt.exists()) return fhInt;
+            // fallback: 返回 internal（后续会抛明确错误）
+            com.badlogic.gdx.Gdx.app.error("FontDebug", "resolveFont FAILED: " + path + " not found in any location (beatoraja.root=" + root + ")");
+            return com.badlogic.gdx.Gdx.files.internal(path);
+        } else {
+            return com.badlogic.gdx.Gdx.files.internal(path);
+        }
+    }
+
     // --- 性能 API 反射缓存 ---
     private java.lang.reflect.Method setFrameRateMethod = null;
 
@@ -437,10 +473,7 @@ public class MainController {
         SkinLoader.initPixmapResourcePool(config.getSkinPixmapGen());
 
         try {
-            FileHandle fontFile = Gdx.app.getType() == Application.ApplicationType.Android
-                ? Gdx.files.absolute(config.getSystemfontpath())
-                : Gdx.files.internal(config.getSystemfontpath());
-            if (!fontFile.exists()) fontFile = Gdx.files.internal(config.getSystemfontpath());
+            FileHandle fontFile = resolveFontFileHandle(config.getSystemfontpath());
 
             // 保留 generator 和 fontFile 引用，供 Android resume() 时重建字体纹理使用。
             // 不在此处调用 generator.dispose()，等 MainController.dispose() 时统一释放。
@@ -1039,6 +1072,9 @@ public class MainController {
 
             // 步骤1：清除所有 SkinTextFont 的 generator 缓存
             bms.player.beatoraja.skin.SkinTextFont.invalidateGeneratorCache();
+            // 步骤1b：清除 BitmapFontCache（.fnt 字体的 GPU 纹理在 GL 上下文重建后也会失效，
+            // 否则 .fnt 渲染会引用已销毁的 TextureRegion）
+            bms.player.beatoraja.skin.BitmapFontCache.invalidate();
 
             // 步骤2：重建 systemfont / systemfont18
             if (systemfontFileHandle != null) {

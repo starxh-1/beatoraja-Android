@@ -1175,7 +1175,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 if (previewPath == null && lowerName.startsWith("preview")) {
                     if (lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") ||
                         lowerName.endsWith(".mp3") || lowerName.endsWith(".flac")) {
-                        previewPath = child.name();
+                        previewPath = child.file().getAbsolutePath();
                     }
                 }
             }

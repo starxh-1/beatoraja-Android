@@ -52,7 +52,7 @@ public class SearchTextField extends Stage {
 		final Rectangle r = ((MusicSelectSkin) selector.getSkin()).getSearchTextRegion();
 
 		try {
-			generator = new FreeTypeFontGenerator(Gdx.files.internal(selector.main.getConfig().getSystemfontpath()));
+			generator = new FreeTypeFontGenerator(bms.player.beatoraja.MainController.resolveFontFileHandle(selector.main.getConfig().getSystemfontpath()));
 			FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
 			parameter.size = (int) r.height;
 			parameter.incremental = true;

@@ -27,9 +27,10 @@ public class MessageRenderer implements Disposable  {
 
 	public MessageRenderer(String fontpath) {
 		try {
-			generator = new FreeTypeFontGenerator(Gdx.files.internal(fontpath));				
+			com.badlogic.gdx.files.FileHandle fh = MainController.resolveFontFileHandle(fontpath);
+			generator = new FreeTypeFontGenerator(fh);
 		} catch (GdxRuntimeException e) {
-			Logger.getGlobal().severe("Message Font読み込み失敗");
+			Logger.getGlobal().severe("Message Font読み込み失敗: " + fontpath + " - " + e.getMessage());
 		}
 	}
 

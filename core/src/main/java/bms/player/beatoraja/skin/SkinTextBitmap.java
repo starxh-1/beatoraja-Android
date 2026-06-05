@@ -28,7 +28,7 @@ import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
 public final class SkinTextBitmap extends SkinText {
 
 	private final SkinTextBitmapSource source;
-	private final BitmapFont font;
+	private BitmapFont font;
 	private final GlyphLayout layout;
 	private final float size;
 
@@ -57,6 +57,7 @@ public final class SkinTextBitmap extends SkinText {
 	}
 
 	public void draw(SkinObjectRenderer sprite, float offsetX, float offsetY) {
+		this.font = source.getFont();
 		if (font == null)
 			return;
 
