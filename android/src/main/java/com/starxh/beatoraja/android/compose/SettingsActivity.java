@@ -910,8 +910,7 @@ public class SettingsActivity extends Activity {
             config.put("judgetiming", selectedNoteTimingOffset);
             config.put("notesDisplayTimingAutoAdjust", selectedAutoTimingAdjust);
             config.put("random", selectedNoteModifier);
-            // 写入 PlayConfig 的字段名是 fixhispeed
-            config.put("hispeedFix", selectedHispeedFix);
+            // 写入 PlayConfig 的字段名是 fixhispeed，在 mode*.playconfig 下
             String[] modes = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
             for (String m : modes) {
                 org.json.JSONObject mo = config.optJSONObject(m); if (mo == null) mo = new org.json.JSONObject();
