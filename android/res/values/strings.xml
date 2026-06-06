@@ -27,6 +27,34 @@
     <string name="enable_lanecover">ENABLE LANECOVER</string>
     <string name="enable_lift">ENABLE LIFT</string>
     <string name="floating_menu_position">Floating Menu Position</string>
+    <string name="target_score">TARGET SCORE</string>
+    <string name="gauge_type">Gauge Type</string>
+    <string name="note_timing_offset">Note Display Timing Offset</string>
+    <string name="auto_timing_adjust">Auto Timing Adjust</string>
+    <string name="note_modifier">Note Modifier</string>
+    <string name="ms">ms</string>
+
+    <string-array name="note_modifier_options">
+        <item>OFF</item>
+        <item>MIRROR</item>
+        <item>RANDOM</item>
+        <item>R-RANDOM</item>
+        <item>S-RANDOM</item>
+        <item>SPIRAL</item>
+        <item>H-RANDOM</item>
+        <item>ALL-SCR</item>
+        <item>RANDOM-EX</item>
+        <item>S-RANDOM-EX</item>
+    </string-array>
+
+    <string-array name="gauge_type_options">
+        <item>ASSIST EASY</item>
+        <item>EASY</item>
+        <item>NORMAL</item>
+        <item>HARD</item>
+        <item>EX-HARD</item>
+        <item>HAZARD</item>
+    </string-array>
     <string name="section_tables">Difficulty Tables</string>
     <string name="update_all">Update All</string>
     <string name="start_game">Start</string>
@@ -63,15 +91,15 @@
     </string-array>
     <string-array name="auto_save_options">
         <item>Nothing</item>
-        <item>Score Update</item>
-        <item>Score&gt;=</item>
-        <item>Miss Update</item>
-        <item>Miss&lt;=</item>
-        <item>Combo Update</item>
-        <item>Combo&gt;=</item>
-        <item>Clear Update</item>
-        <item>Clear&gt;=</item>
-        <item>Best Clear</item>
+        <item>Better or same score</item>
+        <item>Better miss</item>
+        <item>Better or same miss</item>
+        <item>Better combo</item>
+        <item>Better or same combo</item>
+        <item>Better lamp</item>
+        <item>Better or same lamp</item>
+        <item>Better miss/combo/lamp</item>
+        <item>Always</item>
     </string-array>
     <string-array name="hispeed_fix_options">
         <item>OFF</item>

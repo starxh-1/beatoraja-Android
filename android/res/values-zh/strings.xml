@@ -27,6 +27,20 @@
     <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
     <string name="enable_lift">启用抬高 (LIFT)</string>
     <string name="floating_menu_position">悬浮菜单位置</string>
+    <string name="target_score">目标分数</string>
+    <string name="gauge_type">血条类型</string>
+    <string name="note_timing_offset">音符显示时间偏移</string>
+    <string name="auto_timing_adjust">自动时间调整</string>
+    <string name="ms">ms</string>
+
+    <string-array name="gauge_type_options">
+        <item>ASSIST EASY</item>
+        <item>EASY</item>
+        <item>NORMAL</item>
+        <item>HARD</item>
+        <item>EX-HARD</item>
+        <item>HAZARD</item>
+    </string-array>
     <string name="section_tables">难易度表</string>
     <string name="update_all">全部更新</string>
     <string name="start_game">开始游戏</string>
@@ -57,15 +71,15 @@
     </string-array>
     <string-array name="auto_save_options">
         <item>Nothing</item>
-        <item>Score Update</item>
-        <item>Score&gt;=</item>
-        <item>Miss Update</item>
-        <item>Miss&lt;=</item>
-        <item>Combo Update</item>
-        <item>Combo&gt;=</item>
-        <item>Clear Update</item>
-        <item>Clear&gt;=</item>
-        <item>Best Clear</item>
+        <item>Better or same score</item>
+        <item>Better miss</item>
+        <item>Better or same miss</item>
+        <item>Better combo</item>
+        <item>Better or same combo</item>
+        <item>Better lamp</item>
+        <item>Better or same lamp</item>
+        <item>Better miss/combo/lamp</item>
+        <item>Always</item>
     </string-array>
     <string-array name="hispeed_fix_options">
         <item>OFF</item>

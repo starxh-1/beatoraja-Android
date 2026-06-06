@@ -639,6 +639,134 @@
                 android:padding="8dp"/>
         </LinearLayout>
 
+        <!-- TARGET SCORE -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/target_score"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/targetScoreSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
+        </LinearLayout>
+
+        <!-- Gauge Type -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/gauge_type"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/gaugeTypeSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
+        </LinearLayout>
+
+        <!-- Note Display Timing Offset -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_timing_offset"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <EditText
+                android:id="@+id/noteTimingOffsetInput"
+                android:layout_width="80dp"
+                android:layout_height="40dp"
+                android:background="#333333"
+                android:textColor="#FFFFFF"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:inputType="number|numberSigned"
+                android:padding="8dp"/>
+
+            <TextView
+                android:layout_width="40dp"
+                android:layout_height="wrap_content"
+                android:text="@string/ms"
+                android:textColor="#888888"
+                android:textSize="14sp"
+                android:gravity="center_vertical"/>
+        </LinearLayout>
+
+        <!-- Auto Timing Adjust -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/auto_timing_adjust"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Switch
+                android:id="@+id/autoTimingAdjustSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:checked="false" />
+        </LinearLayout>
+
+        <!-- Note Modifier -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/note_modifier"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Spinner
+                android:id="@+id/noteModifierSpinner"
+                android:layout_width="160dp"
+                android:layout_height="48dp"
+                android:background="#333333"/>
+        </LinearLayout>
+
         <!-- HI-SPEED Fix -->
 
         <LinearLayout

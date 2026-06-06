@@ -68,6 +68,11 @@ public class SettingsActivity extends Activity {
     private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
     private int selectedGreenNumber = 0;
     private int selectedHispeedFix = 3;
+    private int selectedTargetScore = 0;
+    private int selectedGaugeType = 0;
+    private int selectedNoteTimingOffset = 0;
+    private boolean selectedAutoTimingAdjust = false;
+    private int selectedNoteModifier = 0;
     private boolean selectedEnableLanecover = false;
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
@@ -213,6 +218,11 @@ public class SettingsActivity extends Activity {
                         selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
                     }
                 }
+                selectedTargetScore = findJsonIntValue(json, "targetscore", 0);
+                selectedGaugeType = findJsonIntValue(json, "gaugetype", 0);
+                selectedNoteTimingOffset = findJsonIntValue(json, "notetimingoffset", 0);
+                selectedAutoTimingAdjust = findJsonBooleanValue(json, "autotimingadjust", false);
+                selectedNoteModifier = findJsonIntValue(json, "notemodifier", 0);
             }
         } catch (Exception e) { Log.e("SettingsActivity", "Read player config fail", e); }
     }
@@ -597,6 +607,31 @@ public class SettingsActivity extends Activity {
 
         ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
 
+        Spinner targetScoreSpinner = findViewById(R.id.targetScoreSpinner);
+        String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
+        ArrayAdapter<String> tsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, targetScoreOptions);
+        tsAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        targetScoreSpinner.setAdapter(tsAdapter);
+        targetScoreSpinner.setSelection(Math.min(selectedTargetScore, targetScoreOptions.length - 1));
+
+        Spinner gaugeTypeSpinner = findViewById(R.id.gaugeTypeSpinner);
+        String[] gaugeTypeOptions = getResources().getStringArray(R.array.gauge_type_options);
+        ArrayAdapter<String> gtAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, gaugeTypeOptions);
+        gtAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        gaugeTypeSpinner.setAdapter(gtAdapter);
+        gaugeTypeSpinner.setSelection(Math.min(selectedGaugeType, gaugeTypeOptions.length - 1));
+
+        ((EditText) findViewById(R.id.noteTimingOffsetInput)).setText(String.valueOf(selectedNoteTimingOffset));
+
+        ((Switch) findViewById(R.id.autoTimingAdjustSwitch)).setChecked(selectedAutoTimingAdjust);
+
+        Spinner noteModifierSpinner = findViewById(R.id.noteModifierSpinner);
+        String[] noteModifierOptions = getResources().getStringArray(R.array.note_modifier_options);
+        ArrayAdapter<String> nmAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, noteModifierOptions);
+        nmAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        noteModifierSpinner.setAdapter(nmAdapter);
+        noteModifierSpinner.setSelection(Math.min(selectedNoteModifier, noteModifierOptions.length - 1));
+
         Spinner hispeedFixSpinner = findViewById(R.id.hispeedFixSpinner);
         String[] hsfOptions = getResources().getStringArray(R.array.hispeed_fix_options);
         ArrayAdapter<String> hsfAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, hsfOptions);
@@ -701,7 +736,12 @@ public class SettingsActivity extends Activity {
             try {
                 File tableDir = new File(getExternalFilesDir(null), "table");
                 if (!tableDir.exists()) tableDir.mkdirs();
-                bms.table.DifficultyTable table = new bms.table.DifficultyTable(url.trim());
+                bms.table.DifficultyTable table = new bms.table.DifficultyTable();
+                if (url.trim().endsWith(".json")) {
+                    table.setHeadURL(url.trim());
+                } else {
+                    table.setSourceURL(url.trim());
+                }
                 new bms.table.DifficultyTableParser().decode(true, table);
                 File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
                 try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(new java.util.zip.GZIPOutputStream(new java.io.FileOutputStream(cacheFile)), StandardCharsets.UTF_8)) {
@@ -862,6 +902,11 @@ public class SettingsActivity extends Activity {
             for (int val : selectedAutoSaveReplay) asr.put(val);
             config.put("autosavereplay", asr);
             config.put("greenNumber", selectedGreenNumber);
+            config.put("targetscore", selectedTargetScore);
+            config.put("gaugetype", selectedGaugeType);
+            config.put("notetimingoffset", selectedNoteTimingOffset);
+            config.put("autotimingadjust", selectedAutoTimingAdjust);
+            config.put("notemodifier", selectedNoteModifier);
             // 写入 PlayConfig 的字段名是 fixhispeed
             config.put("hispeedFix", selectedHispeedFix);
             String[] modes = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
@@ -1182,6 +1227,11 @@ public class SettingsActivity extends Activity {
         selectedAutoSaveReplay[2] = ((Spinner) findViewById(R.id.autoSaveReplay3)).getSelectedItemPosition();
         selectedAutoSaveReplay[3] = ((Spinner) findViewById(R.id.autoSaveReplay4)).getSelectedItemPosition();
         try { selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString()); } catch (Exception ignored) {}
+        selectedTargetScore = ((Spinner) findViewById(R.id.targetScoreSpinner)).getSelectedItemPosition();
+        selectedGaugeType = ((Spinner) findViewById(R.id.gaugeTypeSpinner)).getSelectedItemPosition();
+        try { selectedNoteTimingOffset = Integer.parseInt(((EditText) findViewById(R.id.noteTimingOffsetInput)).getText().toString()); } catch (Exception ignored) {}
+        selectedAutoTimingAdjust = ((Switch) findViewById(R.id.autoTimingAdjustSwitch)).isChecked();
+        selectedNoteModifier = ((Spinner) findViewById(R.id.noteModifierSpinner)).getSelectedItemPosition();
         selectedHispeedFix = ((Spinner) findViewById(R.id.hispeedFixSpinner)).getSelectedItemPosition();
         // Polling rate UI disabled (hardcoded to 1000Hz)
         // String pr = (String) ((Spinner) findViewById(R.id.pollingRateSpinner)).getSelectedItem();
@@ -1209,6 +1259,11 @@ public class SettingsActivity extends Activity {
             Spinner[] s = {findViewById(R.id.autoSaveReplay1), findViewById(R.id.autoSaveReplay2), findViewById(R.id.autoSaveReplay3), findViewById(R.id.autoSaveReplay4)};
             for (int i = 0; i < 4; i++) s[i].setSelection(selectedAutoSaveReplay[i]);
             ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
+            ((Spinner) findViewById(R.id.targetScoreSpinner)).setSelection(selectedTargetScore);
+            ((Spinner) findViewById(R.id.gaugeTypeSpinner)).setSelection(selectedGaugeType);
+            ((EditText) findViewById(R.id.noteTimingOffsetInput)).setText(String.valueOf(selectedNoteTimingOffset));
+            ((Switch) findViewById(R.id.autoTimingAdjustSwitch)).setChecked(selectedAutoTimingAdjust);
+            ((Spinner) findViewById(R.id.noteModifierSpinner)).setSelection(selectedNoteModifier);
             ((Switch) findViewById(R.id.enableLanecoverSwitch)).setChecked(selectedEnableLanecover);
             ((Switch) findViewById(R.id.enableLiftSwitch)).setChecked(selectedEnableLift);
         } catch (Exception ignored) {}
