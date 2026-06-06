@@ -1876,7 +1876,7 @@ local function main(keysNumber)
 				x = geo.lanearea.x + geo.lanearea.w - 24 - w
 			end
 			x = x + offset.lane.x
-			y = geo.lane.y + margin
+			y = geo.lane.y + margin - 10
 			bar_angle = 0
 			table.insert(skin.slider,
 				{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}

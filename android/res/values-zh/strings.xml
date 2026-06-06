@@ -111,4 +111,18 @@
     <string name="msg_updating_tables">正在更新 %1$d 个难易度表...</string>
     <string name="msg_tables_updated_summary">已更新 %1$d 个表，%2$d 个失败</string>
     <string name="msg_no_table_urls">没有需要更新的难易度表 URL</string>
+
+    <!-- Help texts for ? buttons -->
+    <string name="player_help_title">选择玩家</string>
+    <string name="player_help">你可以点击"新建玩家"来新建一个player。在只有一个player的情况下无法删除。\n\n导出和导入分数均使用zip压缩包打包（这是因为player目录下不止score.db造成的）。如想进行分数备份，可以使用导出功能，并放到你想存储的文件夹。当你需要重新导入分数时，只需要点击zip导入即可。</string>
+
+    <string name="bms_path_help_title">BMS 路径</string>
+    <string name="bms_path_help">应用本身已经默认创建了一个BMS路径（位于download/beatoraja/songs，不可删除。）你可以点击添加按钮来增加新的BMS路径。\n\nApp本身支持在目录下放置zip，当更新歌曲目录时，检测到zip会解压，但仍建议直接放置文件夹（App自带的zip解压性能相对较差。）\n\n导入的目录结构要求如下：\n\n如果是Zip : inochi_ogg.zip → 解压 → 解压得到 inochi_ogg 文件夹 → 打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n如果是文件夹：打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+
+    <string name="audio_spectrum_help_title">音频频谱</string>
+    <string name="audio_spectrum_help">音频频谱，跟着音乐跳动，很酷喔！负责移植的Star*打小就喜欢看着音频频谱听歌，甚至可以说这才是移植者本人对音乐制作和音乐游戏产生兴趣的重要原因。如果不喜欢关闭即可。</string>
+
+    <string name="gauge_auto_shift_help_title">血条自动转换</string>
+    <string name="gauge_auto_shift_help">血条自动转换。默认已经是Best Clear选项，如果喜欢寻求刺激可以选择None然后开启HAZARD GAUGE来游玩。</string>
+    <string name="expand">点击展开/折叠</string>
 </resources>

@@ -26,6 +26,7 @@
     <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">LANECOVERを有効にする</string>
     <string name="enable_lift">LIFTを有効にする</string>
+    <string name="floating_menu_position">フロートメニューの位置</string>
     <string name="section_tables">難易度表</string>
     <string name="update_all">すべて更新</string>
     <string name="start_game">スタート</string>
@@ -103,4 +104,18 @@
     <string name="dialog_delete_player">プレイヤー削除</string>
     <string name="msg_delete_confirm">プレイヤー \'%1$s\' を削除してもよろしいですか？スコアを含む全てのデータが削除されます。</string>
     <string name="msg_table_updated">難易度表を更新しました</string>
+
+    <!-- Help texts for ? buttons -->
+    <string name="player_help_title">プレイヤー選択</string>
+    <string name="player_help">「新規プレイヤー」をクリックして新しいプレイヤーを作成できます。プレイヤーが1人だけの場合は削除できません。\n\nスコアのエクスポートとインポートは両方ともzip圧縮パッケージを使用しています（これはplayerディレクトリにscore.db以外のファイルも存在するためです）。スコアをバックアップしたい場合は、エクスポート機能を使用して、保存したいフォルダに置くことができます。スコアを再度インポートする必要がある場合は、「Score.zip をインポート」をクリックするだけです。</string>
+
+    <string name="bms_path_help_title">BMSパス</string>
+    <string name="bms_path_help">アプリにはデフォルトのBMSパスが作成されています（download/beatoraja/songs にあり、削除できません）。追加ボタンをクリックして新しいBMSパスを追加できます。\n\nアプリ自体はディレクトリにzipファイルを配置することをサポートしています。曲ディレクトリを更新的时候、zipが検出されると解凍されますが、直接フォルダを配置することをお勧めします（アプリの組み込みのzip解凍性能は比較的悪いです）。\n\n必要なディレクトリ構造は次のとおりです：\n\nzipの場合: inochi_ogg.zip → 解凍 → inochi_ogg フォルダが得られる → inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nフォルダの場合: inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+
+    <string name="audio_spectrum_help_title">オーディオスペクトラム</string>
+    <string name="audio_spectrum_help">オーディオスペクトラム、音楽に合わせて跳动、とてもクールです！移植を担当したStar*は子供の頃からオーディオスペクトラムを見ながら音楽を聴くのが好きでした。そう言う意味では、これが移植者自身が音楽制作や音楽ゲームに興味を持った重要な理由とも言えます。嫌いであればオフにしてください。</string>
+
+    <string name="gauge_auto_shift_help_title">ゲージ自動切り替え</string>
+    <string name="gauge_auto_shift_help">ゲージ自動切り替え。「Best Clear」がすでにデフォルトです。刺激を求めるなら、「None」を選択してHAZARD GAUGEを有効にしてプレイすることもできます。</string>
+    <string name="expand">クリックして展開/折りたたみ</string>
 </resources>

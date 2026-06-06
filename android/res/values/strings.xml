@@ -119,4 +119,18 @@
     <string name="msg_updating_tables">Updating %1$d table(s)...</string>
     <string name="msg_tables_updated_summary">Updated %1$d table(s), %2$d failed</string>
     <string name="msg_no_table_urls">No table URLs to update</string>
+
+    <!-- Help texts for ? buttons -->
+    <string name="player_help_title">Select Player</string>
+    <string name="player_help">You can click \"New Player\" to create a new player. You cannot delete a player when there is only one player.\n\nExport and import scores are both using zip compressed packages (this is because the player directory contains more than just score.db). If you want to backup your scores, you can use the export function and save it to your desired folder. When you need to import scores again, simply click \"Import Score.zip\" to import.</string>
+
+    <string name="bms_path_help_title">BMS Paths</string>
+    <string name="bms_path_help">The app has a default BMS path created (located at download/beatoraja/songs, cannot be deleted). You can click the add button to add new BMS paths.\n\nThe app supports placing zip files in the directory. When updating song directories, if a zip is detected, it will be extracted. However, it is still recommended to place folders directly (the app\'s built-in zip extraction performance is relatively poor).\n\nThe required directory structure is as follows:\n\nIf zip: inochi_ogg.zip → extract → get inochi_ogg folder → open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nIf folder: open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+
+    <string name="audio_spectrum_help_title">Audio Spectrum</string>
+    <string name="audio_spectrum_help">The audio spectrum bounces with the music, it\'s cool! The porter (Star*) has loved watching the audio spectrum while listening to music since childhood. It could even be said that this is the important reason why the porter became interested in music production and music games. If you don\'t like it, just turn it off.</string>
+
+    <string name="gauge_auto_shift_help_title">Gauge Auto Shift</string>
+    <string name="gauge_auto_shift_help">Automatic gauge switching. \"Best Clear\" is already the default. If you like seeking thrills, you can select \"None\" and enable HAZARD GAUGE to play.</string>
+    <string name="expand">Click to expand/collapse</string>
 </resources>

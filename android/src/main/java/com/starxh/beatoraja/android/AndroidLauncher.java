@@ -32,6 +32,10 @@ import java.util.Locale;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Rect;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
+import android.widget.EditText;
 import org.json.JSONObject;
 
 import bms.player.beatoraja.Config;
@@ -99,45 +103,42 @@ public class AndroidLauncher extends AndroidApplication {
     private Handler keepAliveHandler;
     private volatile long lastUserTouchTime = 0;
     private volatile boolean isUserTouching = false;
-    private boolean isSimulatingTouch = false;
     private boolean isWaitingForPermissionResult = false;
     private volatile boolean isPlayStateActive = false;
     private final MainStateListener systemGestureExclusionListener = (state, status) -> {
         boolean isPlay = state instanceof bms.player.beatoraja.play.BMSPlayer;
         if (isPlay != isPlayStateActive) {
             isPlayStateActive = isPlay;
-            runOnUiThread(() -> applySystemGestureExclusion(isPlay));
+            runOnUiThread(() -> {
+                applySystemGestureExclusion(isPlay);
+                if (isPlay) {
+                    // libGDX 的 AndroidOnscreenKeyboard 是一个塞在 DecorView 树里的 EditText。
+                    // 在 Android 15 上，状态切换或按实体键可能让它重新获得焦点，
+                    // 进而触发 WindowInsetsController.show(ime())。先禁掉它的 focusable，再隐藏 IME。
+                    setOnscreenKeyboardFocusable(false);
+                    if (inputMethodManager != null) {
+                        inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+                    }
+                }
+            });
+        }
+    };
+
+    private final ViewTreeObserver.OnGlobalFocusChangeListener focusChangeListener = (oldFocus, newFocus) -> {
+        if (isTextInputActive) return;
+        if (newFocus instanceof EditText) {
+            runOnUiThread(() -> {
+                if (inputMethodManager != null) {
+                    inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+                }
+                if (newFocus != null) newFocus.clearFocus();
+            });
         }
     };
 
     private final Runnable keepAliveRunnable = new Runnable() {
         @Override
         public void run() {
-            long now = SystemClock.uptimeMillis();
-            if (isTextInputActive || isUserTouching || (now - lastUserTouchTime < 500)) {
-                if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 500);
-                return;
-            }
-            try {
-                Window w = getWindow();
-                if (w != null && w.getDecorView() != null) {
-                    isSimulatingTouch = true;
-                    float offsetX = 100f + (float) (Math.random() * 2.0);
-                    float offsetY = 100f + (float) (Math.random() * 2.0);
-                    MotionEvent down = MotionEvent.obtain(now, now, MotionEvent.ACTION_DOWN, offsetX, offsetY, 0);
-                    MotionEvent move = MotionEvent.obtain(now, now + 5, MotionEvent.ACTION_MOVE, offsetX + 1f, offsetY + 1f, 0);
-                    MotionEvent up = MotionEvent.obtain(now, now + 10, MotionEvent.ACTION_UP, offsetX + 1f, offsetY + 1f, 0);
-                    w.getDecorView().dispatchTouchEvent(down);
-                    w.getDecorView().dispatchTouchEvent(move);
-                    w.getDecorView().dispatchTouchEvent(up);
-                    down.recycle();
-                    move.recycle();
-                    up.recycle();
-                    isSimulatingTouch = false;
-                }
-            } catch (Throwable t) {
-                isSimulatingTouch = false;
-            }
             if (keepAliveHandler != null) keepAliveHandler.postDelayed(this, 500);
         }
     };
@@ -294,6 +295,9 @@ public class AndroidLauncher extends AndroidApplication {
         } catch (Exception e) {
             Log.w(TAG, "Failed to register systemGestureExclusionListener: " + e.getMessage());
         }
+
+        // 兜底：任何 EditText 在文本输入关闭时获得焦点，立刻清掉焦点并隐藏 IME。
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(focusChangeListener);
 
         // WindowManager 刷新率 + maxRefreshRate 检测
         setupHighRefreshRate();
@@ -854,7 +858,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
-        if (isSimulatingTouch) return true;
         lastUserTouchTime = SystemClock.uptimeMillis();
         if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) isUserTouching = true;
         else if (ev.getActionMasked() == MotionEvent.ACTION_UP) isUserTouching = false;
@@ -863,7 +866,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
-        if (isSimulatingTouch) return true;
         lastUserTouchTime = SystemClock.uptimeMillis();
         return super.dispatchGenericMotionEvent(ev);
     }
@@ -872,11 +874,39 @@ public class AndroidLauncher extends AndroidApplication {
         isTextInputActive = active;
         if (active) {
             stopKeepAlive();
+            setOnscreenKeyboardFocusable(true);
             runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
         } else {
             startKeepAlive();
+            setOnscreenKeyboardFocusable(false);
             if (inputMethodManager != null) inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
             runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
+        }
+    }
+
+    private void setOnscreenKeyboardFocusable(boolean focusable) {
+        try {
+            View root = getWindow().getDecorView();
+            if (root instanceof ViewGroup) {
+                applyFocusableToEditTexts((ViewGroup) root, focusable);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "setOnscreenKeyboardFocusable fail: " + t.getMessage());
+        }
+    }
+
+    private void applyFocusableToEditTexts(ViewGroup vg, boolean focusable) {
+        for (int i = 0; i < vg.getChildCount(); i++) {
+            View child = vg.getChildAt(i);
+            if (child instanceof EditText) {
+                child.setFocusable(focusable);
+                child.setFocusableInTouchMode(focusable);
+                if (!focusable && child.hasFocus()) {
+                    child.clearFocus();
+                }
+            } else if (child instanceof ViewGroup) {
+                applyFocusableToEditTexts((ViewGroup) child, focusable);
+            }
         }
     }
 

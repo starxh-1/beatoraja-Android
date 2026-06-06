@@ -162,16 +162,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="12dp">
+            android:layout_marginBottom="12dp"
+            android:gravity="center_vertical">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/select_player"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/select_player"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center_vertical"/>
+
+                <TextView
+                    android:id="@+id/playerHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <Spinner
                 android:id="@+id/playerSpinner"
@@ -246,13 +263,29 @@
             android:gravity="center_vertical"
             android:layout_marginBottom="16dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/section_bms_path"
-                android:textSize="20sp"
-                android:textColor="#4FC3F7"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/section_bms_path"
+                    android:textSize="20sp"
+                    android:textColor="#4FC3F7"/>
+
+                <TextView
+                    android:id="@+id/bmsPathHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <Button
                 android:id="@+id/addBmsPathBtn"
@@ -285,30 +318,79 @@
             android:background="#333333"
             android:layout_marginVertical="16dp"/>
 
-        <!-- Play Options Section -->
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/section_play_options"
-            android:textSize="20sp"
-            android:textColor="#4FC3F7"
-            android:layout_marginBottom="16dp"/>
-
-        <!-- Gauge Auto Shift -->
+        <!-- Play Options Section (Expandable) -->
         <LinearLayout
+            android:id="@+id/playOptionsHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:text="@string/show_audio_spectrum"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp" />
+                android:text="@string/section_play_options"
+                android:textSize="20sp"
+                android:textColor="#4FC3F7"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/expand"
+                android:textColor="#4FC3F7"
+                android:textSize="12sp"/>
+
+            <TextView
+                android:id="@+id/playOptionsArrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▼"
+                android:textColor="#4FC3F7"
+                android:textSize="16sp"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/playOptionsContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+        <!-- Audio Spectrum -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/show_audio_spectrum"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <TextView
+                    android:id="@+id/audioSpectrumHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <Switch
                 android:id="@+id/showAudioSpectrumSwitch"
@@ -390,16 +472,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/gauge_auto_shift"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/gauge_auto_shift"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center_vertical"/>
+
+                <TextView
+                    android:id="@+id/gaugeAutoShiftHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <Spinner
                 android:id="@+id/gaugeAutoShiftSpinner"
@@ -608,6 +707,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
                 android:checked="false" />
+        </LinearLayout>
+
         </LinearLayout>
 
         <!-- Polling Rate UI disabled (hardcoded to 1000Hz per Endless Dream upstream fix)

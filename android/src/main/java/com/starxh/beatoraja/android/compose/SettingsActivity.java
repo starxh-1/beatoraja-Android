@@ -64,11 +64,11 @@ public class SettingsActivity extends Activity {
     private boolean showAudioSpectrum = true;
     private List<String> tableUrls = new ArrayList<>();
     private List<String> availablePlayers = new ArrayList<>();
-    private int selectedGaugeAutoShift = 0;
+    private int selectedGaugeAutoShift = 3;
     private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
     private int selectedGreenNumber = 0;
     private int selectedHispeedFix = 3;
-    private boolean selectedEnableLanecover = true;
+    private boolean selectedEnableLanecover = false;
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
     private int selectedBgaExpand = 1;
@@ -506,6 +506,25 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.deletePlayerBtn).setOnClickListener(v -> deleteCurrentPlayer());
         findViewById(R.id.exportScoreBtn).setOnClickListener(v -> exportScoreDatabase());
         findViewById(R.id.importPlayerBtn).setOnClickListener(v -> importScoreDatabase());
+
+        // Help buttons
+        findViewById(R.id.playerHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.player_help_title), getString(R.string.player_help)));
+        findViewById(R.id.bmsPathHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.bms_path_help_title), getString(R.string.bms_path_help)));
+        findViewById(R.id.audioSpectrumHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.audio_spectrum_help_title), getString(R.string.audio_spectrum_help)));
+        findViewById(R.id.gaugeAutoShiftHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.gauge_auto_shift_help_title), getString(R.string.gauge_auto_shift_help)));
+
+        // Play Options expandable section
+        final LinearLayout playOptionsContent = findViewById(R.id.playOptionsContent);
+        final TextView playOptionsArrow = findViewById(R.id.playOptionsArrow);
+        findViewById(R.id.playOptionsHeader).setOnClickListener(v -> {
+            if (playOptionsContent.getVisibility() == View.VISIBLE) {
+                playOptionsContent.setVisibility(View.GONE);
+                playOptionsArrow.setText("▶");
+            } else {
+                playOptionsContent.setVisibility(View.VISIBLE);
+                playOptionsArrow.setText("▼");
+            }
+        });
 
         // BMS Path Container
         bmsPathContainer = findViewById(R.id.bmsPathContainer);
@@ -1199,5 +1218,13 @@ public class SettingsActivity extends Activity {
         Intent intent = new Intent(this, AndroidLauncher.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
         startActivity(intent); finish();
+    }
+
+    private void showHelpDialog(String title, String message) {
+        new android.app.AlertDialog.Builder(this)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show();
     }
 }
