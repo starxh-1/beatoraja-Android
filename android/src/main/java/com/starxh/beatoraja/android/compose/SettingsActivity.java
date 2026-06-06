@@ -80,6 +80,8 @@ public class SettingsActivity extends Activity {
     // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
 
+    private String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
+
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
     private Spinner playerSpinner;
@@ -218,11 +220,13 @@ public class SettingsActivity extends Activity {
                         selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
                     }
                 }
-                selectedTargetScore = findJsonIntValue(json, "targetscore", 0);
-                selectedGaugeType = findJsonIntValue(json, "gaugetype", 0);
-                selectedNoteTimingOffset = findJsonIntValue(json, "notetimingoffset", 0);
-                selectedAutoTimingAdjust = findJsonBooleanValue(json, "autotimingadjust", false);
-                selectedNoteModifier = findJsonIntValue(json, "notemodifier", 0);
+                String targetidStr = findJsonStringValue(json, "targetid", "MAX");
+                selectedTargetScore = Arrays.asList(targetScoreOptions).indexOf(targetidStr);
+                if (selectedTargetScore < 0) selectedTargetScore = 0;
+                selectedGaugeType = findJsonIntValue(json, "gauge", 0);
+                selectedNoteTimingOffset = findJsonIntValue(json, "judgetiming", 0);
+                selectedAutoTimingAdjust = findJsonBooleanValue(json, "notesDisplayTimingAutoAdjust", false);
+                selectedNoteModifier = findJsonIntValue(json, "random", 0);
             }
         } catch (Exception e) { Log.e("SettingsActivity", "Read player config fail", e); }
     }
@@ -608,7 +612,6 @@ public class SettingsActivity extends Activity {
         ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
 
         Spinner targetScoreSpinner = findViewById(R.id.targetScoreSpinner);
-        String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
         ArrayAdapter<String> tsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, targetScoreOptions);
         tsAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         targetScoreSpinner.setAdapter(tsAdapter);
@@ -902,11 +905,11 @@ public class SettingsActivity extends Activity {
             for (int val : selectedAutoSaveReplay) asr.put(val);
             config.put("autosavereplay", asr);
             config.put("greenNumber", selectedGreenNumber);
-            config.put("targetscore", selectedTargetScore);
-            config.put("gaugetype", selectedGaugeType);
-            config.put("notetimingoffset", selectedNoteTimingOffset);
-            config.put("autotimingadjust", selectedAutoTimingAdjust);
-            config.put("notemodifier", selectedNoteModifier);
+            config.put("targetid", targetScoreOptions[selectedTargetScore]);
+            config.put("gauge", selectedGaugeType);
+            config.put("judgetiming", selectedNoteTimingOffset);
+            config.put("notesDisplayTimingAutoAdjust", selectedAutoTimingAdjust);
+            config.put("random", selectedNoteModifier);
             // 写入 PlayConfig 的字段名是 fixhispeed
             config.put("hispeedFix", selectedHispeedFix);
             String[] modes = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
