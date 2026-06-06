@@ -2043,30 +2043,30 @@ local function main(keysNumber)
 	-- musicProgressBar
 	do
 		local w = 10 local slider_h = 20
-		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = geo.lane.h - slider_h, type = 6}
-		)
 		local margin_y = 34
 		local bar_h = geo.lane.h - margin_y * 2
+		table.insert(skin.slider,
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
+		)
 		local x = geo.lanearea.x + 24
 		if is2P() then
 			x = geo.lanearea.x + geo.lanearea.w - 24 - w
 		end
 		x = x + offset.lane.x
-		local y = geo.lane.y + margin_y
+		local y = geo.lane.y + margin_y - 15
 		if property.hideFrames.item.off.isSelected() then
 			append_all(skin.destination, {
 				{id = -111, dst = {
-					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40}
+					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40, cx = 0, cy = 0}
 				}},
 			})
 		end
 		append_all(skin.destination, {
 			{id = -110, dst = {
-				{x = x, y = y, w = w, h = bar_h}
+				{x = x, y = y, w = w, h = bar_h, cx = 0, cy = 0}
 			}},
 			{id = "musicprogress", dst = {
-				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h},
+				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h, cx = 0, cy = 0},
 				{time = 1000, a = 100},
 			}},
 		})
