@@ -210,7 +210,7 @@ MUSICSELECT ──选曲──→ DECIDE ──开始──→ PLAY ──结束
 目标 FPS < 1000 时 → 调用 updateFrameRateAPI() 告知系统
 ```
 
-MusicSelector 仅在首次创建时 `create()`（扫描数据库），后续切回时跳过 create 仅重新加载 skin，大幅减少切回选曲界面的开销。每次切到 PLAY 时显式调用 `System.gc()` 释放前一界面占用的内存。
+MusicSelector 仅在首次创建时 `create()`（扫描数据库），后续切回时跳过 create 仅重新加载 skin，大幅减少切回选曲界面的开销。切到 PLAY 时依赖 `bmsplayer.dispose()` 释放前一界面的内存，**不**再手动 `System.gc()` — 强制 GC 不可靠且会引发长 STW 帧率抖动。
 
 ---
 
@@ -448,7 +448,7 @@ Android 原生应用通过 `Choreographer.postFrameCallback()` 获得 VSync 对�
 | SpriteBatch 缓冲区 4096 | `MainController.create()` | 减少高 BPM 谱面 flush 次数 |
 | 多 begin/end 合并（部分） | `MainController.render()` | FPS+Message 合并为一个 begin/end |
 | MusicSelector 跳过重复 create | `MainController.changeState()` | 切回选曲界面仅重新加载 skin |
-| System.gc() 触发 | 切到 PLAY 前 | 释放前界面内存 |
+| 输入轮询线程优雅停机 | `MainController.dispose()` | `pollingRunning=false` + `interrupt()` + `join(100ms)` |
 | GL 上下文恢复 | `MainController.resume()` | 重建所有失效的 GPU 纹理 |
 
 ### 7.2 可进一步优化的方向
