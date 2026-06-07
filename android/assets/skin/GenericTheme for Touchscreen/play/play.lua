@@ -1490,7 +1490,7 @@ local function main(keysNumber)
 		end
 	end
 	-- playinfo (in bga area)
-	if true then
+	if not isPortraitLayout() then
 		local w = 130
 		local x = geo.bga.x + 20
 		if isBgaArea2P() then
@@ -1786,7 +1786,7 @@ local function main(keysNumber)
 		end
 
 		-- playinfo
-		if true then
+		if not isPortraitLayout() then
 			append_all(skin.destination, playinfo_dst(geo.scoregraph.x, 12, geo.scoregraph.w, 255 + offset.scoregraph.a, isScoreGraphSlim(), {}))
 		end
 
@@ -1857,7 +1857,7 @@ local function main(keysNumber)
 	end
 
 	-- musicProgressBar
-	do
+	if not isPortraitLayout() then
 		local w = 10 local slider_h = 20
 		local margin = 34
 		local x, y, bar_h, bar_angle
