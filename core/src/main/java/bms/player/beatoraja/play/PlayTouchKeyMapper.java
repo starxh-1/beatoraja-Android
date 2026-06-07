@@ -42,8 +42,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
     // pointer ID -> 按下的按键索引 (-1 表示未按在任何键上)
     private int[] pointerMap = new int[64];
-    // pointer ID -> 按下时的游戏时间戳（微秒），在 touchDown 时立即捕获
-    private long[] pointerPressTime = new long[64];
+    // 复用的临时 Vector2，避免 touchDown 频繁分配
+    private final Vector2 tmpCoords = new Vector2();
 
     private final Matrix4 oldProj = new Matrix4();
 
@@ -54,6 +54,10 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
     private boolean isPortrait = false;
     private static final int OP_PORTRAIT = 1101;
+
+    // 相邻 lane Y 方向间隙小于此值（px）时仍用完整 15% 扩展（侧排 lane 不受限制）；
+    // 大于则把扩展边界限制到相邻 lane 中线，防止双键同时触发
+    private static final float MIN_GAP_FOR_MIDLINE = 10f;
 
     public PlayTouchKeyMapper(BMSPlayer player, Resolution resolution, BMSPlayerInputProcessor inputProcessor, LaneProperty laneProperty) {
         this.player = player;
@@ -72,7 +76,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         // 初始化空的按钮数组，将在 updateRegionsFromSkin 中填充
         keyButtons = new TouchKeyButton[0];
 
-        for (int i = 0; i < pointerMap.length; i++) { pointerMap[i] = -1; pointerPressTime[i] = Long.MIN_VALUE; }
+        for (int i = 0; i < pointerMap.length; i++) { pointerMap[i] = -1; }
     }
 
     /**
@@ -154,12 +158,32 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
                 stageY = logicH - finalY - r.height;
             }
 
-            // 扩展触摸区域高度
-            // 在竖屏模式下，Y轴对应厚度，X轴对应轨道方向。
-            // 为了防止按键“粘连”（冲突），在竖屏模式下取消 Y 轴扩展。
-            float currentTouchExtension = isPortrait ? 0 : touchExtension;
-            float extendedY = stageY - currentTouchExtension;
-            float extendedHeight = r.height + currentTouchExtension * 2;
+            // 触摸区域扩展：横屏下尝试扩展到相邻 lane 中线
+            // 仅在 Y 方向上有"足够大"的间隙时限制扩展（侧排 lane 不受影响）
+            float extendUp = 0;
+            float extendDown = 0;
+            if (!isPortrait) {
+                extendUp = touchExtension;
+                extendDown = touchExtension;
+
+                if (i > 0) {
+                    float prevBottom = computeStageBottom(lanes[i - 1], isPortrait);
+                    float gap = stageY - prevBottom;
+                    if (gap > MIN_GAP_FOR_MIDLINE) {
+                        extendUp = Math.min(touchExtension, gap / 2f);
+                    }
+                }
+                if (i < lanes.length - 1) {
+                    float nextTop = computeStageTop(lanes[i + 1], isPortrait);
+                    float gap = nextTop - (stageY + r.height);
+                    if (gap > MIN_GAP_FOR_MIDLINE) {
+                        extendDown = Math.min(touchExtension, gap / 2f);
+                    }
+                }
+            }
+
+            float extendedY = stageY - extendUp;
+            float extendedHeight = r.height + extendUp + extendDown;
 
             // 确保不超出屏幕边界
             if (extendedY < 0) {
@@ -172,6 +196,19 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
 
             keyButtons[i].updateBounds(finalX, extendedY, r.width, extendedHeight);
         }
+    }
+
+    private float computeStageTop(SkinNote.SkinLane lane, boolean isPortrait) {
+        float offsetY = 0;
+        for (SkinObject.SkinOffset o : lane.getSkinOffsets()) {
+            if (o != null) offsetY += o.y;
+        }
+        float finalY = lane.region.y + offsetY;
+        return isPortrait ? finalY : logicH - finalY - lane.region.height;
+    }
+
+    private float computeStageBottom(SkinNote.SkinLane lane, boolean isPortrait) {
+        return computeStageTop(lane, isPortrait) + lane.region.height;
     }
 
     /**
@@ -244,15 +281,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
     /**
      * 同步按键状态到核心层
      */
-    private void syncKeyState(int laneIdx, long pressTimeMicro) {
+    private void syncKeyState(int laneIdx, long timestamp, boolean pressed) {
         if (laneIdx < 0 || laneIdx >= keyButtons.length) return;
-        boolean stillPressed = false;
-        for (int p = 0; p < pointerMap.length; p++) {
-            if (pointerMap[p] == laneIdx) {
-                stillPressed = true;
-                break;
-            }
-        }
 
         // 通过 LaneProperty 获取该 lane 对应的真正 key index
         int keyIdx = laneIdx;
@@ -263,11 +293,7 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             }
         }
 
-        // 使用 touchDown 时捕获的高精度时间戳（微秒），而非当前时间
-        // TimerManager 已改为实时计算，此处时间精度不再受帧率限制
-        final long timestamp = stillPressed ? pressTimeMicro
-            : player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY);
-        inputProcessor.setKeyChanged(keyIdx, stillPressed, timestamp);
+        inputProcessor.setKeyChanged(keyIdx, pressed, timestamp);
     }
 
     public void render(SpriteBatch sprite, BitmapFont font) {
@@ -281,9 +307,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             if (pointerMap[p] != -1 && !Gdx.input.isTouched(p)) {
                 int oldKeyIdx = pointerMap[p];
                 pointerMap[p] = -1;
-                final long pressTime = pointerPressTime[p];
-                pointerPressTime[p] = Long.MIN_VALUE;
-                syncKeyState(oldKeyIdx, pressTime);
+                // 指针在 render 中被检测为断开，没有真实 touchUp 事件，用当前帧时间近似
+                syncKeyState(oldKeyIdx, player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY), false);
             }
         }
 
@@ -305,9 +330,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
             if (pointerMap[i] != -1) {
                 int keyIdx = pointerMap[i];
                 pointerMap[i] = -1;
-                final long pressTime = pointerPressTime[i];
-                pointerPressTime[i] = Long.MIN_VALUE;
-                syncKeyState(keyIdx, pressTime);
+                // reset 时没有真实事件，用当前帧时间近似
+                syncKeyState(keyIdx, player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY), false);
             }
         }
     }
@@ -318,15 +342,14 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         if (!regionsInitialized) return false;
         if (pointer >= pointerMap.length) return false;
 
-        // 立即捕获高精度时间戳 -- TimerManager 现已实时计算，精度 ~1μs
+        // 必须使用 play timer（判定系统也以此为基准），不能使用 native event time（不同时间基）
         final long pressTime = player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY);
 
-        Vector2 coords = stage.screenToStageCoordinates(new Vector2(screenX, screenY));
+        stage.screenToStageCoordinates(tmpCoords.set(screenX, screenY));
         for (int i = 0; i < keyButtons.length; i++) {
-            if (keyButtons[i] != null && keyButtons[i].getBounds().contains(coords.x, coords.y)) {
+            if (keyButtons[i] != null && keyButtons[i].getBounds().contains(tmpCoords.x, tmpCoords.y)) {
                 pointerMap[pointer] = i;
-                pointerPressTime[pointer] = pressTime;
-                syncKeyState(i, pressTime);
+                syncKeyState(i, pressTime, true);
                 return true;
             }
         }
@@ -340,9 +363,8 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         if (pointer < pointerMap.length && pointerMap[pointer] != -1) {
             int keyIdx = pointerMap[pointer];
             pointerMap[pointer] = -1;
-            final long pressTime = pointerPressTime[pointer];
-            pointerPressTime[pointer] = Long.MIN_VALUE;
-            syncKeyState(keyIdx, pressTime);
+            // 必须使用 play timer
+            syncKeyState(keyIdx, player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY), false);
             return true;
         }
         return true;

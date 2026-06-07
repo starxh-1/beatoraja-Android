@@ -102,7 +102,7 @@ public class SearchTextField extends Stage {
 						}
 
 						Gdx.app.log("SearchTextField", "Deactivating text mode: Enter/Newline pressed");
-						textField.getOnscreenKeyboard().show(false);
+						textField.getOnscreenKeyboard().close();
 						setKeyboardFocus(null);
 						selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);
 					}
@@ -173,7 +173,7 @@ public class SearchTextField extends Stage {
 			search.setText("");
 			search.setMessageText("search song");
 			search.getStyle().messageFontColor = Color.GRAY;
-			search.getOnscreenKeyboard().show(false);
+			search.getOnscreenKeyboard().close();
 		}
 		setKeyboardFocus(null);
 		selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);

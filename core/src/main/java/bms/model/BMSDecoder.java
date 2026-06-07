@@ -1,7 +1,6 @@
 package bms.model;
 
 import java.io.*;
-import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
@@ -141,8 +140,15 @@ public class BMSDecoder extends ChartDecoder {
 
 		int maxsec = 0;
 		// BMS読み込み、ハッシュ値取得
+		// Pre-compute both hashes from the full data array up front, then feed
+		// the BufferedReader a plain ByteArrayInputStream. This drops the
+		// two DigestInputStream wrappers and their per-read overhead.
+		md5digest.update(data);
+		sha256digest.update(data);
+		final byte[] md5Bytes = md5digest.digest();
+		final byte[] sha256Bytes = sha256digest.digest();
 		try (BufferedReader br = new BufferedReader(new InputStreamReader(
-				new DigestInputStream(new DigestInputStream(new ByteArrayInputStream(data), md5digest), sha256digest),
+				new ByteArrayInputStream(data),
 				detectCharset(data)))) {
 			model.setMode(ispms ? Mode.POPN_9K : Mode.BEAT_5K);
 			// Logger.getGlobal().info(
@@ -413,8 +419,8 @@ public class BMSDecoder extends ChartDecoder {
 			if (model.getPlayer() == 1 && (model.getMode() == Mode.BEAT_10K || model.getMode() == Mode.BEAT_14K)) {
 				log.add(new DecodeLog(WARNING, "#PLAYER定義が1にもかかわらず2P側のノーツ定義が存在します"));
 			}
-			model.setMD5(convertHexString(md5digest.digest()));
-			model.setSHA256(convertHexString(sha256digest.digest()));
+			model.setMD5(convertHexString(md5Bytes));
+			model.setSHA256(convertHexString(sha256Bytes));
 			log.add(new DecodeLog(INFO, "#PLAYER定義が1にもかかわらず2P側のノーツ定義が存在します"));
 			Logger.getGlobal().fine("BMS数据解析时间(ms) :" + (System.currentTimeMillis() - time));
 
@@ -476,6 +482,8 @@ public class BMSDecoder extends ChartDecoder {
 		return sb.toString();
 	}
 
+	private static final int CHARSET_SAMPLE_SIZE = 4096;
+
 	private static String detectCharset(byte[] data) {
 		if (data == null || data.length == 0) {
 			return "MS932";
@@ -484,9 +492,14 @@ public class BMSDecoder extends ChartDecoder {
 		if (data.length >= 3 && data[0] == (byte) 0xEF && data[1] == (byte) 0xBB && data[2] == (byte) 0xBF) {
 			return "UTF-8";
 		}
+		// 仅用文件前 4KB 探测编码: 大幅减少 new String(byte[]) 的分配。
+		// 完整 data 仍由 decode() 传给 chart parser, 不影响 note 密度 / BPM / stop 解析。
+		int sampleLen = Math.min(data.length, CHARSET_SAMPLE_SIZE);
+		byte[] sample = new byte[sampleLen];
+		System.arraycopy(data, 0, sample, 0, sampleLen);
 		// Try MS932 (Shift_JIS) first, as most BMS files are in Shift_JIS
 		try {
-			String test = new String(data, "MS932");
+			String test = new String(sample, "MS932");
 			// Check if it contains typical Japanese characters or BMS commands
 			if (test.contains("#TITLE") || test.contains("#ARTIST") || test.contains("。") || test.contains("、")) {
 				return "MS932";
@@ -496,7 +509,7 @@ public class BMSDecoder extends ChartDecoder {
 		}
 		// Try UTF-8
 		try {
-			String test = new String(data, "UTF-8");
+			String test = new String(sample, "UTF-8");
 			if (test.contains("#TITLE") || test.contains("#ARTIST")) {
 				return "UTF-8";
 			}
@@ -505,7 +518,7 @@ public class BMSDecoder extends ChartDecoder {
 		}
 		// Try GBK
 		try {
-			String test = new String(data, "GBK");
+			String test = new String(sample, "GBK");
 			if (test.contains("#TITLE") || test.contains("#ARTIST")) {
 				return "GBK";
 			}

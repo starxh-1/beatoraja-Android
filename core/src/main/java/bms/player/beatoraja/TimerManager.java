@@ -4,19 +4,7 @@ import java.util.Arrays;
 
 import bms.player.beatoraja.skin.SkinProperty;
 
-/**
- * 低端32位设备优化：用System.currentTimeMillis替代System.nanoTime，
- * 避免可能的syscall开销。在高端设备或非32位ARM上仍使用nanoTime保持高精度。
- */
 public class TimerManager {
-
-    private static final boolean USE_MILLIS_FOR_LOW_POWER;
-
-    static {
-        // 通过系统属性检测32位ARM设备（AndroidLauncher会设置beatoraja.32bit）
-        // 纯Desktop或其他环境编译时直接读取系统属性
-        USE_MILLIS_FOR_LOW_POWER = "true".equals(System.getProperty("beatoraja.32bit"));
-    }
 
     private static final long INVALID_TIMER = Long.MIN_VALUE;
 
@@ -30,7 +18,7 @@ public class TimerManager {
 	private final long[] timer = new long[timerCount];
 
 	private MainState current;
-	
+
 	public long getStartTime() {
 		return starttime / 1000000;
 	}
@@ -54,9 +42,6 @@ public class TimerManager {
 	 * 实时返回当前微秒时间。不再依赖帧率，直接从 System.nanoTime() 计算。
 	 */
 	public long getNowMicroTime() {
-		if (USE_MILLIS_FOR_LOW_POWER) {
-			return (System.currentTimeMillis() - starttime) * 1000;
-		}
 		return (System.nanoTime() - starttime) / 1000;
 	}
 
@@ -112,26 +97,16 @@ public class TimerManager {
 	public MainState getMainState() {
 		return current;
 	}
-	
+
 	public void setMainState(MainState current) {
 		this.current = current;
 
 		Arrays.fill(timer, INVALID_TIMER);
-		if (USE_MILLIS_FOR_LOW_POWER) {
-			starttime = System.currentTimeMillis();
-			nowmicrotime = 0;
-		} else {
-			starttime = System.nanoTime();
-			nowmicrotime = 0;
-		}
+		starttime = System.nanoTime();
+		nowmicrotime = 0;
 	}
-	
+
 	public void update() {
-		if (USE_MILLIS_FOR_LOW_POWER) {
-			long elapsed = System.currentTimeMillis() - starttime;
-			nowmicrotime = elapsed * 1000;
-		} else {
-			nowmicrotime = ((System.nanoTime() - starttime) / 1000);
-		}
+		nowmicrotime = ((System.nanoTime() - starttime) / 1000);
 	}
 }

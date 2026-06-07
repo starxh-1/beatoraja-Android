@@ -47,7 +47,7 @@ public final class PlayerResource {
 	 */
 	private BMSPlayerMode mode;
 
-	private BMSResource bmsresource;
+	private final BMSResource bmsresource;
 
 	/**
 	 * スコア
@@ -458,10 +458,9 @@ public final class PlayerResource {
 	}
 
 	public void dispose() {
-		if(bmsresource != null) {
-			bmsresource.dispose();
-			bmsresource = null;
-		}
+		// bmsresource 始终非空 (构造时即 new 出来), 不再置 null 以免
+		// getBMSResource() 在 app 退出路径之外的任何时点返回 null 触发 NPE。
+		bmsresource.dispose();
 	}
 
 	public SongData getSongdata() {

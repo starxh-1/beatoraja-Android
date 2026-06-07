@@ -107,6 +107,8 @@ public class BMSPlayer extends MainState {
 	private PracticeConfiguration practice = new PracticeConfiguration();
 	private long starttimeoffset;
 
+	private float adjustedVolume = -1.f;
+
 	private RhythmTimerProcessor rhythm;
 	private long startpressedtime;
 	private boolean bgaPrepared = false;
@@ -958,6 +960,10 @@ public class BMSPlayer extends MainState {
 
 	public int getPlaySpeed() {
 		return playspeed;
+	}
+
+	public float getAdjustedVolume() {
+		return adjustedVolume;
 	}
 
 	public void input() {

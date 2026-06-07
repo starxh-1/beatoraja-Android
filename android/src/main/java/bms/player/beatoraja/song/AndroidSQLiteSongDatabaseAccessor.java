@@ -56,6 +56,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private java.util.Map<String, String> tags = new java.util.HashMap<>();
     private java.util.Map<String, Integer> favorites = new java.util.HashMap<>();
 
+    // 增量 Deletion Sync：扫描前快照（DB 当时的全部 path）+ 本次扫描所见 path
+    private volatile Set<String> preScanPathSnapshot = null;
+    private final Set<String> seenThisScan = ConcurrentHashMap.newKeySet();
+
     // CRC计算用的 root 路径（对应原版的 Paths.get(".").toString()）
     private final String rootpath = "";
 
@@ -598,6 +602,17 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         }
         Log.i(TAG, "updateSongDatas: Existing songs in DB: " + existingSongCount + ", forceRefresh: " + forceRefresh);
 
+        // 捕获 pre-scan path 快照 + 清空本次扫描所见集合
+        preScanPathSnapshot = new HashSet<>();
+        try (Cursor cursor = db.rawQuery("SELECT path FROM song", null)) {
+            while (cursor.moveToNext()) {
+                String p = getStringSafe(cursor, "path");
+                if (p != null) preScanPathSnapshot.add(p);
+            }
+        }
+        seenThisScan.clear();
+        Log.i(TAG, "updateSongDatas: Pre-scan snapshot: " + preScanPathSnapshot.size() + " paths");
+
         // 保持 tag 和 favorite（在删除前读取）
         tags.clear();
         favorites.clear();
@@ -689,69 +704,64 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
         int deleteCount = 0;
         try {
-            // Step 1: Deletion Sync - 只在 forceRefresh 时执行
-            if (forceRefresh) {
-                Log.i(TAG, "Deletion Sync: Querying all existing file paths...");
-                List<String> existingPaths = new ArrayList<>();
-                try (Cursor cursor = db.rawQuery("SELECT path FROM song", null)) {
-                    while (cursor.moveToNext()) {
-                        existingPaths.add(getStringSafe(cursor, "path"));
-                    }
-                }
-
-                // 并行化文件存在性检查
-                Log.i(TAG, "Deletion Sync: Checking " + existingPaths.size() + " files with " + PARALLEL_THREAD_COUNT + " threads...");
-                long delCheckStart = System.currentTimeMillis();
-                Set<String> toDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
-                ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
-                for (final String path : existingPaths) {
-                    executor.submit(() -> {
-                        if (!Gdx.files.absolute(path).exists()) {
-                            toDelete.add(path);
-                        }
-                    });
-                }
-                executor.shutdown();
-                try {
-                    executor.awaitTermination(120, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    Log.w(TAG, "Deletion Sync: Executor interrupted", e);
-                }
-                long delCheckElapsed = System.currentTimeMillis() - delCheckStart;
-                Log.i(TAG, "Deletion Sync: Found " + toDelete.size() + " missing files in " + delCheckElapsed + "ms");
-
-                // 批量删除
-                if (!toDelete.isEmpty()) {
-                    db.beginTransactionNonExclusive();
-                    try {
-                        for (String path : toDelete) {
-                            db.delete("song", "path = ?", new String[]{path});
-                            deleteCount++;
-                        }
-                        db.setTransactionSuccessful();
-                    } finally {
-                        db.endTransaction();
-                    }
-                }
-                db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
-                Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and cleared folder table");
-            }
-
-            // Step 2: forceRefresh 为 true 时使用并行扫描
+            // Step 1: 扫描（forceRefresh 用并行，普通用串行）
             if (forceRefresh) {
                 updateSongDatasParallel(paths, forceRefresh, progress);
-                return;
+            } else {
+                for (String pathToScan : paths) {
+                    if (pathToScan == null || pathToScan.trim().isEmpty()) continue;
+                    FileHandle scanDir = Gdx.files.absolute(pathToScan.trim());
+                    if (scanDir.exists()) {
+                        Log.i(TAG, "Starting recursive scan of: " + scanDir.path());
+                        // Each folder handles its own transaction
+                        scanFolderRecursively(scanDir, decoder, db, scannedCount, updatedCount, totalFiles, forceRefresh, progress);
+                    }
+                }
             }
 
-            // Step 2 (增量模式): 扫描所有路径
-            for (String pathToScan : paths) {
-                if (pathToScan == null || pathToScan.trim().isEmpty()) continue;
-                FileHandle scanDir = Gdx.files.absolute(pathToScan.trim());
-                if (scanDir.exists()) {
-                    Log.i(TAG, "Starting recursive scan of: " + scanDir.path());
-                    // Each folder handles its own transaction
-                    scanFolderRecursively(scanDir, decoder, db, scannedCount, updatedCount, totalFiles, forceRefresh, progress);
+            // Step 2: 增量 Deletion Sync - 扫描后基于 (pre-scan 快照 - 本次扫描所见) 做差集检查
+            if (preScanPathSnapshot != null) {
+                Set<String> candidates = new HashSet<>(preScanPathSnapshot);
+                candidates.removeAll(seenThisScan);
+                Log.i(TAG, "Deletion Sync: " + candidates.size() + " candidates (not seen this scan)");
+
+                if (!candidates.isEmpty()) {
+                    long delCheckStart = System.currentTimeMillis();
+                    Set<String> toDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
+                    ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
+                    for (final String path : candidates) {
+                        executor.submit(() -> {
+                            if (!Gdx.files.absolute(path).exists()) {
+                                toDelete.add(path);
+                            }
+                        });
+                    }
+                    executor.shutdown();
+                    try {
+                        executor.awaitTermination(120, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Log.w(TAG, "Deletion Sync: Executor interrupted", e);
+                    }
+                    long delCheckElapsed = System.currentTimeMillis() - delCheckStart;
+                    Log.i(TAG, "Deletion Sync: Found " + toDelete.size() + " missing files in " + delCheckElapsed + "ms");
+
+                    // 批量删除
+                    if (!toDelete.isEmpty()) {
+                        db.beginTransactionNonExclusive();
+                        try {
+                            for (String path : toDelete) {
+                                db.delete("song", "path = ?", new String[]{path});
+                                deleteCount++;
+                            }
+                            db.setTransactionSuccessful();
+                        } finally {
+                            db.endTransaction();
+                        }
+                        db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
+                        Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and cleared folder table");
+                    }
                 }
+                preScanPathSnapshot = null; // 清空供下次扫描
             }
 
             long endTime = System.currentTimeMillis();
@@ -1013,6 +1023,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             String pathName = file.path().replace('\\', '/');
             int lastModifiedTime = (int) (file.lastModified() / 1000);
+            // 标记为本次扫描所见（用于增量 Deletion Sync）
+            seenThisScan.add(pathName);
 
             // 增量更新检查：如果传入 forceRefresh 为 false，则尝试从库中读取。
             // 优化：updateSongDatasParallel 已在前置阶段通过 dateCache 过滤，通常这里 forceRefresh 应为 true。
@@ -1321,6 +1333,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
             String pathName = file.path().replace('\\', '/');
             long lastModifiedTime = file.lastModified() / 1000;
+            // 标记为本次扫描所见（用于增量 Deletion Sync）
+            seenThisScan.add(pathName);
 
             // 无论是否跳过，都增加扫描计数并上报进度
             int currentScanned = scannedCount.incrementAndGet();
