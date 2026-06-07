@@ -1964,7 +1964,7 @@ local function main(keysNumber)
 	-- glow
 	if isPortraitLayout() then
 		table.insert(skin.image,
-			{id = "glow", src = "src_glow_portrait", x = 0, y = 0, w = 72, h = 492}
+			{id = "glow", src = "src_glow_portrait", x = - 15, y = 0, w = 72, h = 492}
 		)
 		do
 			local w = 50 local loading_a = 180 local playing_dark_a = 80
@@ -1979,7 +1979,8 @@ local function main(keysNumber)
 			}})
 			-- playing
 			table.insert(skin.destination, {id = "glow", timer = 140, offset = 3, blend = 2, dst = {
-				{time = 0, x = geo.lane.x, y = geo.lane.y, w = w, h = geo.lane.h, a = playing_dark_a, acc = 2},
+				{time = 0, x = geo.lane.x, y = geo.lane.y, w = w, h = geo.lane.h, acc = 2},
+				{time = 1000, a = playing_dark_a},
 			}})
 		end
 	else
@@ -2042,7 +2043,7 @@ local function main(keysNumber)
 		local keybeam_x_offset = 0
 		if isPortraitLayout() then
 			keybeam_y_offset = -600
-			keybeam_x_offset = 400
+			keybeam_x_offset = 300
 		end
 		-- push
 		do
