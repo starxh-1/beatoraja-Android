@@ -201,9 +201,10 @@ public final class PlayDataAccessor {
 			score.setMode(model.containsUndefinedLongNote() ? lnmode : 0);
 		}
 		score.setSha256(hash);
-		if (updateScore) {
-			score.setNotes(model.getTotalNotes());
-		}
+		// 始终设置 notes：即使 updateScore=false，也需要让记录通过 validate() (notes > 0)
+		// 否则 score 记录因 notes=0 被视为无效，后续 readScoreData 永远返回 null
+		// (SD865/Android 11+ 上表现为 select 界面看不到成绩，必须 play 一次才能看到)
+		score.setNotes(model.getTotalNotes());
 
 		if (newscore.getClear() > Failed.id) {
 			score.setClearcount(score.getClearcount() + 1);
