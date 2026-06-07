@@ -63,11 +63,14 @@ public class SkinGaugeGraphObject extends SkinObject {
 	private boolean redraw;
 
 	/**
-	 * GL Thread が使用中のフラグ。
 	 * テクスチャ再構築がバックグラウンドスレッドで進行中の間は true。
 	 * 同時に複数の再構築を起動しないためのガード。
 	 */
 	private volatile boolean rebuildPending = false;
+	/**
+	 * dispose 後に遅れて完了したワーカーが GL テクスチャを再作成しないためのガード。
+	 */
+	private volatile boolean disposed = false;
 
 	public SkinGaugeGraphObject() {
 		this(new Color[][]{{Color.valueOf("ff0000"),Color.valueOf("440000"),Color.valueOf("ff00ff"),Color.valueOf("440044")},
@@ -133,7 +136,7 @@ public class SkinGaugeGraphObject extends SkinObject {
 			type = ((AbstractResult) state).gaugeType;
 		}
 
-		boolean needRebuild = false;
+		boolean needRebuild = redraw;
 		if(currentType != type) {
 			redraw = true;
 			currentType = type;
@@ -167,7 +170,7 @@ public class SkinGaugeGraphObject extends SkinObject {
 	}
 
 	/**
-	 * 現在の gaugehistory / dimension / type を不変化し、バックグラウンドで
+	 * 現在の gaugehistory / dimension / type を固定し、バックグラウンドで
 	 * Pixmap を構築 → GL Thread で Texture にアップロードする。
 	 */
 	private void scheduleRebuild() {
@@ -187,13 +190,32 @@ public class SkinGaugeGraphObject extends SkinObject {
 				shape = buildShapePixmap(w, h, capturedHistory, capturedSection, capturedGauge, c);
 			} catch (Throwable t) {
 				t.printStackTrace();
-				Gdx.app.postRunnable(() -> rebuildPending = false);
+				if (back != null) {
+					back.dispose();
+				}
+				if (shape != null) {
+					shape.dispose();
+				}
+				Gdx.app.postRunnable(() -> {
+					redraw = true;
+					rebuildPending = false;
+				});
 				return;
 			}
 			final Pixmap finalBack = back;
 			final Pixmap finalShape = shape;
 			Gdx.app.postRunnable(() -> {
 				try {
+					// Result を離れた、gauge type が変わった、または skin の寸法が
+					// 変わった場合、このワーカーの結果は既に古いので破棄する。
+					if (disposed || capturedType != currentType
+							|| w != Math.max(1, (int) region.width)
+							|| h != Math.max(1, (int) region.height)) {
+						finalBack.dispose();
+						finalShape.dispose();
+						redraw = !disposed;
+						return;
+					}
 					// 旧テクスチャを破棄
 					if (backtex != null) {
 						backtex.getTexture().dispose();
@@ -216,9 +238,6 @@ public class SkinGaugeGraphObject extends SkinObject {
 				} finally {
 					rebuildPending = false;
 				}
-				// もし再構築中に gauge type が変わっていた場合は、
-				// 次回 prepare() で currentType != type となるので
-				// もう一回 rebuild が起動される（そのとき色は新しいタイプを使う）。
 			});
 		}, "GaugeGraphRebuildThread").start();
 	}
@@ -233,7 +252,7 @@ public class SkinGaugeGraphObject extends SkinObject {
 		shape.setColor(graphcolor[c]);
 		shape.fill();
 		shape.setColor(bordercolor[c]);
-		shape.fillRectangle(0, (int) (h * border / max), w,
+		fillRectangle(shape, 0, (int) (h * border / max), w,
 				(int) (h * (max - border) / max));
 		return shape;
 	}
@@ -270,24 +289,28 @@ public class SkinGaugeGraphObject extends SkinObject {
 				if (f1 < border) {
 					if (f2 < border) {
 						shape.setColor(graphline[c]);
-						shape.fillRectangle(x1, Math.min(y1, y2), lineWidth, Math.abs(y2 - y1) + lineWidth);
-						shape.fillRectangle(x1, y2, x2 - x1, lineWidth);
+						fillRectangle(shape, x1, Math.min(y1, y2), lineWidth, Math.abs(y2 - y1) + lineWidth);
+						fillRectangle(shape, x1, y2, x2 - x1, lineWidth);
 					} else {
 						shape.setColor(graphline[c]);
-						shape.fillRectangle(x1, y1, lineWidth, yb - y1 + lineWidth);
+						fillRectangle(shape, x1, y1, lineWidth, yb - y1 + lineWidth);
 						shape.setColor(borderline[c]);
-						shape.fillRectangle(x1, yb, x2 - x1, y2 - yb + lineWidth);
+						fillRectangle(shape, x1, yb, x2 - x1, y2 - yb + lineWidth);
 					}
 				} else {
 					if (f2 >= border) {
 						shape.setColor(borderline[c]);
-						shape.fillRectangle(x1, Math.min(y1, y2), lineWidth, Math.abs(y2 - y1) + lineWidth);
-						shape.fillRectangle(x1, y2, x2 - x1, lineWidth);
+						fillRectangle(shape, x1, Math.min(y1, y2), lineWidth, Math.abs(y2 - y1) + lineWidth);
+						fillRectangle(shape, x1, y2, x2 - x1, lineWidth);
 					} else {
 						shape.setColor(borderline[c]);
-						shape.fillRectangle(x1, yb, lineWidth, y1 - yb + lineWidth);
+						fillRectangle(shape, x1, yb, lineWidth, y1 - yb + lineWidth);
 						shape.setColor(graphline[c]);
-						shape.fillRectangle(x1, yb, x2 - x1, y2 - yb + lineWidth);
+						// Gauge が border を上から下へ跨ぐ場合、旧実装は
+						// y2 - yb を高さとして渡し、負の height を native Pixmap に
+						// 入れていた。端末によってはここで長時間停止する。
+						fillRectangle(shape, x1, Math.min(y2, yb), x2 - x1,
+								getGaugeSpan(y2, yb, lineWidth));
 					}
 				}
 			}
@@ -296,9 +319,33 @@ public class SkinGaugeGraphObject extends SkinObject {
 
 		if (lastGauge != -1) {
 			shape.setColor(lastGauge < border ? graphline[c] : borderline[c]);
-			shape.fillRectangle(lastX, lastY, (int) (w - lastX), lineWidth);
+			fillRectangle(shape, lastX, lastY, w - lastX, lineWidth);
 		}
 		return shape;
+	}
+
+	static int getGaugeSpan(int from, int to, int thickness) {
+		return Math.abs(to - from) + Math.max(1, thickness);
+	}
+
+	/**
+	 * Native Pixmap に負の幅・高さを渡さない。
+	 * 0 幅/高さの区間は同じピクセル列に複数サンプルが収まる場合に発生するため、
+	 * 描画せず次の区間に任せる。
+	 */
+	private static void fillRectangle(Pixmap pixmap, int x, int y, int width, int height) {
+		if (width < 0) {
+			x += width;
+			width = -width;
+		}
+		if (height < 0) {
+			y += height;
+			height = -height;
+		}
+		if (width == 0 || height == 0) {
+			return;
+		}
+		pixmap.fillRectangle(x, y, width, height);
 	}
 
 	@Override
@@ -333,6 +380,8 @@ public class SkinGaugeGraphObject extends SkinObject {
 
 	@Override
 	public void dispose() {
+		disposed = true;
+		redraw = false;
 		if (shapetex != null) {
 			shapetex.getTexture().dispose();
 			shapetex = null;

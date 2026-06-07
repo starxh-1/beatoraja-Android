@@ -112,3 +112,47 @@ core/src/main/java/bms/player/beatoraja/
 core/src/test/java/bms/player/beatoraja/result/debug/
 └── ResultFreezeDBLockTest.java         # JUnit 6 testcase
 ```
+
+---
+
+## Gauge 图延迟出现修复（2026-06-07）
+
+### 现象
+
+- Result 其他内容已经显示，但 gauge 推移图为空。
+- 某些歌曲会等待数秒到数十秒后才出现。
+- 问题与数据库旧分加载无直接关系，GL Thread 仍能继续渲染。
+
+### 根因
+
+`SkinGaugeGraphObject` 已把 Pixmap 构建移到 `GaugeGraphRebuildThread`。当 gauge 从
+border 上方跌到下方时，下降穿越分支使用：
+
+```java
+y2 - yb + lineWidth
+```
+
+作为 `Pixmap.fillRectangle()` 的高度。此时 `y2 < yb`，高度可能为负数。负尺寸进入
+libGDX 的 native Pixmap 后行为不可靠，在部分 Android 设备上会让后台构建长时间停滞。
+由于纹理完成前 `draw()` 会直接返回，用户看到的就是 gauge 图迟迟不出现。
+
+异步生命周期还有两个放大问题：
+
+- 构建异常后只清除 `rebuildPending`，但下一帧没有根据 `redraw` 重试。
+- 构建期间切换 gauge 类型或离开 Result，旧线程仍可能上传过期纹理。
+
+### 修复
+
+- 下降穿越 border 时使用 `min(y2, yb)` 和 `abs(y2 - yb)` 构造正高度矩形。
+- 所有 Pixmap 矩形统一经过正尺寸保护函数。
+- `prepare()` 将 `redraw` 纳入重建条件，失败后可自动重试。
+- 上传前校验 gauge 类型、目标尺寸和对象是否已 dispose。
+- 过期或已 dispose 的异步结果只释放 Pixmap，不创建 Texture。
+
+### 真机回归
+
+1. 使用 Normal/Easy 等存在 border 的 gauge 完成歌曲。
+2. 覆盖 gauge 曾从 border 上方下降到下方的游玩结果。
+3. 进入 Result 后确认背景和曲线立即进入正常的 1500ms 展开动画。
+4. 在 Result 中切换 gauge 类型，确认图形刷新且不会被旧类型覆盖。
+5. gauge 构建期间快速退出 Result，确认下一次进入 Result 仍能正常显示。
