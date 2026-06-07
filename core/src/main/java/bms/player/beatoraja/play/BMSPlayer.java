@@ -1087,6 +1087,8 @@ public class BMSPlayer extends MainState {
 	}
 
 	public void stopPlay() {
+		// ESCAPE 时立即关闭 FINISH 动画计时器，避免在 fadeout 期间继续弹出 FINISH 字样
+		timer.setTimerOff(TIMER_PLAY_NOTE_END);
 		if (state == STATE_PRACTICE) {
 			practice.saveProperty();
 			timer.setTimerOn(TIMER_FADEOUT);
@@ -1114,7 +1116,8 @@ public class BMSPlayer extends MainState {
 		if (state != STATE_FINISHED &&
 				judge.getPastNotes() == resource.getSongdata().getNotes()) {
 			state = STATE_FINISHED;
-			timer.setTimerOn(TIMER_PLAY_NOTE_END);
+			// ESCAPE 提前跳过尾段时，不再重新打开 FINISH 动画计时器（与入口处的 setTimerOff 互为冗余保险）
+			timer.setTimerOff(TIMER_PLAY_NOTE_END);
 			timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 			Logger.getGlobal().info("STATE_FINISHEDに移行");
 		} else if(state == STATE_FINISHED && !timer.isTimerOn(TIMER_FADEOUT)) {
