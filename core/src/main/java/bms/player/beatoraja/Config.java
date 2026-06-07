@@ -214,7 +214,7 @@ public class Config implements Validatable, Serializable {
 	/**
 	 * プレビュー再生
 	 */
-	private SongPreview songPreview = SongPreview.ONCE;
+	private SongPreview songPreview = SongPreview.LOOP;
 	/**
 	 * スキン画像のキャッシュイメージを作成するかどうか
 	 */
@@ -665,7 +665,7 @@ public class Config implements Validatable, Serializable {
 		maxFramePerSecond = MathUtils.clamp(maxFramePerSecond, 0, 1000);
 		prepareFramePerSecond = MathUtils.clamp(prepareFramePerSecond, 0, 100000);
         maxSearchBarCount = MathUtils.clamp(maxSearchBarCount, 1, 100);
-        songPreview = (songPreview != null) ? songPreview : SongPreview.ONCE;
+        songPreview = (songPreview != null) ? songPreview : SongPreview.LOOP;
 
 		scrolldurationlow = MathUtils.clamp(scrolldurationlow, 2, 1000);
 		scrolldurationhigh = MathUtils.clamp(scrolldurationhigh, 1, 1000);

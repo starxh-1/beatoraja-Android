@@ -38,6 +38,16 @@ public interface AudioDriver extends Disposable {
 	public void setVolume(String path, float volume);
 
 	/**
+	 * 指定したパスの音源の非ループ再生完了時に呼ばれるリスナーを登録する。
+	 * listener が非 null なら登録、null なら解除。実装側で対応していない場合は何もしない。
+	 * リスナーは audio コールバックスレッドや executor スレッドから呼ばれる可能性があるため、
+	 * 呼び出し側はスレッドセーフに処理する必要がある。
+	 */
+	default void setOnCompletionListener(String path, Runnable listener) {
+		// デフォルトは未実装
+	}
+
+	/**
 	 * 指定したパスの音源がなっている場合はtrueを返す
 	 *
 	 * @param path

@@ -1,8 +1,8 @@
 
 package bms.player.beatoraja.select;
 
-import java.util.LinkedList;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import bms.player.beatoraja.audio.AudioDriver;
 import bms.player.beatoraja.Config;
@@ -18,10 +18,11 @@ public class PreviewMusicProcessor {
     private final AudioDriver audio;
     private final Config config;
     private String defaultMusic = "sound/select.wav";
-    private final LinkedList<String> commands = new LinkedList<String>();
+    // ConcurrentLinkedQueue: completion listener 也会 enqueue,所以线程安全
+    private final ConcurrentLinkedQueue<String> commands = new ConcurrentLinkedQueue<String>();
     private PreviewThread preview;
     private SongData current;
-    
+
     public PreviewMusicProcessor(AudioDriver audio, Config config) {
         this.audio = audio;
         this.config = config;
@@ -32,7 +33,7 @@ public class PreviewMusicProcessor {
             this.defaultMusic = path;
         }
     }
-    
+
     public void start(String previewPath) {
         if(preview == null) {
             preview = new PreviewThread();
@@ -91,7 +92,8 @@ public class PreviewMusicProcessor {
     class PreviewThread extends Thread {
 
         private boolean stop;
-        private String playing;
+        // 用 volatile 防止 PreviewThread 主循环与 completion 回调线程看到不一致的 playing 状态
+        private volatile String playing;
         private float currentVolume;
 
         public void run() {
@@ -106,7 +108,7 @@ public class PreviewMusicProcessor {
             playing = defaultMusic;
             currentVolume = vol;
             while(!stop) {
-                String path = commands.pollFirst();
+                String path = commands.poll();
                 if(path == null) {
                     try {
                         sleep(50);
@@ -114,7 +116,7 @@ public class PreviewMusicProcessor {
                     }
                     continue;
                 }
-                if(path == null || path.length() == 0) {
+                if(path.length() == 0) {
                     path = defaultMusic;
                 }
 
@@ -130,29 +132,36 @@ public class PreviewMusicProcessor {
                                 java.util.logging.Logger.getGlobal().warning("Failed to mute BGM: " + e.getMessage());
                             }
                         }
+                        // 对非循环的 preview 注册 completion 回调,播完后及时恢复 BGM
+                        boolean loop = config != null && config.getSongPreview() == SongPreview.LOOP;
                         try {
-                            audio.play(path, v, config != null && config.getSongPreview() == SongPreview.LOOP);
+                            audio.play(path, v, loop);
                         } catch (Exception e) {
                             java.util.logging.Logger.getGlobal().warning("Failed to play preview: " + path + " - " + e.getMessage());
                         }
-                    } else if (defaultMusic != null) {
-                        try {
-                            audio.setVolume(defaultMusic, v);
-                        } catch (Exception e) {
-                            java.util.logging.Logger.getGlobal().warning("Failed to set volume: " + e.getMessage());
+                        if (!loop) {
+                            final String previewPath = path;
+                            try {
+                                audio.setOnCompletionListener(previewPath, () -> {
+                                    // ONCE 播放完毕:native 报告完成,enqueue 空命令让 PreviewThread 走恢复 BGM 分支
+                                    if (Objects.equals(playing, previewPath)) {
+                                        commands.add("");
+                                    }
+                                });
+                            } catch (Exception e) {
+                                java.util.logging.Logger.getGlobal().warning("Failed to set completion listener: " + e.getMessage());
+                            }
+                        }
+                    } else {
+                        if (defaultMusic != null) {
+                            try {
+                                audio.setVolume(defaultMusic, v);
+                            } catch (Exception e) {
+                                java.util.logging.Logger.getGlobal().warning("Failed to set volume: " + e.getMessage());
+                            }
                         }
                     }
                     playing = path;
-                } else if(!Objects.equals(playing, defaultMusic) && !audio.isPlaying(playing)){
-                    stopPreview(true);
-                    if (defaultMusic != null) {
-                        try {
-                            audio.setVolume(defaultMusic, getVolume());
-                        } catch (Exception e) {
-                            java.util.logging.Logger.getGlobal().warning("Failed to set default music volume: " + e.getMessage());
-                        }
-                    }
-                    playing = defaultMusic;
                 } else {
                     float v = getVolume();
                     if(currentVolume != v && playing != null){
@@ -169,11 +178,20 @@ public class PreviewMusicProcessor {
                 } catch (InterruptedException e) {
                 }
             }
+            // 线程退出前清理监听器
+            if (playing != null) {
+                try {
+                    audio.setOnCompletionListener(playing, null);
+                } catch (Exception ignore) {}
+            }
             stopPreview(false);
         }
 
         private void stopPreview(boolean fadeout) {
             if(playing != null && !playing.equals(defaultMusic)) {
+                try {
+                    audio.setOnCompletionListener(playing, null);
+                } catch (Exception ignore) {}
                 try {
                     audio.stop(playing);
                 } catch (Exception e) {

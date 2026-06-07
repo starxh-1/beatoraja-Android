@@ -5,6 +5,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import bms.player.beatoraja.Config;
@@ -106,6 +112,70 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 
 	private Object lock = new Object();
 
+	// ===== OnCompletion listener support for OpenAL Sound (no native isPlaying) =====
+	private final Map<String, Sound> pathSoundMap = new ConcurrentHashMap<>();
+	private final Map<String, Float> pathDurationSec = new ConcurrentHashMap<>();
+	private final Map<String, ScheduledFuture<?>> pendingCompletions = new ConcurrentHashMap<>();
+	private final ScheduledExecutorService completionExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+		Thread t = new Thread(r, "GdxSoundDriver-Completion");
+		t.setDaemon(true);
+		return t;
+	});
+
+	@Override
+	protected void onSoundLoaded(String path, Sound audio) {
+		if (path != null && audio != null) {
+			pathSoundMap.put(path, audio);
+		}
+	}
+
+	@Override
+	protected void onCompletionListenerChanged(String path, Runnable listener) {
+		ScheduledFuture<?> prev = pendingCompletions.remove(path);
+		if (prev != null) {
+			prev.cancel(false);
+		}
+	}
+
+	private float getOrComputeDurationSec(String path) {
+		Float cached = pathDurationSec.get(path);
+		if (cached != null) return cached;
+		try {
+			PCM pcm = PCM.load(path, GdxSoundDriver.this);
+			if (pcm != null && pcm.sampleRate > 0 && pcm.channels > 0) {
+				float sec = (float) pcm.len / pcm.sampleRate / pcm.channels;
+				pathDurationSec.put(path, sec);
+				return sec;
+			}
+		} catch (Throwable t) {
+			Logger.getGlobal().warning("Failed to compute duration for " + path + ": " + t.getMessage());
+		}
+		// Fallback: long enough that loop BGM (no listener) never fires spuriously
+		pathDurationSec.put(path, 600f);
+		return 600f;
+	}
+
+	private void scheduleCompletionIfRegistered(Sound sound) {
+		String foundPath = null;
+		for (Map.Entry<String, Sound> e : pathSoundMap.entrySet()) {
+			if (e.getValue() == sound) {
+				foundPath = e.getKey();
+				break;
+			}
+		}
+		if (foundPath == null || !hasCompletionListener(foundPath)) {
+			return;
+		}
+		final String matchingPath = foundPath;
+		float dur = getOrComputeDurationSec(matchingPath);
+		ScheduledFuture<?> task = completionExecutor.schedule(() -> {
+			if (hasCompletionListener(matchingPath)) {
+				fireCompletion(matchingPath);
+			}
+		}, (long)(dur * 1000), TimeUnit.MILLISECONDS);
+		pendingCompletions.put(matchingPath, task);
+	}
+
 	@Override
 	protected void play(Sound pcm, int channel, float volume, float pitch) {
 		if(soundthread) {
@@ -130,6 +200,8 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 					id.id = id.audio.loop(volume);
 				} else {
 					id.id = id.audio.play(volume);
+					// Schedule completion callback for non-looping playback if a listener is registered
+					scheduleCompletionIfRegistered(id.audio);
 				}
 			}
 		}
