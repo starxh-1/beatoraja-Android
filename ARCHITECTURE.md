@@ -1,736 +1,549 @@
-# beatoraja-Android 架构说明 (v3)
+# beatoraja-Android 架构说明
 
-## 1. 项目概述
+> 核验日期：2026-06-07<br>
+> 核验依据：当前仓库源码、Gradle 配置和 Android Manifest。<br>
+> 本文是项目架构的主索引；具体问题分析仍放在 `docs/` 下的专题文档中。
 
-beatoraja-Android 是 [beatoraja](https://github.com/exch-bms2/beatoraja) 的 Android 移植版。beatoraja 是一款纯 Java 开发的 BMS（Be-Music Source）音乐游戏播放器，支持多种按键模式（5K/7K/9K/10K/14K/24K/24K Double）和多种谱面格式（BMS、BMSON 等）。Android 版使用 **Oboe** 低延迟音频引擎替代原有的桌面音频后端，并使用 **Jetpack Compose** 作为设置界面框架。
+## 1. 项目定位
 
-### 技术栈
+beatoraja-Android 是 beatoraja 的 Android 移植版。它保留了原项目的大部分 Java 游戏核心，
+使用 libGDX 承担跨平台渲染和输入，并在 Android 层替换或补充以下能力：
 
-| 层面 | 技术 |
-|------|------|
-| 游戏框架 | libGDX 1.14.0 |
-| 音频引擎 | libgdx-oboe (Google Oboe) |
-| UI 框架 | Jetpack Compose + Material3（替代 JavaFX） |
-| 脚本引擎 | LuaJ 3.0.1 (Lua) |
-| 数据库 | SQLDroid (Android) / SQLite JDBC (Core) |
-| JSON 解析 | Jackson 2.21.2 |
-| 混淆 | R8 (ProGuard) |
-| 最低 API | Android 5.0 (API 21) |
-| 编译 SDK | Android 16 (API 36) |
-| Java 版本 | Java 17 |
-| Kotlin 版本 | 1.9.22 |
-| Gradle 版本 | 9.1.1 (AGP) |
+- 使用 `libgdx-oboe.aar` 提供低延迟音频。
+- 使用 Android 原生 `SQLiteOpenHelper` 管理歌曲库和成绩库。
+- 使用普通 Android `Activity` + XML 布局提供启动前设置页。
+- 处理 Android 存储权限、外部目录、全面屏手势、高刷新率和生命周期恢复。
+- 增加触摸按键、浮动菜单和音频频谱等移动端功能。
 
----
+当前源码规模：
 
-## 2. 模块结构
+| 范围 | Java 文件 | 约计代码行 |
+|---|---:|---:|
+| `core/src/main/java` | 308 | 61,101 |
+| `android/src/main/java` | 7 | 4,456 |
+| `core/src/test/java` | 1 | 295 |
 
-```
+## 2. 技术与构建基线
+
+| 项目 | 当前值 |
+|---|---|
+| 构建模块 | `:core`、`:android` |
+| Gradle Wrapper | 9.4.0 |
+| Android Gradle Plugin | 9.1.1 |
+| Java | 17 |
+| Kotlin 插件 | 1.9.22 |
+| libGDX | 1.14.0 |
+| gdx-video | 1.3.3 |
+| gdx-controllers | 2.2.4 |
+| Android compile/target SDK | 36 |
+| Android min SDK | 21 |
+| Android applicationId | `com.starxh.beatoraja` |
+| Android versionName | `2.0` |
+| JSON | Jackson 2.21.2 |
+| Lua | LuaJ 3.0.1 |
+| Android SQLite | 原生 SQLite + SQLDroid 依赖 |
+
+重要事实：
+
+- 设置页虽然位于 `android/.../compose/SettingsActivity.java`，但实际不是 Jetpack Compose。
+  它继承 `android.app.Activity`，并加载 `res/layout/activity_settings.xml`。
+- `settings.gradle` 只包含 `android` 和 `core`。根目录 `app/` 不参与当前构建。
+- `libgdx-oboe/` 是 Git submodule 路径，但当前应用实际通过
+  `android/libs/libgdx-oboe.aar` 引用音频实现。
+- `android` 只打包 ARM 的 `armeabi-v7a` 和 `arm64-v8a` libGDX native 库。
+
+## 3. 仓库地图
+
+```text
 beatoraja-Android/
-├── android/          Android 应用模块（平台特定代码）
-│   ├── src/main/java/com/starxh/beatoraja/android/
-│   │   ├── AndroidLauncher.java           libGDX 游戏启动 Activity
-│   │   ├── AudioSpectrumAdapter.java      频谱适配器（桥接 Oboe）
-│   │   └── compose/SettingsActivity.java  设置/启动界面（Compose + XML）
-│   ├── src/main/java/bms/player/beatoraja/song/
-│   │   ├── AndroidSQLiteSongDatabaseAccessor.java  Android SQLite 歌曲数据访问
-│   │   └── SongDatabaseHelper.java         歌曲数据库帮助类
-│   ├── res/                                Android 资源（多语言 strings, layout, 图标）
-│   ├── assets/                             游戏资源（皮肤、字体、着色器、曲包）
-│   ├── libs/library-release.aar            第三方 AAR 库
-│   └── patches/oboe_engine.cpp             Oboe 音频引擎原生补丁
-│
-├── core/             核心游戏逻辑模块（平台无关）
+├── android/                    Android 应用和平台实现
+│   ├── AndroidManifest.xml
+│   ├── build.gradle
+│   ├── libs/libgdx-oboe.aar
+│   ├── assets/                 APK 内置皮肤、音效、字体、着色器
+│   ├── res/                    设置页 XML、字符串和图标
 │   └── src/main/java/
-│       ├── bms/model/                      BMS/BMSON 谱面数据模型 (34 files)
-│       │   ├── BMSModel.java               谱面内存表示
-│       │   ├── BMSDecoder.java             BMS 文件解析器
-│       │   ├── BMSONDecoder.java           BMSON 文件解析器
-│       │   ├── TimeLine.java               时间线
-│       │   ├── Mode.java                   游戏模式枚举（8种）
-│       │   ├── Note.java / NormalNote.java / LongNote.java / MineNote.java
-│       │   └── bmson/                      BMSON JSON 数据结构
-│       │
-│       ├── bms/player/beatoraja/           播放器核心 (243 files)
-│       │   ├── MainController.java         中央控制器 ★
-│       │   ├── MainState.java              状态机抽象基类 ★
-│       │   ├── Config.java                 系统级全局配置
-│       │   ├── PlayerConfig.java           玩家级个性化配置
-│       │   ├── ShaderManager.java          GLSL 着色器管理
-│       │   ├── TimerManager.java           高精度定时器管理
-│       │   ├── FloatingMenu.java           浮动快捷键菜单
-│       │   │
-│       │   ├── audio/                      音频驱动层 (9 files)
-│       │   ├── config/                     按键/皮肤配置 (4 files)
-│       │   ├── decide/                     选曲确定界面 (2 files)
-│       │   ├── external/                   BMS 搜索/截图导出 (5 files)
-│       │   ├── input/                      输入处理 (9 files)
-│       │   ├── ir/                         Internet Ranking (11 files)
-│       │   ├── launcher/                   JavaFX 遗留配置界面 (17 files)
-│       │   ├── play/                       游玩核心 (27 files)
-│       │   │   └── bga/                    BGA 子系统
-│       │   ├── result/                     结果界面 (7 files)
-│       │   ├── select/                     选曲界面 (27 files)
-│       │   │   └── bar/                    Bar 类型体系 (13 files)
-│       │   ├── skin/                       皮肤系统 (65 files)
-│       │   │   ├── json/                   JSON 皮肤 (11 files)
-│       │   │   ├── lr2/                    LR2 CSV 皮肤 (10 files)
-│       │   │   ├── lua/                    Lua 皮肤 (5 files)
-│       │   │   └── property/              属性系统 (13 files)
-│       │   ├── song/                       歌曲数据库 (6 files)
-│       │   └── stream/                     直播推流 (3 files)
-│       │
-│       └── com/starxh/beatoraja/           Android 特有核心类
-│           ├── BeatorajaGame.java          libGDX ApplicationAdapter 入口
-│           ├── AudioSpectrumProvider.java  频谱数据提供接口
-│           ├── AudioSpectrumManager.java   全局频谱管理器
-│           └── SideSpectrumRenderer.java  侧边频谱渲染器
-│
-└── app/              辅助模块（仅含基础 SongDatabaseHelper）
-
-总计: 279 个 Java 源文件
+│       ├── com/starxh/beatoraja/android/
+│       │   ├── AndroidLauncher.java
+│       │   ├── AudioSpectrumAdapter.java
+│       │   └── compose/SettingsActivity.java
+│       └── bms/player/beatoraja/
+│           ├── song/           Android 歌曲数据库
+│           └── score/          Android 成绩数据库
+├── core/                       游戏核心和平台抽象
+│   ├── build.gradle
+│   └── src/
+│       ├── main/java/
+│       │   ├── bms/model/      BMS/BMSON 模型与解码
+│       │   ├── bms/table/      难度表
+│       │   ├── bms/tool/       下载/数据库辅助
+│       │   ├── bms/player/beatoraja/
+│       │   └── com/starxh/beatoraja/
+│       └── test/java/          当前仅有结果页数据库锁测试
+├── assets/                     根工程资源，目前主要供 core 资源任务使用
+├── docs/                       问题分析、重构计划和性能专题
+├── app/                        未纳入 Gradle 的遗留目录
+├── libgdx-oboe/                Git submodule 工作目录
+├── ARCHITECTURE.md             本文
+└── AGENTS.md                   项目记忆入口
 ```
 
----
+## 4. 模块边界
 
-## 3. 启动流程与入口架构
+### 4.1 `core`
 
-### 3.1 双 Activity 架构
+`core` 是主业务模块，包含：
 
-```
-AndroidManifest.xml
-├── SettingsActivity  (LAUNCHER 启动器入口)
-│   - XML 布局读取/编辑 config_sys.json 和 config_player.json
-│   - 管理 BMS 目录、玩家档案、Table URL、难度表更新
-│   - 可配置的音量/采样率/BGA/谱面选项/皮肤
-│   - JSON 配置读写、玩家导入导出、数据库导出
-│   - 点击"启动游戏" → startActivity(AndroidLauncher)
-│
-└── AndroidLauncher   (游戏入口，横屏锁定)
-    - 继承 AndroidApplication (libGDX)
-    - 初始化 OboeAudio（替代默认 AndroidAudio）
-    - 创建 BeatorajaGame → MainController
-    - 处理存储权限、高刷新率请求、屏幕常亮
-    - Back 键映射为 ESCAPE
-```
+- BMS/BMSON 解码、谱面模型和模式定义。
+- 游戏状态机、资源管理和配置模型。
+- 选曲、决定、游玩、结果、按键配置和皮肤配置状态。
+- 判定、Gauge、谱面随机、回放和成绩业务。
+- JSON/Lua/LR2 CSV 三类皮肤加载器。
+- 键盘、手柄、MIDI 和统一输入处理。
+- 音频、歌曲库、成绩库的接口或抽象层。
 
-### 3.2 启动时序
+`core` 应尽量避免直接依赖 Android SDK。现有 Android 交互主要通过：
 
-```
-SettingsActivity
-  └─ readConfigDirectly()           从 config_sys.json 读取配置
-  └─ launchGame()                   startActivity(AndroidLauncher)
-       └─ AndroidLauncher.onCreate()
-            ├─ detectArchitecture()         检测 32/64 位设备
-            │   └─ 32bit → System.setProperty("beatoraja.32bit", "true")
-            ├─ checkStoragePermissions()    请求存储权限
-            ├─ createDefaultDirectories()   创建 songs/skins/table/songinfo 等目录
-            ├─ ensureExternalSkinZip()      解压外部皮肤 ZIP
-            ├─ ensureExternalSongZip()      解压外部曲包 ZIP
-            ├─ AndroidSQLiteSongDatabaseAccessor  初始化歌曲数据库
-            ├─ setupHighRefreshRate()       检测硬件最大刷新率 → AndroidLauncher.maxRefreshRate
-            ├─ initialize(BeatorajaGame)    启动 libGDX 游戏循环
-            ├─ setupHighRefreshRate()       再次请求刷新率（GL Surface 已就绪）
-            ├─ setupSurfaceFrameRate()      延迟 200ms 调用 Surface.setFrameRate() (Android 11+)
-            └─ setupSustainedPerformance()  持续性能模式 + KeepAlive 机制
-                 └─ BeatorajaGame.create()
-                      └─ MainController()
-                           ├─ 构造器读取 Config + PlayerConfig
-                           ├─ 检测硬件刷新率 (AndroidLauncher.maxRefreshRate)
-                           ├─ updateFrameRateAPI(targetFPS)  反射调用 Surface.setFrameRate
-                           └─ MainController.create()
-                                ├─ GL 优化 (禁用 depth/stencil/dither, 设置 blend 模式)
-                                ├─ 加载系统字体 (VL-Gothic 24pt/18pt)
-                                ├─ 初始化 AudioDriver (OboeAudio)
-                                ├─ 创建 InputProcessor + 独立高精度输入轮询线程
-                                ├─ 创建 MusicSelector（选曲状态）
-                                ├─ 触发异步歌曲数据库扫描
-                                ├─ JIT 预热 (3 帧空渲染)
-                                └─ changeState(MUSICSELECT)
+1. libGDX 平台接口。
+2. `MainLoader.setSongDatabaseAccessor(...)` 静态注入。
+3. `ScoreDatabaseAccessor.setFactory(...)` 工厂注入。
+4. 少量反射调用 `AndroidLauncher` 或 Android API。
+
+### 4.2 `android`
+
+`android` 依赖 `core`，负责：
+
+- 两个 Activity 和 Android 生命周期。
+- Oboe 音频初始化。
+- 权限、目录和 ZIP 导入。
+- Android 原生歌曲库与成绩库。
+- 显示刷新率、Surface frame rate、Choreographer 相位同步。
+- 系统返回键、软键盘、全面屏边缘手势和屏幕常亮。
+- APK 资源和 ABI native 库打包。
+
+依赖方向应保持为：
+
+```text
+android  ───────────────>  core
+  │                         │
+  ├─ Android SDK            ├─ libGDX API
+  ├─ Oboe AAR               ├─ 游戏业务
+  └─ SQLite 实现             └─ 平台抽象
 ```
 
----
+不要让 `core` 普遍 import Android 类。若需要新增平台能力，优先采用接口或 Factory 注入；
+反射只适合已有兼容路径或很小的平台钩子。
 
-## 4. 核心架构：MainController 与状态机
+## 5. 应用入口与启动流程
 
-### 4.1 MainController（中央控制器）
+Manifest 定义两个 Activity：
 
-`MainController` 是整个应用的**中枢**，管理所有子系统和状态切换。
+| Activity | 角色 |
+|---|---|
+| `SettingsActivity` | `MAIN/LAUNCHER` 入口，读取和编辑配置 |
+| `AndroidLauncher` | libGDX 游戏 Activity，横屏运行 |
 
-**核心字段**：
+启动链路：
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `selector` | `MusicSelector` | 选曲界面 |
-| `decide` | `MusicDecide` | 选曲确定界面 |
-| `bmsplayer` | `BMSPlayer` | 游玩界面 |
-| `result` | `MusicResult` | 单曲结果界面 |
-| `gresult` | `CourseResult` | 段位结果界面 |
-| `current` | `MainState` | 当前活动状态 |
-| `config` | `Config` | 系统配置 |
-| `player` | `PlayerConfig` | 玩家配置 |
-| `audio` | `AudioDriver` | 音频驱动 |
-| `input` | `BMSPlayerInputProcessor` | 统一输入管理 |
-| `timer` | `TimerManager` | 定时器管理 |
-| `resource` | `PlayerResource` | 玩家资源管理 |
-| `floatingMenu` | `FloatingMenu` | Android 浮动快捷键菜单 |
-| `detectedRefreshRate` | `int` | 检测到的硬件最大刷新率 |
-| `currentTargetFPS` | `int` | 当前实际目标帧率 |
-| `is32BitARM` | `boolean` | 32位设备标记（影响帧率策略） |
+```text
+SettingsActivity.onCreate()
+├── 根据系统语言更新 Resources
+├── 读取 config_sys.json
+├── 读取 player/<id>/config_player.json
+├── setContentView(activity_settings.xml)
+└── 用户点击启动
+    ├── 保存系统和玩家配置
+    └── startActivity(AndroidLauncher)
 
-### 4.2 状态机 (MainState)
+AndroidLauncher.onCreate()
+├── 读取语言并设置 Locale
+├── 检测 32/64 位进程
+├── 申请存储权限
+├── 设置 beatoraja.root = getExternalFilesDir(null)
+├── 创建内部目录和 Download/beatoraja 目录
+├── 导入内置资源/检查 ZIP
+├── 注入 AndroidSQLiteSongDatabaseAccessor
+├── 注入 AndroidScoreDatabaseAccessor Factory
+├── 请求最高刷新率并启动 Choreographer 回调
+└── initialize(BeatorajaGame)
 
-采用 **State Pattern**，所有界面状态继承自 `MainState` 抽象基类：
-
-```
-MainState（抽象基类）
-├── MusicSelector     选曲界面
-├── MusicDecide       确认界面
-├── BMSPlayer         游玩界面
-├── MusicResult       单曲结果界面
-├── CourseResult      段位结果界面
-├── KeyConfiguration  按键配置界面
-└── SkinConfiguration 皮肤配置界面
-```
-
-**状态切换流程**：
-
-```
-MUSICSELECT ──选曲──→ DECIDE ──开始──→ PLAY ──结束──→ RESULT ──返回──→ MUSICSELECT
-                   ↓                        ↓
-              COURSERESULT               CONFIG / SKINCONFIG
+BeatorajaGame.create()
+└── new MainController(...)
+    ├── 从磁盘读取 Config / PlayerConfig
+    ├── 初始化输入、音频、资源和各 MainState
+    └── changeState(MUSICSELECT)
 ```
 
-**状态切换时的帧率策略（关键）**：
+权限尚未授予时，`AndroidLauncher` 会先初始化一个空的 `ApplicationAdapter`，等待权限结果后
+再继续真实游戏初始化。修改启动流程时必须覆盖这个分支。
 
-```
-32位设备 + MusicSelect → FPS 限制为 30（降低 GPU 负载）
-64位设备 + MusicSelect → 不限帧 (1000)
-其他界面（PLAY/RESULT等）→ 恢复到 detectedRefreshRate
-目标 FPS < 1000 时 → 调用 updateFrameRateAPI() 告知系统
-```
+## 6. 核心运行时
 
-MusicSelector 仅在首次创建时 `create()`（扫描数据库），后续切回时跳过 create 仅重新加载 skin，大幅减少切回选曲界面的开销。切到 PLAY 时依赖 `bmsplayer.dispose()` 释放前一界面的内存，**不**再手动 `System.gc()` — 强制 GC 不可靠且会引发长 STW 帧率抖动。
+### 6.1 `BeatorajaGame`
 
----
+`com.starxh.beatoraja.BeatorajaGame` 是 libGDX `ApplicationAdapter`：
 
-## 5. 图形引擎与渲染管线深度分析 ★
+- `create()` 创建 `MainController` 和 `SideSpectrumRenderer`。
+- `render()` 先运行主控制器，再按配置为游玩状态绘制频谱。
+- `resize/pause/resume/dispose()` 转发生命周期。
 
-### 5.1 渲染架构总览
+它是 Android Activity 与游戏核心之间的最薄入口。
 
-```
-MainController.render()                          每帧主循环
-│
-├── GL 线程优先级提升 (THREAD_PRIORITY_DISPLAY)
-├── 等比视口计算 (pillarbox/letterbox)
-│   └── viewportX/Y/W/H 存入字段供 screenToGameX/Y 坐标转换
-│
-├── glClear 全屏 → glViewport 设置等比区域
-├── current.render()                            状态渲染
-│   ├── PLAY 状态: LaneRenderer.drawLane()  → 判定区/BGA背景/小节线/音符
-│   └── SELECT 状态: BarRenderer.draw() + Skin
-│
-├── sprite.begin()
-│   └── skin.drawAllObjects(sprite, current)    SkinObject 绘制 (一次 begin/end)
-├── sprite.end()
-│
-├── stage.act() + stage.draw()                  Scene2D 叠加层
-│
-├── sprite.begin()                              第二对 begin/end
-│   ├── FPS 显示
-│   └── 消息渲染 (MessageRenderer)
-├── sprite.end()
-│
-├── sprite.begin()                              第三对 begin/end (条件性)
-│   ├── 触摸指针 + 坐标文字
-│   └── 浮动菜单渲染
-├── sprite.end()
-│
-├── sprite.begin()                              第四对 begin/end (条件性)
-│   └── 触摸按键渲染 (PlayTouchKeyMapper)
-├── sprite.end()
-│
-└── 精确帧率控制 (3阶段睡眠策略)
+### 6.2 `MainController`
+
+`MainController` 是运行时中枢，主要拥有：
+
+- 当前 `MainState` 与各状态实例。
+- `Config`、`PlayerConfig`、`PlayerResource`。
+- `AudioDriver`、`BMSPlayerInputProcessor`、`TimerManager`。
+- `SpriteBatch`、系统字体、消息渲染和浮动菜单。
+- 歌曲更新、表更新、下载和截图等后台任务。
+
+它同时承担状态切换、渲染编排、输入分发和 Android 帧率策略，职责较重。
+新增功能时应先判断它是否真正属于全局生命周期；局部功能优先留在对应状态或子系统。
+
+### 6.3 状态机
+
+所有界面状态继承 `MainState`：
+
+```text
+MUSICSELECT  MusicSelector
+DECIDE       MusicDecide
+PLAY         BMSPlayer
+RESULT       MusicResult
+COURSERESULT CourseResult
+CONFIG       KeyConfiguration
+SKINCONFIG   SkinConfiguration
 ```
 
-### 5.2 SpriteBatch 架构
+主要流程：
 
-- **缓冲区大小**: 4096（`new SpriteBatch(4096)`），相较默认 1000 大幅提升，减少高 BPM 谱面数百音符同时渲染时的 flush 次数
-- **投影矩阵**: 预分配的 `Matrix4` 对象 (`projMatrix`)，避免每帧 `new Matrix4()` 的 GC 压力
-- **多 begin/end 问题**: 当前渲染循环中有 2~4 对 `sprite.begin()/end()`，每次 end 都会触发一次 GPU flush。理想情况下应合并为单次 begin/end，但当前架构受限于不同阶段需要不同的投影矩阵和混合模式
+```text
+MUSICSELECT -> DECIDE -> PLAY -> RESULT -> MUSICSELECT
+                    \-> PLAY -> COURSERESULT
 
-### 5.3 SkinObjectRenderer（皮肤对象渲染器）
-
-`SkinObjectRenderer` 封装了 `SpriteBatch` 的底层绘制，提供以下优化：
-
-| 优化项 | 实现 |
-|--------|------|
-| Shader 缓存 | 6 种 shader 预加载到数组，switch 时检查当前 != 目标才切换 |
-| Blend 状态缓存 | `activeBlend` 字段追踪当前 GL 混合状态，避免冗余 `glBlendFunc` 调用 |
-| 纹理过滤 | Default skin 强制 Nearest 过滤（降低 GPU 带宽），其他 skin 仅在需要时设置 Linear |
-| 视口裁剪 | ThreadLocal 存储当前视口，供 SkinObject.prepare() 读取判断是否跳过渲染 |
-| 字体绘制优化 | 无 Consumer callback 时的快速路径避免不必要的 `sprite.flush()` |
-| 偏移修正 | TextureRegion 绘制时 +0.01f 补偿 Windows 下半像素对齐问题 |
-
-支持的渲染类型（6种）：
-
-```
-TYPE_NORMAL (0)          默认渲染 → 无 shader
-TYPE_LINEAR (1)          线性过滤 → 无 shader
-TYPE_BILINEAR (2)        双线性过滤 → bilinear shader (framebuffer blit 用)
-TYPE_FFMPEG (3)          [已废弃]
-TYPE_LAYER (4)           图层混合 → layer shader
-TYPE_DISTANCE_FIELD (5)  距离场字体 → distance_field shader (含硬编码 fallback)
+MUSICSELECT -> CONFIG
+MUSICSELECT -> SKINCONFIG
 ```
 
-### 5.4 LaneRenderer 音符渲染优化
+`changeState()` 的关键行为：
 
-[LaneRenderer.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/play/LaneRenderer.java) 包含以下关键渲染优化：
+- 离开状态时调用 `shutdown()` 并释放当前 skin。
+- `PLAY` 每次创建新的 `BMSPlayer`。
+- `MusicSelector` 只完整 `create()` 一次，后续返回时主要重新加载 skin。
+- 切换后重建 `InputMultiplexer`，按状态加入 Stage、浮动菜单和触摸键。
+- Android 结果页触摸会被映射为 `ESCAPE`。
+- 32 位设备的选曲状态限制为 30 FPS；64 位设备选曲状态使用 1000 作为“不做应用层限帧”的哨兵值。
 
-- **Timeline 预过滤**: `init()` 中仅保留含 BPM/STOP 变化、Note 存在或 SectionLine 的 Timeline，减少遍历量
-- **字符串预缓存**: BPM 文本、时间文本、STOP 文本在初始化时一次性 `String.format()` 缓存到 `cachedTimeText[]` 数组
-- **竖屏模式缓存**: `cachedSkinForPortrait` 避免每帧重复检测 skin 的 portrait 选项
-- **视口可见性裁剪**: 音符绘制前检查 `dsty + dsth < visibleViewport.y` 等边界，跳过视口外元素
-- **字体复用**: 使用 MainController 预加载的 18pt 系统字体 `getSystemFont18()`
-- **BGA 帧缓冲复用**: Touchscreen 皮肤的 BGA 背景使用预渲染的 `getCurrentBGAFrame()` 纹理
-- **颜色状态重置**: 每个 timeline 迭代开始强制 `sprite.setColor(1f,1f,1f,1f)` 防止跨迭代 alpha 泄漏
+## 7. 渲染架构
 
-### 5.5 GLSL 着色器
+`MainController.render()` 的高层顺序：
 
-```
-assets/glsl/
-├── default.vert/frag      简单纹理采样 + alpha 混合
-├── bilinear.vert/frag     framebuffer blit（复用 default shader 代码）
-├── layer.vert/frag        图层叠加混合
-└── distance_field shader  SkinTextFont 距离场文字渲染（含硬编码 fallback）
-```
-
-所有 vertex shader 共享相同的 `v_color.a = v_color.a * (255.0/254.0)` 预乘 alpha 修正。distance_field shader 在文件加载失败时使用硬编码的 fallback 源码编译。
-
----
-
-## 6. 垂直同步与帧率控制系统深度分析 ★
-
-### 6.1 三层帧率控制架构
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ Layer 1: WindowManager.preferredRefreshRate                     │
-│   AndroidLauncher.setupHighRefreshRate()                        │
-│   → 遍历 Display.getSupportedModes() 找最高刷新率                 │
-│   → params.preferredRefreshRate = highestRR                     │
-│   → window.setAttributes(params)                                │
-│   影响: WindowManager 层面的刷新率偏好                             │
-├─────────────────────────────────────────────────────────────────┤
-│ Layer 2: Surface.setFrameRate() (Android 11+)                   │
-│   AndroidLauncher.setupSurfaceFrameRate() +                     │
-│   MainController.updateFrameRateAPI()                           │
-│   → 反射获取 SurfaceView → Surface                              │
-│   → surface.setFrameRate(targetFPS, FRAME_RATE_COMPATIBILITY_DEFAULT) │
-│   影响: SurfaceFlinger 会尽量将刷新率设置为该帧速率的倍数           │
-├─────────────────────────────────────────────────────────────────┤
-│ Layer 3: 应用层绝对时间对齐帧率控制                                │
-│   MainController.render() 末尾                                  │
-│   → 3 阶段睡眠策略: Thread.sleep → parkNanos → busy-wait        │
-│   → 绝对时间基准 nextFrameTimeNanos，消除累积漂移                  │
-│   影响: 精确的应用层帧间隔控制                                     │
-└─────────────────────────────────────────────────────────────────┘
+```text
+计算 skin/配置分辨率
+计算等比 viewport，保留黑边
+current.render()                    状态自己的底层绘制
+skin.drawAllObjects()               通用皮肤对象
+Stage.act()/draw()                  Scene2D 控件
+FPS + MessageRenderer
+触摸指针
+FloatingMenu
+PlayTouchKeyMapper
+输入事件处理
+应用层帧率等待
 ```
 
-### 6.2 应用层帧率控制详细机制
+核心特征：
 
-```java
-// MainController.render() 末尾
-if (doFrameLimit) {
-    final long frameIntervalNanos = 1_000_000_000L / maxFPS;
-    
-    // 初始化/重置: 距现在超过3帧周期则重新对齐
-    if (nextFrameTimeNanos == 0 || now - nextFrameTimeNanos > frameIntervalNanos * 3) {
-        nextFrameTimeNanos = now + frameIntervalNanos;
-    } else {
-        nextFrameTimeNanos += frameIntervalNanos;  // 绝对时间推进
-    }
-    
-    // 阶段1: >2ms 剩余 → Thread.sleep (节省CPU，保留1ms缓冲)
-    // 阶段2: 200µs~1ms 剩余 → LockSupport.parkNanos (微秒级让出CPU)
-    // 阶段3: <200µs 剩余 → busy-wait (仅非Android，避免抢占GPU线程)
-}
+- 使用 `SpriteBatch(4096)`。
+- 使用 skin 尺寸作为逻辑坐标，屏幕坐标通过 viewport 转换为游戏坐标。
+- 宽屏设备使用 pillarbox，窄屏/高屏使用 letterbox，避免皮肤拉伸。
+- `resume()` 会重建系统字体、位图字体缓存、触摸指针和浮动菜单纹理。
+- `SideSpectrumRenderer` 在 `BeatorajaGame.render()` 中位于主控制器绘制之后。
+
+### 7.1 皮肤系统
+
+加载入口是 `SkinLoader`，三类格式最终统一为 `Skin` 和 `SkinObject`：
+
+```text
+JSON     -> JSONSkinLoader
+Lua      -> LuaSkinLoader
+LR2 CSV  -> LR2SkinCSVLoader
+               │
+               v
+        Skin + SkinObject[]
 ```
 
-**设计优势**:
-- 绝对时间对齐避免逐帧累积误差（传统"每帧 sleep(剩余时间)"会导致 120fps 实际跑成 123fps）
-- 3 阶段策略平衡 CPU 节省与精度
-- Android 平台跳过 busy-wait，避免 GL 线程忙等时 GPU 驱动线程得不到 CPU 时间
-- **VSync 相位锁定**: 通过 `Choreographer` 获取 VSync 时间戳并微调 `nextFrameTimeNanos`，确保应用渲染节奏与显示器刷新相位同步，消除微卡顿。
+`core/.../skin` 是最大的子系统之一，包含 72 个 Java 文件。修改皮肤行为时要同时考虑：
 
-**多级刷新率管理的一致性**:
-`Config.audioFramePerSecond` (30/60)、`AndroidLauncher.maxRefreshRate` (硬件最大值)、`MainController.currentTargetFPS` (界面策略值)、`Config.maxFramePerSecond` (用户可配置值) — 这些值已通过 `updateFrameRateAPI` 和相位对齐逻辑实现统一调度。
+- loader 层是否需要支持新字段。
+- `SkinObject` 的 prepare/draw 生命周期。
+- property factory 的 ID 映射。
+- JSON、Lua、LR2 三种输入是否需要一致行为。
+- Android GL context 恢复后的纹理重建。
 
-### 6.3 与 Android Choreographer 的集成
+## 8. 输入系统
 
-Android 原生应用通过 `Choreographer.postFrameCallback()` 获得 VSync 对齐的回调。beatoraja-Android 采用了**混合模式**：
+`BMSPlayerInputProcessor` 统一管理：
 
-1. **AndroidLauncher** 启动一个持久的 `Choreographer` 回调循环，将最新的 VSync 纳秒时间戳同步给 `MainController`。
-2. **MainController** 在手动帧率控制逻辑中，计算 `nextFrameTimeNanos` 与 `lastVsyncTimeNanos` 的偏差。
-3. **相位修正**: 将 `nextFrameTimeNanos` 强制对齐到最近的 `lastVsyncTimeNanos + N * intervals` 位置。
+- `KeyBoardInputProcesseor`
+- `BMControllerInputProcessor`
+- `MidiInputProcessor`
 
-**效果**: 既保留了 libGDX 灵活的渲染循环和高精度输入采样，又获得了原生级别的 VSync 稳定性。
+Android 额外增加：
 
-### 6.4 帧率控制数据流
+- `FloatingMenu`
+- `PlayTouchKeyMapper`
+- 返回键到 `ESCAPE` 的映射
+- 不同状态下的触摸手势模式
 
-```
-32-bit 设备检测 (beatoraja.32bit)
-          │
-    ┌─────┴─────┐
-    ↓           ↓
-  32bit       64bit
-    │           │
- changeState  changeState
-    │           │
- MusicSelect  MusicSelect
-  → 30FPS     → 1000 (不限)
-    │           │
- PLAY/RESULT  PLAY/RESULT
-  → detectedRefreshRate (通常60)
-                │
-          updateFrameRateAPI()
-          → Surface.setFrameRate()
-                │
-          config.setMaxFramePerSecond()
-          → render() 末尾帧率控制
+输入轮询线程在 `MainController.create()` 中启动，当前实现硬编码为 1000 Hz：
+
+```text
+poll input
+next += 1,000,000 ns
+LockSupport.parkNanos(...)
 ```
 
----
+`Config.inputPollingRate` 字段仍存在，但当前轮询实现和设置页已将可配置逻辑注释掉。
+不要仅修改配置字段就认为轮询频率会变化。
 
-## 7. 性能优化全景分析 ★
+## 9. 音频与频谱
 
-### 7.1 已实施的性能优化
+### 9.1 音频注入
 
-#### 7.1.1 GL 层面
+`AndroidLauncher.createAudio()`：
 
-| 优化 | 位置 | 效果 |
-|------|------|------|
-| GL_DEPTH_TEST / GL_STENCIL_TEST / GL_DITHER 禁用 | `MainController.create()` | 减少 GPU driver overhead |
-| GL_BLEND / GL_TEXTURE_2D 启用 | `MainController.create()` | 启用 2D 必需功能 |
-| 预乘 Alpha 混合 `GL_ONE, GL_ONE_MINUS_SRC_ALPHA` | `MainController.create()` | 高性能混合模式 |
-| Mipmap 生成提示 `GL_FASTEST` | `MainController.create()` | 加速 mipmap 生成 |
-| Blend 状态缓存 | `SkinObjectRenderer.preDraw()` | 避免冗余 `glBlendFunc` |
-| Shader 切换缓存 | `SkinObjectRenderer.preDraw()` | 仅在不同 shader 时切换 |
-| Nearest 过滤 (default skin) | `SkinObjectRenderer` 构造器 | 降低 GPU 带宽 |
-| 视口裁剪 | `SkinObjectRenderer.viewport` | 跳过视口外的 draw call |
+1. 尝试创建 `OboeAudio(assets, 44100)`。
+2. 创建 `AudioSpectrumAdapter` 并注册为全局频谱 Provider。
+3. 失败时回退 libGDX 默认 `AndroidAudio`。
 
-#### 7.1.2 内存与 GC 层面
+`MainController.create()` 检查 `Gdx.audio instanceof AudioDriver`：
 
-| 优化 | 位置 | 效果 |
-|------|------|------|
-| Matrix4 预分配 | `MainController.projMatrix` | 避免每帧 `new Matrix4()` |
-| StringBuilder 预分配 | `MainController.coordTextBuilder` | 避免 String.format() |
-| 时间线文本预缓存 | `LaneRenderer.cachedTimeText[]` | 避免每帧 `String.format()` |
-| 音符渲染区域预计算 | `LaneRenderer` isPortrait 缓存 | 避免每帧判断 |
-| JIT 预热 | `MainController.create()` 末尾 3 帧空渲染 | 提前编译 SpriteBatch 热点 |
+- Oboe AAR 提供兼容的 `AudioDriver` 时直接使用。
+- 否则回退 `GdxSoundDriver`。
 
-#### 7.1.3 调度与线程层面
+因此修改音频接口时必须同时检查：
 
-| 优化 | 位置 | 效果 |
-|------|------|------|
-| GL 线程优先级 `THREAD_PRIORITY_DISPLAY` | `MainController.render()` | 渲染不被调度器降权 |
-| 独立输入轮询线程 (1000Hz, MAX_PRIORITY-1) | `MainController.create()` | 输入不跟随帧率 |
-| KeepAlive 伪触摸 | `AndroidLauncher.keepAliveRunnable` | 防止系统降频 |
-| 持续性能模式 | `AndroidLauncher.setupSustainedPerformance()` | `setSustainedPerformanceMode(true)` |
-| 绝对时间对齐帧率控制 | `MainController.render()` | 消除帧率漂移 |
-| VSync 相位锁定 | `MainController.render()` + `Choreographer` | 消除与 SurfaceFlinger 不同步导致的微卡顿 |
-| 32位设备 30FPS 策略 | `MainController.changeState()` | 降低低端 GPU 负载 |
+- `core/.../audio/AudioDriver.java`
+- `android/libs/libgdx-oboe.aar` 的兼容性
+- `AndroidLauncher.createAudio()`
+- `PlayerResource` 和按键音加载路径
 
-#### 7.1.4 渲染批次优化
+### 9.2 频谱
 
-| 优化 | 位置 | 效果 |
-|------|------|------|
-| SpriteBatch 缓冲区 4096 | `MainController.create()` | 减少高 BPM 谱面 flush 次数 |
-| 多 begin/end 合并（部分） | `MainController.render()` | FPS+Message 合并为一个 begin/end |
-| MusicSelector 跳过重复 create | `MainController.changeState()` | 切回选曲界面仅重新加载 skin |
-| 输入轮询线程优雅停机 | `MainController.dispose()` | `pollingRunning=false` + `interrupt()` + `join(100ms)` |
-| GL 上下文恢复 | `MainController.resume()` | 重建所有失效的 GPU 纹理 |
-
-### 7.2 可进一步优化的方向
-
-#### 7.2.1 图形引擎优化
-
-| 问题 | 影响 | 建议 |
-|------|------|------|
-| **多 begin/end 对** | 当前每帧 2~4 对 `sprite.begin()/end()`，每对都 flush batch 到 GPU | 理想情况应合并为单次 `begin/end`。skin 渲染和触摸指针可考虑使用不同的投影矩阵或条件渲染合并 |
-| **GlyphLayout 分配** | `systemfont.draw()` 内部创建 `GlyphLayout` 对象 | 预分配 `GlyphLayout` 并复用，特别是在 FPS 显示和坐标文字渲染中。也可在 debug=false 时禁用 FPS 渲染 |
-| **SkinObject.prepare() 全量调用** | 每帧对所有 SkinObject 调用 `prepare()`（含关键帧插值、属性读取），即使对象从未改变 | 引入 dirty flag：仅当绑定的 Property 值变化时才重新计算。静态皮肤元素（如背景图）可标记为 static |
-| **Shader 运行时加载** | Shader 首次使用时从文件加载+编译，可能造成首次进入某个界面的卡顿 | 在 `create()` 阶段预加载所有 shader |
-| **LaneRenderer 矩形分配** | `new Rectangle()` 用于绘制区域计算 | 复用静态 Rectangle 对象 |
-| **缺少 FBO/双缓冲** | 每帧直接渲染到屏幕 framebuffer，无法做后处理效果 | 可选：将 notefield 渲染到 FBO，然后做 bloom/blur 后处理。但需要评估额外的 VRAM 消耗 |
-
-#### 7.2.2 垂直同步优化
-
-| 问题 | 影响 | 建议 |
-|------|------|------|
-| **帧率突变** | 状态切换时 `targetFPS` 从 30 → 120 → 1000 的突变可能导致瞬时的帧节奏不均匀 | 使用帧率渐变（ramp up/down），或至少在下一次 VSync 信号时再切换 |
-| **Surface frame rate API 与渲染线程不同步** | `updateFrameRateAPI()` 在 `changeState()` 中调用（渲染线程），但 `setupSurfaceFrameRate()` 在 `postDelayed` 中调用（主线程），两者可能存在竞态 | 统一在单一位置管理 frame rate，使用 `AtomicInteger` 存储 targetFPS |
-
-#### 7.2.3 其他性能方向
-
-| 方向 | 说明 |
-|------|------|
-| **纹理图集 (Texture Atlas)** | 皮肤加载的多个小图片可合并为图集，减少纹理绑定切换 |
-| **TypedArray 替换 ArrayMap** | `Skin.java` 中大量使用 `IntIntMap`（基于 libGDX 的 `IntIntMap` 是开放寻址 hash map，已经比较高效） |
-| **增量式 Skin 更新** | `Skin.updateCustomObjects()` 每帧遍历所有 customEvents 和 customTimers，可以考虑标记活跃的才更新 |
-| **音频频谱采样的帧间差异** | `SideSpectrumRenderer` 的 draw 使用 `ShapeRenderer`——这会结束当前的 `SpriteBatch` 渲染并开始新的。应尽量放在同一个渲染上下文中或考虑用纹理图集模拟 |
-| **BGA 视频解码** | `GdxVideoProcessor` 使用 `MediaCodec` 硬件解码。可以考虑降低非活跃 BGA 的帧率（如 BGA 层被遮挡时降到 10fps） |
-
----
-
-## 8. 皮肤系统
-
-### 8.1 三种皮肤格式 → 统一内部表示
-
-```
-                    SkinLoader.load()
-                         │
-         ┌───────────────┼───────────────┐
-         ▼               ▼               ▼
-    .json 文件      .luaskin 文件    LR2 CSV 文件
-   JSONSkinLoader   LuaSkinLoader   LR2SkinCSVLoader
-   (Jackson 反序列化) (Lua → Java)  (Command Word 逐行解析)
-         │               │               │
-         └───────────────┴───────────────┘
-                         ▼
-                    Skin 容器 → SkinObject[]
-                         │
-                    drawAllObjects()
-                         │
-              prepare(time) → 关键帧插值
-              draw(renderer) → SkinObjectRenderer
+```text
+OboeAudio FFT
+-> AudioSpectrumAdapter
+-> AudioSpectrumManager
+-> SideSpectrumRenderer
 ```
 
-### 8.2 SkinObject 类型体系
+频谱只在 `BMSPlayer` 状态且 `Config.showAudioSpectrum` 开启时绘制。
+游戏内位置可来自玩家配置、`spectrumconfig.json` 或内置默认值。
 
-```
-SkinObject
-├── SkinImage                  图片/按钮/动画
-├── SkinNumber                 整数显示（分数/连击）
-├── SkinFloat                  浮点数显示
-├── SkinTextFont               TTF 字体
-├── SkinTextBitmap             位图字体 (.fnt)
-├── SkinTextImage              LR2 图片字体
-├── SkinSlider                 滑块控件
-├── SkinGraph                  条形图
-├── SkinBPMGraph               BPM 曲线图
-├── SkinHitErrorVisualizer     打击误差
-├── SkinNoteDistributionGraph  音符密度分布
-├── SkinTimingVisualizer       时序可视化
-└── SkinTimingDistributionGraph 时序分布统计
+## 10. 谱面与游玩链路
+
+```text
+BMS/BMSON 文件
+-> BMSDecoder / BMSONDecoder
+-> BMSModel
+-> PlayerResource.setBMSFile()
+-> BMSPlayer.create()
+-> LaneRenderer / JudgeManager / GrooveGauge / KeySoundProcessor
+-> MusicResult
+-> PlayDataAccessor / ScoreDatabaseAccessor
 ```
 
-### 8.3 属性绑定与关键帧动画
+`bms.model.Mode` 当前定义 8 种模式：
 
-- **属性 ID** → `*PropertyFactory` → `*Property` 实例（Boolean/Integer/Float/String/Timer）
-- **关键帧动画**: 每个 `SkinObject` 持有 `SkinObjectDestination[]`（时间+位置+颜色+角度+缓动），运行时插值
-- **条件绘制**: `BooleanProperty[] drawCondition` 控制对象可见性（如仅在特定选项开启时显示）
-- **自定义事件**: `CustomEvent[]` / `CustomTimer[]` 支持皮肤层的时间驱动逻辑
+- 5K、7K、10K、14K
+- POP'N 5K、POP'N 9K
+- 24K、24K Double
 
----
+玩法相关代码主要位于：
 
-## 9. 输入系统
+| 包 | 职责 |
+|---|---|
+| `play` | 游玩状态、轨道、判定、Gauge、BGA、触摸键 |
+| `pattern` | Random、Mirror、LN、Mine、练习等谱面修改 |
+| `result` | 单曲和课程结果、成绩保存 |
+| `audio` | PCM 与播放抽象 |
 
-### 9.1 三层架构
+## 11. 歌曲库、成绩库与配置
 
-```
-BMSPlayerInputProcessor（统一管理）
-├── KeyBoardInputProcesseor    键盘 + 触摸手势 + 模拟按键
-│   - poll(microtime)          轮询 Gdx.input.isKeyPressed()
-│   - 手势映射（Select/Result/Decide 各有不同模式）
-│   - 模拟按键系统（150ms 有效期 / 长按锁定）
-│   - Android Back 键 → ESCAPE 映射
-│
-├── BMControllerInputProcessor  游戏手柄
-│   - libGDX Controllers API
-│   - 物理按键 + 模拟轴（转盘 V1/V2 算法）
-│
-└── MidiInputProcessor          MIDI 设备
-    - javax.sound.midi API
-    - NOTE_ON/OFF → 按键, PITCH_BEND → 转盘
+### 11.1 平台注入
+
+歌曲库：
+
+```text
+AndroidLauncher
+-> new AndroidSQLiteSongDatabaseAccessor(...)
+-> MainLoader.setSongDatabaseAccessor(...)
+-> core 通过 SongDatabaseAccessor 使用
 ```
 
-### 9.2 高精度输入轮询
+成绩库：
 
-独立于渲染的输入轮询线程（`Thread.MAX_PRIORITY - 1`），使用绝对时间对齐：
-
-```java
-Thread polling = new Thread(() -> {
-    long nextPollTime = System.nanoTime();
-    for (;;) {
-        input.poll();
-        nextPollTime += 1_000_000_000L / config.getInputPollingRate(); // 默认 1000Hz
-        LockSupport.parkNanos(nextPollTime - System.nanoTime());
-    }
-});
+```text
+AndroidLauncher
+-> ScoreDatabaseAccessor.setFactory(...)
+-> PlayDataAccessor 等通过 Factory 创建
+-> AndroidScoreDatabaseAccessor
 ```
 
-可配置频率: 500/1000/2000/4000 Hz（`Config.inputPollingRate`）。
+歌曲扫描采用多阶段流程：
 
----
+1. 收集 BMS/BMSON 文件。
+2. 根据数据库日期缓存过滤未变化文件。
+3. 使用固定线程池并行解码。
+4. 批量写入 SQLite。
+5. 更新选曲 Bar。
 
-## 10. 音频系统
+数据库访问涉及 GL 线程、扫描线程和结果保存线程。修改 SQL 或锁策略前，应先阅读：
 
-### 10.1 分层架构
+- `docs/score-database-refactor-plan.md`
+- `docs/musicresult-thread-analysis.md`
+- `docs/result-freeze-fix.md`
 
-```
-AudioDriver (接口)
-    ├── AbstractAudioDriver (抽象骨架)
-    │   └── GdxSoundDriver (OpenAL / Oboe 实现)
-    │       - 256 个声音实例池
-    │       - 按键音 / BGM / BGA 播放
-    │
-    └── GdxAudioDeviceDriver (未完成)
+### 11.2 存储布局
 
-PCM 数据抽象:
-    PCM<T> ← BytePCM / ShortPCM / ShortDirectPCM / FloatPCM
-```
+应用私有外部目录：
 
-### 10.2 Android Oboe 集成
-
-```
-AndroidLauncher.createAudio()
-    ├── new OboeAudio(assets, sampleRate)     Oboe 原生音频引擎
-    │   └── AudioSpectrumAdapter              频谱数据适配器
-    │       └── AudioSpectrumManager.setGlobalProvider()
-    └── 失败时回退: super.createAudio()       Android AudioTrack
-```
-
-- `ShortDirectPCM` 使用 `DirectBuffer` 避免 JNI 数据复制
-- `AudioSpectrumManager` 全局单例，`SideSpectrumRenderer` 读取 FFT 数据绘制频谱柱状图
-
----
-
-## 11. 歌曲数据库与选曲系统
-
-### 11.1 数据流
-
-```
-启动 → SongUpdateThread
-    ├── 扫描 bmsroot[] 目录
-    ├── BMSDecoder.decode() → SongData + SongInformation
-    ├── 写入 songdata.db (AndroidSQLiteSongDatabaseAccessor)
-    └── 写入 information 表 (SongInformationAccessor)
+```text
+Android/data/com.starxh.beatoraja/files/
+├── config_sys.json
+├── songdata.db
+├── player/<player-id>/
+│   ├── config_player.json
+│   └── score.db
+├── table/
+├── songinfo/
+├── irconfig/
+├── sound/
+├── bgm/
+└── font/
 ```
 
-### 11.2 MusicSelector 核心组件
+公共下载目录：
 
-```
-MusicSelector (MainState)
-├── BarManager                层级导航管理
-│   ├── BarSorter             排序器
-│   ├── BarContentsLoaderThread 后台加载（分数/图片）
-│   └── bar/                  Bar 类型体系 (13 files)
-│       ├── SongBar, FolderBar, TableBar, HashBar
-│       ├── GradeBar, CommandBar, SearchWordBar
-│       └── RandomCourseBar, SameFolderBar
-│
-├── BarRenderer               Bar 渲染
-├── MusicSelectInputProcessor  4 层面板选项系统
-│   ├── Panel 0: 歌曲浏览
-│   ├── Panel 1 (Start): 游戏选项
-│   ├── Panel 2 (Select): 辅助选项
-│   └── Panel 3 (Start+Select): 详细选项
-├── PreviewMusicProcessor      乐曲预览
-└── ScoreDataCache             分数缓存
+```text
+Download/beatoraja/
+├── songs/
+└── skins/
 ```
 
----
+`AndroidLauncher` 将私有外部目录写入系统属性 `beatoraja.root`。
+`Config` 和 `PlayerConfig` 依赖这个属性解析配置、玩家和相对资源路径。
 
-## 12. BMS 谱面模型
+### 11.3 设置页
 
+`SettingsActivity` 直接读写 JSON 文本，并没有复用 `Config`/`PlayerConfig` 的完整 Jackson
+序列化流程。它负责：
+
+- 系统、按键音和 BGM 音量。
+- 玩家选择和导入。
+- BMS 根目录与难度表 URL。
+- Gauge、Random、Hispeed、Lane cover、Lift、BGA 等常用选项。
+- 成绩库导入导出。
+
+这是一个兼容风险点：新增或重命名配置字段时，必须同时检查设置页的手写 JSON 解析和保存逻辑。
+
+## 12. 并发模型
+
+主要线程/任务：
+
+| 线程或任务 | 职责 |
+|---|---|
+| Android UI 线程 | Activity、权限、窗口和 Surface 设置 |
+| libGDX GL 线程 | 状态更新、渲染和大部分游戏逻辑 |
+| 1000 Hz 输入线程 | `input.poll()` |
+| `SongUpdateThread` | 歌曲扫描协调 |
+| 歌曲扫描固定线程池 | 并行谱面解码 |
+| 结果页后台线程 | IR、成绩或资源相关任务 |
+| 截图线程 | 像素后处理与文件导出 |
+| Choreographer callback | 提供最新 VSync 相位 |
+
+注意事项：
+
+- 不要在后台线程直接操作 OpenGL 资源。
+- SQLite 写入和结果页切换存在历史卡顿问题，改动前先检查专题文档和测试。
+- 当前输入轮询线程是无限循环，`MainController.dispose()` 没有显式停止它。
+- 状态切换会清理模拟按键，防止上一状态的输入泄漏。
+
+## 13. 帧率与 Android 性能策略
+
+刷新率控制分三层：
+
+1. `WindowManager.LayoutParams.preferredRefreshRate`
+2. Android 11+ `Surface.setFrameRate(...)`
+3. `MainController.render()` 末尾的绝对时间应用层限帧
+
+Choreographer 持续把 VSync 时间戳传给 `MainController`，应用层等待会尝试对齐该相位。
+
+状态策略：
+
+| 场景 | 目标 |
+|---|---|
+| 32 位设备选曲 | 30 FPS |
+| 64 位设备选曲 | `1000` 哨兵，不做应用层限帧 |
+| PLAY/RESULT 等 | 检测到的硬件最高刷新率 |
+
+当前 `keepAliveRunnable` 只周期性重新调度自身，不再制造模拟触摸。
+不要沿用旧文档中“伪触摸防降频”的描述。
+
+## 14. 已知结构性风险
+
+这些不是本次要修复的 bug，而是后续修改时应优先留意的架构事实：
+
+1. `MainController` 同时管理状态、渲染、输入和帧率，改动影响面大。
+2. Android 与 core 之间仍有反射和静态全局注入，测试隔离较弱。
+3. `SettingsActivity` 使用手写 JSON 查找/替换，容易与配置模型漂移。
+4. `android/compose` 包名具有误导性，实际 UI 是 XML View。
+5. `app/` 是未参与构建的重复数据库 helper，修改它不会影响 APK。
+6. `libgdx-oboe` 子模块与打包 AAR 可能出现版本漂移。
+7. 自动化测试极少，当前只有一个结果页数据库锁相关测试。
+8. 输入轮询线程没有显式停止机制。
+9. `core/.../launcher` 保留桌面 launcher/FXML 遗留代码，但 Android 启动链不使用它。
+
+## 15. 修改导航
+
+| 需求 | 首先查看 |
+|---|---|
+| Android 启动/权限/目录 | `AndroidLauncher.java` |
+| 设置项和配置保存 | `SettingsActivity.java`、`Config.java`、`PlayerConfig.java` |
+| 状态切换/全局渲染 | `MainController.java`、`MainState.java` |
+| 选曲 | `select/MusicSelector.java`、`select/BarManager.java` |
+| 游玩/判定 | `play/BMSPlayer.java`、`JudgeManager.java`、`LaneRenderer.java` |
+| 输入延迟/触摸 | `input/`、`PlayTouchKeyMapper.java`、`FloatingMenu.java` |
+| 音频/按键音 | `audio/`、`AndroidLauncher.createAudio()`、Oboe AAR |
+| BGA/视频 | `play/bga/`、gdx-video Android backend |
+| 皮肤 | `skin/`、`SkinLoader.java`、对应格式 loader |
+| 歌曲扫描 | `AndroidSQLiteSongDatabaseAccessor.java` |
+| 成绩保存/结果卡顿 | `MusicResult.java`、`PlayDataAccessor.java`、`AndroidScoreDatabaseAccessor.java` |
+| 频谱 | `AudioSpectrumAdapter.java`、`AudioSpectrumManager.java`、`SideSpectrumRenderer.java` |
+
+## 16. 构建与核验命令
+
+Windows：
+
+```powershell
+.\gradlew.bat projects
+.\gradlew.bat :core:test
+.\gradlew.bat :android:assembleDebug
 ```
-BMS/BMSON 文件 → BMSDecoder/BMSONDecoder → BMSModel
-    ├── TimeLine[]             按时间排序的时间线数组
-    │   ├── Note[]             各轨道音符 (NormalNote/LongNote/MineNote)
-    │   ├── BPMEvent/StopEvent  BPM 变化 / STOP 事件
-    │   └── Section            小节标识
-    ├── wavmap[]               音源 ID → 文件路径
-    ├── bgamap[]               BGA ID → 文件路径
-    ├── Mode                   8种游戏模式 (5K/7K/9K/10K/14K/24K/24K_DOUBLE)
-    └── md5/sha256             文件完整性校验
-```
 
----
+安装和启动通常还需要本机 Android SDK、`local.properties` 或 `ANDROID_SDK_ROOT`。
 
-## 13. Android 平台适配
+## 17. 项目记忆约定
 
-### 13.1 存储管理
+后续维护本项目时，默认遵循：
 
-- 歌曲: `Download/beatoraja/songs/` (支持 ZIP 自动解压导入)
-- 皮肤: `Download/beatoraja/skins/` (支持 ZIP 自动解压导入)
-- 配置/数据库: `Android/data/com.starxh.beatoraja/files/`
-- 首次启动自动解压 assets 内置的 `inochi_ogg` 示例曲包
-
-### 13.2 性能适配
-
-- 32位设备: 30FPS + 低精度计时器
-- 64位设备: 不限帧 + 高精度计时器
-- 持续性能模式 + KeepAlive 伪触摸防止系统降频
-- 高刷新率支持 (WindowManager + Surface API)
-- GL 线程优先级 `THREAD_PRIORITY_DISPLAY`
-- 竖屏支持 (`isPortrait` 模式，音符横向落下)
-- 触摸按键映射 (`PlayTouchKeyMapper`)
-- Oboe 低延迟音频 + DirectBuffer PCM
-- GL 上下文恢复 (resume 时重建所有失效纹理和字体)
-
----
-
-## 14. 关键配置字段速查
-
-### Config（系统级）
-
-| 字段 | 默认值 | 说明 |
-|------|--------|------|
-| `playername` | `"player1"` | 当前活跃玩家 |
-| `vsync` | `false` | 桌面端垂直同步（Android 不使用） |
-| `maxFramePerSecond` | `300` | 最大帧率（垂直同步 OFF 时有效） |
-| `androidUnlimitedFPS` | `false` | Android 无限制帧率模式 |
-| `androidStableFPS` | `true` | Android 稳定帧率模式 |
-| `inputPollingRate` | `1000` | 输入轮询频率 (Hz) |
-| `frameskip` | `1` | 跳帧数 |
-| `cacheSkinImage` | `false` | 皮肤图片缓存 |
-| `skinPixmapGen` | `4` | 皮肤 Pixmap 资源池大小 |
-| `bga` / `bgaExpand` | `0` / `1` | BGA 显示模式 / 扩展模式 |
-
-### 新增字段（v3）
-
-| 字段 | 说明 |
-|------|------|
-| `androidUnlimitedFPS` | Android 平台是否允许无限制帧率（默认关闭，强制绝对时间对齐） |
-| `inputPollingRate` | 独立输入轮询线程频率 (500/1000/2000/4000 Hz) |
-| `keySoundTailMs` | 曲结束时按键音播放宽限时间 (默认 5000ms) |
-| `showAudioSpectrum` / `spectrumInGameArea` | 频谱可视化控制 |
-| `showFloatingMenuInPlay` | Play 界面浮动菜单显示控制 |
-| `showTouchKey` | Play 界面触摸按键显示 |
-
----
-
-## 15. 关键文件索引
-
-| 文件 | 作用 |
-|------|------|
-| [AndroidLauncher.java](file:///c:/Users/11879/Documents/beatoraja-Android/android/src/main/java/com/starxh/beatoraja/android/AndroidLauncher.java) | Android 游戏入口 Activity ★ |
-| [SettingsActivity.java](file:///c:/Users/11879/Documents/beatoraja-Android/android/src/main/java/com/starxh/beatoraja/android/compose/SettingsActivity.java) | 设置/启动界面 |
-| [BeatorajaGame.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/com/starxh/beatoraja/BeatorajaGame.java) | libGDX ApplicationAdapter |
-| [MainController.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/MainController.java) | 中央控制器 + 渲染管线 + 帧率控制 ★ |
-| [MainState.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/MainState.java) | 状态机抽象基类 |
-| [Config.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/Config.java) | 系统级配置 |
-| [PlayerConfig.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/PlayerConfig.java) | 玩家级配置 |
-| [Skin.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/skin/Skin.java) | 皮肤容器 + SkinObjectRenderer ★ |
-| [SkinObject.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/skin/SkinObject.java) | 皮肤对象抽象基类 |
-| [SkinLoader.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/skin/SkinLoader.java) | 皮肤加载入口 |
-| [ShaderManager.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/ShaderManager.java) | GLSL 着色器管理 |
-| [LaneRenderer.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/play/LaneRenderer.java) | 音符轨道渲染 ★ |
-| [BMSPlayer.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/play/BMSPlayer.java) | 游玩主状态 |
-| [JudgeManager.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/play/JudgeManager.java) | 判定核心 |
-| [BMSPlayerInputProcessor.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/input/BMSPlayerInputProcessor.java) | 统一输入管理 |
-| [MusicSelector.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/select/MusicSelector.java) | 选曲界面 |
-| [SongDatabaseAccessor.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/song/SongDatabaseAccessor.java) | 歌曲数据库接口 |
-| [AudioDriver.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/audio/AudioDriver.java) | 音频驱动接口 |
-| [FloatingMenu.java](file:///c:/Users/11879/Documents/beatoraja-Android/core/src/main/java/bms/player/beatoraja/FloatingMenu.java) | Android 浮动快捷键菜单 |
+1. 先读 `AGENTS.md` 和本文，再读对应专题文档。
+2. 以 `settings.gradle` 判断真实模块，不把 `app/` 当成运行时代码。
+3. 把 `SettingsActivity` 视为 XML View Activity，不按 Compose 方案修改。
+4. 保持依赖方向 `android -> core`。
+5. 配置字段变化必须同时核对设置页、Config、PlayerConfig 和磁盘兼容性。
+6. 数据库或结果页并发变化必须补充测试，并核对 `docs/` 中已有分析。
+7. 音频变化必须考虑 AAR 边界和默认 AndroidAudio 回退路径。
+8. 文档与源码不一致时，以源码和构建文件为准，并同步更新本文。
