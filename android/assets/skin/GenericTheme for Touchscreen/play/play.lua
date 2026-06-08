@@ -1433,7 +1433,7 @@ local function main(keysNumber)
 			end
 			if isPortraitLayout() then
 				-- portrait: BGA は bgaarea 内 (local 226,0,1694,1080) に描画、cover で埋める
-				append_all(skin.destination, bga_dst(540, real_bga_y, real_bga_w, real_bga_h, 3))
+				append_all(skin.destination, bga_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, 3))
 			else
 				append_all(skin.destination, bga_dst(0, 0, header.w, header.h, 3))
 			end
@@ -1944,22 +1944,12 @@ local function main(keysNumber)
 		}})
 	end
 	-- lane border white line レーン周りの白線
-	if property.hideFrames.item.off.isSelected() then
+	if property.hideFrames.item.off.isSelected() and not isPortraitLayout() then
 		local w = 3
-		if isPortraitLayout() then
-			-- In portrait, visual_x is lane.x
-			local border_x = geo.lane.x
-			local border_y = geo.lane.y
-			local border_w = geo.lane.judgeline_h
-			local border_h = geo.lane.h
-			append_all(skin.destination, border_dst(border_x - w, border_y - w, border_w + w * 2, border_h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
-			append_all(skin.destination, border_dst(border_x, border_y, border_w, border_h, {r = 200, g = 200, b = 200}, 255, w, w))
-		else
-			-- constrain border width to not exceed header.w
-			local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.visual_x - w))
-			append_all(skin.destination, border_dst(geo.lane.visual_x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
-			append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
-		end
+		-- constrain border width to not exceed header.w
+		local border_w = math.min(geo.lane.w + w * 2, header.w - (geo.lane.visual_x - w))
+		append_all(skin.destination, border_dst(geo.lane.visual_x - w, geo.lane.y - w, border_w, geo.lane.h + w * 2, {r = 0, g = 0, b = 0}, 255, 1, 1))
+		append_all(skin.destination, border_dst(geo.lane.visual_x, geo.lane.y, geo.lane.w, geo.lane.h, {r = 200, g = 200, b = 200}, 255, w, w))
 	end
 	-- glow
 	if isPortraitLayout() then
@@ -2201,7 +2191,7 @@ local function main(keysNumber)
 		if isPortraitLayout() then
 			-- Portrait: cover extends horizontally from judgment line leftward
 			append_all(skin.destination, {
-				{id = "liftcover", dst = {
+				{id = "liftcover", op = {272}, dst = {
 					{x = geo.lane.x - cover_h, y = geo.lane.y, w = cover_h, h = geo.lane.h},
 				}},
 				{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
@@ -2210,7 +2200,7 @@ local function main(keysNumber)
 			})
 		else
 			append_all(skin.destination, {
-				{id = "liftcover", dst = {
+				{id = "liftcover", op = {272}, dst = {
 					{x = geo.lane.visual_x, y = geo.lane.y - cover_h, w = geo.lane.w, h = cover_h},
 				}},
 				{id = "num_lift", offset = 3, op = {270, 272}, filter = 1, dst = {
@@ -2572,11 +2562,11 @@ local function main(keysNumber)
 	local gauge_bg_h = geo.lane.y
 	if isPortraitLayout() then gauge_bg_h = header.h end
 	table.insert(skin.destination, {id = -110, dst = {
-		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 240},
+		{x = geo.gaugearea.x, y = 0, w = geo.gaugearea.w + 194, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 255},
 	}})
 	if not isPortraitLayout() then
 		table.insert(skin.destination, {id = -110, dst = {
-			{x = 0, y = 0, w = header.w, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 240},
+			{x = 0, y = 0, w = header.w, h = gauge_bg_h, r = 0, g = 0, b = 0, a = 255},
 		}})
 	end
 	-- gauge
