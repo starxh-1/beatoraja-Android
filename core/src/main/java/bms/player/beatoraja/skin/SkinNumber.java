@@ -50,8 +50,10 @@ public final class SkinNumber extends SkinObject {
 
 	private TextureRegion[] currentImages;
 	private TextureRegion[] imageSet;
-	/** 静态数字图片缓存：无需每帧获取 */
+	/** 静态数字正数图片缓存：无需每帧获取 */
 	private TextureRegion[] cachedImages;
+	/** 静态数字负数图片缓存：避免 sign 切换时回退到正数集 */
+	private TextureRegion[] cachedMImages;
 
 	private float shift;
 
@@ -126,9 +128,15 @@ public final class SkinNumber extends SkinObject {
 	@Override
 	public void load() {
 		super.load();
-		// 静态数字（无动画计时器）在加载时缓存图片集
-		if (getDestinationTimer() == null && cachedImages == null && image != null) {
-			cachedImages = image.getImages(0, null);
+		// 静态数字（无动画计时器）在加载时缓存图片集；正负两套必须分别缓存，
+		// 否则负数会被回退到正数集，导致 image[11] 符号位永远是正数的 "+"
+		if (getDestinationTimer() == null && image != null) {
+			if (cachedImages == null) {
+				cachedImages = image.getImages(0, null);
+			}
+			if (mimage != null && cachedMImages == null) {
+				cachedMImages = mimage.getImages(0, null);
+			}
 		}
 	}
 
@@ -157,11 +165,13 @@ public final class SkinNumber extends SkinObject {
 			length = 0;
 			return;
 		}
-		TextureRegion[] image;
-		// 静态数字（无动画计时器）使用缓存，每帧跳过 getImages() 调用
-		if (getDestinationTimer() == null && cachedImages != null) {
-			image = cachedImages;
-		} else {
+		TextureRegion[] image = null;
+		// 静态数字（无动画计时器）使用缓存，每帧跳过 getImages() 调用；
+		// 必须按当前正负集分别取缓存，否则负数会回退到正数集导致符号位错误
+		if (getDestinationTimer() == null) {
+			image = (images == mimage && cachedMImages != null) ? cachedMImages : cachedImages;
+		}
+		if (image == null) {
 			image = images.getImages(time, state);
 		}
 		if(image == null) {

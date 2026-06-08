@@ -38,7 +38,12 @@ public abstract class ScoreDataCache {
             return scorecache[cacheindex].get(song.getSha256());
         }
         ScoreData score = readScoreDatasFromSource(song, lnmode);
-        scorecache[cacheindex].put(song.getSha256(), score);
+        // 关键修复：不缓存 null 值。
+        // 原代码在 DB 返回 null 时把 null 写入缓存，导致该 sha256 永远返回 null。
+        // 这在 SD865/Android 11+ 等设备的初次启动时表现为 select 界面看不到成绩。
+        if (score != null) {
+            scorecache[cacheindex].put(song.getSha256(), score);
+        }
         return score;
     }
 
@@ -71,8 +76,11 @@ public abstract class ScoreDataCache {
         final SongData[] noscores = noscore.toArray(SongData.class);
 
         final ScoreDataCollector cachecollector = (song, score) -> {
-            final int cacheindex = song.hasUndefinedLongNote() ? lnmode : 3;
-            scorecache[cacheindex].put(song.getSha256(), score);
+            // 关键修复：不缓存 null 值（与 readScoreData 单数版本保持一致）。
+            if (score != null) {
+                final int cacheindex = song.hasUndefinedLongNote() ? lnmode : 3;
+                scorecache[cacheindex].put(song.getSha256(), score);
+            }
         	collector.collect(song, score);
         };
         readScoreDatasFromSource(cachecollector, noscores, lnmode);
@@ -92,7 +100,10 @@ public abstract class ScoreDataCache {
     public void update(SongData song, int lnmode) {
         final int cacheindex = song.hasUndefinedLongNote() ? lnmode : 3;
         ScoreData score = readScoreDatasFromSource(song, lnmode);
-        scorecache[cacheindex].put(song.getSha256(), score);
+        // 关键修复：不缓存 null 值。
+        if (score != null) {
+            scorecache[cacheindex].put(song.getSha256(), score);
+        }
     }
 
     protected abstract ScoreData readScoreDatasFromSource(SongData songs, int lnmode);

@@ -107,6 +107,8 @@ public class BMSPlayer extends MainState {
 	private PracticeConfiguration practice = new PracticeConfiguration();
 	private long starttimeoffset;
 
+	private float adjustedVolume = -1.f;
+
 	private RhythmTimerProcessor rhythm;
 	private long startpressedtime;
 	private boolean bgaPrepared = false;
@@ -486,9 +488,9 @@ public class BMSPlayer extends MainState {
 	}
 
 	public void create() {
-		// 主动触发GC，减少游戏过程中的GC停顿
-		System.gc();
-		System.gc();
+		// 不再调用 System.gc()：双重调用是民间偏方,无证据表明 ART 上叠加有效;
+		// 强制 Full GC 反而会引发长 STW 暂停,正是它想避免的帧率抖动来源。
+		// 真实需求"减少 GC 停顿"应通过对象池/复用对象解决,而非手动触发 GC。
 
 		// 游戏界面开启持续渲染，确保流畅帧率
 		Gdx.graphics.setContinuousRendering(true);
@@ -660,11 +662,10 @@ public class BMSPlayer extends MainState {
 						timer.setTimerOff(141);
 						lanerender.init(model);
 					}
+					// 不再调用 System.gc()：强制 GC 之前/之后对比 freeMemory 会把软引用、终结器队列对象
+					// 一起回收,得到的 "disposed" 数字虚高,污染了真实内存观测。这里只输出当前 freeMemory。
 					final long mem = Runtime.getRuntime().freeMemory();
-					System.gc();
-					final long cmem = Runtime.getRuntime().freeMemory();
-					Logger.getGlobal().info("current free memory : " + (cmem / (1024 * 1024)) + "MB , disposed : "
-							+ ((cmem - mem) / (1024 * 1024)) + "MB");
+					Logger.getGlobal().info("current free memory : " + (mem / (1024 * 1024)) + "MB");
 					state = STATE_READY;
 					timer.setTimerOn(TIMER_READY);
 					play(PLAY_READY);
@@ -960,6 +961,10 @@ public class BMSPlayer extends MainState {
 		return playspeed;
 	}
 
+	public float getAdjustedVolume() {
+		return adjustedVolume;
+	}
+
 	public void input() {
 		control.input();
 		keyinput.input();
@@ -1082,6 +1087,8 @@ public class BMSPlayer extends MainState {
 	}
 
 	public void stopPlay() {
+		// ESCAPE 时立即关闭 FINISH 动画计时器，避免在 fadeout 期间继续弹出 FINISH 字样
+		timer.setTimerOff(TIMER_PLAY_NOTE_END);
 		if (state == STATE_PRACTICE) {
 			practice.saveProperty();
 			timer.setTimerOn(TIMER_FADEOUT);
@@ -1109,7 +1116,8 @@ public class BMSPlayer extends MainState {
 		if (state != STATE_FINISHED &&
 				judge.getPastNotes() == resource.getSongdata().getNotes()) {
 			state = STATE_FINISHED;
-			timer.setTimerOn(TIMER_PLAY_NOTE_END);
+			// ESCAPE 提前跳过尾段时，不再重新打开 FINISH 动画计时器（与入口处的 setTimerOff 互为冗余保险）
+			timer.setTimerOff(TIMER_PLAY_NOTE_END);
 			timer.switchTimer(TIMER_ENDOFNOTE_1P, true);
 			Logger.getGlobal().info("STATE_FINISHEDに移行");
 		} else if(state == STATE_FINISHED && !timer.isTimerOn(TIMER_FADEOUT)) {

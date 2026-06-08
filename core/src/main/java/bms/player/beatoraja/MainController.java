@@ -89,6 +89,13 @@ public class MainController {
     private PlayDataAccessor playdata;
     private SystemSoundManager sound;
     private Thread screenshot;
+    /**
+     * 1000Hz 输入轮询线程。
+     * 关键：dispose() 必须设 pollingRunning=false 并 interrupt()，否则 1000Hz 循环在 app 退出后继续运行,
+     * 持续消耗 CPU,且 input 已被释放后 input.poll() 可能 NPE,导致进程无法被 Android 正常回收。
+     */
+    private Thread inputPollingThread;
+    private volatile boolean pollingRunning = false;
     private MusicDownloadProcessor download;
     private StreamController streamController;
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
@@ -324,7 +331,9 @@ public class MainController {
             case DECIDE: newState = decide; break;
             case PLAY:
                 if (bmsplayer != null) { bmsplayer.dispose(); }
-                System.gc();
+                // 不再调用 System.gc()：
+                // - ART/HotSpot 都不保证立即执行,可能延后到下次分配时反而触发长 STW
+                // - 实际想要的是"老 BMSPlayer 释放的内存尽快可复用",交给年轻代自然晋升即可
                 bmsplayer = new BMSPlayer(this, resource);
                 newState = bmsplayer;
                 break;
@@ -551,20 +560,27 @@ public class MainController {
         // 高精度输入轮询线程：硬编码 1000Hz，无条件轮询
         // Android 下 keyDown 事件是异步的，必须每周期无条件调用 poll() 更新 keystate，
         // 否则 keystate[keycode] 会在 keyDown 与 render 之间保持旧状态（如 Enter 被截断问题）。
-        Thread polling = new Thread(() -> {
+        // 关键修复：循环条件改用 pollingRunning 标志，dispose() 中可正常退出。
+        pollingRunning = true;
+        inputPollingThread = new Thread(() -> {
             long nextPollTime = System.nanoTime();
             final long pollIntervalNs = 1_000_000L; // 1000Hz
-            for (;;) {
-                input.poll();
+            while (pollingRunning) {
+                // 即使 pollingRunning 在 sleep 期间被翻转,也要先完成这次 poll 释放帧状态,
+                // 避免 dispose 后 input.poll() 看不到已 dispose 的 input。
+                if (input != null) {
+                    input.poll();
+                }
                 nextPollTime += pollIntervalNs;
                 final long sleepNs = nextPollTime - System.nanoTime();
                 if (sleepNs > 50000) {
                     LockSupport.parkNanos(sleepNs);
                 }
             }
-        });
-        polling.setPriority(Thread.MAX_PRIORITY - 1);
-        polling.start();
+        }, "InputPollingThread");
+        inputPollingThread.setPriority(Thread.MAX_PRIORITY - 1);
+        inputPollingThread.setDaemon(true); // 守护线程:JVM 退出时强制结束
+        inputPollingThread.start();
 
         Array<String> targetlist = new Array<String>(player.getTargetlist());
         for(int i = 0;i < rivals.getRivalCount();i++) {
@@ -1005,6 +1021,20 @@ public class MainController {
     }
 
     public void dispose() {
+        // 关键修复：先停掉 1000Hz 输入轮询线程,再释放 input,避免 input.poll() 在 input 被释放后
+        // 继续调用引发 NPE / 死循环。pollingRunning=false 让循环在下一次 check 时退出;
+        // interrupt() 是兜底,若线程卡在 parkNanos 则强制唤醒。
+        pollingRunning = false;
+        if (inputPollingThread != null) {
+            inputPollingThread.interrupt();
+            try {
+                inputPollingThread.join(100);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            inputPollingThread = null;
+        }
+
         saveConfig();
 
         if (bmsplayer != null) {

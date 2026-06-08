@@ -84,13 +84,8 @@ public class Config implements Validatable, Serializable {
 	/**
 	 * Android 专用设置：Play 界面是否显示触摸按键
 	 */
-	private boolean showTouchKey = false;
+	private boolean showTouchKey = true;
 
-	/**
-	 * 输入轮询频率 (Hz)。默认 1000Hz (1ms)。
-	 * 可选值：500, 1000, 2000, 4000。
-	 * 更高的频率提供更低的输入延迟，但增加 CPU 消耗。
-	 */
 	private int inputPollingRate = 1000;
 
 	// Polling rate is hardcoded to 1000Hz per Endless Dream upstream fix.

@@ -186,9 +186,11 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		AudioElement<T> sound = soundmap.get(p);
 		if (!soundmap.containsKey(p)) {
 			try {
-				sound = new AudioElement(getKeySound(new File(p)));
-				if (sound.audio != null) {
+				T audio = getKeySound(new File(p));
+				if (audio != null) {
+					sound = new AudioElement(audio);
 					soundmap.put(p, sound);
+					onSoundLoaded(p, audio);
 				} else {
 					failedLoads.add(p);
 					sound = null;
@@ -200,6 +202,50 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			}
 		}
 		return sound;
+	}
+
+	/** Hook for subclasses to react to a sound being first loaded. Default no-op. */
+	protected void onSoundLoaded(String path, T audio) {
+		// default no-op
+	}
+
+	/** Per-path completion listeners. Protected so subclasses can access via fireCompletion. */
+	private final java.util.Map<String, Runnable> completionListeners = new java.util.concurrent.ConcurrentHashMap<>();
+
+	@Override
+	public void setOnCompletionListener(String path, Runnable listener) {
+		if (path == null || path.length() == 0) {
+			return;
+		}
+		if (listener == null) {
+			completionListeners.remove(path);
+		} else {
+			completionListeners.put(path, listener);
+		}
+		onCompletionListenerChanged(path, listener);
+	}
+
+	/** Hook for subclasses to react to listener changes (e.g. cancel scheduled task). Default no-op. */
+	protected void onCompletionListenerChanged(String path, Runnable listener) {
+		// default no-op
+	}
+
+	/** Subclasses call this when non-looping playback finishes for path. */
+	protected final void fireCompletion(String path) {
+		if (path == null) return;
+		Runnable r = completionListeners.get(path);
+		if (r != null) {
+			try {
+				r.run();
+			} catch (Throwable t) {
+				Logger.getGlobal().warning("Completion listener for " + path + " threw: " + t.getMessage());
+			}
+		}
+	}
+
+	/** True if a completion listener is registered for this path. */
+	protected final boolean hasCompletionListener(String path) {
+		return path != null && completionListeners.containsKey(path);
 	}
 
 	public void setVolume(String p, float volume) {

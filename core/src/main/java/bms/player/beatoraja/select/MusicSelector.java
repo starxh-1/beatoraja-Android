@@ -741,9 +741,19 @@ public final class MusicSelector extends MainState {
 		// banner
 		// stagefile
 		final Bar current = manager.getSelected();
-		resource.getBMSResource().setBanner(
+		// 防御：bmsresource 在某些边界场景下可能为 null（例如扫描触发 UI 刷新过早、PlayResource 尚未完全初始化）
+		// 直接 return 避免 NPE 闪退
+		final BMSResource bmsResource = resource.getBMSResource();
+		if (bmsResource == null) {
+			// 防御性 return, bmsresource 永不为 null (构造时即创建), 这里只在遗留 bug 触发时命中。
+			// 加 warning 以便真机复现时定位真实触发场景 (current 类型, state 切换等)。
+			Logger.getGlobal().warning("loadSelectedSongImages: BMSResource null, current=" +
+					(current != null ? current.getClass().getSimpleName() : "null"));
+			return;
+		}
+		bmsResource.setBanner(
 				current instanceof SongBar ? ((SongBar) current).getBanner() : null);
-		resource.getBMSResource().setStagefile(
+		bmsResource.setStagefile(
 				current instanceof SongBar ? ((SongBar) current).getStagefile() : null);
 	}
 

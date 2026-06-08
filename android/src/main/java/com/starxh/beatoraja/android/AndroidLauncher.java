@@ -160,9 +160,9 @@ public class AndroidLauncher extends AndroidApplication {
 
         if (!is64Bit) {
             System.setProperty("beatoraja.32bit", "true");
-            Log.i(TAG, "Detected 32-bit device, using 30FPS limit for MusicSelect and low-precision timer");
+            Log.i(TAG, "Detected 32-bit device, using 30FPS limit for MusicSelect");
         } else {
-            Log.i(TAG, "Detected 64-bit device, unlimited FPS and high-precision timer enabled");
+            Log.i(TAG, "Detected 64-bit device, unlimited FPS enabled");
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {

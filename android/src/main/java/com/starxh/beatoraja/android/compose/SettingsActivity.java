@@ -66,7 +66,7 @@ public class SettingsActivity extends Activity {
     private List<String> availablePlayers = new ArrayList<>();
     private int selectedGaugeAutoShift = 3;
     private int[] selectedAutoSaveReplay = {0, 0, 0, 0};
-    private int selectedGreenNumber = 0;
+    private int selectedGreenNumber = 500;
     private int selectedHispeedFix = 3;
     private int selectedTargetScore = 0;
     private int selectedGaugeType = 0;
@@ -218,6 +218,7 @@ public class SettingsActivity extends Activity {
                         selectedHispeedFix = findJsonIntValueFrom(json, "fixhispeed", playconfigStart, 3);
                         selectedEnableLanecover = findJsonBooleanValueFrom(json, "enablelanecover", playconfigStart, true);
                         selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
+                        selectedGreenNumber = findJsonIntValueFrom(json, "duration", playconfigStart, 500);
                     }
                 }
                 String targetidStr = findJsonStringValue(json, "targetid", "MAX");
@@ -298,9 +299,11 @@ public class SettingsActivity extends Activity {
             if (colonPos < 0) return defaultValue;
             int start = colonPos + 1;
             while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) start++;
+            int signStart = start;
+            if (start < json.length() && json.charAt(start) == '-') start++;
             int end = start;
             while (end < json.length() && json.charAt(end) >= '0' && json.charAt(end) <= '9') end++;
-            if (end > start) return Integer.parseInt(json.substring(start, end));
+            if (end > start) return Integer.parseInt(json.substring(signStart, end));
         } catch (Exception ignored) {}
         return defaultValue;
     }
@@ -313,9 +316,11 @@ public class SettingsActivity extends Activity {
             if (colonPos < 0) return defaultValue;
             int start = colonPos + 1;
             while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) start++;
+            int signStart = start;
+            if (start < json.length() && json.charAt(start) == '-') start++;
             int end = start;
             while (end < json.length() && json.charAt(end) >= '0' && json.charAt(end) <= '9') end++;
-            if (end > start) return Integer.parseInt(json.substring(start, end));
+            if (end > start) return Integer.parseInt(json.substring(signStart, end));
         } catch (Exception ignored) {}
         return defaultValue;
     }
@@ -382,9 +387,11 @@ public class SettingsActivity extends Activity {
             if (colonPos < 0) return defaultValue;
             int start = colonPos + 1;
             while (start < json.length() && (json.charAt(start) == ' ' || json.charAt(start) == '"')) start++;
+            int signStart = start;
+            if (start < json.length() && json.charAt(start) == '-') start++;
             int end = start;
             while (end < json.length() && json.charAt(end) >= '0' && json.charAt(end) <= '9') end++;
-            if (end > start) return Integer.parseInt(json.substring(start, end));
+            if (end > start) return Integer.parseInt(json.substring(signStart, end));
         } catch (Exception ignored) {}
         return defaultValue;
     }
@@ -904,7 +911,6 @@ public class SettingsActivity extends Activity {
             org.json.JSONArray asr = new org.json.JSONArray();
             for (int val : selectedAutoSaveReplay) asr.put(val);
             config.put("autosavereplay", asr);
-            config.put("greenNumber", selectedGreenNumber);
             config.put("targetid", targetScoreOptions[selectedTargetScore]);
             config.put("gauge", selectedGaugeType);
             config.put("judgetiming", selectedNoteTimingOffset);
@@ -918,6 +924,7 @@ public class SettingsActivity extends Activity {
                 org.json.JSONObject pc = mo.optJSONObject("playconfig"); if (pc == null) pc = new org.json.JSONObject();
                 pc.put("enablelanecover", selectedEnableLanecover); pc.put("enablelift", selectedEnableLift);
                 pc.put("fixhispeed", selectedHispeedFix);
+                pc.put("duration", selectedGreenNumber);
                 mo.put("playconfig", pc); config.put(m, mo);
             }
             File pDir = configFile.getParentFile(); if (!pDir.exists()) pDir.mkdirs();

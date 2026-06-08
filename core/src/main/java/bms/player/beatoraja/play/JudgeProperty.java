@@ -1,6 +1,6 @@
 package bms.player.beatoraja.play;
 
-/** This java comes from lr2oraja but I made some changes in NORMAL Judge.
+/**
  * 判定の設定値
  *
  * @author exch
@@ -184,8 +184,8 @@ public enum JudgeProperty {
 
         private static final long[][] LR2_SCALING = {
             {0,0,0,0,0},
-            {0,8000,15000,16667,21000}, // PGREAT, NORMAL set to 16.667 similar to ○○DX
-            {0,24000,30000,33333,60000}, // GREAT, NORMAL set to 33.333 similar to ○○DX
+            {0,8000,15000,16667,21000}, // PGREAT, changed NORMAL 16.667ms
+            {0,24000,30000,33333,60000}, // GREAT, changed NORMAL 33.333ms
             {0,40000,60000,100000,120000}, // GOOD
         };
 

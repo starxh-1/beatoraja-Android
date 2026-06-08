@@ -218,6 +218,9 @@ public final class GrooveGauge {
 		public void setValue(float value) {
 			if(this.value > 0f) {
 				this.value = MathUtils.clamp(value, element.min, element.max);				
+				if (this.value < element.death) {
+					this.value = 0;
+				}
 			}
 		}
 		
@@ -258,6 +261,7 @@ public final class GrooveGauge {
 		 * 回復量にTOTALを使用
 		 */
 		public static final GaugeModifier TOTAL = (f, model) -> (f > 0 ? (float) (f * model.getTotal() / model.getTotalNotes()) : f);
+
 		/**
 		 * TOTAL値によって回復量に制限をかける
 		 */
@@ -268,24 +272,38 @@ public final class GrooveGauge {
 			}
 			return f;
 		};
+		
 		/**
 		 * TOTAL値、総ノート数によってダメージ量を増加させる
 		 */
 		public static final GaugeModifier MODIFY_DAMAGE = (f, model) -> {			
 			if(f < 0) {
+				float fix1=1.0f;
 				float fix2=1.0f;
-				final double[] fix1total = {240.0, 230.0, 210.0, 200.0, 180.0, 160.0, 150.0, 130.0, 120.0, 0};
-				final float[] fix1table = {1.0f, 1.11f, 1.25f, 1.5f, 1.666f, 2.0f, 2.5f, 3.333f, 5.0f, 10.0f};
-				int i = 0;
-				for(;i < fix1total.length - 1 && model.getTotal() < fix1total[i];i++);
-				int note=1000;
-				float mod=0.002f;
-				while(note>model.getTotalNotes()||note>1){
-					fix2 += mod * (float)(note - Math.max(model.getTotalNotes(), note/2));
-					note/=2;
-					mod*=2.0f;
+
+				// トータル補正 (<240)
+				fix1 = (float)(10.0 / Math.min(10.0, Math.max(1.0, Math.floor(model.getTotal() / 16.0) - 5.0)));
+
+				// ノート数補正 (<1000)
+				if(model.getTotalNotes()<=20) {
+					fix2 = 10.0f;
+				}else if(model.getTotalNotes()<30) {
+					fix2 = 8.0f + 0.2f*(30-model.getTotalNotes());
+				}else if(model.getTotalNotes()<60) {
+					fix2 = 5.0f + 0.2f*(60-model.getTotalNotes())/3.0f;
+				}else if(model.getTotalNotes()<125) {
+					fix2 = 4.0f + (125-model.getTotalNotes())/65.0f;
+				}else if(model.getTotalNotes()<250) {
+					fix2 = 3.0f + 0.008f*(250-model.getTotalNotes());
+				}else if(model.getTotalNotes()<500) {
+					fix2 = 2.0f + 0.004f*(500-model.getTotalNotes());
+				}else if(model.getTotalNotes()<1000) {
+					fix2 = 1.0f + 0.002f*(1000-model.getTotalNotes());
+				}else {
+					fix2 = 1.0f;
 				}
-				f *= Math.max(fix1table[i], fix2);
+
+				f *= Math.max(fix1, fix2);
 			}
 			return f;
 		};
