@@ -440,13 +440,17 @@ local function main(keysNumber)
 		geo.bgaarea.w = 1920
 		geo.bgaarea.y = 0
 		geo.bgaarea.h = 1080
+		geo.bgaarea.center_x = geo.bgaarea.x + geo.bgaarea.w / 2
+		geo.bgaarea.center_y = geo.bgaarea.y + geo.bgaarea.h / 2
 		geo.bga = {
 			x = geo.bgaarea.x,
 			y = geo.bgaarea.y,
 			w = geo.bgaarea.w,
 			h = geo.bgaarea.h,
-			center_x = geo.bgaarea.x + geo.bgaarea.w / 2,
-			center_y = geo.bgaarea.y + geo.bgaarea.h / 2
+			center_x = geo.bgaarea.center_x,
+			center_y = geo.bgaarea.center_y,
+			frame_w = 0,
+			frame_h = 0
 		}
 
 		-- Lanearea
@@ -617,6 +621,7 @@ local function main(keysNumber)
 	end
 
 	-- bga and bgaarea geometry
+	if not isPortraitLayout() then
 	geo.bgaarea = {}
 	if isLaneCentering() then
 		if isAbsolutePositioning() then
@@ -671,6 +676,7 @@ local function main(keysNumber)
 	geo.bga.y = 108
 	geo.bga.center_x = geo.bga.x + geo.bga.w / 2
 	geo.bga.center_y = geo.bga.y + geo.bga.h / 2
+	end
 
 	skin.source = {
 		{id = "src_background", path = "customize/background/*.png"},
@@ -1433,7 +1439,7 @@ local function main(keysNumber)
 			end
 			if isPortraitLayout() then
 				-- portrait: BGA は bgaarea 内 (local 226,0,1694,1080) に描画、cover で埋める
-				append_all(skin.destination, bga_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, 3))
+				append_all(skin.destination, bga_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, 2))
 			else
 				append_all(skin.destination, bga_dst(0, 0, header.w, header.h, 3))
 			end
