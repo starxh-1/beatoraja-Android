@@ -2645,15 +2645,16 @@ local function main(keysNumber)
 			local x = geo.gauge.x + 550
 			local y = geo.gauge.y + 390
 			local space_y = 15
+			-- random を上、judgerank を下に表示
+			table.insert(skin.destination, {id = "random", filter = 1, dst = {
+				{x = x, y = y, w = random_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
+			}})
 			-- judgerank alternatives: each shown conditionally via op filter
 			for i = 1, 5 do
 				table.insert(skin.destination, {id = "judgerank_"..i, op = {185 - i}, filter = 1, dst = {
-					{x = x, y = y, w = judgerank_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
+					{x = x, y = y + random_w + space_y, w = judgerank_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
 				}})
 			end
-			table.insert(skin.destination, {id = "random", filter = 1, dst = {
-				{x = x, y = y + judgerank_w + space_y, w = random_w, h = h, angle = 270, cx = 0.5, cy = 0.5}
-			}})
 		else
 			local y = geo.gauge.y + geo.gauge.h + 6
 			local judgerank_x = is2P() and (geo.lane.x + geo.lane.w - judgerank_w) or geo.lane.x
