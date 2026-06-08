@@ -98,6 +98,7 @@ public class BGAProcessor {
 	private boolean isPortrait = false;
 
 	public void setPortrait(boolean portrait) {
+		Gdx.app.log("BGAProcessor", "setPortrait(" + portrait + ")");
 		this.isPortrait = portrait;
 	}
 
@@ -416,7 +417,25 @@ public class BGAProcessor {
 	}
 
 
+	private int bgaDrawCount = 0;
 	public void drawBGA(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r) {
+		// In portrait mode, override the BGA region with the full viewport.
+		// The Lua-computed region may be smaller than the viewport due to dw/dh scaling
+		// (src=FULLHD, dst=HD), causing the 270°-rotated BGA to not cover the full screen.
+		if (isPortrait) {
+			Rectangle vp = sprite.getViewport();
+			if (vp != null && vp.width > 0 && vp.height > 0) {
+				portraitRect.set(0, 0, vp.width, vp.height);
+				r = portraitRect;
+			}
+		}
+		if (bgaDrawCount < 3) {
+			bgaDrawCount++;
+			Gdx.app.log("BGAProcessor", "drawBGA: isPortrait=" + isPortrait
+				+ " r=[" + r.x + "," + r.y + "," + r.width + "," + r.height + "]"
+				+ " stretch=" + dst.getStretch()
+				+ " time=" + time + " playingbgaid=" + playingbgaid + " playinglayerid=" + playinglayerid);
+		}
 		// Capture BGA drawing parameters for accurate lane background alignment
 		if (!hasLastBGAParams || !lastBGARect.equals(r) || lastStretch != dst.getStretch()) {
 			lastBGARect.set(r);
@@ -496,26 +515,29 @@ public class BGAProcessor {
 	/**
 	 * Modify the aspect ratio and draw BGA
 	 */
+	private final Rectangle portraitRect = new Rectangle();
+	private int fixRatioLogCount = 0;
 	private void drawBGAFixRatio(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r, Texture bga){
 		image.setTexture(bga);
 		image.setRegion(0, 0, bga.getWidth(), bga.getHeight());
+		if (fixRatioLogCount < 3) {
+			fixRatioLogCount++;
+			Gdx.app.log("BGAProcessor", "drawBGAFixRatio: tex=" + bga.getWidth() + "x" + bga.getHeight()
+				+ " isPortrait=" + isPortrait + " r=[" + r.x + "," + r.y + "," + r.width + "," + r.height + "]");
+		}
 		if (isPortrait) {
-			// In portrait, the target area 'r' is in Landscape buffer space.
-			// 'r.width' is the length of the lane, 'r.height' is the width of the lane (1080).
-			// We want to fill 'r' with the BGA rotated 270 degrees.
-			// The BGA's "width" will align with 'r.height' and BGA's "height" with 'r.width'.
-			tmpRect.set(0, 0, r.height, r.width);
+			// In portrait mode, the BGA is rotated 270° around the center of 'r'.
+			// After rotation:
+			//   - The unrotated width (W) maps to vertical coverage: [centerY - W/2, centerY + W/2]
+			//   - The unrotated height (H) maps to horizontal coverage: [centerX - H/2, centerX + H/2]
+			// To fully cover the viewport (r.width x r.height), we need W >= r.height and H >= r.width.
+			// Using a square target max(w,h) x max(w,h) for FIT_OUTER guarantees this.
+			float maxDim = Math.max(r.width, r.height);
+			tmpRect.set(0, 0, maxDim, maxDim);
 			dst.getStretch().stretchRect(tmpRect, image, image);
 
-			// To fill the area, we need to draw it at the center of 'r'.
 			float centerX = r.x + r.width / 2f;
 			float centerY = r.y + r.height / 2f;
-
-			// Note: LibGDX draw with rotation uses (x, y) as the bottom-left of the UNROTATED rectangle.
-			// tmpRect.width/height are the dimensions of the BGA after stretch fitting into (1080 x lane_length).
-			// After 270 deg rotation (around center):
-			// Unrotated width (tmpRect.width) becomes vertical height.
-			// Unrotated height (tmpRect.height) becomes horizontal width.
 			sprite.draw(image, centerX - tmpRect.width / 2f, centerY - tmpRect.height / 2f, tmpRect.width, tmpRect.height, 0.5f, 0.5f, 270f);
 		} else {
 			tmpRect.set(r);
@@ -620,7 +642,9 @@ public class BGAProcessor {
 		image.setTexture(bga);
 		image.setRegion(0, 0, bga.getWidth(), bga.getHeight());
 		if (isPortrait) {
-			tmpRect.set(0, 0, r.height, r.width);
+			// Same fix as drawBGAFixRatio: use square max(w,h) target for FIT_OUTER
+			float maxDim = Math.max(r.width, r.height);
+			tmpRect.set(0, 0, maxDim, maxDim);
 			stretch.stretchRect(tmpRect, image, image);
 			float centerX = r.x + r.width / 2f;
 			float centerY = r.y + r.height / 2f;

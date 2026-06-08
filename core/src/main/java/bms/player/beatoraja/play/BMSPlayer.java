@@ -559,6 +559,7 @@ public class BMSPlayer extends MainState {
 					}
 				}
 			}
+			Gdx.app.log("BMSPlayer", "Portrait detection: isPortrait=" + isPortrait);
 			resource.getBGAManager().setPortrait(isPortrait);
 		}
 
