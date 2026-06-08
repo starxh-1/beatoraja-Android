@@ -434,10 +434,10 @@ local function main(keysNumber)
 		geo.scoregrapharea = {}
 		geo.scoregrapharea.w = 0
 
-		-- BGA - fills the rest of the area, starting from lane edge to cover full lane
+		-- BGA - cover full screen in portrait (rotated 270°)
 		geo.bgaarea = {}
-		geo.bgaarea.x = geo.lane.x
-		geo.bgaarea.w = 1920 - geo.bgaarea.x
+		geo.bgaarea.x = 0
+		geo.bgaarea.w = 1920
 		geo.bgaarea.y = 0
 		geo.bgaarea.h = 1080
 		geo.bga = {
@@ -1431,10 +1431,11 @@ local function main(keysNumber)
 					}}
 				}
 			end
-			if true then
-				append_all(skin.destination, bga_dst(0, 0, header.w, header.h, 3))
+			if isPortraitLayout() then
+				-- portrait: BGA は bgaarea 内 (local 226,0,1694,1080) に描画、cover で埋める
+				append_all(skin.destination, bga_dst(540, real_bga_y, real_bga_w, real_bga_h, 3))
 			else
-				append_all(skin.destination, bga_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, -1))
+				append_all(skin.destination, bga_dst(0, 0, header.w, header.h, 3))
 			end
 		end
 
@@ -2008,12 +2009,12 @@ local function main(keysNumber)
 	if isPortraitLayout() then
 		-- Portrait: judgment line is vertical at x position
 		table.insert(skin.destination, {id = -111, offset = 3, dst = {
-			{x = geo.lane.x, y = geo.lane.y, w = geo.lane.judgeline_h, h = geo.lane.h, r = 255, g = 0, b = 0},
+			{x = geo.lane.x, y = geo.lane.y, w = geo.lane.judgeline_h, h = geo.lane.h, r = 255, g = 0, b = 0, a = 255},
 		}})
 	else
 		-- Landscape: judgment line is horizontal at y position
 		table.insert(skin.destination, {id = -111, offset = 3, dst = {
-			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0},
+			{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = geo.lane.judgeline_h, r = 255, g = 0, b = 0, a = 255},
 		}})
 	end
 	-- keybeam
