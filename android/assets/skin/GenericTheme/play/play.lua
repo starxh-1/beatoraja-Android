@@ -2067,7 +2067,6 @@ local function main(keysNumber)
 			}},
 			{id = "musicprogress", dst = {
 				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h, cx = 0, cy = 0},
-				{time = 1000, a = 100},
 			}},
 		})
 	end

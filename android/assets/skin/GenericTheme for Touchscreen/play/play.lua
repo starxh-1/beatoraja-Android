@@ -1895,7 +1895,6 @@ local function main(keysNumber)
 			}},
 			{id = "musicprogress", dst = {
 				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h, angle = bar_angle, cx = 0, cy = 0},
-				{time = 1000, a = 100},
 			}},
 		})
 	end
@@ -2519,8 +2518,8 @@ local function main(keysNumber)
 		local w = image_w local h = image_h
 		if isPortraitLayout() then
 			y = 540
-			ready_y = geo.lane.x + 200
-			finish_y = geo.lane.x + 350
+			ready_y = geo.lane.x + 250
+			finish_y = geo.lane.x + 400
 			angle = 270
 			cx = 0.5
 			cy = 0.5
@@ -2535,10 +2534,13 @@ local function main(keysNumber)
 				{id = "image_finish", timer = 909,
 					draw = function() return main_state.timer(48) == main_state.timer_off_value end, loop = -1, dst = {
 					-- 透明から現れて横长に消える
+					-- portrait は 270度回転のため、local +y = screen -x（左）、local -x = screen +y（下）
+					-- → 終了時は local x を減らし（=screen下方向）、local y を増やす（=screen左方向）ことで
+					-- 　横向きの finish と同じ「左下方向に抜け」感を出す
 					{time = 0, x = finish_y, y = y, w = w, h = h, a = 0, angle = angle, cx = cx, cy = cy},
 					{time = 200, a = 255},
 					{time = 1000},
-					{time = 1250, w = w + 100 * 2, h = h * 0.5, a = 0}
+					{time = 1250, x = finish_y - 100, y = y + h * 0.25, w = w + 100 * 2, h = h * 0.5, a = 0}
 				}},
 			})
 		else
@@ -3073,17 +3075,8 @@ local function main(keysNumber)
 			append_all(skin.image, {
 				{id = "fullcombo_glow", src = "src_fullcombo_glow", x = 0, y = 0, w = -1, h = -1},
 			})
-			if isPortraitLayout() then
-				local glow_y = geo.lane.y + geo.lane.h / 2
-				append_all(skin.destination, {
-					{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
-						merge_all({time = 0, x = geo.lane.x, y = glow_y, w = 0, h = geo.lane.h, angle = 270, cx = 0.5, cy = 0.5}, color),
-						{time = 100, w = geo.lane.w, acc = 2},
-						{time = 1000, y = glow_y - 10, w = geo.lane.w, h = 20, a = 230},
-						{time = 1400, y = glow_y, w = geo.lane.w, h = 0, a = 0}
-					}},
-				})
-			else
+			-- portrait は fullcombo glow を表示しない
+			if not isPortraitLayout() then
 				append_all(skin.destination, {
 					{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
 						-- 下から伸びて、細くなって消える
