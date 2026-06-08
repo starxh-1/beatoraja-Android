@@ -243,7 +243,6 @@ local function main()
 		{id = "background", src = 1, x = 0, y = 0, w = 1280, h = 720},
 		{id = 1, src = 2, x = 0, y = 0, w = 1280, h = 720},
 		{id = 6, src = 11, x = 0, y = 0, w = 216, h = 40},
-		{id = 7, src = 0, x = 0, y = 0, w = 8, h = 8},
 		{id = "close1", src = 8, x = 0, y = 500, w = 640, h = 240},
 		{id = "close2", src = 8, x = 0, y = 740, w = 640, h = 240},
 		{id = 11, src = 0, x = 168, y = 108, w = 126, h = 303},
@@ -761,7 +760,7 @@ local function main()
 			{time = 700, y = 360}
 		}},
 
-		{id = 7, loop = 500, timer = 2, dst = {
+		{id = -110, loop = 500, timer = 2, dst = {
 			{time = 0, x = 0, y = 0, w = 1280, h = 720, a = 0},
 			{time = 500, a = 255}
 		}}

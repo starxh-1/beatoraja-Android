@@ -40,15 +40,14 @@ local function main()
 	}
 
 	skin.image = {
-		{id = "blank", src = 0, x = 0, y = 0, w = 8, h = 8},
 	}
 
 	skin.imageset = {}
 	skin.value = {}
 	skin.text = {
-		{id = "genre", font = 0, size = 24, ref = 13},
-		{id = "title", font = 0, size = 30, ref = 12},
-		{id = "artist", font = 0, size = 24, ref = 14},
+		{id = "genre", font = 0, size = 48, ref = 13},
+		{id = "title", font = 0, size = 60, ref = 12},
+		{id = "artist", font = 0, size = 48, ref = 14},
 	}
 	skin.slider = {
 	}
@@ -68,7 +67,7 @@ local function main()
 			{time = 0, x = 380, y = 300, w = 18, h = 18},
 			{time = 2000, x = 300},
 		}},
-		{id = "blank", loop = 500, timer = 2, dst = {
+		{id = -110, loop = 500, timer = 2, dst = {
 			{time = 0, x = 0, y = 0, w = 1280, h = 720, a = 0},
 			{time = 500, a = 255},
 		}}
