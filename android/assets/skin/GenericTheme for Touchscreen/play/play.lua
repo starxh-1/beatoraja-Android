@@ -493,22 +493,22 @@ local function main(keysNumber)
 	-- match 7K exactly. 5K's lane is then its natural width at that scale,
 	-- centered with padding on both sides.
 	local base_7k_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
-	local base_5k_width = geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2 + 3 * 5
-
 	local note_scale_w = header.w / base_7k_width
 	local note_white_w = geo.note.original_white_w * note_scale_w
 	local note_black_w = geo.note.original_black_w * note_scale_w
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
 
+	geo.lane = {}
+	geo.lane.separateline_w = 3
+
 	local lane_w
 	if keysNumber == 5 then
-		lane_w = base_5k_width * note_scale_w
+		-- 5K: scratch + 3 white + 2 black + 5 separators
+		lane_w = (geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2) * note_scale_w + geo.lane.separateline_w * 5
 	else
 		lane_w = header.w
 	end
 
-	geo.lane = {}
-	geo.lane.separateline_w = 3
 	geo.lane.y = 226
 	geo.lane.h = header.h - geo.lane.y + 32
 	geo.lane.w = lane_w
@@ -943,7 +943,7 @@ local function main(keysNumber)
 						-- Area starts 40px behind judgment line. Offset in LaneRenderer.java compensates hit pos.
 						d[i] = {x = geo.lane.x - 40, y = geo.lane.each_y[i], w = geo.lane.w + 40, h = geo.lane.each_w[i]}
 					else
-						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 32, w = geo.note.white_w, h = geo.lane.h}
+						d[i] = {x = geo.lane.each_x[i], y = geo.lane.y - 32, w = geo.lane.each_w[i], h = geo.lane.h}
 					end
 				end
 				return d
