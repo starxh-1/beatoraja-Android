@@ -49,9 +49,11 @@ public class GdxVideoProcessor implements MovieProcessor {
     private static final long SYNC_THRESHOLD_SMOOTH = 30;    // 平滑同步阈值 (ms) - 超过此值需要微调
     private static final long SYNC_SKIP_THRESHOLD = 500;     // 跳帧阈值 (ms) - 超过此值直接跳帧
     private static final long SYNC_LOG_INTERVAL_MS = 60_000; // 快速同步 log 最小间隔 (ms)
+    private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
     // 快速同步 log 节流：避免漂移时 logcat 刷屏
     private long lastFastSyncLogTime = -1;
+    private long lastPeriodicSyncLogTime = -1;
 
     // P0 同步纠正：planSyncCorrection() 在 update() 之前设置，由 update() 消费
     private boolean skipNextUpdate = false;  // 视频超前游戏时：下一帧不调 videoPlayer.update()
@@ -202,7 +204,7 @@ public class GdxVideoProcessor implements MovieProcessor {
         long currentVideoTime = videoPlayer.getCurrentTimestamp();
         long drift = currentVideoTime - targetVideoTime;
 
-        if (syncCorrectionCount % 600 == 0) {
+        if (shouldLogPeriodicSync()) {
             Gdx.app.log("GdxVideoProcessor", "Sync: target=" + targetVideoTime + "ms, current=" + currentVideoTime + "ms, drift=" + drift + "ms");
         }
         syncCorrectionCount++;
@@ -241,6 +243,19 @@ public class GdxVideoProcessor implements MovieProcessor {
         long now = System.currentTimeMillis();
         if (lastFastSyncLogTime < 0 || now - lastFastSyncLogTime >= SYNC_LOG_INTERVAL_MS) {
             lastFastSyncLogTime = now;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * 周期同步状态 log 节流：30 秒一次，便于看长期漂移趋势。
+     * 首次触发（lastPeriodicSyncLogTime == -1）始终打。
+     */
+    private boolean shouldLogPeriodicSync() {
+        long now = System.currentTimeMillis();
+        if (lastPeriodicSyncLogTime < 0 || now - lastPeriodicSyncLogTime >= SYNC_PERIODIC_LOG_INTERVAL_MS) {
+            lastPeriodicSyncLogTime = now;
             return true;
         }
         return false;
@@ -294,6 +309,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             gameStartTime = time;
             syncCorrectionCount = 0;
             lastFastSyncLogTime = -1;
+            lastPeriodicSyncLogTime = -1;
 
             Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video playback started successfully (gameStartTime=" + time + ")");
         } catch (Exception e) {
