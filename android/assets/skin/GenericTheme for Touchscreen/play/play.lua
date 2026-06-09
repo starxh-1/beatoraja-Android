@@ -302,7 +302,6 @@ local function main(keysNumber)
 	elseif keysNumber == 5 then
 		header.type = 1
 		header.name = header.name.." 5keys"
-		table.insert(header.filepath, {name = "5keysCover", path = "customize/5keyscover/*.png", def = "gradation"})
 	end
 
 	-- for header loading
@@ -343,12 +342,25 @@ local function main(keysNumber)
 		geo.lane = {}
 
 		-- Calculate scaling to fill the 1080 height (which is screen width in portrait)
-		local base_widths = {
-			[1] = geo.note.original_white_w, [2] = geo.note.original_black_w, [3] = geo.note.original_white_w,
-			[4] = geo.note.original_black_w, [5] = geo.note.original_white_w, [6] = geo.note.original_black_w,
-			[7] = geo.note.original_white_w, [8] = geo.note.original_scratch_w
-		}
-		local total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+		local base_widths
+		local total_orig_w
+		if keysNumber == 5 then
+			-- 5K: 4 white + 1 black + 1 scratch, separators 5
+			base_widths = {
+				[1] = geo.note.original_white_w, [2] = geo.note.original_black_w,
+				[3] = geo.note.original_white_w, [4] = geo.note.original_white_w,
+				[5] = geo.note.original_white_w, [6] = geo.note.original_scratch_w
+			}
+			total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 1 + 3 * 5
+		else
+			-- 7K: 4 white + 3 black + 1 scratch, separators 7
+			base_widths = {
+				[1] = geo.note.original_white_w, [2] = geo.note.original_black_w, [3] = geo.note.original_white_w,
+				[4] = geo.note.original_black_w, [5] = geo.note.original_white_w, [6] = geo.note.original_black_w,
+				[7] = geo.note.original_white_w, [8] = geo.note.original_scratch_w
+			}
+			total_orig_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+		end
 		local note_scale_w = 1080 / total_orig_w
 
 		geo.note.scale_w = note_scale_w
@@ -474,23 +486,32 @@ local function main(keysNumber)
 		geo.lanearea.padding_left, geo.lanearea.padding_right = geo.lanearea.padding_right, geo.lanearea.padding_left
 	end
 
-	-- lane fills header width (centered)
-	local lane_w = header.w
-
 	-- calculate note width scale to fill the lane width
-	-- 7key: white*4 + black*3 + scratch + separateline*7 = base lane width from notes
-	local base_note_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
-	local note_scale_w = lane_w / base_note_width
+	-- 7key: white*4 + black*3 + scratch + separateline*7
+	-- 5key: white*3 + black*2 + scratch + separateline*5
+	-- Both use the SAME 7K-scale (header.w / 7K_base) so note pixel sizes
+	-- match 7K exactly. 5K's lane is then its natural width at that scale,
+	-- centered with padding on both sides.
+	local base_7k_width = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + 3 * 7
+	local base_5k_width = geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2 + 3 * 5
+
+	local note_scale_w = header.w / base_7k_width
 	local note_white_w = geo.note.original_white_w * note_scale_w
 	local note_black_w = geo.note.original_black_w * note_scale_w
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
+
+	local lane_w
+	if keysNumber == 5 then
+		lane_w = base_5k_width * note_scale_w
+	else
+		lane_w = header.w
+	end
 
 	geo.lane = {}
 	geo.lane.separateline_w = 3
 	geo.lane.y = 226
 	geo.lane.h = header.h - geo.lane.y + 32
 	geo.lane.w = lane_w
-	geo.lane.fivekeycover_w = note_white_w + note_black_w + geo.lane.separateline_w * 2
 	geo.lane.judgeline_h = 10
 
 	-- store note dimensions
@@ -508,13 +529,16 @@ local function main(keysNumber)
 	-- lane centered (UI reference)
 	geo.lane.x = (header.w - lane_w) / 2 + offset.lane.x
 	-- lane visual position (notes rendering, offset from lane.x)
-	geo.lane.visual_x = geo.lane.x + 65
+	-- 7K: +65 to right-align notes within the full-width lane (leaves 65px left margin)
+	-- 5K: lane is already centered with padding, no extra offset (notes fill the lane)
+	geo.lane.visual_x = geo.lane.x
+	if keysNumber ~= 5 then
+		geo.lane.visual_x = geo.lane.x + 65
+	end
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
-	geo.lane.fivekey_center_x = geo.lane.center_x - geo.lane.fivekeycover_w / 2
-	if isRightScratch() then
-		geo.lane.fivekey_center_x = geo.lane.center_x + geo.lane.fivekeycover_w / 2
-	end
+	-- 5K native layout: visible keys fill the lane, so center == lane center
+	geo.lane.fivekey_center_x = geo.lane.center_x
 
 	geo.lane.order = {8, 1, 2, 3, 4, 5, 6, 7}
 	if keysNumber == 5 then
@@ -534,9 +558,6 @@ local function main(keysNumber)
 
 	geo.lane.each_x = {}
 	geo.lane.each_x[geo.lane.order[1]] = geo.lane.visual_x
-	if keysNumber == 5 and isRightScratch() then
-		geo.lane.each_x[geo.lane.order[1]] = geo.lane.visual_x + geo.note.white_w + geo.note.black_w + geo.lane.separateline_w
-	end
 	for i = 2, #geo.lane.order do
 		geo.lane.each_x[geo.lane.order[i]] = geo.lane.each_x[geo.lane.order[i-1]] + geo.lane.each_w[geo.lane.order[i-1]] + geo.lane.separateline_w
 	end
@@ -725,9 +746,6 @@ local function main(keysNumber)
 		{id = "src_ready_finish", path = "parts/ready_finish.png"},
 		{id = "src_stagefile_default", path = "parts/stagefile_default.png"},
 	}
-	if keysNumber == 5 then
-		table.insert(skin.source, {id = "src_5keyscover", path = "customize/5keyscover/*.png"})
-	end
 
 	skin.font = {
 		{id = "newtown", path = "../common/font/Newtown-8e6M.ttf"},
@@ -1048,14 +1066,6 @@ local function main(keysNumber)
 			f_cy = 0
 		end
 
-		if keysNumber == 5 and not isPortraitLayout() then
-			if isLeftScratch() then
-				f_x = f_x - geo.lane.fivekeycover_w / 2
-			else
-				f_x = f_x + geo.lane.fivekeycover_w / 2
-			end
-		end
-
 		local n_x, n_y, n_angle, n_cx, n_cy
 		if isPortraitLayout() then -- number adjustment
 			n_x = geo.lane.x + 75  -- 75才能同一个高度上
@@ -1352,7 +1362,7 @@ local function main(keysNumber)
 		-- judge counts
 		local judge = {"pg", "gr", "gd", "bd", "pr", "kp", "cb"}
 		for i = 1, 7 do
-			local judge_y = y + info_h - line_h * (i + 2) - geo.playinfo.separateline_h
+			local judge_y = y + 360 + info_h - line_h * (i + 2) - geo.playinfo.separateline_h
 			append_all(dst, {
 				{id = "text_"..judge[i], filter = 1, dst = {
 					{x = text_x, y = judge_y, w = text_w, h = line_h}
@@ -2121,18 +2131,6 @@ local function main(keysNumber)
 	table.insert(skin.destination, {id = "notes", offset = 30})
 
 	-- failed animation
-	if keysNumber == 5 then
-		table.insert(skin.image,
-			{id = "5keyscover", src = "src_5keyscover", x = 0, y = 0, w = -1, h = -1}
-		)
-		local x = geo.lane.each_x[keysNumber] + geo.lane.each_w[keysNumber]
-		if isRightScratch() then
-			x = geo.lane.x
-		end
-		table.insert(skin.destination, {id = "5keyscover", dst = {
-			{x = x, y = geo.lane.y, w = geo.lane.fivekeycover_w, h = geo.lane.h}
-		}})
-	end
 	-- lanecover/liftcover
 	do
 		if isPortraitLayout() then
