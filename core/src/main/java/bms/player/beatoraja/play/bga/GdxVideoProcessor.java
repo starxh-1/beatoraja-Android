@@ -49,6 +49,10 @@ public class GdxVideoProcessor implements MovieProcessor {
     private static final long SYNC_THRESHOLD_SMOOTH = 30;    // 平滑同步阈值 (ms) - 超过此值需要微调
     private static final long SYNC_SKIP_THRESHOLD = 500;     // 跳帧阈值 (ms) - 超过此值直接跳帧
 
+    // P0 同步纠正：planSyncCorrection() 在 update() 之前设置，由 update() 消费
+    private boolean skipNextUpdate = false;  // 视频超前游戏时：下一帧不调 videoPlayer.update()
+    private int pendingExtraUpdates = 0;     // 视频滞后游戏时：本帧额外调 videoPlayer.update() 的次数
+
     /**
      * 复用的 IntBuffer，用于保存/恢复 GL 状态，避免每帧分配。
      * 容量 16 足以覆盖 viewport(4) + program(1) + fbo(1) 等查询。
@@ -109,8 +113,16 @@ public class GdxVideoProcessor implements MovieProcessor {
         if (time == lastUpdateTime) return;
         lastUpdateTime = time;
 
-        // 音视频同步处理
+        // P0 同步决策：可能设置 skipNextUpdate / pendingExtraUpdates
         synchronizeVideo(time);
+
+        if (skipNextUpdate) {
+            skipNextUpdate = false;
+            return;
+        }
+
+        int extraUpdates = pendingExtraUpdates;
+        pendingExtraUpdates = 0;
 
         try {
             // ─── 核心 GL 状态保存 ───
@@ -135,14 +147,20 @@ public class GdxVideoProcessor implements MovieProcessor {
             // 解绑纹理，防止 updateTexImage 冲突。移除 glFlush 以提升触控响应性能。
             Gdx.gl20.glBindTexture(GL20.GL_TEXTURE_2D, 0);
 
-            // ─── 驱动解码器 ───
+            // ─── 驱动解码器：主更新 + 可能的追赶更新 ───
             if (videoPlayer.update()) {
                 Texture tex = videoPlayer.getTexture();
                 if (tex != null) {
                     currentTexture = tex;
                 }
-            } else {
-                // 如果返回 false，可能视频已结束或解码停滞
+            }
+            for (int i = 0; i < extraUpdates; i++) {
+                if (videoPlayer.update()) {
+                    Texture tex = videoPlayer.getTexture();
+                    if (tex != null) {
+                        currentTexture = tex;
+                    }
+                }
             }
 
             // ─── 现场恢复 ───
@@ -161,34 +179,23 @@ public class GdxVideoProcessor implements MovieProcessor {
     }
 
     /**
-     * 音视频同步核心算法
-     * 为未来接入 FFmpeg 预留的扩展设计：
-     * - 当前通过时间差检测实现
-     * - 未来可通过 FFmpeg 提供更精确的帧级同步
+     * P0 同步纠正：用游戏时间计算目标帧位置，通过 skip update（视频超前）
+     * 或连续 update 多次（视频滞后）来缩小偏差。设置 skipNextUpdate / pendingExtraUpdates
+     * 供 update() 消费。
      *
      * @param gameTime 当前游戏时间（毫秒）
      */
     private void synchronizeVideo(long gameTime) {
-        // gameTime 现在是绝对游戏时间
-        // 计算视频应该播放到的位置（距离视频开始触发的时间差）
         long targetVideoTime = gameTime - gameStartTime;
-
-        // 如果还没到开始时间，不处理同步
         if (targetVideoTime < 0) return;
 
-        // 处理循环播放
         if (loop && videoDuration > 0 && targetVideoTime > videoDuration) {
             targetVideoTime = targetVideoTime % videoDuration;
         }
 
-        // 获取视频当前播放位置
-        // 注意：gdx-video Android 实现使用 MediaPlayer.getCurrentPosition()
-        // 这里我们优先信任 VideoPlayer 提供的时间（如果有 API），
-        // 否则使用系统时间差作为近似值。
-        long currentVideoTime = (startTime > 0) ? (System.currentTimeMillis() - startTime) : 0;
-
-        // 计算时间差（视频当前实际位置 - 理论应在位置）
-        // 正值 = 视频超前，负值 = 视频滞后
+        // 用 VideoPlayer 真实时间戳（来自 MediaPlayer.getCurrentPosition()），
+        // 取代之前的 System.currentTimeMillis() 近似，避免暂停/卡顿时漂移放大。
+        long currentVideoTime = videoPlayer.getCurrentTimestamp();
         long drift = currentVideoTime - targetVideoTime;
 
         if (syncCorrectionCount % 600 == 0) {
@@ -196,51 +203,26 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
         syncCorrectionCount++;
 
-        // 根据时间差进行同步修正
-        if (Math.abs(drift) > SYNC_THRESHOLD_FAST) {
-            handleFastSync(drift, targetVideoTime);
-        } else if (Math.abs(drift) > SYNC_THRESHOLD_SMOOTH) {
-            handleSmoothSync(drift);
+        if (Math.abs(drift) <= SYNC_THRESHOLD_SMOOTH) {
+            return;  // 偏差可接受，不干预
         }
-    }
 
-    /**
-     * 快速同步：处理较大的时间偏差
-     * 为 FFmpeg 预留：未来可使用精确 seek 功能
-     */
-    private void handleFastSync(long drift, long targetVideoTime) {
-        syncCorrectionCount++;
-
-        if (drift > SYNC_SKIP_THRESHOLD) {
-            // 视频严重超前，需要重置同步基准
-            Logger.getGlobal().info("Video sync: Video ahead by " + drift + "ms, resetting sync point (count=" + syncCorrectionCount + ")");
-            resetSyncPoint();
-        } else if (drift < -SYNC_SKIP_THRESHOLD) {
-            // 视频严重滞后，重置同步基准
-            Logger.getGlobal().info("Video sync: Video behind by " + (-drift) + "ms, resetting sync point (count=" + syncCorrectionCount + ")");
-            resetSyncPoint();
+        if (drift > 0) {
+            // 视频超前：下一帧不取新帧，让视频"等"游戏
+            skipNextUpdate = true;
+            if (drift > SYNC_THRESHOLD_FAST) {
+                Logger.getGlobal().info("Video sync: video ahead " + drift + "ms, skip next update (count=" + syncCorrectionCount + ")");
+                resetSyncPoint();
+            }
         } else {
-            // 中等程度的超前/滞后，记录日志但保持连续播放
-            if (syncCorrectionCount % 600 == 0) {
-                Logger.getGlobal().fine("Video sync: drift=" + drift + "ms (corrections=" + syncCorrectionCount + ")");
+            // 视频滞后：假设每帧 ~30ms，按偏差算追赶次数，封顶 3 避免卡顿
+            int catchupFrames = (int) Math.min((-drift) / 30, 3);
+            pendingExtraUpdates = catchupFrames;
+            if (-drift > SYNC_THRESHOLD_FAST) {
+                Logger.getGlobal().info("Video sync: video behind " + (-drift) + "ms, " + catchupFrames + " catch-up updates (count=" + syncCorrectionCount + ")");
+                resetSyncPoint();
             }
         }
-    }
-
-    /**
-     * 平滑同步：通过控制 update 频率进行微调
-     * 这是在没有精确 seek API 时的折中方案
-     */
-    private void handleSmoothSync(long drift) {
-        // 不需要每帧都记录，只在超过一定次数时输出一次日志
-        if (syncCorrectionCount % 300 == 0) {
-            Logger.getGlobal().fine("Video sync: smooth correction, drift=" + drift + "ms");
-        }
-
-        // 这里的平滑策略：
-        // 1. 如果视频超前较多，偶尔跳过一次 update() 让其暂停一帧
-        // 2. 如果视频滞后较多，让其自然追赶（硬件解码通常能赶上）
-        // 这种方法比较保守，避免画面抖动
     }
 
     /**
@@ -393,6 +375,12 @@ public class GdxVideoProcessor implements MovieProcessor {
      * 预加载视频资源：预先初始化 VideoPlayer 并加载视频文件
      * 这样可以避免第一次播放时的延迟（创建解码器、加载文件等）
      * 此方法必须在 GL 线程上调用（通过 Gdx.app.postRunnable）
+     *
+     * P0: 预热解码器流水线。load 之后立刻 play→等第一帧→pause，
+     * 让 MediaCodec 启动解码线程、填缓冲区、产出第一帧，
+     * 避免真实 play() 时冷启动消耗 100~300ms。
+     * 代价：真实 play() 会从 warmup 暂停处（~30-50ms）恢复，
+     *      产生小起始偏移，由同步纠正机制吸收。
      */
     @Override
     public void preload() {
@@ -420,6 +408,28 @@ public class GdxVideoProcessor implements MovieProcessor {
                 safeDispose();
                 return;
             }
+
+            // 3. 预热：play→等第一帧→pause，预算 500ms
+            long warmupStart = System.currentTimeMillis();
+            long warmupDeadline = warmupStart + 500;
+            boolean firstFrameDecoded = false;
+            videoPlayer.play();
+            while (System.currentTimeMillis() < warmupDeadline) {
+                if (videoPlayer.update()) {
+                    firstFrameDecoded = true;
+                    break;
+                }
+                try {
+                    Thread.sleep(2);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+            videoPlayer.pause();
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId
+                    + " preload: decoder warmed" + (firstFrameDecoded ? "" : " (timeout)")
+                    + " in " + (System.currentTimeMillis() - warmupStart) + "ms");
 
             // 标记为已预加载，play() 将跳过 load() 直接播放
             preloaded = true;
