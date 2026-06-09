@@ -48,6 +48,10 @@ public class GdxVideoProcessor implements MovieProcessor {
     private static final long SYNC_THRESHOLD_FAST = 80;      // 快速同步阈值 (ms) - 超过此值需要立即修正
     private static final long SYNC_THRESHOLD_SMOOTH = 30;    // 平滑同步阈值 (ms) - 超过此值需要微调
     private static final long SYNC_SKIP_THRESHOLD = 500;     // 跳帧阈值 (ms) - 超过此值直接跳帧
+    private static final long SYNC_LOG_INTERVAL_MS = 60_000; // 快速同步 log 最小间隔 (ms)
+
+    // 快速同步 log 节流：避免漂移时 logcat 刷屏
+    private long lastFastSyncLogTime = -1;
 
     // P0 同步纠正：planSyncCorrection() 在 update() 之前设置，由 update() 消费
     private boolean skipNextUpdate = false;  // 视频超前游戏时：下一帧不调 videoPlayer.update()
@@ -211,7 +215,9 @@ public class GdxVideoProcessor implements MovieProcessor {
             // 视频超前：下一帧不取新帧，让视频"等"游戏
             skipNextUpdate = true;
             if (drift > SYNC_THRESHOLD_FAST) {
-                Logger.getGlobal().info("Video sync: video ahead " + drift + "ms, skip next update (count=" + syncCorrectionCount + ")");
+                if (shouldLogFastSync()) {
+                    Logger.getGlobal().info("Video sync: video ahead " + drift + "ms, skip next update (count=" + syncCorrectionCount + ")");
+                }
                 resetSyncPoint();
             }
         } else {
@@ -219,10 +225,25 @@ public class GdxVideoProcessor implements MovieProcessor {
             int catchupFrames = (int) Math.min((-drift) / 30, 3);
             pendingExtraUpdates = catchupFrames;
             if (-drift > SYNC_THRESHOLD_FAST) {
-                Logger.getGlobal().info("Video sync: video behind " + (-drift) + "ms, " + catchupFrames + " catch-up updates (count=" + syncCorrectionCount + ")");
+                if (shouldLogFastSync()) {
+                    Logger.getGlobal().info("Video sync: video behind " + (-drift) + "ms, " + catchupFrames + " catch-up updates (count=" + syncCorrectionCount + ")");
+                }
                 resetSyncPoint();
             }
         }
+    }
+
+    /**
+     * 快速同步 log 节流：60 秒内只打一次，避免漂移期间 logcat 刷屏。
+     * 首次触发（lastFastSyncLogTime == -1）始终打。
+     */
+    private boolean shouldLogFastSync() {
+        long now = System.currentTimeMillis();
+        if (lastFastSyncLogTime < 0 || now - lastFastSyncLogTime >= SYNC_LOG_INTERVAL_MS) {
+            lastFastSyncLogTime = now;
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -272,6 +293,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             startTime = System.currentTimeMillis();
             gameStartTime = time;
             syncCorrectionCount = 0;
+            lastFastSyncLogTime = -1;
 
             Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video playback started successfully (gameStartTime=" + time + ")");
         } catch (Exception e) {
