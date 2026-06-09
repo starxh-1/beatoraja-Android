@@ -92,7 +92,7 @@
     <string name="pollingrate">ポーリングレート (Hz)</string>
     <string name="pollingrate_help">ポーリングレート：デフォルトは1000Hz（1msごとに更新を報告します）。お使いの入力デバイス（ゲーム向けキーボードなど）がより高いポーリングレートをサポートしている場合は、最大4000Hzまで調整できますが、ソフトウェアのCPU負荷が高くなります。</string>
 
-    <string name="msg_update_failed">難易度表の更新に失敗しました</string>
+    <string name="msg_update_failed">難易度表の更新に失敗しました: %1$s</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>
     <string name="msg_invalid_url">有効な URL を入力してください</string>
@@ -123,7 +123,7 @@
     <string name="player_help">「新規プレイヤー」をクリックして新しいプレイヤーを作成できます。プレイヤーが1人だけの場合は削除できません。\n\nスコアのエクスポートとインポートは両方ともzip圧縮パッケージを使用しています（これはplayerディレクトリにscore.db以外のファイルも存在するためです）。スコアをバックアップしたい場合は、エクスポート機能を使用して、保存したいフォルダに置くことができます。スコアを再度インポートする必要がある場合は、「Score.zip をインポート」をクリックするだけです。</string>
 
     <string name="bms_path_help_title">BMSパス</string>
-    <string name="bms_path_help">アプリにはデフォルトのBMSパスが作成されています（download/beatoraja/songs にあり、削除できません）。追加ボタンをクリックして新しいBMSパスを追加できます。\n\nアプリ自体はディレクトリにzipファイルを配置することをサポートしています。曲ディレクトリを更新的时候、zipが検出されると解凍されますが、直接フォルダを配置することをお勧めします（アプリの組み込みのzip解凍性能は比較的悪いです）。\n\n必要なディレクトリ構造は次のとおりです：\n\nzipの場合: inochi_ogg.zip → 解凍 → inochi_ogg フォルダが得られる → inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nフォルダの場合: inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+    <string name="bms_path_help">アプリにはデフォルトのBMSパスが作成されています（download/beatoraja/songs にあり、削除できません）。追加ボタンをクリックして新しいBMSパスを追加できます。\n\nアプリ自体はディレクトリにzipファイルを配置することをサポートしています。曲ディレクトリを更新するとき、zipが検出されると解凍されますが、直接フォルダを配置することをお勧めします（アプリの組み込みのzip解凍性能は比較的悪いです）。\n\n必要なディレクトリ構造は次のとおりです：\n\nzipの場合: inochi_ogg.zip → 解凍 → inochi_ogg フォルダが得られる → inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nフォルダの場合: inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
 
     <string name="audio_spectrum_help_title">オーディオスペクトラム</string>
     <string name="audio_spectrum_help">オーディオスペクトラム、音楽に合わせて跳动、とてもクールです！移植を担当したStar*は子供の頃からオーディオスペクトラムを見ながら音楽を聴くのが好きでした。そう言う意味では、これが移植者自身が音楽制作や音楽ゲームに興味を持った重要な理由とも言えます。嫌いであればオフにしてください。</string>

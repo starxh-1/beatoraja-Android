@@ -757,8 +757,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                         } finally {
                             db.endTransaction();
                         }
-                        db.delete("folder", null, null); // 清除目录缓存以强制重新计算 CRC
-                        Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and cleared folder table");
+                        // 清除目录缓存后，基于当前文件系统完整重建 folder 表
+                        // 避免删除歌曲后 folder 表为空导致 select 界面文件夹消失
+                        rebuildFolderTable(db);
+                        Log.i(TAG, "Deletion Sync: Deleted " + deleteCount + " records and rebuilt folder table");
                     }
                 }
                 preScanPathSnapshot = null; // 清空供下次扫描
@@ -1281,6 +1283,90 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         } catch (Exception e) {
             Log.e(TAG, "Failed to insert folder: " + folder.path(), e);
         }
+    }
+
+    /**
+     * 完整重建 folder 表：先清空，再基于当前文件系统遍历所有包含 BMS 文件的目录并插入记录。
+     * 使用 seenThisScan（本次扫描见过的 BMS 文件路径集合）快速判断目录是否包含 BMS 文件。
+     * 在 Deletion Sync 删除歌曲后调用，确保 folder 层级结构完整。
+     */
+    private void rebuildFolderTable(SQLiteDatabase db) {
+        long startTime = System.currentTimeMillis();
+        db.delete("folder", null, null);
+        Log.i(TAG, "rebuildFolderTable: Cleared folder table, rebuilding from filesystem...");
+
+        if (bmsroot == null || bmsroot.length == 0) {
+            Log.w(TAG, "rebuildFolderTable: No bmsroot configured, skip rebuild");
+            return;
+        }
+
+        Set<String> insertedPaths = new HashSet<>();
+        int count = 0;
+
+        for (String root : bmsroot) {
+            if (root == null || root.trim().isEmpty()) continue;
+            try {
+                FileHandle rootDir = Gdx.files.absolute(root.trim());
+                if (rootDir.exists() && rootDir.isDirectory()) {
+                    // 遍历 bmsroot 下的子目录，bmsroot 本身由根 FolderBar 的 CRC 标识，不插入 folder 表
+                    FileHandle[] children = rootDir.list();
+                    if (children != null) {
+                        for (FileHandle child : children) {
+                            if (child.isDirectory()) {
+                                count += rebuildFolderTree(child, db, insertedPaths);
+                            }
+                        }
+                    }
+                }
+            } catch (Throwable t) {
+                Log.w(TAG, "rebuildFolderTable: Error processing root: " + root, t);
+            }
+        }
+
+        long elapsed = System.currentTimeMillis() - startTime;
+        Log.i(TAG, "rebuildFolderTable: Rebuilt " + count + " folder records in " + elapsed + "ms");
+    }
+
+    /**
+     * 递归遍历目录树，对每个包含 BMS 文件的目录调用 insertFolder 插入 folder 记录。
+     * 采用后序遍历（先子目录后自身），确保子目录先于父目录插入。
+     *
+     * @return 插入的 folder 记录数
+     */
+    private int rebuildFolderTree(FileHandle dir, SQLiteDatabase db, Set<String> insertedPaths) {
+        int count = 0;
+        try {
+            // 先递归处理子目录
+            FileHandle[] children = dir.list();
+            if (children != null) {
+                for (FileHandle child : children) {
+                    if (child.isDirectory()) {
+                        count += rebuildFolderTree(child, db, insertedPaths);
+                    }
+                }
+            }
+
+            // 检查本目录是否包含 BMS 文件（基于 seenThisScan）
+            String dirPath = dir.path().replace('\\', '/');
+            if (!dirPath.endsWith("/")) dirPath += "/";
+
+            boolean hasBms = false;
+            for (String bmsPath : seenThisScan) {
+                if (bmsPath.startsWith(dirPath)) {
+                    hasBms = true;
+                    break;
+                }
+            }
+
+            if (hasBms && !insertedPaths.contains(dirPath)) {
+                insertFolder(dir, db);
+                insertedPaths.add(dirPath);
+                count++;
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "rebuildFolderTree: Error processing directory: " + dir.path(), t);
+        }
+        return count;
     }
 
     /**

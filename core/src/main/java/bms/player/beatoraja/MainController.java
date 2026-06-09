@@ -389,7 +389,16 @@ public class MainController {
                 @Override public boolean touchUp(int screenX, int screenY, int pointer, int button) { return true; }
                 @Override public boolean touchDragged(int screenX, int screenY, int pointer) { return true; }
                 @Override public boolean touchCancelled(int screenX, int screenY, int pointer, int button) { return true; }
-                @Override public boolean keyDown(int keycode) { return false; }
+                @Override
+                public boolean keyDown(int keycode) {
+                    // Android back键在 AndroidLauncher.onKeyDown 中已被映射为 ESCAPE，
+                    // 此处拦截 ESCAPE 并触发与触摸相同的退出行为
+                    if (keycode == com.badlogic.gdx.Input.Keys.ESCAPE || keycode == com.badlogic.gdx.Input.Keys.BACK) {
+                        input.getKeyBoardInputProcesseor().simulateKeyPress(com.badlogic.gdx.Input.Keys.ESCAPE);
+                        return true;
+                    }
+                    return false;
+                }
                 @Override public boolean keyUp(int keycode) { return false; }
                 @Override public boolean keyTyped(char character) { return false; }
                 @Override public boolean mouseMoved(int screenX, int screenY) { return false; }

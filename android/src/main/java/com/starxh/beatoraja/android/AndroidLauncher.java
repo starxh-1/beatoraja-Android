@@ -15,11 +15,20 @@ import android.view.MotionEvent;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
+import android.text.InputType;
+
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 import com.badlogic.gdx.backends.android.AndroidAudio;
+import com.badlogic.gdx.backends.android.AndroidGraphics;
+import com.badlogic.gdx.backends.android.DefaultAndroidInput;
+import com.badlogic.gdx.backends.android.surfaceview.FillResolutionStrategy;
+import com.badlogic.gdx.backends.android.surfaceview.GLSurfaceView20;
+import com.badlogic.gdx.backends.android.surfaceview.ResolutionStrategy;
 import com.badlogic.gdx.Input.Keys;
 import com.starxh.beatoraja.BeatorajaGame;
 import barsoosayque.libgdxoboe.OboeAudio;
@@ -70,6 +79,56 @@ public class AndroidLauncher extends AndroidApplication {
             Log.w(TAG, "OboeAudio initialization failed, falling back to default AndroidAudio: " + t.getMessage());
             return super.createAudio(context, config);
         }
+    }
+
+    /**
+     * 覆写 createGraphics 以修复 libGDX GLSurfaceView20 的 password flag 问题。
+     * 
+     * libGDX 的 GLSurfaceView20.onCreateInputConnection() 会设置
+     * InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD 标志，
+     * 导致 Android 系统将窗口视为"安全"窗口，从而阻止屏幕录制和截图。
+     * 参考: https://github.com/libgdx/libgdx/issues/7754
+     * 
+     * 修复方法：创建自定义 GLSurfaceView20，在 onCreateInputConnection 中
+     * 省略 TYPE_TEXT_VARIATION_VISIBLE_PASSWORD 标志。
+     */
+    @Override
+    protected AndroidGraphics createGraphics(AndroidApplicationConfiguration config) {
+        return new AndroidGraphics(this, config,
+                config.resolutionStrategy == null ? new FillResolutionStrategy() : config.resolutionStrategy) {
+            @Override
+            protected GLSurfaceView20 createGLSurfaceView(
+                    com.badlogic.gdx.backends.android.AndroidApplicationBase application,
+                    final ResolutionStrategy resolutionStrategy) {
+                if (!checkGL20()) throw new com.badlogic.gdx.utils.GdxRuntimeException("libGDX requires OpenGL ES 2.0");
+
+                android.opengl.GLSurfaceView.EGLConfigChooser configChooser = getEglConfigChooser();
+                GLSurfaceView20 view = new GLSurfaceView20(application.getContext(), resolutionStrategy, config.useGL30 ? 3 : 2) {
+                    @Override
+                    public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+                        if (outAttrs != null) {
+                            outAttrs.imeOptions = outAttrs.imeOptions | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+                            if (onscreenKeyboardType == com.badlogic.gdx.Input.OnscreenKeyboardType.Default) {
+                                // 省略 TYPE_TEXT_VARIATION_VISIBLE_PASSWORD，修复屏幕录制被阻止的问题
+                                outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
+                            } else {
+                                outAttrs.inputType = DefaultAndroidInput.getAndroidInputType(onscreenKeyboardType, true);
+                            }
+                        }
+                        // 传 null 给 super 以避免 outAttrs 被覆盖
+                        return super.onCreateInputConnection(null);
+                    }
+                };
+
+                if (configChooser != null)
+                    view.setEGLConfigChooser(configChooser);
+                else
+                    view.setEGLConfigChooser(config.r, config.g, config.b, config.a, config.depth, config.stencil);
+
+                view.setRenderer(this);
+                return view;
+            }
+        };
     }
 
     private void readConfigForLanguage() {
@@ -285,6 +344,16 @@ public class AndroidLauncher extends AndroidApplication {
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
         Gdx.input.setCatchKey(Keys.BACK, true);
+
+        // 修复屏幕录像/overlay不可见问题：
+        // libGDX 的 initialize() 会设置 FLAG_FULLSCREEN 窗口标志，
+        // 该标志在某些 Android ROM（特别是国产ROM如MIUI/ColorOS等）上
+        // 会阻止 TYPE_APPLICATION_OVERLAY 类型的悬浮窗（屏幕录像控件等）
+        // 显示在游戏窗口上方。
+        // 清除 FLAG_FULLSCREEN 后，沉浸式模式中的 SYSTEM_UI_FLAG_FULLSCREEN
+        // 仍然会隐藏状态栏，保持视觉上的全屏效果。
+        getWindow().clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        Log.i(TAG, "Cleared FLAG_FULLSCREEN for overlay/screen recording compatibility");
 
         // 监听MainController状态变化，在PLAY界面启用全面屏边缘手势排除
         try {
@@ -755,11 +824,19 @@ public class AndroidLauncher extends AndroidApplication {
         try {
             Window window = getWindow();
             android.view.Display display = window.getWindowManager().getDefaultDisplay();
-            android.view.Display.Mode[] modes = display.getSupportedModes();
             float highestRR = 60f;
-            for (android.view.Display.Mode m : modes) {
-                if (m.getRefreshRate() > highestRR) highestRR = m.getRefreshRate();
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                // API 23+: 遍历所有支持的显示模式获取最高刷新率
+                android.view.Display.Mode[] modes = display.getSupportedModes();
+                for (android.view.Display.Mode m : modes) {
+                    if (m.getRefreshRate() > highestRR) highestRR = m.getRefreshRate();
+                }
+            } else {
+                // API 21-22: 使用当前模式的刷新率
+                highestRR = display.getRefreshRate();
             }
+
             maxRefreshRate = highestRR;
             Log.i(TAG, "Max refresh rate: " + highestRR + " Hz");
 
@@ -844,16 +921,18 @@ public class AndroidLauncher extends AndroidApplication {
     }
 
     @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        lastUserTouchTime = SystemClock.uptimeMillis();
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            // Android 5.1 及以下版本增强拦截
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            lastUserTouchTime = SystemClock.uptimeMillis();
+            // API 33+: OnBackInvokedCallback 处理返回手势（在 onCreate 中注册）
+            // 所有 API: 通过 libGDX 的 setCatchKey(Keys.BACK) 处理游戏内返回
+            // 此处仅作为兜底：模拟 ESC 键给游戏引擎
             if (instance != null) {
                 setAndroidBackPressedFlag();
-                return true; // 强制消费掉，不给系统处理
+                return true;
             }
         }
-        return super.onKeyDown(keyCode, event);
+        return super.dispatchKeyEvent(event);
     }
 
     @Override

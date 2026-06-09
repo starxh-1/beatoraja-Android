@@ -9,6 +9,7 @@ import android.os.Environment;
 import android.provider.DocumentsContract;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
@@ -106,6 +107,8 @@ public class SettingsActivity extends Activity {
         if (keepAliveHandler != null) keepAliveHandler.removeCallbacks(keepAliveRunnable);
     }
 
+    private Object backInvokedCallback;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 在加载视图之前，强制刷新当前上下文的语言环境
@@ -126,6 +129,18 @@ public class SettingsActivity extends Activity {
         readConfigDirectly();
         setContentView(R.layout.activity_settings);
         initViews();
+
+        // API 33+ (targetSdk 36): 使用 OnBackInvokedDispatcher 处理返回手势
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            android.window.OnBackInvokedCallback callback = () -> {
+                readAllOptionsFromUI();
+                saveConfigToJson();
+                finish();
+            };
+            backInvokedCallback = callback;
+            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
+        }
     }
 
     private void updateContextLanguage() {
@@ -1204,7 +1219,31 @@ public class SettingsActivity extends Activity {
         stopKeepAlive();
         super.onPause();
     }
-    @Override public void onBackPressed() { readAllOptionsFromUI(); saveConfigToJson(); super.onBackPressed(); }
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
+            // API 33+: OnBackInvokedCallback 处理返回（在 onCreate 中注册）
+            // API < 33: 通过此 dispatchKeyEvent 拦截返回键，保存设置后 finish
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                readAllOptionsFromUI();
+                saveConfigToJson();
+                finish();
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
+            try {
+                getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
+                    (android.window.OnBackInvokedCallback) backInvokedCallback);
+            } catch (Exception ignored) {}
+        }
+        super.onDestroy();
+    }
 
     private void readAllOptionsFromUI() {
         selectedVolume = ((android.widget.SeekBar) findViewById(R.id.systemVolumeSeekBar)).getProgress();
@@ -1281,8 +1320,13 @@ public class SettingsActivity extends Activity {
 
     private void launchGame() {
         Intent intent = new Intent(this, AndroidLauncher.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        startActivity(intent); finish();
+        // 不使用 FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP：
+        // 这些标志会销毁 SettingsActivity 并重建任务栈，导致 Android 16
+        // 将 AndroidLauncher 视为全新的顶层应用上下文，从而要求屏幕录像等
+        // overlay 应用重新获取"显示在应用上层"权限。
+        // 改为同任务内标准 Activity 切换，finish() 会关闭 SettingsActivity。
+        startActivity(intent);
+        finish();
     }
 
     private void showHelpDialog(String title, String message) {
