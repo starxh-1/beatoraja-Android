@@ -1,9 +1,10 @@
 # USB 键盘激活输入时误触发屏幕键盘（IME）排查
 
 > 日期：2026-06-10
-> 状态：已修复，待真机复测
+> 状态：已二次修复，待真机复测
 > 涉及设备：Android 平板 / 手机 + OTG/USB 物理键盘
-> 触发现象：插入 USB 键盘（QWERTY）并按键时，屏幕底部软键盘（IME）被错误弹出
+> 触发现象：插入 USB 键盘（QWERTY）并按键时，屏幕底部软键盘（IME）被错误弹出；
+> 首次 IME 修复后，物理键事件又没有进入 libGDX 游戏输入链路
 
 ---
 
@@ -12,11 +13,14 @@
 | 场景 | 现象 |
 | --- | --- |
 | select / decide / play 等主界面，连接 USB 键盘按任意键 | 系统软键盘被自动弹出，遮挡游戏画面 |
+| 首次修复后，select / decide / play 等主界面按 USB 键盘 | IME 不再误弹，但游戏没有收到按键 |
 | 拔掉 USB 键盘 | 软键盘不再误弹 |
 | 点击搜索框 EditText | 软键盘正常弹出（预期行为） |
 | 点击搜索框外部 | 软键盘正常收起（预期行为） |
 
-只有"按物理键"的瞬间弹 IME 是 bug，搜索框主动触发弹 IME 是正常行为。
+只有"按物理键"的瞬间弹 IME 是 bug，搜索框主动触发弹 IME 是正常行为。物理键不生效
+同样是 bug：core 层依赖 libGDX 的 `InputProcessor` 回调和 `Gdx.input.isKeyPressed()` 轮询，
+Android 端必须让承载 libGDX 的 `GLSurfaceView` 保持可聚焦并拿到硬件键事件。
 
 ---
 
@@ -29,14 +33,14 @@
 | 位置 | 作用 |
 | --- | --- |
 | `createGraphics()` 内自定义 `GLSurfaceView20` | `onCheckIsTextEditor()` 返回 `false`，`onCreateInputConnection()` 中省略 `TYPE_TEXT_VARIATION_VISIBLE_PASSWORD` 标志（参考 libgdx issue #7754） |
-| `MainStateListener`（PLAY 状态切换时） | 状态切换时若处于非文本输入态，调用 `suppressImeForGameInput()` 清理残留焦点和 IME |
-| `OnGlobalFocusChangeListener` | 兜底：任何 EditText / GLSurfaceView 在非文本输入态获得焦点时立即清焦点 + 隐藏 IME |
-| `dispatchKeyEvent()` | 按下物理键时先交给 libGDX，再异步执行 `suppressImeForGameInput()` |
+| `MainStateListener`（PLAY 状态切换时） | 状态切换时若处于非文本输入态，调用 `suppressImeForGameInput()` 清理隐藏 EditText 残留焦点和 IME，并恢复游戏 Surface 焦点 |
+| `OnGlobalFocusChangeListener` | 兜底：非文本输入态下 EditText 获得焦点时清掉文本焦点并隐藏 IME；GLSurfaceView 获得焦点时只隐藏 IME，不再清焦点 |
+| `dispatchKeyEvent()` | 非文本输入态的硬件键会先确保 GLSurfaceView 可聚焦/已聚焦，再交给 libGDX，随后异步执行 `suppressImeForGameInput()` |
 | `installUnhandledKeyEventGuard()` | API 28+ 在 DecorView 上兜底未处理的物理键事件 |
-| `setTextInputActive(boolean)` | 由 `KeyBoardInputProcesseor.setTextInputMode()` 通过反射调用，切换整个窗口的 `SOFT_INPUT_STATE_ALWAYS_HIDDEN` 与 GLSurfaceView/EditText 的 focusable；退出文本态时再次抑制 IME |
-| `applyFocusableToEditTexts()` | 同时处理 EditText 与 GLSurfaceView 节点（注释里提到 libGDX 1.14 的 `DefaultAndroidInput$4` 在 `setOnscreenKeyboardVisible(true)` 时会无条件把 GLSurfaceView 设成 `focusable=true`） |
+| `setTextInputActive(boolean)` | 由 `KeyBoardInputProcesseor.setTextInputMode()` 通过反射调用，切换整个窗口的 `SOFT_INPUT_STATE_ALWAYS_HIDDEN` 与隐藏 EditText 的 focusable；退出文本态时再次抑制 IME 并恢复游戏 Surface 焦点 |
+| `applyFocusableToEditTexts()` | 只处理隐藏 EditText 节点，不再处理 GLSurfaceView；GLSurfaceView 是硬件键进入 libGDX 的目标，必须保持可聚焦 |
 
-代码里已经做了"防弹"：改 `onCheckIsTextEditor`、`onCreateInputConnection`，监听全局焦点变化，物理键按下时主动 hide IME。2026-06-10 的修复继续补上 `clearFocus()`、DecorView 未处理按键兜底、Manifest 默认 `stateAlwaysHidden` 和 `IME_FLAG_NO_FULLSCREEN`。
+代码里已经做了"防弹"：改 `onCheckIsTextEditor`、`onCreateInputConnection`，监听全局焦点变化，物理键按下时主动 hide IME。2026-06-10 的首次修复补上 `clearFocus()`、DecorView 未处理按键兜底、Manifest 默认 `stateAlwaysHidden` 和 `IME_FLAG_NO_FULLSCREEN`。二次修复把"抑制 IME"和"硬件键路由"拆开：只清隐藏 EditText 的焦点，GLSurfaceView 反而要在物理键到来前重新拿回焦点。
 
 ### 2.2 `core/src/main/java/bms/player/beatoraja/select/SearchTextField.java`
 
@@ -61,11 +65,18 @@
 
 ### 路径 A：Android 系统在物理键盘事件中自动弹 IME
 - 触发条件：当前获得焦点的 View 是 `onCheckIsTextEditor() == true` 且 `onCreateInputConnection()` 返回非 null。
-- 已经在 `createGraphics()` 里改成 `false`、并把 inputType 设为无 PASSWORD 变体。**但**：搜索框对应的 `AndroidOnscreenKeyboard`（libGDX 内置的 EditText）默认 `onCheckIsTextEditor=true`，当 `Gdx.input.setOnscreenKeyboardVisible(true)` 调用过、之后 IME 被收起、之后用户按物理键，系统有时会"贴心地"再把焦点送回这个 EditText。修复前 `AndroidLauncher.dispatchKeyEvent()` 已经在物理键按下时 `hideSoftInputFromWindow`，但**没有 `clearFocus()`**；本轮已补上。
+- 已经在 `createGraphics()` 里改成 `false`、并把 inputType 设为无 PASSWORD 变体。**但**：搜索框对应的 `AndroidOnscreenKeyboard`（libGDX 内置的 EditText）默认 `onCheckIsTextEditor=true`，当 `Gdx.input.setOnscreenKeyboardVisible(true)` 调用过、之后 IME 被收起、之后用户按物理键，系统有时会"贴心地"再把焦点送回这个 EditText。首次修复补了 `clearFocus()`，二次修复进一步限制为只清隐藏 EditText 焦点，避免误清 `GLSurfaceView`。
 
-### 路径 B：libGDX `DefaultAndroidInput` 在 `setOnscreenKeyboardVisible(true)` 路径上同步修改焦点
-- 注释中明确提到 `DefaultAndroidInput$4` 会"无条件把 GLSurfaceView 设成 `focusable=true`，且关闭时不重置"。
-- `applyFocusableToEditTexts()` 已经对 GLSurfaceView 一起处理了 focusable，但修复前 `setOnscreenKeyboardFocusable(false)` 仅在 PLAY 状态切换时调用一次；select / decide 界面下没有该监听器。**如果搜索框在 select 界面被隐藏后，GLSurfaceView 的 focusable 残留在 true，下一次按物理键时焦点仍可能落回它。** 本轮已在非文本输入态的窗口恢复、状态切换、物理键事件和退出文本态路径上统一调用 `suppressImeForGameInput()`。
+### 路径 B：libGDX `GLSurfaceView` 被当成 IME 残留焦点一起禁用
+- core 输入链路不是直接读 Android `KeyEvent`，而是通过 libGDX 的 `InputProcessor` 回调和
+  `Gdx.input.isKeyPressed()` 轮询。Android 端必须有一个可聚焦的 `GLSurfaceView` 承接硬件键。
+- 首次修复把 `GLSurfaceView` 和隐藏 EditText 一起交给 `setOnscreenKeyboardFocusable(false)` 处理，
+  `OnGlobalFocusChangeListener` 也会清掉 `GLSurfaceView` 焦点。这样确实能压住部分 IME 误弹，
+  但也会让 libGDX 收不到后续 USB/物理键。
+- 二次修复后的规则：`applyFocusableToEditTexts()` 只处理 EditText；`dispatchKeyEvent()` 在
+  `super.dispatchKeyEvent(event)` 之前调用 `prepareHardwareKeyboardTarget()`，确保
+  `GLSurfaceView` 可聚焦并请求焦点；`suppressImeForGameInput()` 只清 EditText 焦点，随后
+  调用 `focusGameSurfaceView()` 把游戏输入目标恢复回来。
 
 ### 路径 C：`onCreateInputConnection` 中 `outAttrs.imeOptions` 设的 `IME_FLAG_NO_EXTRACT_UI`
 - 这是"不要显示提取条"，但并不阻止 IME 弹起。设置 `IME_FLAG_NO_FULLSCREEN` 加上隐藏系统栏可能更稳。
@@ -86,9 +97,9 @@
 
 按性价比从高到低排：
 
-1. **在 `dispatchKeyEvent` 中同时调用 `clearFocus()`**——已落地为事件交给 libGDX 后异步清除残留焦点，避免抢掉当前按键。
-2. **给 DecorView 注册 `setOnUnhandledKeyEventListener`**，作为 `dispatchKeyEvent` 之外的第二道防线。已落地。
-3. **在 select / decide 界面的 onResume 或 onShow 中也调用一次 `setOnscreenKeyboardFocusable(false)`**，把 GLSurfaceView 的 focusable 残留关掉。已在 `onResume()`、窗口重新获得焦点和状态切换兜底。
+1. **在 `dispatchKeyEvent` 进入 libGDX 前恢复 `GLSurfaceView` 焦点**——已落地，避免非文本态物理键无输入。
+2. **IME 抑制只清隐藏 EditText 焦点，不再清 GLSurfaceView 焦点**——已落地，避免把硬件键目标一起移除。
+3. **给 DecorView 注册 `setOnUnhandledKeyEventListener`**，作为 `dispatchKeyEvent` 之外的第二道防线。已落地。
 4. **在 `outAttrs` 中加 `IME_FLAG_NO_FULLSCREEN`**，至少让弹出的键盘不抢全屏。已落地。
 5. **加一个更密集的 log**：在 `OnGlobalFocusChangeListener` 中把 `oldFocus` / `newFocus` 的类名 + `isTextInputActive` 一并打印，确认是哪个 View 在偷焦点。
 
@@ -142,15 +153,22 @@
 
 ## 6. 修复落点
 
-2026-06-10 已按上面的高性价比顺序修复：
+2026-06-10 已按上面的高性价比顺序修复，并在物理键无输入后做了二次修正：
 
-- `AndroidLauncher.dispatchKeyEvent()`：物理键事件先交给 libGDX，再 `post` 到 UI 队列执行 IME 抑制，避免清焦点影响当前键。
+- `AndroidLauncher.dispatchKeyEvent()`：非文本输入态的硬件键事件先调用
+  `prepareHardwareKeyboardTarget()`，让 `GLSurfaceView` 可聚焦并拿回焦点，再交给 libGDX；随后
+  `post` 到 UI 队列执行 IME 抑制。
 - `AndroidLauncher.installUnhandledKeyEventGuard()`：API 28+ 在 DecorView 上兜底未处理的物理键事件。
-- `AndroidLauncher.suppressImeForGameInput()`：非文本输入态统一 `setOnscreenKeyboardFocusable(false)`、隐藏 IME、清除当前焦点。
+- `AndroidLauncher.suppressImeForGameInput()`：非文本输入态统一隐藏 IME、禁用隐藏 EditText 焦点；
+  只在当前焦点是 EditText 时清焦点，并立即恢复 `GLSurfaceView` 焦点。
+- `AndroidLauncher.OnGlobalFocusChangeListener`：GLSurfaceView 获得焦点时只隐藏 IME，不再清除游戏焦点。
+- `AndroidLauncher.applyFocusableToEditTexts()`：只递归处理 EditText，不再修改 GLSurfaceView。
 - `AndroidLauncher.onCreateInputConnection()`：增加 `IME_FLAG_NO_FULLSCREEN`。
 - `AndroidManifest.xml`：`AndroidLauncher` 声明 `android:windowSoftInputMode="stateAlwaysHidden|adjustNothing"`。
 
-仍需真机复测：连接 USB/OTG 键盘，在 select / decide / play 连续按键不弹 IME；点击搜索框仍能正常弹出 IME，点击外部和回车后正常收起。
+仍需真机复测：连接 USB/OTG 键盘，在 select / decide / play 连续按键不弹 IME，且默认键位
+`Z/S/X/D/C/F/V`、方向键、Enter/Escape 等能被游戏识别；点击搜索框仍能正常弹出 IME，点击
+外部和回车后正常收起。
 
 ## 7. 临时日志补丁建议（用于后续排查）
 
@@ -184,8 +202,9 @@ Log.d(TAG, "focus change: old=" + (oldFocus == null ? "null" : oldFocus.getClass
 ## 8. 待办（按依赖关系排）
 
 - [x] 按当前诊断先修 `clearFocus` / 焦点兜底 / `setOnscreenKeyboardFocusable` 在非文本态调用 / Manifest 写 `stateAlwaysHidden`
-- [ ] 真机复测：插 USB 键盘按几下 → 确认 select / decide / play 不弹 IME，搜索框仍可主动弹 IME
-- [ ] 同步翻 `libgdx 1.14.2` 源码 `DefaultAndroidInput.java` 中 `setOnscreenKeyboardVisible` 的实现，确认是否有未文档化的副作用
+- [x] 二次修正：IME 抑制只清 EditText，保留并恢复 GLSurfaceView 焦点，避免 USB/物理键无输入
+- [ ] 真机复测：插 USB 键盘按几下 → 确认 select / decide / play 不弹 IME，且游戏按键生效；搜索框仍可主动弹 IME
+- [ ] 同步翻 `libgdx 1.14.0` 源码 `DefaultAndroidInput.java` 中 `setOnscreenKeyboardVisible` 的实现，确认是否有未文档化的副作用
 - [ ] 验证 Android 15 / 16 上 `WindowInsetsController` 路径是否比 `InputMethodManager` 更可靠
 
 ---

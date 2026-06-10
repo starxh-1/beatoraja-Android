@@ -296,9 +296,11 @@ Android 额外增加：
 - `PlayTouchKeyMapper`
 - 返回键到 `ESCAPE` 的映射
 - 不同状态下的触摸手势模式
-- `AndroidLauncher` 统一管理软键盘/IME：非文本输入态下，USB/物理键事件会在交给
-  libGDX 后清除残留焦点并隐藏 IME；`SearchTextField` 触摸进入文本输入态是允许弹出 IME
-  的例外。排查同类问题先读 `docs/usb-keyboard-onscreen-ime-debug.md`。
+- `AndroidLauncher` 统一管理软键盘/IME 与硬件键盘焦点：非文本输入态下，USB/物理键
+  事件会先确保 libGDX 的 `GLSurfaceView` 可聚焦并拿到焦点，再交给 libGDX；随后只清除
+  隐藏 `EditText` 的残留焦点并隐藏 IME。不要为了抑制 IME 禁用或清除 `GLSurfaceView`
+  焦点；`SearchTextField` 触摸进入文本输入态是允许弹出 IME 的例外。排查同类问题先读
+  `docs/usb-keyboard-onscreen-ime-debug.md`。
 
 输入轮询线程在 `MainController.create()` 中启动，当前实现硬编码为 1000 Hz：
 

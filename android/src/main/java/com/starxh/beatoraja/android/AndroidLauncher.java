@@ -193,15 +193,15 @@ public class AndroidLauncher extends AndroidApplication {
 
     private final ViewTreeObserver.OnGlobalFocusChangeListener focusChangeListener = (oldFocus, newFocus) -> {
         if (isTextInputActive || isClearingFocus) return;
-        if (newFocus instanceof EditText
-                || newFocus instanceof android.opengl.GLSurfaceView
-                || (newFocus != null && newFocus.getClass().getName().endsWith("GLSurfaceView20"))) {
+        if (newFocus instanceof EditText) {
             isClearingFocus = true;
             try {
                 suppressImeForGameInput();
             } finally {
                 isClearingFocus = false;
             }
+        } else if (isGameSurfaceView(newFocus)) {
+            hideImeFromWindow(newFocus);
         }
     };
 
@@ -942,9 +942,12 @@ public class AndroidLauncher extends AndroidApplication {
                 return true;
             }
         }
+        if (isHardwareKeyboardEvent(event) && !isTextInputActive) {
+            prepareHardwareKeyboardTarget();
+        }
         boolean handled = super.dispatchKeyEvent(event);
-        // 物理键盘按键时，如果不在文本输入模式，在本次事件交给 libGDX 后清除残留焦点并隐藏 IME。
-        // 修复：OTG 键盘在 select/decide/play 界面按键时虚拟键盘误弹出的问题。
+        // 物理键盘按键时，非文本输入态保持游戏 Surface 聚焦，同时在事件交给 libGDX 后隐藏 IME。
+        // 修复：OTG 键盘在 select/decide/play 界面按键时虚拟键盘误弹出或物理键无输入的问题。
         if (shouldSuppressImeForKeyEvent(event)) {
             postSuppressImeForGameInput();
         }
@@ -996,6 +999,12 @@ public class AndroidLauncher extends AndroidApplication {
         return !isTextInputActive
                 && event != null
                 && event.getAction() == KeyEvent.ACTION_DOWN
+                && isHardwareKeyboardEvent(event);
+    }
+
+    private boolean isHardwareKeyboardEvent(KeyEvent event) {
+        return event != null
+                && (event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.ACTION_UP)
                 && event.getDeviceId() != KeyCharacterMap.VIRTUAL_KEYBOARD;
     }
 
@@ -1012,7 +1021,35 @@ public class AndroidLauncher extends AndroidApplication {
         View currentFocus = getCurrentFocus();
         hideImeFromWindow(currentFocus);
         setOnscreenKeyboardFocusable(false);
-        if (currentFocus != null) currentFocus.clearFocus();
+        if (currentFocus instanceof EditText) currentFocus.clearFocus();
+        focusGameSurfaceView();
+    }
+
+    private void prepareHardwareKeyboardTarget() {
+        if (isTextInputActive) return;
+        setOnscreenKeyboardFocusable(false);
+        View currentFocus = getCurrentFocus();
+        if (currentFocus instanceof EditText) currentFocus.clearFocus();
+        focusGameSurfaceView();
+    }
+
+    private void focusGameSurfaceView() {
+        try {
+            View surfaceView = findSurfaceView(getWindow().getDecorView());
+            if (surfaceView == null) return;
+            surfaceView.setFocusable(true);
+            surfaceView.setFocusableInTouchMode(true);
+            if (!surfaceView.hasFocus()) {
+                surfaceView.requestFocus();
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "focusGameSurfaceView fail: " + t.getMessage());
+        }
+    }
+
+    private boolean isGameSurfaceView(View view) {
+        return view instanceof android.opengl.GLSurfaceView
+                || (view != null && view.getClass().getName().endsWith("GLSurfaceView20"));
     }
 
     private void hideImeFromWindow(View tokenView) {
@@ -1045,16 +1082,6 @@ public class AndroidLauncher extends AndroidApplication {
         for (int i = 0; i < vg.getChildCount(); i++) {
             View child = vg.getChildAt(i);
             if (child instanceof EditText) {
-                child.setFocusable(focusable);
-                child.setFocusableInTouchMode(focusable);
-                if (!focusable && child.hasFocus()) {
-                    child.clearFocus();
-                }
-            } else if (child instanceof android.opengl.GLSurfaceView
-                    || child.getClass().getName().endsWith("GLSurfaceView20")) {
-                // libGDX 1.14 的 DefaultAndroidInput$4 在 setOnscreenKeyboardVisible(true) 时
-                // 会无条件把 GLSurfaceView 设成 focusable=true，且关闭时不重置，
-                // 导致 play 屏幕按实体键时被聚焦、IME 弹起。这里把 GLSurfaceView 一起处理。
                 child.setFocusable(focusable);
                 child.setFocusableInTouchMode(focusable);
                 if (!focusable && child.hasFocus()) {
