@@ -948,7 +948,7 @@ local function main(keysNumber)
 				end
 				return d
 			end)()
-			skin.note.size = {72, 72, 72, 72, 72, 72}
+			skin.note.size = {96, 96, 96, 96, 96, 96}
 		end
 	end
 
