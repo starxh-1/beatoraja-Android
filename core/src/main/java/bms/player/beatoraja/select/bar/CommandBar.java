@@ -39,13 +39,15 @@ public class CommandBar extends DirectoryBar {
     @Override
     public Bar[] getChildren() {
     	final MainController main = selector.main;
-        return SongBar.toSongBarArray(main.getSongDatabase().getSongDatas(sql,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db"));
+        String scorePath = main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername()
+                + File.separatorChar + "score.db";
+        return SongBar.toSongBarArray(main.getSongDatabase().getSongDatas(sql, scorePath, scorePath));
     }
 
     public void updateFolderStatus() {
     	final MainController main = selector.main;
-        updateFolderStatus(main.getSongDatabase().getSongDatas(sql,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-        		,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db"));
+        String scorePath = main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername()
+                + File.separatorChar + "score.db";
+        updateFolderStatus(main.getSongDatabase().getSongDatas(sql, scorePath, scorePath));
     }
 }

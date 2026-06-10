@@ -26,6 +26,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import bms.model.BMSDecoder;
 import bms.model.BMSModel;
@@ -40,6 +42,10 @@ import bms.player.beatoraja.Validatable;
  */
 public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final String TAG = "AndroidSongDB";
+    private static final Pattern SCORE_COMPARE_PATTERN = Pattern.compile("score\\.([a-z0-9_]+)\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+(?:\\.\\d+)?)");
+    private static final Pattern SCORE_IN_PATTERN = Pattern.compile("score\\.([a-z0-9_]+)\\s+in\\s*\\(([^)]*)\\)");
+    private static final Pattern SCORE_NOTES_COMPARE_PATTERN = Pattern.compile("score\\.notes\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+(?:\\.\\d+)?)");
+    private static final Pattern SCORELOG_DATE_COMPARE_PATTERN = Pattern.compile("scorelog\\.date\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+)");
     private final DBHelper helper;
     private final String[] bmsroot;
     // 多线程扫描：32位设备适当限制，平衡性能与内存安全
@@ -236,32 +242,40 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 scoreMap = readScoreDataFromFile(score);
                 Log.i(TAG, "Loaded " + scoreMap.size() + " score records for filtering");
             }
+            java.util.Map<String, java.util.List<ScoreLogData>> scoreLogMap = new java.util.HashMap<>();
+            if (sql != null && sql.toLowerCase().contains("scorelog")) {
+                String scoreLogPath = resolveScoreLogPath(score, scorelog);
+                scoreLogMap = readScoreLogDataFromFile(scoreLogPath);
+                Log.i(TAG, "Loaded " + scoreLogMap.size() + " scorelog song buckets for filtering");
+            }
 
-            String baseSelect = "SELECT DISTINCT md5, sha256, title, subtitle, genre, artist, subartist, "
-                    + "path, folder, stagefile, banner, backbmp, parent, level, difficulty, "
-                    + "maxbpm, minbpm, mode, judge, feature, content, date, favorite, notes, "
-                    + "adddate, preview, length, charthash FROM song";
+            String baseSelect = "SELECT DISTINCT song.md5 AS md5, song.sha256 AS sha256, "
+                    + "song.title AS title, song.subtitle AS subtitle, song.genre AS genre, "
+                    + "song.artist AS artist, song.subartist AS subartist, song.tag AS tag, song.path AS path, "
+                    + "song.folder AS folder, song.stagefile AS stagefile, song.banner AS banner, "
+                    + "song.backbmp AS backbmp, song.parent AS parent, song.level AS level, "
+                    + "song.difficulty AS difficulty, song.maxbpm AS maxbpm, song.minbpm AS minbpm, "
+                    + "song.length AS length, song.tail AS tail, song.mode AS mode, song.judge AS judge, song.feature AS feature, "
+                    + "song.content AS content, song.date AS date, song.favorite AS favorite, "
+                    + "song.notes AS notes, song.adddate AS adddate, song.preview AS preview, "
+                    + "song.charthash AS charthash "
+                    + "FROM song LEFT JOIN information ON song.sha256 = information.sha256";
 
-            try (Cursor c = db.rawQuery(baseSelect + " WHERE " + sql, null)) {
-                while (c.moveToNext()) {
-                    try {
-                        SongData sd = cursorToSongData(c);
-                        list.add(sd);
-                    } catch (Throwable ignored) {}
-                }
-            } catch (Throwable sqlErr) {
-                Log.w(TAG, "getSongDatas(sql) WHERE clause failed: " + sqlErr.getMessage());
-                list.clear();
-                try (Cursor c = db.rawQuery(baseSelect, null)) {
+            if (requiresScoreFallback(sql)) {
+                list = readAllSongs(db, baseSelect);
+                list = filterSongDataList(list, scoreMap, scoreLogMap, sql);
+            } else {
+                try (Cursor c = db.rawQuery(baseSelect + " WHERE " + sql, null)) {
                     while (c.moveToNext()) {
                         try {
                             SongData sd = cursorToSongData(c);
                             list.add(sd);
                         } catch (Throwable ignored) {}
                     }
-                }
-                if (!scoreMap.isEmpty()) {
-                    list = filterSongDataList(list, scoreMap, sql);
+                } catch (Throwable sqlErr) {
+                    Log.w(TAG, "getSongDatas(sql) WHERE clause failed: " + sqlErr.getMessage());
+                    list = readAllSongs(db, baseSelect);
+                    list = filterSongDataList(list, scoreMap, scoreLogMap, sql);
                 }
             }
 
@@ -273,6 +287,34 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return Validatable.removeInvalidElements(list.toArray(new SongData[0]));
     }
 
+    private boolean requiresScoreFallback(String sql) {
+        if (sql == null) return false;
+        String lowerSql = sql.toLowerCase();
+        return lowerSql.contains("score.") || lowerSql.contains("scorelog.") || lowerSql.contains("playcount");
+    }
+
+    private List<SongData> readAllSongs(SQLiteDatabase db, String baseSelect) {
+        List<SongData> list = new ArrayList<>();
+        try (Cursor c = db.rawQuery(baseSelect, null)) {
+            while (c.moveToNext()) {
+                try {
+                    list.add(cursorToSongData(c));
+                } catch (Throwable ignored) {}
+            }
+        }
+        return list;
+    }
+
+    private String resolveScoreLogPath(String scorePath, String scoreLogPath) {
+        if (scoreLogPath != null && !scoreLogPath.isEmpty() && new File(scoreLogPath).exists()) {
+            return scoreLogPath;
+        }
+        if (scorePath != null && !scorePath.isEmpty() && new File(scorePath).exists()) {
+            return scorePath;
+        }
+        return scoreLogPath;
+    }
+
     private java.util.Map<String, ScoreData> readScoreDataFromFile(String scorePath) {
         java.util.Map<String, ScoreData> map = new java.util.HashMap<>();
         if (scorePath == null || scorePath.isEmpty()) return map;
@@ -280,59 +322,37 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         if (!f.exists()) return map;
 
         try (SQLiteDatabase scoreDb = SQLiteDatabase.openDatabase(scorePath, null, SQLiteDatabase.OPEN_READONLY)) {
-            java.util.Set<String> columns = new java.util.HashSet<>();
-            try (Cursor cols = scoreDb.rawQuery("PRAGMA table_info(score)", null)) {
-                while (cols.moveToNext()) {
-                    columns.add(cols.getString(cols.getColumnIndex("name")));
-                }
-            }
-
-            if (columns.isEmpty()) {
-                Log.w(TAG, "score table has no columns in: " + scorePath);
-                return map;
-            }
-
-            StringBuilder sql = new StringBuilder("SELECT ");
-            sql.append("sha256, playcount, clear, ");
-            if (columns.contains("exscore")) {
-                sql.append("exscore, ");
-            } else if (columns.contains("score")) {
-                sql.append("score AS exscore, ");
-            } else {
-                sql.append("0 AS exscore, ");
-            }
-            sql.append(columns.contains("maxcombo") ? "maxcombo, " : "0 AS maxcombo, ");
-            sql.append(columns.contains("minbp") ? "minbp, " : "0 AS minbp, ");
-            sql.append(columns.contains("perfect") ? "perfect, " : "0 AS perfect, ");
-            sql.append(columns.contains("great") ? "great, " : "0 AS great, ");
-            sql.append(columns.contains("good") ? "good, " : "0 AS good, ");
-            sql.append(columns.contains("bad") ? "bad, " : "0 AS bad, ");
-            sql.append(columns.contains("poor") ? "poor, " : "0 AS poor, ");
-            sql.append(columns.contains("totalnotes") ? "totalnotes, " : "0 AS totalnotes, ");
-            sql.append(columns.contains("fast") ? "fast, " : "0 AS fast, ");
-            sql.append(columns.contains("slow") ? "slow, " : "0 AS slow, ");
-            sql.append(columns.contains("date") ? "date FROM score" : "0 AS date FROM score");
-
-            try (Cursor c = scoreDb.rawQuery(sql.toString(), null)) {
+            try (Cursor c = scoreDb.rawQuery("SELECT * FROM score", null)) {
                 while (c.moveToNext()) {
                     ScoreData sd = new ScoreData();
                     sd.sha256 = getStringSafe(c, "sha256");
                     sd.playcount = getIntSafe(c, "playcount");
                     sd.clear = getIntSafe(c, "clear");
-                    sd.score = getIntSafe(c, "score");
-                    sd.exscore = getIntSafe(c, "exscore");
-                    sd.maxcombo = getIntSafe(c, "maxcombo");
+                    sd.epg = getIntSafe(c, "epg");
+                    sd.lpg = getIntSafe(c, "lpg");
+                    sd.egr = getIntSafe(c, "egr");
+                    sd.lgr = getIntSafe(c, "lgr");
+                    sd.score = getIntAny(c, "score");
+                    sd.exscore = getIntAny(c, "exscore", "score");
+                    if (sd.exscore == 0) {
+                        sd.exscore = (sd.epg + sd.lpg) * 2 + sd.egr + sd.lgr;
+                    }
+                    sd.maxcombo = getIntAny(c, "combo", "maxcombo");
                     sd.minbp = getIntSafe(c, "minbp");
                     sd.perfect = getIntSafe(c, "perfect");
                     sd.great = getIntSafe(c, "great");
                     sd.good = getIntSafe(c, "good");
                     sd.bad = getIntSafe(c, "bad");
                     sd.poor = getIntSafe(c, "poor");
-                    sd.totalnotes = getIntSafe(c, "totalnotes");
+                    sd.notes = getIntAny(c, "notes", "totalnotes");
+                    sd.totalnotes = sd.notes;
                     sd.fast = getIntSafe(c, "fast");
                     sd.slow = getIntSafe(c, "slow");
                     sd.date = getIntSafe(c, "date");
-                    map.put(sd.sha256, sd);
+                    ScoreData existing = map.get(sd.sha256);
+                    if (existing == null || sd.clear > existing.clear) {
+                        map.put(sd.sha256, sd);
+                    }
                 }
             }
         } catch (Throwable t) {
@@ -341,35 +361,48 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return map;
     }
 
+    private java.util.Map<String, java.util.List<ScoreLogData>> readScoreLogDataFromFile(String scoreLogPath) {
+        java.util.Map<String, java.util.List<ScoreLogData>> map = new java.util.HashMap<>();
+        if (scoreLogPath == null || scoreLogPath.isEmpty()) return map;
+        File f = new File(scoreLogPath);
+        if (!f.exists()) return map;
+
+        try (SQLiteDatabase scoreDb = SQLiteDatabase.openDatabase(scoreLogPath, null, SQLiteDatabase.OPEN_READONLY)) {
+            try (Cursor c = scoreDb.rawQuery("SELECT * FROM scorelog", null)) {
+                while (c.moveToNext()) {
+                    ScoreLogData log = new ScoreLogData();
+                    log.sha256 = getStringSafe(c, "sha256");
+                    log.clear = getIntSafe(c, "clear");
+                    log.oldclear = getIntSafe(c, "oldclear");
+                    log.score = getIntSafe(c, "score");
+                    log.oldscore = getIntSafe(c, "oldscore");
+                    log.combo = getIntSafe(c, "combo");
+                    log.oldcombo = getIntSafe(c, "oldcombo");
+                    log.minbp = getIntSafe(c, "minbp");
+                    log.oldminbp = getIntSafe(c, "oldminbp");
+                    log.date = getLongSafe(c, "date");
+                    map.computeIfAbsent(log.sha256, ignored -> new ArrayList<>()).add(log);
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "readScoreLogDataFromFile failed: " + scoreLogPath + " - " + t.getMessage());
+        }
+        return map;
+    }
+
     /**
      * 在 Java 层根据 SQL 过滤歌曲列表（只处理常见情况）
      */
-    private List<SongData> filterSongDataList(List<SongData> songs, java.util.Map<String, ScoreData> scoreMap, String sql) {
+    private List<SongData> filterSongDataList(List<SongData> songs, java.util.Map<String, ScoreData> scoreMap,
+            java.util.Map<String, java.util.List<ScoreLogData>> scoreLogMap, String sql) {
         List<SongData> filtered = new ArrayList<>();
 
-        // 处理常见情况：playcount > 0
-        String lowerSql = sql.toLowerCase();
-        boolean hasPlaycountCondition = lowerSql.contains("playcount");
+        String lowerSql = sql != null ? sql.toLowerCase() : "";
 
         for (SongData song : songs) {
-            boolean include = true;
-
-            if (hasPlaycountCondition) {
-                ScoreData sd = scoreMap.get(song.getSha256());
-                int playcount = (sd != null) ? sd.playcount : 0;
-
-                // 简单处理常见模式
-                if (lowerSql.contains("playcount > 0")) {
-                    include = playcount > 0;
-                } else if (lowerSql.contains("playcount >= 0")) {
-                    include = playcount >= 0;
-                } else if (lowerSql.contains("playcount = 0")) {
-                    include = playcount == 0;
-                }
-                // 对于更复杂的情况，我们需要解析 SQL，但这里做简化处理
-            }
-
-            // 处理 ORDER BY playcount DESC LIMIT 10 等（在最后处理）
+            ScoreData sd = scoreMap.get(song.getSha256());
+            java.util.List<ScoreLogData> logs = scoreLogMap.get(song.getSha256());
+            boolean include = matchesScoreSql(sd, lowerSql) && matchesScoreLogSql(logs, lowerSql);
 
             if (include) {
                 filtered.add(song);
@@ -418,6 +451,136 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return filtered;
     }
 
+    private boolean matchesScoreSql(ScoreData score, String lowerSql) {
+        if (lowerSql == null || lowerSql.isEmpty()) return true;
+
+        if (lowerSql.contains("playcount")) {
+            int playcount = score != null ? score.playcount : 0;
+            if (!matchesIntComparisons(playcount, lowerSql, Pattern.compile("playcount\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+)"))) {
+                return false;
+            }
+        }
+
+        Matcher inMatcher = SCORE_IN_PATTERN.matcher(lowerSql);
+        while (inMatcher.find()) {
+            if (score == null) return false;
+            int fieldValue = getScoreField(score, inMatcher.group(1));
+            boolean matched = false;
+            for (String value : inMatcher.group(2).split(",")) {
+                try {
+                    if (fieldValue == Integer.parseInt(value.trim())) {
+                        matched = true;
+                        break;
+                    }
+                } catch (NumberFormatException ignored) {}
+            }
+            if (!matched) return false;
+        }
+
+        Matcher compareMatcher = SCORE_COMPARE_PATTERN.matcher(lowerSql);
+        while (compareMatcher.find()) {
+            if (score == null) return false;
+            String field = compareMatcher.group(1);
+            if ("notes".equals(field) && lowerSql.contains("/ score.notes")) {
+                continue;
+            }
+            double fieldValue = getScoreField(score, field);
+            if (!compare(fieldValue, compareMatcher.group(2), Double.parseDouble(compareMatcher.group(3)))) {
+                return false;
+            }
+        }
+
+        if (lowerSql.contains("/ score.notes")) {
+            Matcher notesMatcher = SCORE_NOTES_COMPARE_PATTERN.matcher(lowerSql);
+            while (notesMatcher.find()) {
+                if (score == null || score.notes <= 0) return false;
+                double rate = score.exscore * 50.0 / score.notes;
+                if (!compare(rate, notesMatcher.group(1), Double.parseDouble(notesMatcher.group(2)))) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private boolean matchesScoreLogSql(java.util.List<ScoreLogData> logs, String lowerSql) {
+        if (lowerSql == null || !lowerSql.contains("scorelog.")) return true;
+        if (logs == null || logs.isEmpty()) return false;
+
+        for (ScoreLogData log : logs) {
+            boolean include = true;
+            if (lowerSql.contains("scorelog.clear > scorelog.oldclear")) {
+                include = log.clear > log.oldclear;
+            }
+            if (include && lowerSql.contains("scorelog.score > scorelog.oldscore")) {
+                include = log.score > log.oldscore;
+            }
+            if (include && lowerSql.contains("scorelog.combo > scorelog.oldcombo")) {
+                include = log.combo > log.oldcombo;
+            }
+            if (include && lowerSql.contains("scorelog.minbp < scorelog.oldminbp")) {
+                include = log.minbp < log.oldminbp;
+            }
+            if (include && !matchesLongComparisons(log.date, lowerSql, SCORELOG_DATE_COMPARE_PATTERN)) {
+                include = false;
+            }
+            if (include) return true;
+        }
+        return false;
+    }
+
+    private boolean matchesIntComparisons(int value, String lowerSql, Pattern pattern) {
+        Matcher matcher = pattern.matcher(lowerSql);
+        while (matcher.find()) {
+            if (!compare(value, matcher.group(1), Integer.parseInt(matcher.group(2)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean matchesLongComparisons(long value, String lowerSql, Pattern pattern) {
+        Matcher matcher = pattern.matcher(lowerSql);
+        while (matcher.find()) {
+            if (!compare(value, matcher.group(1), Long.parseLong(matcher.group(2)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean compare(double actual, String operator, double expected) {
+        switch (operator) {
+            case ">": return actual > expected;
+            case ">=": return actual >= expected;
+            case "<": return actual < expected;
+            case "<=": return actual <= expected;
+            case "=": return actual == expected;
+            case "!=": return actual != expected;
+            default: return false;
+        }
+    }
+
+    private int getScoreField(ScoreData score, String field) {
+        switch (field) {
+            case "playcount": return score.playcount;
+            case "clear": return score.clear;
+            case "score":
+            case "exscore": return score.exscore;
+            case "combo":
+            case "maxcombo": return score.maxcombo;
+            case "minbp": return score.minbp;
+            case "notes":
+            case "totalnotes": return score.notes;
+            case "epg": return score.epg;
+            case "lpg": return score.lpg;
+            case "egr": return score.egr;
+            case "lgr": return score.lgr;
+            default: return 0;
+        }
+    }
+
     /**
      * 简单的分数数据容器
      */
@@ -427,6 +590,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         int clear;
         int score;
         int exscore;
+        int epg;
+        int lpg;
+        int egr;
+        int lgr;
         int maxcombo;
         int minbp;
         int perfect;
@@ -434,10 +601,24 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         int good;
         int bad;
         int poor;
+        int notes;
         int totalnotes;
         int fast;
         int slow;
         int date;
+    }
+
+    private static class ScoreLogData {
+        String sha256;
+        int clear;
+        int oldclear;
+        int score;
+        int oldscore;
+        int combo;
+        int oldcombo;
+        int minbp;
+        int oldminbp;
+        long date;
     }
 
     @Override
@@ -1670,6 +1851,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return c.getInt(idx);
     }
 
+    private static int getIntAny(Cursor c, String... cols) {
+        for (String col : cols) {
+            int idx = c.getColumnIndex(col);
+            if (idx != -1) return c.getInt(idx);
+        }
+        return 0;
+    }
+
+    private static long getLongSafe(Cursor c, String col) {
+        int idx = c.getColumnIndex(col);
+        if (idx == -1) return 0L;
+        return c.getLong(idx);
+    }
+
     private static class DBHelper extends SQLiteOpenHelper {
         private final String path;
         private static final int DATABASE_VERSION = 4; // Updated for tail column
@@ -1893,4 +2088,3 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         void update(BMSModel model, SongData song);
     }
 }
-

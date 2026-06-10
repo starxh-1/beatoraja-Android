@@ -1,6 +1,6 @@
 # beatoraja-Android 架构说明
 
-> 核验日期：2026-06-07<br>
+> 核验日期：2026-06-10<br>
 > 核验依据：当前仓库源码、Gradle 配置和 Android Manifest。<br>
 > 本文是项目架构的主索引；具体问题分析仍放在 `docs/` 下的专题文档中。
 
@@ -84,7 +84,7 @@ beatoraja-Android/
 ├── docs/                       问题分析、重构计划和性能专题
 ├── app/                        未纳入 Gradle 的遗留目录
 ├── libgdx-oboe/                Git submodule 工作目录
-├── ARCHITECTURE.md             本文
+├── docs/ARCHITECTURE.md        本文
 └── AGENTS.md                   项目记忆入口
 ```
 
@@ -392,6 +392,16 @@ AndroidLauncher
 -> AndroidScoreDatabaseAccessor
 ```
 
+成绩库在 Android 上使用玩家目录下的单个 `score.db`，其中包含 `info`、`player`、`score`、
+`scorelog` 和 `scoredatalog` 表。历史遗留的 `scorelog.db`、`scoredatalog.db` 只作为迁移来源
+读取并备份；运行时查询不要再把它们当成独立数据库文件。
+
+选曲的 `CommandBar`、随机课程和默认 `folder/default.json` 中的成绩条件仍通过
+`SongDatabaseAccessor.getSongDatas(sql, score, scorelog)` 进入歌曲库。Android 实现不使用
+`ATTACH DATABASE`，而是读取 `score.db` 中的 `score`/`scorelog` 到内存后对项目内常见 SQL
+形态做 Java 侧过滤；普通 song/information 条件则直接查询歌曲库，并通过
+`song LEFT JOIN information` 支持 density、peakdensity、enddensity 文件夹。
+
 歌曲扫描采用多阶段流程：
 
 1. 收集 BMS/BMSON 文件。
@@ -539,7 +549,7 @@ Windows：
 
 后续维护本项目时，默认遵循：
 
-1. 先读 `AGENTS.md` 和本文，再读对应专题文档。
+1. 先读 `AGENTS.md` 和 `docs/ARCHITECTURE.md`，再读对应专题文档。
 2. 以 `settings.gradle` 判断真实模块，不把 `app/` 当成运行时代码。
 3. 把 `SettingsActivity` 视为 XML View Activity，不按 Compose 方案修改。
 4. 保持依赖方向 `android -> core`。

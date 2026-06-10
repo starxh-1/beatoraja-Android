@@ -102,7 +102,7 @@ public class SearchTextField extends Stage {
 						}
 
 						Gdx.app.log("SearchTextField", "Deactivating text mode: Enter/Newline pressed");
-						textField.getOnscreenKeyboard().close();
+						textField.getOnscreenKeyboard().show(false);
 						setKeyboardFocus(null);
 						selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);
 					}
@@ -130,12 +130,10 @@ public class SearchTextField extends Stage {
 			// 避免两套键盘控制逻辑互相冲突导致 IME 闪烁。
 			search.setOnscreenKeyboard(new TextField.OnscreenKeyboard() {
 				@Override
-				public void show(TextField textField) {
-					// no-op：键盘由 AndroidLauncher 统一管理
-				}
-				@Override
-				public void close() {
-					Gdx.input.setOnscreenKeyboardVisible(false);
+				public void show(boolean visible) {
+					if (!visible) {
+						Gdx.input.setOnscreenKeyboardVisible(false);
+					}
 				}
 			});
 
@@ -187,7 +185,7 @@ public class SearchTextField extends Stage {
 			search.setText("");
 			search.setMessageText("search song");
 			search.getStyle().messageFontColor = Color.GRAY;
-			search.getOnscreenKeyboard().close();
+			search.getOnscreenKeyboard().show(false);
 		}
 		setKeyboardFocus(null);
 		selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);

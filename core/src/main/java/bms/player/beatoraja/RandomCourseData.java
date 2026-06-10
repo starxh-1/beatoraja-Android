@@ -102,8 +102,9 @@ public class RandomCourseData {
 					sql = "1";
 				}
 			}
-			lots = main.getSongDatabase().getSongDatas(sql ,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/score.db"
-				,main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername() + "/scorelog.db");
+			String scorePath = main.getConfig().getPlayerpath() + File.separatorChar + main.getConfig().getPlayername()
+					+ File.separatorChar + "score.db";
+			lots = main.getSongDatabase().getSongDatas(sql, scorePath, scorePath);
 			lotterySongData(i, songDatas, lots, isDistinct);
 		}
 	}
