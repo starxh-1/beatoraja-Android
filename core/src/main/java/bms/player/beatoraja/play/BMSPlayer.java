@@ -84,7 +84,7 @@ public class BMSPlayer extends MainState {
 
 	private final FloatArray[] gaugelog;
 
-	private int playspeed = 100;
+	private volatile int playspeed = 100;
 
 	/**
 	 * リプレイHS保存用 STATE READY時に保存
@@ -92,7 +92,7 @@ public class BMSPlayer extends MainState {
 	private PlayConfig replayConfig;
 
 
-	private int state = STATE_PRELOAD;
+	private volatile int state = STATE_PRELOAD;
 
 	public static final int STATE_PRELOAD = 0;
 	public static final int STATE_PRACTICE = 1;
@@ -766,9 +766,7 @@ public class BMSPlayer extends MainState {
 			// プレイ
 			case STATE_PLAY -> {
 				final long deltatime = micronow - prevtime;
-				final long deltaplay = deltatime * (100 - playspeed) / 100;
 				PracticeProperty property = practice.getPracticeProperty();
-				timer.setMicroTimer(TIMER_PLAY, timer.getMicroTimer(TIMER_PLAY) + deltaplay);
 
 				rhythm.update(this, deltatime, lanerender.getNowBPM(), property.freq);
 

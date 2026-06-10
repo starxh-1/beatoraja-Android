@@ -141,7 +141,7 @@ class KeyInputProccessor {
 		// TODO 判定処理スレッドはJudgeManagerに渡した方がいいかも
 
 		private final TimeLine[] timelines;
-		private boolean stop = false;
+		private volatile boolean stop = false;
 		/**
 		 * 自動入力するキー入力ログ
 		 */
@@ -168,8 +168,16 @@ class KeyInputProccessor {
 			long nextPollTime = System.nanoTime();
 
 			long prevtime = -1;
+			long prevClockTime = -1;
 			while (!stop) {
-				// 实时读取播放时间（TimerManager 现已改为实时计算，不再受帧率限制）
+				final long clockTime = player.timer.getNowMicroTime();
+				if (prevClockTime != -1) {
+					advancePlayTimer(clockTime - prevClockTime);
+				}
+				prevClockTime = clockTime;
+
+				// 实时读取播放时间。TIMER_PLAY 的变速补偿由本线程以 1000Hz 写入，
+				// 避免渲染帧率决定判定时钟的步进。
 				final long mtime = player.timer.getNowMicroTime(TIMER_PLAY);
 
 				// リプレイデータ再生
@@ -207,6 +215,19 @@ class KeyInputProccessor {
 			}
 
 			Logger.getGlobal().info("入力パフォーマンス(max ms) : " + frametime);
+		}
+
+		private void advancePlayTimer(long elapsedMicrotime) {
+			if (elapsedMicrotime <= 0
+					|| player.getState() != BMSPlayer.STATE_PLAY
+					|| !player.timer.isTimerOn(TIMER_PLAY)) {
+				return;
+			}
+			final int speed = player.getPlaySpeed();
+			final long deltaPlay = elapsedMicrotime * (100L - speed) / 100L;
+			if (deltaPlay != 0) {
+				player.timer.addMicroTimer(TIMER_PLAY, deltaPlay);
+			}
 		}
 	}
 }
