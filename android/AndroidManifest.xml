@@ -45,6 +45,7 @@
         android:exported="false"
         android:showWhenLocked="false"
         android:turnScreenOn="true"
+        android:windowSoftInputMode="stateAlwaysHidden|adjustNothing"
         android:useEmbeddedDex="false"/>
 
       <!-- 游戏性能优化标签 -->
@@ -59,5 +60,4 @@
   </application>
 
 </manifest>
-
 

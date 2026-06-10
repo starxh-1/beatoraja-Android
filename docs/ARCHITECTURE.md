@@ -118,7 +118,7 @@ beatoraja-Android/
 - 权限、目录和 ZIP 导入。
 - Android 原生歌曲库与成绩库。
 - 显示刷新率、Surface frame rate、Choreographer 相位同步。
-- 系统返回键、软键盘、全面屏边缘手势和屏幕常亮。
+- 系统返回键、软键盘/IME、全面屏边缘手势和屏幕常亮。
 - APK 资源和 ABI native 库打包。
 
 依赖方向应保持为：
@@ -296,6 +296,9 @@ Android 额外增加：
 - `PlayTouchKeyMapper`
 - 返回键到 `ESCAPE` 的映射
 - 不同状态下的触摸手势模式
+- `AndroidLauncher` 统一管理软键盘/IME：非文本输入态下，USB/物理键事件会在交给
+  libGDX 后清除残留焦点并隐藏 IME；`SearchTextField` 触摸进入文本输入态是允许弹出 IME
+  的例外。排查同类问题先读 `docs/usb-keyboard-onscreen-ime-debug.md`。
 
 输入轮询线程在 `MainController.create()` 中启动，当前实现硬编码为 1000 Hz：
 

@@ -14,6 +14,8 @@
 - 成绩库的 `score`、`scorelog`、`scoredatalog` 表合并在玩家目录的 `score.db`；不要再假设
   `scorelog.db` 是运行时查询用的独立数据库文件。
 - 配置字段变化要同步检查 `Config`、`PlayerConfig` 和 `SettingsActivity` 的手写 JSON 逻辑。
+- 涉及 USB/物理键盘导致屏幕键盘误弹时，先读 `docs/usb-keyboard-onscreen-ime-debug.md`；
+  游戏界面默认抑制 IME，搜索框是主动进入文本输入态的例外。
 - 不要修改 `app/` 中的 helper 来修复 APK 行为。
 
 若架构发生变化，在同一任务中同步更新 `docs/ARCHITECTURE.md`。
