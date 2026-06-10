@@ -7,6 +7,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.content.res.AssetManager;
 import android.util.Log;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.os.Handler;
 import android.os.Looper;
@@ -45,6 +46,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.EditText;
+import android.view.WindowInsets;
 import org.json.JSONObject;
 
 import bms.player.beatoraja.Config;
@@ -119,7 +121,9 @@ public class AndroidLauncher extends AndroidApplication {
                     @Override
                     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
                         if (outAttrs != null) {
-                            outAttrs.imeOptions = outAttrs.imeOptions | EditorInfo.IME_FLAG_NO_EXTRACT_UI;
+                            outAttrs.imeOptions = outAttrs.imeOptions
+                                    | EditorInfo.IME_FLAG_NO_EXTRACT_UI
+                                    | EditorInfo.IME_FLAG_NO_FULLSCREEN;
                             if (onscreenKeyboardType == com.badlogic.gdx.Input.OnscreenKeyboardType.Default) {
                                 // 省略 TYPE_TEXT_VARIATION_VISIBLE_PASSWORD，修复屏幕录制被阻止的问题
                                 outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
@@ -182,15 +186,7 @@ public class AndroidLauncher extends AndroidApplication {
             isPlayStateActive = isPlay;
             runOnUiThread(() -> {
                 applySystemGestureExclusion(isPlay);
-                if (isPlay) {
-                    // libGDX 的 AndroidOnscreenKeyboard 是一个塞在 DecorView 树里的 EditText。
-                    // 在 Android 15 上，状态切换或按实体键可能让它重新获得焦点，
-                    // 进而触发 WindowInsetsController.show(ime())。先禁掉它的 focusable，再隐藏 IME。
-                    setOnscreenKeyboardFocusable(false);
-                    if (inputMethodManager != null) {
-                        inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
-                    }
-                }
+                if (!isTextInputActive) suppressImeForGameInput();
             });
         }
     };
@@ -202,10 +198,7 @@ public class AndroidLauncher extends AndroidApplication {
                 || (newFocus != null && newFocus.getClass().getName().endsWith("GLSurfaceView20"))) {
             isClearingFocus = true;
             try {
-                if (inputMethodManager != null) {
-                    inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
-                }
-                if (newFocus != null) newFocus.clearFocus();
+                suppressImeForGameInput();
             } finally {
                 isClearingFocus = false;
             }
@@ -384,6 +377,8 @@ public class AndroidLauncher extends AndroidApplication {
 
         // 兜底：任何 EditText 在文本输入关闭时获得焦点，立刻清掉焦点并隐藏 IME。
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(focusChangeListener);
+        installUnhandledKeyEventGuard();
+        suppressImeForGameInput();
 
         // WindowManager 刷新率 + maxRefreshRate 检测
         setupHighRefreshRate();
@@ -741,9 +736,7 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus && inputMethodManager != null && !isTextInputActive) {
-            inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
-        }
+        if (hasFocus && !isTextInputActive) suppressImeForGameInput();
     }
 
     @Override
@@ -751,7 +744,7 @@ public class AndroidLauncher extends AndroidApplication {
         super.onResume();
         if (!isTextInputActive) {
             getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
-            if (inputMethodManager != null) inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+            suppressImeForGameInput();
         }
         if (pendingInitialization) {
             if (checkAndRequestStoragePermissions()) {
@@ -949,16 +942,13 @@ public class AndroidLauncher extends AndroidApplication {
                 return true;
             }
         }
-        // 物理键盘按键时，如果不在文本输入模式，主动隐藏 IME 并清除焦点。
-        // 修复：OTG 键盘在 select/play 界面按键时虚拟键盘误弹出的问题。
-        if (!isTextInputActive && event.getAction() == KeyEvent.ACTION_DOWN) {
-            runOnUiThread(() -> {
-                if (inputMethodManager != null) {
-                    inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
-                }
-            });
+        boolean handled = super.dispatchKeyEvent(event);
+        // 物理键盘按键时，如果不在文本输入模式，在本次事件交给 libGDX 后清除残留焦点并隐藏 IME。
+        // 修复：OTG 键盘在 select/decide/play 界面按键时虚拟键盘误弹出的问题。
+        if (shouldSuppressImeForKeyEvent(event)) {
+            postSuppressImeForGameInput();
         }
-        return super.dispatchKeyEvent(event);
+        return handled;
     }
 
     @Override
@@ -983,9 +973,60 @@ public class AndroidLauncher extends AndroidApplication {
             runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
         } else {
             startKeepAlive();
-            setOnscreenKeyboardFocusable(false);
-            if (inputMethodManager != null) inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
             runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
+            postSuppressImeForGameInput();
+        }
+    }
+
+    private void installUnhandledKeyEventGuard() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return;
+        try {
+            getWindow().getDecorView().addOnUnhandledKeyEventListener((view, event) -> {
+                if (shouldSuppressImeForKeyEvent(event)) {
+                    postSuppressImeForGameInput();
+                }
+                return false;
+            });
+        } catch (Throwable t) {
+            Log.w(TAG, "installUnhandledKeyEventGuard fail: " + t.getMessage());
+        }
+    }
+
+    private boolean shouldSuppressImeForKeyEvent(KeyEvent event) {
+        return !isTextInputActive
+                && event != null
+                && event.getAction() == KeyEvent.ACTION_DOWN
+                && event.getDeviceId() != KeyCharacterMap.VIRTUAL_KEYBOARD;
+    }
+
+    private void postSuppressImeForGameInput() {
+        try {
+            getWindow().getDecorView().post(this::suppressImeForGameInput);
+        } catch (Throwable t) {
+            Log.w(TAG, "postSuppressImeForGameInput fail: " + t.getMessage());
+        }
+    }
+
+    private void suppressImeForGameInput() {
+        if (isTextInputActive) return;
+        View currentFocus = getCurrentFocus();
+        hideImeFromWindow(currentFocus);
+        setOnscreenKeyboardFocusable(false);
+        if (currentFocus != null) currentFocus.clearFocus();
+    }
+
+    private void hideImeFromWindow(View tokenView) {
+        try {
+            Window window = getWindow();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && window.getInsetsController() != null) {
+                window.getInsetsController().hide(WindowInsets.Type.ime());
+            }
+            if (inputMethodManager != null) {
+                View view = tokenView != null ? tokenView : window.getDecorView();
+                inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "hideImeFromWindow fail: " + t.getMessage());
         }
     }
 

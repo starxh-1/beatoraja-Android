@@ -3,21 +3,32 @@
 > **目的**：彻查 beatoraja-Android 判定时钟偏移问题的所有根因，从时钟源、数据流、线程模型、音频同步、GC 影响五个层面拆解。
 >
 > **范围**：`TimerManager.java`、`BMSPlayer.java`、`JudgeManager.java`、`KeyInputProccessor.java`、`MainController.java`、`KeyBoardInputProcesseor.java`、`BMSPlayerInputProcessor.java`、`AndroidLauncher.java`。
+>
+> **状态（2026-06-10）**：已修复根因 B/C。根因 A 需要 Oboe/AAudio 暴露可靠播放头位置后再做平滑同步；根因 D 仍以减少分配和真机观测为主，不提交临时日志。
 
 ---
 
 ## 0. 结论先行
 
-存在 **四个独立且可叠加** 的根因导致长时间游玩后判定偏移：
+修复前存在 **四个独立且可叠加** 的根因导致长时间游玩后判定偏移：
 
 | # | 根因 | 严重程度 | 1 小时后典型误差 | 触发条件 |
 |---|------|----------|-----------------|----------|
 | A | 音频时钟与游戏时钟物理独立，无同步 | **高** | 100–540ms | 所有设备，随时间累积 |
-| B | `TIMER_PLAY` 由主线程 60Hz 累加，输入线程 1000Hz 读取（量化噪声） | **高** | 0–16ms 抖动 | 所有设备，帧率越低越严重 |
-| C | `timer[]` 数组无 volatile/synchronized（JMM 不可见） | **中** | 不确定（0 到数帧延迟） | ARM 弱内存模型设备 |
+| B | `TIMER_PLAY` 由主线程 60Hz 累加，输入线程 1000Hz 读取（量化噪声） | **高，已修复** | 0–16ms 抖动 | 所有设备，帧率越低越严重 |
+| C | `timer[]` 数组无 volatile/synchronized（JMM 不可见） | **中，已修复** | 不确定（0 到数帧延迟） | ARM 弱内存模型设备 |
 | D | GC STW 暂停阻塞所有线程，造成判定断层 | **中** | 随泄漏程度增长 | 内存压力大时 |
 
 问题 A 解释了"为什么玩一小时后偏"，问题 B/C 解释了"为什么帧率波动时偏"，问题 D 解释了"内存泄漏如何加剧偏"。
+
+### 0.1 2026-06-10 修复落点
+
+- `TimerManager`：内置 timer 从普通 `long[]` 改为 `AtomicLongArray`，并新增 `addMicroTimer()`，修复跨线程可见性、32-bit long 撕裂和读改写丢失风险。
+- `BMSPlayer`：`playspeed` 和 `state` 改为 `volatile`；`STATE_PLAY` 不再按渲染帧写 `TIMER_PLAY`。
+- `KeyInputProccessor.JudgeThread`：判定线程每轮用 `System.nanoTime()` 计算真实 1ms 级 delta，并按当前 `playspeed` 对 `TIMER_PLAY` 起点偏移做原子补偿。
+- `TimerManagerTest`：新增并发增量测试，防止 timer 原子语义回退。
+
+本轮没有实现根因 A 的音频播放头同步，因为当前 `android/libs/libgdx-oboe.aar` 暴露给 Java 的 `OboeAudio` 接口未确认有可靠 playback head position；盲目估算音频位置会比现状更危险。
 
 ---
 
@@ -121,7 +132,7 @@ timer.setMicroTimer(TIMER_PLAY, timer.getMicroTimer(TIMER_PLAY) + deltaplay);
 
 ## 3. 根因 B：TIMER_PLAY 跨线程读写造成的量化噪声
 
-### 3.1 量化机制
+### 3.1 量化机制（修复前）
 
 ```
 时间(ms)    0    16.67  33.33  50.00  66.67  83.33  100.00
@@ -140,7 +151,7 @@ mtime #18   16670
 ...
 ```
 
-输入线程每 1ms 轮询一次，但实际读到的 mtime 是 **16ms 步进的离散值**。直到主线程跑完一次 `update()` 并写入 `TIMER_PLAY`，输入线程才能看到新值。
+输入线程每 1ms 轮询一次，但修复前变速补偿由渲染线程写入，mtime 会带有渲染帧级的阶梯。修复后 `TIMER_PLAY` 的变速补偿由判定线程 1000Hz 写入，正常速度下则由 `System.nanoTime()` 连续外推。
 
 ### 3.2 误差量化
 
@@ -188,7 +199,7 @@ GC 卡顿 200ms:       ... 16 16 16 16 16 16 16 216 216 216 ...     (跳变200ms
 ### 4.1 问题所在
 
 ```java
-// TimerManager.java:18-19
+// 修复前：TimerManager.java
 private final long[] timer = new long[timerCount];  // 普通 long[]，无任何同步
 
 // TimerManager.java:44-46 — 写
@@ -225,6 +236,8 @@ t=33ms                             [读 timer[PLAY]] → 终于看到 16670
 ```
 
 在 ARM 设备上，跨线程无 happens-before 时，读线程**可任意延迟才看到新值**。这会使根因 B 的误差进一步扩大（从 ≤16ms 变成可能延迟数帧才更新）。
+
+2026-06-10 修复后：内置 timer 使用 `AtomicLongArray`，普通读写通过 `get()` / `set()`，变速补偿通过 CAS 原子增量，内置 timer 不再存在上述 JMM 可见性和 long 撕裂问题。
 
 ### 4.3 撕裂风险（32-bit 设备）
 
@@ -342,9 +355,9 @@ void syncAudioClock() {
 
 **风险**：需要 `OboeAudio` 暴露 `getPlaybackHeadPosition()` 接口。
 
-### 7.2 方案 B（高优先级）：消除量化噪声
+### 7.2 方案 B（高优先级，已落地）：消除量化噪声
 
-**核心思路**：把"写 TIMER_PLAY"的职责从主线程挪到 JudgeThread（输入线程），降步进从 16ms 到 1ms。
+**核心思路**：把"写 TIMER_PLAY 变速补偿"的职责从主线程挪到 JudgeThread（输入线程），降步进从渲染帧级到 1ms。
 
 ```java
 // JudgeThread 内（单写者模式）
@@ -353,8 +366,7 @@ while (!stop) {
     long dt = now - prevInputTime;                  // 真实流逝
     long deltaPlay = dt * (100 - localPlaySpeed) / 100;
     // 单写者：读写都在本线程，无竞争
-    player.timer.setMicroTimer(TIMER_PLAY,
-        player.timer.getMicroTimer(TIMER_PLAY) + deltaPlay);
+    player.timer.addMicroTimer(TIMER_PLAY, deltaPlay);
     long mtime = player.timer.getNowMicroTime(TIMER_PLAY);
     judge.update(mtime);
 
@@ -373,11 +385,9 @@ while (!stop) {
 
 需同步处理：playspeed 用 `volatile int` 传递（主线程改，输入线程读，最多延迟 1ms）。
 
-### 7.3 方案 C（中优先级）：修复 JMM 可见性
+### 7.3 方案 C（中优先级，已落地）：修复 JMM 可见性
 
-最简单的方式：将 `timer[]` 改为 `AtomicLongArray`，或将 `setMicroTimer`/`getMicroTimer` 用 `synchronized` 包裹。
-
-如果实施了方案 B（单写者），则可进一步简化为仅对写操作使用 `volatile` 语义即可。
+已将内置 `timer[]` 改为 `AtomicLongArray`。`setMicroTimer()` / `getMicroTimer()` 保持原 API，`addMicroTimer()` 用于判定线程做原子增量。
 
 ### 7.4 方案 D（中优先级）：减少 GC 压力
 
@@ -405,16 +415,16 @@ if (System.nanoTime() - lastLogTime > 30_000_000_000L) {
 
 | 文件 | 关键行号 | 角色 |
 |------|---------|------|
-| `core/.../TimerManager.java:18` | `long[] timer` | 跨线程共享的 timer 数组，**无同步** |
+| `core/.../TimerManager.java` | `AtomicLongArray timer` | 跨线程共享的内置 timer 数组，原子读写 |
 | `core/.../TimerManager.java:44-46` | `getNowMicroTime()` | 墙钟 (μs)，不依赖帧率 |
 | `core/.../TimerManager.java:48-53` | `getNowMicroTime(int id)` | 墙钟 − timer[id] |
-| `core/.../TimerManager.java:79-85` | `setMicroTimer()` | 写 timer 数组 |
+| `core/.../TimerManager.java` | `setMicroTimer()` / `addMicroTimer()` | 写 timer 数组 / 原子增量 |
 | `core/.../play/BMSPlayer.java:87` | `playspeed = 100` | 速度倍率 |
 | `core/.../play/BMSPlayer.java:108` | `prevtime` | 主线程上一帧的墙钟 |
-| `core/.../play/BMSPlayer.java:767-771` | STATE_PLAY | **TIMER_PLAY 累加（方案 B 删这里）** |
+| `core/.../play/BMSPlayer.java` | STATE_PLAY | 渲染线程不再写 `TIMER_PLAY`，只读播放时间用于画面和 gauge |
 | `core/.../play/BMSPlayer.java:951` | `prevtime = micronow` | 主线程帧尾更新 |
 | `core/.../play/KeyInputProccessor.java:158-203` | JudgeThread | 1000Hz 判定线程 |
-| `core/.../play/KeyInputProccessor.java:173` | `mtime = getNowMicroTime(TIMER_PLAY)` | **跨线程读 timer** |
+| `core/.../play/KeyInputProccessor.java` | `advancePlayTimer()` + `getNowMicroTime(TIMER_PLAY)` | 1000Hz 写 `TIMER_PLAY` 变速补偿并读取判定时间 |
 | `core/.../play/JudgeManager.java:233` | `update(mtime)` | 判定核心逻辑 |
 | `core/.../play/JudgeManager.java:250-251` | `note.getMicroTime() <= mtime` | 判定窗口判定 |
 | `core/.../MainController.java:574-592` | inputPollingThread | 1000Hz 输入轮询线程 |

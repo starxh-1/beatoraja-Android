@@ -1,6 +1,6 @@
 package bms.player.beatoraja;
 
-import java.util.Arrays;
+import java.util.concurrent.atomic.AtomicLongArray;
 
 import bms.player.beatoraja.skin.SkinProperty;
 
@@ -11,13 +11,13 @@ public class TimerManager {
 	/**
 	 * 状態の開始時間
 	 */
-	private long starttime;
+	private volatile long starttime;
 	private long nowmicrotime;
 
 	public static final int timerCount = SkinProperty.TIMER_MAX + 1;
-	private final long[] timer = new long[timerCount];
+	private final AtomicLongArray timer = new AtomicLongArray(timerCount);
 
-	private MainState current;
+	private volatile MainState current;
 
 	public long getStartTime() {
 		return starttime / 1000000;
@@ -58,7 +58,7 @@ public class TimerManager {
 
 	public long getMicroTimer(int id) {
 		if (id >= 0 && id < timerCount) {
-			return timer[id];
+			return timer.get(id);
 		} else {
 			return current.getSkin().getMicroCustomTimer(id);
 		}
@@ -78,10 +78,28 @@ public class TimerManager {
 
 	public void setMicroTimer(int id, long microtime) {
 		if (id >= 0 && id < timerCount) {
-			timer[id] = microtime;
+			timer.set(id, microtime);
 		} else {
 			current.getSkin().setMicroCustomTimer(id, microtime);
 		}
+	}
+
+	public long addMicroTimer(int id, long deltaMicrotime) {
+		if (id >= 0 && id < timerCount) {
+			while (true) {
+				final long current = timer.get(id);
+				if (current == INVALID_TIMER) {
+					return INVALID_TIMER;
+				}
+				final long updated = current + deltaMicrotime;
+				if (timer.compareAndSet(id, current, updated)) {
+					return updated;
+				}
+			}
+		}
+		final long microtime = current.getSkin().getMicroCustomTimer(id) + deltaMicrotime;
+		current.getSkin().setMicroCustomTimer(id, microtime);
+		return microtime;
 	}
 
 	public void switchTimer(int id, boolean on) {
@@ -101,7 +119,9 @@ public class TimerManager {
 	public void setMainState(MainState current) {
 		this.current = current;
 
-		Arrays.fill(timer, INVALID_TIMER);
+		for (int i = 0; i < timerCount; i++) {
+			timer.set(i, INVALID_TIMER);
+		}
 		starttime = System.nanoTime();
 		nowmicrotime = 0;
 	}

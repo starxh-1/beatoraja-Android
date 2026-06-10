@@ -19,9 +19,9 @@ beatoraja-Android 是 beatoraja 的 Android 移植版。它保留了原项目的
 
 | 范围 | Java 文件 | 约计代码行 |
 |---|---:|---:|
-| `core/src/main/java` | 308 | 61,101 |
-| `android/src/main/java` | 7 | 4,456 |
-| `core/src/test/java` | 1 | 295 |
+| `core/src/main/java` | 308 | 68,993 |
+| `android/src/main/java` | 7 | 5,382 |
+| `core/src/test/java` | 3 | 443 |
 
 ## 2. 技术与构建基线
 
@@ -118,7 +118,7 @@ beatoraja-Android/
 - 权限、目录和 ZIP 导入。
 - Android 原生歌曲库与成绩库。
 - 显示刷新率、Surface frame rate、Choreographer 相位同步。
-- 系统返回键、软键盘、全面屏边缘手势和屏幕常亮。
+- 系统返回键、软键盘/IME、全面屏边缘手势和屏幕常亮。
 - APK 资源和 ABI native 库打包。
 
 依赖方向应保持为：
@@ -296,6 +296,9 @@ Android 额外增加：
 - `PlayTouchKeyMapper`
 - 返回键到 `ESCAPE` 的映射
 - 不同状态下的触摸手势模式
+- `AndroidLauncher` 统一管理软键盘/IME：非文本输入态下，USB/物理键事件会在交给
+  libGDX 后清除残留焦点并隐藏 IME；`SearchTextField` 触摸进入文本输入态是允许弹出 IME
+  的例外。排查同类问题先读 `docs/usb-keyboard-onscreen-ime-debug.md`。
 
 输入轮询线程在 `MainController.create()` 中启动，当前实现硬编码为 1000 Hz：
 
@@ -307,6 +310,17 @@ LockSupport.parkNanos(...)
 
 `Config.inputPollingRate` 字段仍存在，但当前轮询实现和设置页已将可配置逻辑注释掉。
 不要仅修改配置字段就认为轮询频率会变化。
+
+判定时钟相关约束：
+
+- `TimerManager` 的内置 timer 使用 `AtomicLongArray`，用于保证渲染线程、输入轮询线程和
+  判定线程之间的可见性与 long 原子读写。
+- `TIMER_PLAY` 存储的是用于 `now - timer[id]` 的播放起点偏移，不是直接存放当前播放时间。
+- 正常速度下 `TIMER_PLAY` 由 `System.nanoTime()` 连续外推；变速时由
+  `KeyInputProccessor.JudgeThread` 以 1000Hz 对该偏移做原子增量补偿，避免渲染帧率把判定
+  时间量化成 8-16ms 阶梯。
+- 不要在 `BMSPlayer.render()` / `STATE_PLAY` 中重新按渲染帧写 `TIMER_PLAY`；同类问题先读
+  `docs/judge-clock-skew-analysis.md`。
 
 ## 9. 音频与频谱
 
