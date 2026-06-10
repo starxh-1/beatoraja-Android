@@ -7,7 +7,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.content.res.AssetManager;
 import android.util.Log;
-import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.os.Handler;
 import android.os.Looper;
@@ -44,7 +43,6 @@ import android.content.res.Resources;
 import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewTreeObserver;
 import android.widget.EditText;
 import android.view.WindowInsets;
 import org.json.JSONObject;
@@ -63,7 +61,6 @@ public class AndroidLauncher extends AndroidApplication {
     private static AndroidLauncher instance;
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
-    private boolean isClearingFocus = false;
     private OboeAudio oboeAudio;
     private String mLanguage = "en";
 
@@ -120,18 +117,22 @@ public class AndroidLauncher extends AndroidApplication {
 
                     @Override
                     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+                        // 非文本输入态不提供 InputConnection，防止 IME 在物理键盘输入时自动弹出。
+                        // 搜狗等第三方输入法即使 onCheckIsTextEditor() 返回 false，
+                        // 也会在 onStartInputView 回调中主动显示输入界面。
+                        if (!isTextInputActive) {
+                            return null;
+                        }
                         if (outAttrs != null) {
                             outAttrs.imeOptions = outAttrs.imeOptions
                                     | EditorInfo.IME_FLAG_NO_EXTRACT_UI
                                     | EditorInfo.IME_FLAG_NO_FULLSCREEN;
                             if (onscreenKeyboardType == com.badlogic.gdx.Input.OnscreenKeyboardType.Default) {
-                                // 省略 TYPE_TEXT_VARIATION_VISIBLE_PASSWORD，修复屏幕录制被阻止的问题
                                 outAttrs.inputType = InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS;
                             } else {
                                 outAttrs.inputType = DefaultAndroidInput.getAndroidInputType(onscreenKeyboardType, true);
                             }
                         }
-                        // 传 null 给 super 以避免 outAttrs 被覆盖
                         return super.onCreateInputConnection(null);
                     }
                 };
@@ -188,20 +189,6 @@ public class AndroidLauncher extends AndroidApplication {
                 applySystemGestureExclusion(isPlay);
                 if (!isTextInputActive) suppressImeForGameInput();
             });
-        }
-    };
-
-    private final ViewTreeObserver.OnGlobalFocusChangeListener focusChangeListener = (oldFocus, newFocus) -> {
-        if (isTextInputActive || isClearingFocus) return;
-        if (newFocus instanceof EditText) {
-            isClearingFocus = true;
-            try {
-                suppressImeForGameInput();
-            } finally {
-                isClearingFocus = false;
-            }
-        } else if (isGameSurfaceView(newFocus)) {
-            hideImeFromWindow(newFocus);
         }
     };
 
@@ -375,9 +362,6 @@ public class AndroidLauncher extends AndroidApplication {
             Log.w(TAG, "Failed to register systemGestureExclusionListener: " + e.getMessage());
         }
 
-        // 兜底：任何 EditText 在文本输入关闭时获得焦点，立刻清掉焦点并隐藏 IME。
-        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(focusChangeListener);
-        installUnhandledKeyEventGuard();
         suppressImeForGameInput();
 
         // WindowManager 刷新率 + maxRefreshRate 检测
@@ -934,24 +918,12 @@ public class AndroidLauncher extends AndroidApplication {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             lastUserTouchTime = SystemClock.uptimeMillis();
-            // API 33+: OnBackInvokedCallback 处理返回手势（在 onCreate 中注册）
-            // 所有 API: 通过 libGDX 的 setCatchKey(Keys.BACK) 处理游戏内返回
-            // 此处仅作为兜底：模拟 ESC 键给游戏引擎
             if (instance != null) {
                 setAndroidBackPressedFlag();
                 return true;
             }
         }
-        if (isHardwareKeyboardEvent(event) && !isTextInputActive) {
-            prepareHardwareKeyboardTarget();
-        }
-        boolean handled = super.dispatchKeyEvent(event);
-        // 物理键盘按键时，非文本输入态保持游戏 Surface 聚焦，同时在事件交给 libGDX 后隐藏 IME。
-        // 修复：OTG 键盘在 select/decide/play 界面按键时虚拟键盘误弹出或物理键无输入的问题。
-        if (shouldSuppressImeForKeyEvent(event)) {
-            postSuppressImeForGameInput();
-        }
-        return handled;
+        return super.dispatchKeyEvent(event);
     }
 
     @Override
@@ -973,46 +945,18 @@ public class AndroidLauncher extends AndroidApplication {
         if (active) {
             stopKeepAlive();
             setOnscreenKeyboardFocusable(true);
-            runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
+            runOnUiThread(() -> {
+                getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+                // 重新建立 IME 连接：isTextInputActive 变为 true 后需要让系统重新查询 InputConnection
+                android.view.SurfaceView sv = findSurfaceView(getWindow().getDecorView());
+                if (sv != null && inputMethodManager != null) {
+                    inputMethodManager.restartInput(sv);
+                }
+            });
         } else {
             startKeepAlive();
             runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
-            postSuppressImeForGameInput();
-        }
-    }
-
-    private void installUnhandledKeyEventGuard() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return;
-        try {
-            getWindow().getDecorView().addOnUnhandledKeyEventListener((view, event) -> {
-                if (shouldSuppressImeForKeyEvent(event)) {
-                    postSuppressImeForGameInput();
-                }
-                return false;
-            });
-        } catch (Throwable t) {
-            Log.w(TAG, "installUnhandledKeyEventGuard fail: " + t.getMessage());
-        }
-    }
-
-    private boolean shouldSuppressImeForKeyEvent(KeyEvent event) {
-        return !isTextInputActive
-                && event != null
-                && event.getAction() == KeyEvent.ACTION_DOWN
-                && isHardwareKeyboardEvent(event);
-    }
-
-    private boolean isHardwareKeyboardEvent(KeyEvent event) {
-        return event != null
-                && (event.getAction() == KeyEvent.ACTION_DOWN || event.getAction() == KeyEvent.ACTION_UP)
-                && event.getDeviceId() != KeyCharacterMap.VIRTUAL_KEYBOARD;
-    }
-
-    private void postSuppressImeForGameInput() {
-        try {
-            getWindow().getDecorView().post(this::suppressImeForGameInput);
-        } catch (Throwable t) {
-            Log.w(TAG, "postSuppressImeForGameInput fail: " + t.getMessage());
+            runOnUiThread(this::suppressImeForGameInput);
         }
     }
 
@@ -1022,34 +966,6 @@ public class AndroidLauncher extends AndroidApplication {
         hideImeFromWindow(currentFocus);
         setOnscreenKeyboardFocusable(false);
         if (currentFocus instanceof EditText) currentFocus.clearFocus();
-        focusGameSurfaceView();
-    }
-
-    private void prepareHardwareKeyboardTarget() {
-        if (isTextInputActive) return;
-        setOnscreenKeyboardFocusable(false);
-        View currentFocus = getCurrentFocus();
-        if (currentFocus instanceof EditText) currentFocus.clearFocus();
-        focusGameSurfaceView();
-    }
-
-    private void focusGameSurfaceView() {
-        try {
-            View surfaceView = findSurfaceView(getWindow().getDecorView());
-            if (surfaceView == null) return;
-            surfaceView.setFocusable(true);
-            surfaceView.setFocusableInTouchMode(true);
-            if (!surfaceView.hasFocus()) {
-                surfaceView.requestFocus();
-            }
-        } catch (Throwable t) {
-            Log.w(TAG, "focusGameSurfaceView fail: " + t.getMessage());
-        }
-    }
-
-    private boolean isGameSurfaceView(View view) {
-        return view instanceof android.opengl.GLSurfaceView
-                || (view != null && view.getClass().getName().endsWith("GLSurfaceView20"));
     }
 
     private void hideImeFromWindow(View tokenView) {
