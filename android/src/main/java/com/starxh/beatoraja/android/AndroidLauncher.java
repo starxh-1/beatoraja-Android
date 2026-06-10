@@ -61,6 +61,7 @@ public class AndroidLauncher extends AndroidApplication {
     private static AndroidLauncher instance;
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
+    private boolean isClearingFocus = false;
     private OboeAudio oboeAudio;
     private String mLanguage = "en";
 
@@ -83,12 +84,12 @@ public class AndroidLauncher extends AndroidApplication {
 
     /**
      * 覆写 createGraphics 以修复 libGDX GLSurfaceView20 的 password flag 问题。
-     * 
+     *
      * libGDX 的 GLSurfaceView20.onCreateInputConnection() 会设置
      * InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD 标志，
      * 导致 Android 系统将窗口视为"安全"窗口，从而阻止屏幕录制和截图。
      * 参考: https://github.com/libgdx/libgdx/issues/7754
-     * 
+     *
      * 修复方法：创建自定义 GLSurfaceView20，在 onCreateInputConnection 中
      * 省略 TYPE_TEXT_VARIATION_VISIBLE_PASSWORD 标志。
      */
@@ -104,6 +105,17 @@ public class AndroidLauncher extends AndroidApplication {
 
                 android.opengl.GLSurfaceView.EGLConfigChooser configChooser = getEglConfigChooser();
                 GLSurfaceView20 view = new GLSurfaceView20(application.getContext(), resolutionStrategy, config.useGL30 ? 3 : 2) {
+                    @Override
+                    public boolean onCheckIsTextEditor() {
+                        // 防止物理键盘按键时 Android 系统自动弹出 IME。
+                        // libGDX 的 DefaultAndroidInput 在 setOnscreenKeyboardVisible(true) 时
+                        // 会把 GLSurfaceView 设为 focusable，加上 onCreateInputConnection 的存在，
+                        // 导致系统认为此 View 是文本编辑器而自动显示软键盘。
+                        // 返回 false 后系统不再为 GLSurfaceView 自动弹 IME；
+                        // 搜索框使用独立的 EditText（AndroidOnscreenKeyboard），不受影响。
+                        return false;
+                    }
+
                     @Override
                     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
                         if (outAttrs != null) {
@@ -184,14 +196,19 @@ public class AndroidLauncher extends AndroidApplication {
     };
 
     private final ViewTreeObserver.OnGlobalFocusChangeListener focusChangeListener = (oldFocus, newFocus) -> {
-        if (isTextInputActive) return;
-        if (newFocus instanceof EditText) {
-            runOnUiThread(() -> {
+        if (isTextInputActive || isClearingFocus) return;
+        if (newFocus instanceof EditText
+                || newFocus instanceof android.opengl.GLSurfaceView
+                || (newFocus != null && newFocus.getClass().getName().endsWith("GLSurfaceView20"))) {
+            isClearingFocus = true;
+            try {
                 if (inputMethodManager != null) {
                     inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
                 }
                 if (newFocus != null) newFocus.clearFocus();
-            });
+            } finally {
+                isClearingFocus = false;
+            }
         }
     };
 
@@ -932,6 +949,15 @@ public class AndroidLauncher extends AndroidApplication {
                 return true;
             }
         }
+        // 物理键盘按键时，如果不在文本输入模式，主动隐藏 IME 并清除焦点。
+        // 修复：OTG 键盘在 select/play 界面按键时虚拟键盘误弹出的问题。
+        if (!isTextInputActive && event.getAction() == KeyEvent.ACTION_DOWN) {
+            runOnUiThread(() -> {
+                if (inputMethodManager != null) {
+                    inputMethodManager.hideSoftInputFromWindow(getWindow().getDecorView().getWindowToken(), 0);
+                }
+            });
+        }
         return super.dispatchKeyEvent(event);
     }
 
@@ -978,6 +1004,16 @@ public class AndroidLauncher extends AndroidApplication {
         for (int i = 0; i < vg.getChildCount(); i++) {
             View child = vg.getChildAt(i);
             if (child instanceof EditText) {
+                child.setFocusable(focusable);
+                child.setFocusableInTouchMode(focusable);
+                if (!focusable && child.hasFocus()) {
+                    child.clearFocus();
+                }
+            } else if (child instanceof android.opengl.GLSurfaceView
+                    || child.getClass().getName().endsWith("GLSurfaceView20")) {
+                // libGDX 1.14 的 DefaultAndroidInput$4 在 setOnscreenKeyboardVisible(true) 时
+                // 会无条件把 GLSurfaceView 设成 focusable=true，且关闭时不重置，
+                // 导致 play 屏幕按实体键时被聚焦、IME 弹起。这里把 GLSurfaceView 一起处理。
                 child.setFocusable(focusable);
                 child.setFocusableInTouchMode(focusable);
                 if (!focusable && child.hasFocus()) {

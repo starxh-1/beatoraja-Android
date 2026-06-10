@@ -453,6 +453,10 @@ public class BGAProcessor {
 		// Mark framebuffer as dirty so lane background can use BGA texture
 		bgaFramebufferDirty = true;
 
+		// poor/miss layer active state - poor 触发后必须完全覆盖 #BGA 和 #LAYER
+		final boolean poorlayerActive = misslayertime != 0 && time >= misslayertime
+				&& time < misslayertime + getMisslayerduration && playingmissbgaid >= 0;
+
 		// 最底层：绘制黑色背景作为打底，确保透明区域有黑色底色
 		// 保存原始混合模式，绘制黑色背景时使用不透明模式
 		int originalBlend = sprite.getBlend();
@@ -460,10 +464,11 @@ public class BGAProcessor {
 		sprite.draw(blanktex, r.x, r.y, r.width, r.height);
 		sprite.setBlend(originalBlend); // 恢复原始混合模式
 
-		// draw BGA (Background) - 绘制BGA背景层，即使在MISS状态下也应该绘制背景
+		// draw BGA (Background) - poor 触发时跳过 BGA 绘制，让上面的黑色画布
+		// 充当 POORLAYER 透明区域的底色，避免 BGA 透过 POORLAYER 露出来
 		final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
 		rbga = true;
-		if (playingbgatex != null) {
+		if (playingbgatex != null && !poorlayerActive) {
 			if (movies[playingbgaid] != null) {
 				sprite.setType(movies[playingbgaid].getRenderType());
 				drawBGAFixRatio(dst, sprite, r, playingbgatex);
@@ -473,18 +478,18 @@ public class BGAProcessor {
 			}
 		}
 
-		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
-			// draw miss BGA layer (Overlay on top of BGA)
+		if (poorlayerActive) {
+			// draw poor/miss BGA layer - 必须在 poor 触发后完全覆盖 #BGA 和 #LAYER，
+			// 不能像 #LAYER 那样支持 alpha 透明
 			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
 			rmissbga = true;
 			if (misstex != null) {
 				if (movies[playingmissbgaid] != null) {
 					sprite.setType(movies[playingmissbgaid].getRenderType());
-					drawBGAFixRatio(dst, sprite, r, misstex);
 				} else {
-					sprite.setType(SkinObjectRenderer.TYPE_LAYER);
-					drawBGAFixRatio(dst, sprite, r, misstex);
+					sprite.setType(SkinObjectRenderer.TYPE_LINEAR);
 				}
+				drawBGAFixRatio(dst, sprite, r, misstex);
 			}
 		} else {
 			// draw layer (Overlay) - 在背景之上绘制图层
@@ -607,14 +612,18 @@ public class BGAProcessor {
 		// since skin coordinates (targetRect) are Y-down
 		tmpRect.set(targetRect.x, (float)height - targetRect.y - targetRect.height, targetRect.width, targetRect.height);
 
-		// Draw BGA background
+		// poor/miss layer active - 同样跳过 BGA，让黑色画布作为 POORLAYER 透明区底色
+		final boolean poorlayerActive = misslayertime != 0 && time >= misslayertime
+				&& time < misslayertime + getMisslayerduration && playingmissbgaid >= 0;
+
+		// Draw BGA background (skipped when POORLAYER is active)
 		final Texture playingbgatex = getBGAData(time - bga_start_time, playingbgaid, rbga);
-		if (playingbgatex != null) {
+		if (playingbgatex != null && !poorlayerActive) {
 			rbga = true;
 			drawBGAFixRatioToRect(batch, tmpRect, playingbgatex, targetStretch);
 		}
 
-		if (misslayertime != 0 && time >= misslayertime && time < misslayertime + getMisslayerduration && playingmissbgaid >= 0) {
+		if (poorlayerActive) {
 			final Texture misstex = getBGAData(time - missbga_start_time, playingmissbgaid, rmissbga);
 			rmissbga = true;
 			if (misstex != null) {

@@ -125,6 +125,20 @@ public class SearchTextField extends Stage {
 			search.setMaxLength(50);
 			search.setFocusTraversal(false);
 
+			// 覆盖 OnscreenKeyboard，防止 libGDX 的 DefaultAndroidInput 独立控制 IME。
+			// 键盘的显示/隐藏统一由 AndroidLauncher.setTextInputActive() 管理，
+			// 避免两套键盘控制逻辑互相冲突导致 IME 闪烁。
+			search.setOnscreenKeyboard(new TextField.OnscreenKeyboard() {
+				@Override
+				public void show(TextField textField) {
+					// no-op：键盘由 AndroidLauncher 统一管理
+				}
+				@Override
+				public void close() {
+					Gdx.input.setOnscreenKeyboardVisible(false);
+				}
+			});
+
 			search.setVisible(true);
 
 			// 关键：使用touchDown（在获得焦点前）而不是clicked，确保isTextInputActive在键盘显示前已设置
