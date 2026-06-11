@@ -412,7 +412,7 @@ public class LaneRenderer {
 
 		if (isPortrait) {
 			// Portrait: LIFT/LANECOVER affect X direction
-			main.main.getOffset(OFFSET_LIFT).x = (float) ((hu - lanes[0].region.x) * playconfig.getLift());
+			main.main.getOffset(OFFSET_LIFT).x = (float) (trackWidth * playconfig.getLift());
 			main.main.getOffset(OFFSET_LIFT).y = 0;
 			// Lanecover moves from spawn (hu) towards judgment (hl). hl-hu is negative.
 			main.main.getOffset(OFFSET_LANECOVER).x = (float) ((hl - hu) * lanecover);
@@ -563,9 +563,9 @@ public class LaneRenderer {
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
-							line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
+							line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
 						} else {
-							line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
+							line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
 						}
 					}
 					for (Rectangle r : playerr) {
@@ -584,9 +584,9 @@ public class LaneRenderer {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
 							if (isPortrait) {
-								line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
+								line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
 							} else {
-								line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
+								line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -604,9 +604,9 @@ public class LaneRenderer {
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
 							if (isPortrait) {
-								line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
+								line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
 							} else {
-								line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
+								line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -625,9 +625,9 @@ public class LaneRenderer {
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
 						if (isPortrait) {
-							line.draw(sprite, jtime, main, (float) (notePos - (lanes[0].region.x + 40)) + 0.01f, 0);
+							line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
 						} else {
-							line.draw(sprite, jtime, main, 0, (float) (notePos - lanes[0].region.y) + 0.01f);
+							line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
 						}
 					}
 				}

@@ -147,9 +147,17 @@ local property = {
 			portrait = {name = "Portrait", op = 1101},
 		}
 	},
+	laneSize = {
+		name = "Lane Size",
+		item = {
+			normal = {name = "Normal", op = 1110},
+			wide = {name = "Wide", op = 1111},
+		}
+	},
 }
 local property_order = {
 	"layout",
+	"laneSize",
 	"stratchSide",
 	"judgeDetail",
 	"judgeDetailPosition",
@@ -304,6 +312,17 @@ local function main(keysNumber)
 		header.name = header.name.." 5keys"
 	end
 
+	-- Hide laneSize option for 7K (not applicable)
+	if keysNumber ~= 5 then
+		local filtered = {}
+		for _, p in ipairs(header.property) do
+			if p.name ~= "Lane Size" then
+				table.insert(filtered, p)
+			end
+		end
+		header.property = filtered
+	end
+
 	-- for header loading
 	if not skin_config then
 		return {
@@ -371,7 +390,7 @@ local function main(keysNumber)
 		-- Portrait lane: x=judgment line position, y=bottom of screen
 		geo.lane.x = 226  -- Judgment line position
 		geo.lane.y = 0    -- Fill from bottom of buffer
-		geo.lane.w = 1920 - geo.lane.x  -- Lane length
+		geo.lane.w = 1920 - geo.lane.x -- Lane length
 		geo.lane.h = 1080 -- Full height of buffer
 
 		-- Lane order and positions
@@ -421,7 +440,7 @@ local function main(keysNumber)
 		geo.lane.visual_x = geo.lane.x
 		geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 		geo.lane.fivekey_center_x = geo.lane.center_x
-		geo.lane.judgeline_h = 10
+		geo.lane.judgeline_h = 15
 
 		-- Gauge area - at top in portrait
 		geo.gaugearea = {}
@@ -498,6 +517,18 @@ local function main(keysNumber)
 	local note_black_w = geo.note.original_black_w * note_scale_w
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
 
+	-- 5K Wide: fill lane to right edge, notes start from x=0
+	-- For 5K with Wide option, scale notes to fill entire header.w
+	-- 5K notes total orig = scratch + white*3 + black*2 = 64 + 180 + 96 = 340
+	-- separateline_w = 3, num_seps = 5, total_sep = 15
+	if keysNumber == 5 and property.laneSize.item.wide.isSelected() then
+		local fivek_notes_orig = geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2
+		note_scale_w = (header.w - 3 * 5) / fivek_notes_orig
+		note_white_w = geo.note.original_white_w * note_scale_w
+		note_black_w = geo.note.original_black_w * note_scale_w
+		note_scratch_w = geo.note.original_scratch_w * note_scale_w
+	end
+
 	geo.lane = {}
 	geo.lane.separateline_w = 3
 
@@ -531,9 +562,19 @@ local function main(keysNumber)
 	-- lane visual position (notes rendering, offset from lane.x)
 	-- 7K: +65 to right-align notes within the full-width lane (leaves 65px left margin)
 	-- 5K: lane is already centered with padding, no extra offset (notes fill the lane)
+	-- 5K Wide: lane fills to right edge, notes start from x=0
 	geo.lane.visual_x = geo.lane.x
 	if keysNumber ~= 5 then
 		geo.lane.visual_x = geo.lane.x + 65
+	end
+	if keysNumber == 5 and property.laneSize.item.wide.isSelected() then
+		geo.lane.x = 0
+		geo.lane.visual_x = 0
+	end
+	-- Visual width: the actual notes rendering area (excludes left margin for 7K)
+	geo.lane.visual_w = geo.lane.w
+	if keysNumber ~= 5 then
+		geo.lane.visual_w = geo.lane.w - 65
 	end
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
@@ -886,40 +927,24 @@ local function main(keysNumber)
 			-- idにdestinationの特殊番号(-111...など)は使えないっぽい(NPEになる)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
 			group = {
-				{id = "section_line", dst = (function()
-					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 128, g = 128, b = 128}}
-					else
-						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 128, g = 128, b = 128}}
-					end
-				end)()}
+				{id = "section_line", offset = 3, dst = {
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 128, g = 128, b = 128}
+				}}
 			},
 			time = {
-				{id = "section_line", dst = (function()
-					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 64, g = 192, b = 192}}
-					else
-						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 64, g = 192, b = 192}}
-					end
-				end)()}
+				{id = "section_line", offset = 3, dst = {
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 64, g = 192, b = 192}
+				}}
 			},
 			bpm = {
-				{id = "section_line", dst = (function()
-					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 0, g = 192, b = 0}}
-					else
-						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 0, g = 192, b = 0}}
-					end
-				end)()}
+				{id = "section_line", offset = 3, dst = {
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 0, g = 192, b = 0}
+				}}
 			},
 			stop = {
-				{id = "section_line", dst = (function()
-					if isPortraitLayout() then
-						return {{x = geo.lane.x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 192, g = 192, b = 0}}
-					else
-						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.w, h = sectionline_h, r = 192, g = 192, b = 0}}
-					end
-				end)()}
+				{id = "section_line", offset = 3, dst = {
+					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 192, g = 192, b = 0}
+				}}
 			},
 		}
 		if keysNumber == 5 then

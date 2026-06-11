@@ -446,29 +446,6 @@
                 android:background="#333333"/>
         </LinearLayout>
 
-        <!-- BGA Expand -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="@string/bga_expand"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
-
-            <Spinner
-                android:id="@+id/bgaExpandSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
-                android:background="#333333"/>
-        </LinearLayout>
-
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
