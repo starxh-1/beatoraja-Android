@@ -16,7 +16,7 @@ public enum BMSPlayerRule {
 	Beatoraja_24(GaugeProperty.KEYBOARD, JudgeProperty.KEYBOARD, Mode.KEYBOARD_24K, Mode.KEYBOARD_24K_DOUBLE),
 	Beatoraja_Other(GaugeProperty.SEVENKEYS, JudgeProperty.SEVENKEYS),
 
-	LR2(GaugeProperty.LR2, JudgeProperty.SEVENKEYS),
+	LR2(GaugeProperty.LR2, JudgeProperty.LR2),
 
 	Default(GaugeProperty.SEVENKEYS, JudgeProperty.SEVENKEYS),
 ;
@@ -41,7 +41,7 @@ public enum BMSPlayerRule {
     }
 
     public static BMSPlayerRule getBMSPlayerRule(Mode mode) {
-        for(BMSPlayerRule bmsrule : BMSPlayerRuleSet.Beatoraja.ruleset) {
+        for(BMSPlayerRule bmsrule : BMSPlayerRuleSet.LR2.ruleset) {
         	if(bmsrule.mode.length == 0) {
     			return bmsrule; 
         	}
@@ -51,7 +51,7 @@ public enum BMSPlayerRule {
         		}
         	}
         }
-        return Default;
+        return LR2;
     }
     
     public static void validate(BMSModel model) {
@@ -86,6 +86,8 @@ public enum BMSPlayerRule {
     }
     
 	private static double calculateDefaultTotal(Mode mode, int totalnotes) {
+        return 160.0 + (totalnotes + Math.min(Math.max(totalnotes-400, 0), 200))*0.16;
+        /*
 		switch (mode) {
 		case BEAT_7K:
 		case BEAT_5K:
@@ -100,6 +102,7 @@ public enum BMSPlayerRule {
 		default:
 			return Math.max(260.0, 7.605 * totalnotes / (0.01 * totalnotes + 6.5));
 		}
+        */
 	}
 }
 
