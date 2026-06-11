@@ -43,11 +43,11 @@ public class GdxVideoProcessor implements MovieProcessor {
     private boolean loop = false;            // 是否循环播放
     private long videoDuration = -1;         // 视频时长（毫秒）
     private int syncCorrectionCount = 0;     // 同步修正计数（用于日志）
+    private boolean initialSeekDone = false; // play() 后是否已做过初始 seek
 
-    // 同步参数阈值（可根据设备性能调整）
-    // 16ms = 60fps 一帧：人眼对 < 1 帧的音画偏移基本无感
-    private static final long SYNC_SEEK_THRESHOLD = 16;       // seek 阈值 (ms) - 超过此值直接 seek
-    private static final long SEEK_COOLDOWN_MS = 80;          // seek 冷却时间 (ms) - 防 seek storm
+    // 异常大漂移阈值 (ms) - 通常是 pause/resume 后或解码卡顿造成的
+    private static final long SEVERE_DRIFT_THRESHOLD = 1000;
+    private static final long SEEK_COOLDOWN_MS = 200;  // seek 冷却时间 (ms)
     private static final long SYNC_LOG_INTERVAL_MS = 60_000;  // seek log 最小间隔 (ms)
     private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
@@ -166,12 +166,12 @@ public class GdxVideoProcessor implements MovieProcessor {
     }
 
     /**
-     * 同步纠正：用游戏时间计算目标帧位置。
-     * - 偏差 ≤ 16ms (1 frame @60fps)：不干预
-     * - 偏差 > 16ms：调用 videoPlayer.seek() 物理跳到目标位置
+     * 同步策略：视频是连续流（30fps），游戏是渲染循环（60fps），两者帧率不同。
+     * 不做每帧强制对齐——会让视频反复 seek 引起卡顿。
      *
-     * 注意：MediaPlayer.seekTo() 是异步的，getCurrentPosition() 在 seek 生效前
-     * 仍会返回旧值，所以加了 SEEK_COOLDOWN_MS 冷却时间防止 seek storm。
+     * 只在以下情况 seek：
+     * 1. 首次同步（play 后第一次）：seek 到目标位置，处理 MediaCodec 冷启动延迟
+     * 2. 异常大漂移（> 1s）：通常是 pause/resume 后，seek 一次拉齐
      *
      * @param gameTime 当前游戏时间（毫秒）
      */
@@ -193,27 +193,40 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
         syncCorrectionCount++;
 
-        if (Math.abs(drift) <= SYNC_SEEK_THRESHOLD) {
-            return;  // 偏差在 1 帧内，不干预
-        }
-
-        // Seek 冷却：MediaPlayer.seekTo() 是异步的，期间 getCurrentPosition()
-        // 仍返回旧值。如果不冷却，连续帧会反复触发 seek。
-        long now = System.currentTimeMillis();
-        if (lastSeekTime > 0 && now - lastSeekTime < SEEK_COOLDOWN_MS) {
+        // 首次同步：seek 到目标位置，处理 MediaCodec 冷启动延迟（100-300ms）
+        if (!initialSeekDone) {
+            initialSeekDone = true;
+            int target = (int) targetVideoTime;
+            try {
+                videoPlayer.seek(target);
+                lastSeekTime = System.currentTimeMillis();
+                if (shouldLogFastSync()) {
+                    Logger.getGlobal().info("Video sync: initial seek to " + target + "ms (drift was " + drift + "ms)");
+                }
+            } catch (Exception e) {
+                Logger.getGlobal().warning("Video initial seek failed: " + e.getMessage());
+            }
             return;
         }
 
-        int target = (int) targetVideoTime;
-        try {
-            videoPlayer.seek(target);
-            lastSeekTime = now;
-            if (shouldLogFastSync()) {
-                Logger.getGlobal().info("Video sync: drift " + drift + "ms, seek to " + target + "ms (count=" + syncCorrectionCount + ")");
+        // 异常大漂移（> 1s）：通常是 pause/resume 后或解码卡顿
+        if (Math.abs(drift) > SEVERE_DRIFT_THRESHOLD) {
+            long now = System.currentTimeMillis();
+            if (lastSeekTime > 0 && now - lastSeekTime < SEEK_COOLDOWN_MS) {
+                return;
             }
-        } catch (Exception e) {
-            Logger.getGlobal().warning("Video seek failed: " + e.getMessage());
+            int target = (int) targetVideoTime;
+            try {
+                videoPlayer.seek(target);
+                lastSeekTime = now;
+                if (shouldLogFastSync()) {
+                    Logger.getGlobal().info("Video sync: severe drift " + drift + "ms, seek to " + target + "ms (count=" + syncCorrectionCount + ")");
+                }
+            } catch (Exception e) {
+                Logger.getGlobal().warning("Video seek failed: " + e.getMessage());
+            }
         }
+        // 其他情况：不主动同步，让视频自由播放
     }
 
     /**
@@ -284,6 +297,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             lastFastSyncLogTime = -1;
             lastPeriodicSyncLogTime = -1;
             lastSeekTime = -1;
+            initialSeekDone = false;  // play() 后第一次同步会做初始 seek
 
             Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video playback started successfully (gameStartTime=" + time + ")");
         } catch (Exception e) {
@@ -304,6 +318,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             startTime = -1;
             gameStartTime = -1;
             lastSeekTime = -1;
+            initialSeekDone = false;
             currentTexture = null;
         } catch (Exception e) {
             // 静默失败
