@@ -601,7 +601,7 @@ local function main()
 			}
 		})
 	end
-	table.insert(skin.destination, {id = 15, offset = 50, dst = { {x = geometry.lanes_x, y = 137, w = geometry.lanes_w, h = 6} }})
+	table.insert(skin.destination, {id = 15, offset = 3, dst = { {x = geometry.lanes_x, y = 137, w = geometry.lanes_w, h = 6} }})
 	table.insert(skin.destination, {id = "notes", offset = 30})
 	for i = 1, 8 do
 		table.insert(skin.destination, {

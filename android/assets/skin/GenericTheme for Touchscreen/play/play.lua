@@ -1913,31 +1913,21 @@ local function main(keysNumber)
 	-- musicProgressBar
 	local w = 10 local slider_h = 20
 	local margin = 34
-	local x, y, bar_h, bar_angle
-	if isPortraitLayout() then
-		-- Portrait: horizontal progress bar inside the gauge region, aligned with EXSCORE x
-		local exscore_x = geo.gauge.x + 360
-		-- Gauge region: y=520-555, place bar centered vertically
-		bar_h = 200
-		x = exscore_x
-		y = geo.gauge.y + (geo.gauge.h - slider_h) / 2
-		bar_angle = 0
-		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 0, range = bar_h - w, type = 6}
-		)
-	else
-		bar_h = geo.lane.h - margin * 2
-		x = geo.lanearea.x + 24
-		if is2P() then
-			x = geo.lanearea.x + geo.lanearea.w - 24 - w
-		end
-		x = x + offset.lane.x
-		y = geo.lane.y + margin - 15
-		bar_angle = 0
-		table.insert(skin.slider,
-			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
-		)
+	local bar_h = geo.lane.h - margin * 2
+	local x = geo.lanearea.x + 24
+	if is2P() then
+		x = geo.lanearea.x + geo.lanearea.w - 24 - w
 	end
+	y = geo.lane.y + margin - 15
+	if isPortraitLayout() then
+		x = geo.gauge.x + 360
+		bar_h = 480
+		y = 320
+	end
+	x = x + offset.lane.x
+	table.insert(skin.slider,
+		{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
+	)
 	-- musicProgressBar destination (frame + bar + slider) is appended later (after gauge) to avoid being covered
 
 	-- lane
@@ -2616,39 +2606,33 @@ local function main(keysNumber)
 	end
 	-- musicProgressBar destination (after gauge to avoid being covered)
 	do
-		-- re-compute musicProgressBar dst
 		local _w = 10 local _slider_h = 20
 		local _margin = 34
-		local _x, _y, _bar_h, _bar_angle
-		if isPortraitLayout() then
-			local _exscore_x = geo.gauge.x + 360
-			_bar_h = 200
-			_x = _exscore_x
-			_y = geo.gauge.y + (geo.gauge.h - _slider_h) / 2
-			_bar_angle = 0
-		else
-			_bar_h = geo.lane.h - _margin * 2
-			_x = geo.lanearea.x + 24
-			if is2P() then
-				_x = geo.lanearea.x + geo.lanearea.w - 24 - _w
-			end
-			_x = _x + offset.lane.x
-			_y = geo.lane.y + _margin - 15
-			_bar_angle = 0
+		local _bar_h = geo.lane.h - _margin * 2
+		local _x = geo.lanearea.x + 24
+		if is2P() then
+			_x = geo.lanearea.x + geo.lanearea.w - 24 - _w
 		end
+		local _y = geo.lane.y + _margin - 15
+		if isPortraitLayout() then
+			_x = geo.gauge.x + 360
+			_bar_h = 480
+			_y = 320
+		end
+		_x = _x + offset.lane.x
 		if property.hideFrames.item.off.isSelected() then
 			append_all(skin.destination, {
 				{id = -111, dst = {
-					{x = _x - 3, y = _y - 8, w = _w + 3 * 2, h = _bar_h + 8 * 2, r = 40, g = 40, b = 40, angle = _bar_angle, cx = 0, cy = 0}
+					{x = _x - 3, y = _y - 8, w = _w + 3 * 2, h = _bar_h + 8 * 2, r = 40, g = 40, b = 40, angle = 0, cx = 0, cy = 0}
 				}},
 			})
 		end
 		append_all(skin.destination, {
 			{id = -110, dst = {
-				{x = _x, y = _y, w = _w, h = _bar_h, angle = _bar_angle, cx = 0, cy = 0}
+				{x = _x, y = _y, w = _w, h = _bar_h, angle = 0, cx = 0, cy = 0}
 			}},
 			{id = "musicprogress", dst = {
-				{time = 0, x = _x, y = _y + _bar_h - _slider_h, w = _w, h = _slider_h, angle = _bar_angle, cx = 0, cy = 0},
+				{time = 0, x = _x, y = _y + _bar_h - _slider_h, w = _w, h = _slider_h, angle = 0, cx = 0, cy = 0},
 			}},
 		})
 	end
