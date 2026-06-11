@@ -185,9 +185,10 @@ public class GdxVideoProcessor implements MovieProcessor {
     }
 
     /**
-     * P0 同步纠正：用游戏时间计算目标帧位置，通过 skip update（视频超前）
-     * 或连续 update 多次（视频滞后）来缩小偏差。设置 skipNextUpdate / pendingExtraUpdates
-     * 供 update() 消费。
+     * P0 同步纠正：用游戏时间计算目标帧位置。
+     * - 偏差 < 30ms：不干预
+     * - 偏差 30~500ms：skip update（视频超前）或连续 update 多次（视频滞后）追赶
+     * - 偏差 > 500ms：调用 videoPlayer.seek() 直接跳到目标位置（物理消除漂移）
      *
      * @param gameTime 当前游戏时间（毫秒）
      */
@@ -211,6 +212,21 @@ public class GdxVideoProcessor implements MovieProcessor {
 
         if (Math.abs(drift) <= SYNC_THRESHOLD_SMOOTH) {
             return;  // 偏差可接受，不干预
+        }
+
+        // 严重偏差（>500ms）：直接 seek 跳到目标位置，物理上消除漂移
+        if (Math.abs(drift) > SYNC_SKIP_THRESHOLD) {
+            int target = (int) targetVideoTime;
+            try {
+                videoPlayer.seek(target);
+                if (shouldLogFastSync()) {
+                    Logger.getGlobal().info("Video sync: severe drift " + drift + "ms, seek to " + target + "ms (count=" + syncCorrectionCount + ")");
+                }
+            } catch (Exception e) {
+                Logger.getGlobal().warning("Video seek failed: " + e.getMessage());
+            }
+            resetSyncPoint();
+            return;
         }
 
         if (drift > 0) {

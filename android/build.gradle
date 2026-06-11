@@ -77,7 +77,7 @@ dependencies {
     exclude group: 'org.xerial', module: 'sqlite-jdbc'
   }
   implementation 'org.sqldroid:sqldroid:1.0.3'
-  implementation "com.badlogicgames.gdx-video:gdx-video-android:$gdxVideoVersion"
+  implementation project(":gdx-video-core")
 
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0'
 

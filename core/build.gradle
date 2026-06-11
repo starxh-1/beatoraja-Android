@@ -17,7 +17,7 @@ dependencies {
   api "com.badlogicgames.gdx-controllers:gdx-controllers-core:$gdxControllersVersion"
   api "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
   api "com.badlogicgames.gdx:gdx:$gdxVersion"
-  implementation "com.badlogicgames.gdx-video:gdx-video:$gdxVideoVersion"
+  implementation project(":gdx-video-core")
 
   if(enableGraalNative == 'true') {
     implementation "io.github.berstanio:gdx-svmhelper-annotations:$graalHelperVersion"
