@@ -28,8 +28,8 @@
     <string name="floating_menu_position">悬浮菜单位置</string>
     <string name="target_score">目标分数</string>
     <string name="gauge_type">血条类型</string>
-    <string name="note_timing_offset">音符显示时间偏移</string>
-    <string name="auto_timing_adjust">自动时间调整</string>
+    <string name="note_timing_offset">判定线延迟调整</string>
+    <string name="auto_timing_adjust">自动延迟调整</string>
     <string name="ms">ms</string>
 
     <string-array name="gauge_type_options">
@@ -92,7 +92,7 @@
     </string-array>
 
     <string name="pollingrate">轮询频率 (Hz)</string>
-    <string name="pollingrate_help">轮询频率：默认以1000Hz为频率（每1ms报告一次更新）。如果你的输入设备（比如游戏键盘）支持更高的轮询频率，可以调整到最高4000Hz，但会提高软件的CPU负载。</string>
+    <string name="pollingrate_help">轮询频率：默认以1000Hz为频率</string>
 
     <string name="dialog_new_player">新建玩家</string>
     <string name="hint_player_name">玩家名称</string>

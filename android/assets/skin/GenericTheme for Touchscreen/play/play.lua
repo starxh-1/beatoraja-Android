@@ -148,10 +148,10 @@ local property = {
 		}
 	},
 	laneSize = {
-		name = "Lane Size",
+		name = "Lane Size (Landscape only)",
 		item = {
 			normal = {name = "Normal", op = 1110},
-			wide = {name = "Wide", op = 1111},
+			full = {name = "Full", op = 1111},
 		}
 	},
 }
@@ -312,17 +312,6 @@ local function main(keysNumber)
 		header.name = header.name.." 5keys"
 	end
 
-	-- Hide laneSize option for 7K (not applicable)
-	if keysNumber ~= 5 then
-		local filtered = {}
-		for _, p in ipairs(header.property) do
-			if p.name ~= "Lane Size" then
-				table.insert(filtered, p)
-			end
-		end
-		header.property = filtered
-	end
-
 	-- for header loading
 	if not skin_config then
 		return {
@@ -438,6 +427,7 @@ local function main(keysNumber)
 		end
 
 		geo.lane.visual_x = geo.lane.x
+		geo.lane.visual_w = geo.lane.w
 		geo.lane.center_x = geo.lane.x + geo.lane.w / 2
 		geo.lane.fivekey_center_x = geo.lane.center_x
 		geo.lane.judgeline_h = 15
@@ -517,13 +507,19 @@ local function main(keysNumber)
 	local note_black_w = geo.note.original_black_w * note_scale_w
 	local note_scratch_w = geo.note.original_scratch_w * note_scale_w
 
-	-- 5K Wide: fill lane to right edge, notes start from x=0
-	-- For 5K with Wide option, scale notes to fill entire header.w
+	-- Full: fill lane to right edge, notes start from x=0
+	-- For Full option, scale notes to fill entire header.w
 	-- 5K notes total orig = scratch + white*3 + black*2 = 64 + 180 + 96 = 340
-	-- separateline_w = 3, num_seps = 5, total_sep = 15
-	if keysNumber == 5 and property.laneSize.item.wide.isSelected() then
-		local fivek_notes_orig = geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2
-		note_scale_w = (header.w - 3 * 5) / fivek_notes_orig
+	-- 7K notes total orig = scratch + white*4 + black*3 = 64 + 240 + 144 = 448
+	if property.laneSize.item.full.isSelected() then
+		local num_seps = keysNumber
+		local notes_orig
+		if keysNumber == 5 then
+			notes_orig = geo.note.original_scratch_w + geo.note.original_white_w * 3 + geo.note.original_black_w * 2
+		else
+			notes_orig = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3
+		end
+		note_scale_w = (header.w - 3 * num_seps) / notes_orig
 		note_white_w = geo.note.original_white_w * note_scale_w
 		note_black_w = geo.note.original_black_w * note_scale_w
 		note_scratch_w = geo.note.original_scratch_w * note_scale_w
@@ -560,20 +556,20 @@ local function main(keysNumber)
 	-- lane centered (UI reference)
 	geo.lane.x = (header.w - lane_w) / 2 + offset.lane.x
 	-- lane visual position (notes rendering, offset from lane.x)
-	-- 7K: +65 to right-align notes within the full-width lane (leaves 65px left margin)
-	-- 5K: lane is already centered with padding, no extra offset (notes fill the lane)
-	-- 5K Wide: lane fills to right edge, notes start from x=0
+	-- 7K Normal: +65 to right-align notes within the full-width lane (leaves 65px left margin)
+	-- 5K Normal: lane is already centered with padding, no extra offset (notes fill the lane)
+	-- Full (both 5K and 7K): lane fills to right edge, notes start from x=0
 	geo.lane.visual_x = geo.lane.x
-	if keysNumber ~= 5 then
+	if keysNumber ~= 5 and not property.laneSize.item.full.isSelected() then
 		geo.lane.visual_x = geo.lane.x + 65
 	end
-	if keysNumber == 5 and property.laneSize.item.wide.isSelected() then
+	if property.laneSize.item.full.isSelected() then
 		geo.lane.x = 0
 		geo.lane.visual_x = 0
 	end
-	-- Visual width: the actual notes rendering area (excludes left margin for 7K)
+	-- Visual width: the actual notes rendering area (excludes left margin for 7K Normal)
 	geo.lane.visual_w = geo.lane.w
-	if keysNumber ~= 5 then
+	if keysNumber ~= 5 and not property.laneSize.item.full.isSelected() then
 		geo.lane.visual_w = geo.lane.w - 65
 	end
 
@@ -927,24 +923,40 @@ local function main(keysNumber)
 			-- idにdestinationの特殊番号(-111...など)は使えないっぽい(NPEになる)
 			-- h = 1だとHD画質などの低解像度で描画されない場合がある。
 			group = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 128, g = 128, b = 128}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 128, g = 128, b = 128}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 128, g = 128, b = 128}}
+					end
+				end)()}
 			},
 			time = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 64, g = 192, b = 192}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 64, g = 192, b = 192}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 64, g = 192, b = 192}}
+					end
+				end)()}
 			},
 			bpm = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 0, g = 192, b = 0}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 0, g = 192, b = 0}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 0, g = 192, b = 0}}
+					end
+				end)()}
 			},
 			stop = {
-				{id = "section_line", offset = 3, dst = {
-					{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 192, g = 192, b = 0}
-				}}
+				{id = "section_line", offset = 3, dst = (function()
+					if isPortraitLayout() then
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = sectionline_h, h = geo.lane.h, r = 192, g = 192, b = 0}}
+					else
+						return {{x = geo.lane.visual_x, y = geo.lane.y, w = geo.lane.visual_w, h = sectionline_h, r = 192, g = 192, b = 0}}
+					end
+				end)()}
 			},
 		}
 		if keysNumber == 5 then
@@ -1899,47 +1911,34 @@ local function main(keysNumber)
 	end
 
 	-- musicProgressBar
-	if not isPortraitLayout() then
-		local w = 10 local slider_h = 20
-		local margin = 34
-		local x, y, bar_h, bar_angle
-		if isPortraitLayout() then
-			bar_h = 1080 - margin * 2
-			x = geo.gaugearea.x + geo.gaugearea.w - 30
-			y = margin
-			bar_angle = 270
-			table.insert(skin.slider,
-				{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 1, range = bar_h - slider_h, type = 6}
-			)
-		else
-			bar_h = geo.lane.h - margin * 2
-			x = geo.lanearea.x + 24
-			if is2P() then
-				x = geo.lanearea.x + geo.lanearea.w - 24 - w
-			end
-			x = x + offset.lane.x
-			y = geo.lane.y + margin - 15
-			bar_angle = 0
-			table.insert(skin.slider,
-				{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
-			)
+	local w = 10 local slider_h = 20
+	local margin = 34
+	local x, y, bar_h, bar_angle
+	if isPortraitLayout() then
+		-- Portrait: horizontal progress bar inside the gauge region, aligned with EXSCORE x
+		local exscore_x = geo.gauge.x + 360
+		-- Gauge region: y=520-555, place bar centered vertically
+		bar_h = 200
+		x = exscore_x
+		y = geo.gauge.y + (geo.gauge.h - slider_h) / 2
+		bar_angle = 0
+		table.insert(skin.slider,
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 0, range = bar_h - w, type = 6}
+		)
+	else
+		bar_h = geo.lane.h - margin * 2
+		x = geo.lanearea.x + 24
+		if is2P() then
+			x = geo.lanearea.x + geo.lanearea.w - 24 - w
 		end
-		if property.hideFrames.item.off.isSelected() then
-			append_all(skin.destination, {
-				{id = -111, dst = {
-					{x = x - 3, y = y - 8, w = w + 3 * 2, h = bar_h + 8 * 2, r = 40, g = 40, b = 40, angle = bar_angle, cx = 0, cy = 0}
-				}},
-			})
-		end
-		append_all(skin.destination, {
-			{id = -110, dst = {
-				{x = x, y = y, w = w, h = bar_h, angle = bar_angle, cx = 0, cy = 0}
-			}},
-			{id = "musicprogress", dst = {
-				{time = 0, x = x, y = y + bar_h - slider_h, w = w, h = slider_h, angle = bar_angle, cx = 0, cy = 0},
-			}},
-		})
+		x = x + offset.lane.x
+		y = geo.lane.y + margin - 15
+		bar_angle = 0
+		table.insert(skin.slider,
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
+		)
 	end
+	-- musicProgressBar destination (frame + bar + slider) is appended later (after gauge) to avoid being covered
 
 	-- lane
 	do
@@ -2614,6 +2613,44 @@ local function main(keysNumber)
 		table.insert(skin.destination, {id = "gauge", dst = {
 			{x = x, y = y, w = w, h = h, angle = angle, cx = cx, cy = cy, center = center},
 		}})
+	end
+	-- musicProgressBar destination (after gauge to avoid being covered)
+	do
+		-- re-compute musicProgressBar dst
+		local _w = 10 local _slider_h = 20
+		local _margin = 34
+		local _x, _y, _bar_h, _bar_angle
+		if isPortraitLayout() then
+			local _exscore_x = geo.gauge.x + 360
+			_bar_h = 200
+			_x = _exscore_x
+			_y = geo.gauge.y + (geo.gauge.h - _slider_h) / 2
+			_bar_angle = 0
+		else
+			_bar_h = geo.lane.h - _margin * 2
+			_x = geo.lanearea.x + 24
+			if is2P() then
+				_x = geo.lanearea.x + geo.lanearea.w - 24 - _w
+			end
+			_x = _x + offset.lane.x
+			_y = geo.lane.y + _margin - 15
+			_bar_angle = 0
+		end
+		if property.hideFrames.item.off.isSelected() then
+			append_all(skin.destination, {
+				{id = -111, dst = {
+					{x = _x - 3, y = _y - 8, w = _w + 3 * 2, h = _bar_h + 8 * 2, r = 40, g = 40, b = 40, angle = _bar_angle, cx = 0, cy = 0}
+				}},
+			})
+		end
+		append_all(skin.destination, {
+			{id = -110, dst = {
+				{x = _x, y = _y, w = _w, h = _bar_h, angle = _bar_angle, cx = 0, cy = 0}
+			}},
+			{id = "musicprogress", dst = {
+				{time = 0, x = _x, y = _y + _bar_h - _slider_h, w = _w, h = _slider_h, angle = _bar_angle, cx = 0, cy = 0},
+			}},
+		})
 	end
 	-- gaugevalue
 	do

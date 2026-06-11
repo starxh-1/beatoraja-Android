@@ -96,11 +96,11 @@ public class FloatingMenu implements InputProcessor {
     private final MenuItem[] items = {
         // ── 通用按钮（第1页）───────────────────────
         new MenuItem("Touch Key: ON",  -100, true,  true, false, false),
-        new MenuItem("F1 Show FPS",      Keys.F1, false, true, false, false),
-        new MenuItem("F2 Update Song",   Keys.F2, false, true, false, false),
-        new MenuItem("F10 RANDOM",   Keys.F10, false, true, false, false),
-        new MenuItem("F12 Skin Select",   Keys.F12, false, true, false, false),
-        new MenuItem("NUM 6 Key Config", Keys.NUM_6, false, true, false, false),
+        new MenuItem("Show FPS",      Keys.F1, false, true, false, false),
+        new MenuItem("Update Song",   Keys.F2, false, true, false, false),
+        new MenuItem("RANDOM",   Keys.F10, false, true, false, false),
+        new MenuItem("Skin Select",   Keys.F12, false, true, false, false),
+        new MenuItem("Key Config", Keys.NUM_6, false, true, false, false),
         new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
         new MenuItem("Backspace",        Keys.BACKSPACE, false, false, true, false),
         new MenuItem("Enter",            Keys.ENTER, false, true, true, false),

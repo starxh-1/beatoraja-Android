@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">beatoraja-Android</string>
-    <string name="settings_title">Beatoraja Settings</string>
+    <string name="settings_title">beatoraja Settings</string>
     <string name="audio_powered_by">Android audio powered by Oboe</string>
     <string name="section_audio">Audio</string>
     <string name="system_volume">System Volume</string>
@@ -28,9 +28,9 @@
     <string name="floating_menu_position">Floating Menu Position</string>
     <string name="target_score">TARGET SCORE</string>
     <string name="gauge_type">Gauge Type</string>
-    <string name="note_timing_offset">Note Display Timing Offset</string>
+    <string name="note_timing_offset">Judge Timing Offset</string>
     <string name="auto_timing_adjust">Auto Timing Adjust</string>
-    <string name="note_modifier">Note Modifier</string>
+    <string name="note_modifier" translatable="false">Note Modifier</string>
     <string name="ms">ms</string>
 
     <string-array name="note_modifier_options">
@@ -112,7 +112,7 @@
     </string-array>
 
     <string name="pollingrate">Pollingrate (Hz)</string>
-    <string name="pollingrate_help">Polling Rate: The default frequency is 1000Hz (reporting updates every 1ms). If your input device (such as a gaming keyboard) supports a higher polling rate, you can adjust up to 4000Hz, but this will increase the software\'s CPU load.</string>
+    <string name="pollingrate_help">Polling Rate: The default frequency is 1000Hz (reporting updates every 1ms).</string>
 
     <string name="dialog_new_player">New Player</string>
     <string name="hint_player_name">Player name</string>
@@ -132,8 +132,8 @@
     <string name="msg_score_db_not_found">Score database not found for %1$s</string>
     <string name="msg_score_exported">Score exported successfully</string>
     <string name="msg_export_failed">Export failed: %1$s</string>
-    <string name="msg_score_imported">Score imported successfully</string>
-    <string name="msg_score_import_failed">Score import failed: %1$s</string>
+    <string name="msg_score_imported" translatable="false">Score imported successfully</string>
+    <string name="msg_score_import_failed" translatable="false">Score import failed: %1$s</string>
     <string name="msg_import_success">Player \'%1$s\' imported successfully</string>
     <string name="msg_import_failed">Import failed: %1$s</string>
     <string name="msg_delete_success">Player deleted</string>

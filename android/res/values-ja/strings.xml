@@ -18,7 +18,7 @@
     <string name="tap_to_remove">タップして削除</string>
     <string name="section_play_options">プレイオプション</string>
     <string name="show_audio_spectrum">オーディオスペクトラムを表示</string>
-    <string name="bga_display">BGA Display</string>
+    <string name="bga_display">BGA ディスプレイ設定</string>
     <string name="gauge_auto_shift">Gauge Auto Shift</string>
     <string name="auto_save_replay">Auto Save Replay</string>
     <string name="green_number">緑数字</string>
@@ -28,7 +28,7 @@
     <string name="floating_menu_position">フロートメニューの位置</string>
     <string name="target_score">ターゲットスコア</string>
     <string name="gauge_type">ゲージタイプ</string>
-    <string name="note_timing_offset">ノート表示タイミングオフセット</string>
+    <string name="note_timing_offset">判定タイミング調整</string>
     <string name="auto_timing_adjust">自動タイミング調整</string>
     <string name="ms">ms</string>
 
@@ -40,6 +40,7 @@
         <item>EX-HARD</item>
         <item>HAZARD</item>
     </string-array>
+    <string name="section_tables">難易度表</string>
     <string name="update_all">すべて更新</string>
     <string name="start_game">スタート</string>
 
@@ -84,7 +85,7 @@
     </string-array>
 
     <string name="pollingrate">ポーリングレート (Hz)</string>
-    <string name="pollingrate_help">ポーリングレート：デフォルトは1000Hz（1msごとに更新を報告します）。お使いの入力デバイス（ゲーム向けキーボードなど）がより高いポーリングレートをサポートしている場合は、最大4000Hzまで調整できますが、ソフトウェアのCPU負荷が高くなります。</string>
+    <string name="pollingrate_help">ポーリングレート：デフォルトは1000Hz（1msごとに更新を報告します）。</string>
 
     <string name="msg_update_failed">難易度表の更新に失敗しました: %1$s</string>
     <string name="btn_update">更新</string>
