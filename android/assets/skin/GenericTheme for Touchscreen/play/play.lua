@@ -1519,7 +1519,7 @@ local function main(keysNumber)
 		x = x + offset.playinfo.x
 		y = y + offset.playinfo.y
 		--w = w + offset.playinfo.w
-		a = 255 + offset.playinfo.a
+		a = 128 + offset.playinfo.a
 		local p_dst = playinfo_dst(x, y, w, a, true, {timer = timer})
 		append_all(skin.destination, p_dst)
 

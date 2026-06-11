@@ -910,7 +910,12 @@ public class AndroidLauncher extends AndroidApplication {
     public void setAndroidBackPressedFlag() {
         try {
             BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
-            game.getMainController().getInputProcessor().getKeyBoardInputProcesseor().simulateKeyPress(Keys.ESCAPE);
+            bms.player.beatoraja.input.KeyBoardInputProcesseor processor =
+                game.getMainController().getInputProcessor().getKeyBoardInputProcesseor();
+
+            // 同时设置两种标志，确保物理 poll 和 逻辑 check 都能捕获
+            processor.setAndroidBackPressed(true);
+            processor.simulateKeyPress(com.badlogic.gdx.Input.Keys.ESCAPE);
         } catch (Exception ignored) {}
     }
 
@@ -918,10 +923,15 @@ public class AndroidLauncher extends AndroidApplication {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
             lastUserTouchTime = SystemClock.uptimeMillis();
-            if (instance != null) {
-                setAndroidBackPressedFlag();
-                return true;
+
+            // 无论是否在输入态，都触发 Back -> ESCAPE 的映射逻辑
+            setAndroidBackPressedFlag();
+
+            if (isTextInputActive) {
+                // 如果处于文本输入模式，显式关闭输入态
+                setTextInputActive(false);
             }
+            return true;
         }
         return super.dispatchKeyEvent(event);
     }
@@ -944,19 +954,31 @@ public class AndroidLauncher extends AndroidApplication {
         isTextInputActive = active;
         if (active) {
             stopKeepAlive();
-            setOnscreenKeyboardFocusable(true);
             runOnUiThread(() -> {
+                setOnscreenKeyboardFocusable(true);
                 getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
                 // 重新建立 IME 连接：isTextInputActive 变为 true 后需要让系统重新查询 InputConnection
                 android.view.SurfaceView sv = findSurfaceView(getWindow().getDecorView());
                 if (sv != null && inputMethodManager != null) {
+                    sv.requestFocus();
                     inputMethodManager.restartInput(sv);
+                    inputMethodManager.showSoftInput(sv, InputMethodManager.SHOW_IMPLICIT);
                 }
             });
         } else {
             startKeepAlive();
-            runOnUiThread(() -> getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING));
-            runOnUiThread(this::suppressImeForGameInput);
+            runOnUiThread(() -> {
+                getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
+                android.view.SurfaceView sv = findSurfaceView(getWindow().getDecorView());
+                if (sv != null && inputMethodManager != null) {
+                    inputMethodManager.hideSoftInputFromWindow(sv.getWindowToken(), 0);
+                    // 核心修复：即使已经隐藏，也必须 restartInput。
+                    // 这样系统会重新调用 onCreateInputConnection，而此时 isTextInputActive 为 false，
+                    // 我们的实现会返回 null，从而彻底切断输入关联，防止物理按键误触。
+                    inputMethodManager.restartInput(sv);
+                }
+                suppressImeForGameInput();
+            });
         }
     }
 

@@ -18,6 +18,7 @@ import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField.TextFieldListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.FocusListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -30,6 +31,8 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 public class SearchTextField extends Stage {
 
 	// TOTO ユーザー定義のBitmapFontも使えるようにしたい
+
+	private final MusicSelector selector;
 
 	/**
 	 * フォント生成用クラス
@@ -48,6 +51,7 @@ public class SearchTextField extends Stage {
 
 	public SearchTextField(MusicSelector selector, Resolution resolution) {
 		super(new FitViewport(resolution.width, resolution.height));
+		this.selector = selector;
 
 		final Rectangle r = ((MusicSelectSkin) selector.getSkin()).getSearchTextRegion();
 
@@ -102,9 +106,7 @@ public class SearchTextField extends Stage {
 						}
 
 						Gdx.app.log("SearchTextField", "Deactivating text mode: Enter/Newline pressed");
-						textField.getOnscreenKeyboard().show(false);
-						setKeyboardFocus(null);
-						selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);
+						deactivateTextInput(selector, false);
 					}
 					if (!searchfont.getData().hasGlyph(key)) {
 						FreeTypeFontGenerator.FreeTypeFontParameter parameter = new FreeTypeFontGenerator.FreeTypeFontParameter();
@@ -124,6 +126,16 @@ public class SearchTextField extends Stage {
 			search.setBounds(r.x, r.y, r.width, r.height);
 			search.setMaxLength(50);
 			search.setFocusTraversal(false);
+
+			search.addListener(new FocusListener() {
+				@Override
+				public void keyboardFocusChanged(FocusListener.FocusEvent event, Actor actor, boolean focused) {
+					if (!focused) {
+						Gdx.app.log("SearchTextField", "Focus lost, deactivating text input");
+						deactivateTextInput(selector, false);
+					}
+				}
+			});
 
 			// 覆盖 OnscreenKeyboard，防止 libGDX 的 DefaultAndroidInput 独立控制 IME。
 			// 键盘的显示/隐藏统一由 AndroidLauncher.setTextInputActive() 管理，
@@ -166,8 +178,8 @@ public class SearchTextField extends Stage {
 					}
 
 					if (focusNotNull && outside) {
-						Gdx.app.log("SearchTextField", "Triggering unfocus from screen touchDown");
-						unfocus(selector);
+						Gdx.app.log("SearchTextField", "Triggering deactivateTextInput from screen touchDown");
+						deactivateTextInput(selector, true);
 					}
 					return false;
 				}
@@ -179,20 +191,39 @@ public class SearchTextField extends Stage {
 		}
 	}
 
-	public void unfocus(MusicSelector selector) {
-		Gdx.app.log("SearchTextField", "unfocus() called");
-		if(search != null) {
-			search.setText("");
-			search.setMessageText("search song");
-			search.getStyle().messageFontColor = Color.GRAY;
-			search.getOnscreenKeyboard().show(false);
+	private boolean isDeactivating = false;
+
+	public void deactivateTextInput(MusicSelector selector, boolean resetText) {
+		if (isDeactivating) return;
+		isDeactivating = true;
+		try {
+			Gdx.app.log("SearchTextField", "deactivateTextInput() called, resetText=" + resetText);
+			if (search != null) {
+				if (resetText) {
+					search.setText("");
+					search.setMessageText("search song");
+					search.getStyle().messageFontColor = Color.GRAY;
+				}
+				search.getOnscreenKeyboard().show(false);
+			}
+			if (getKeyboardFocus() == search) {
+				setKeyboardFocus(null);
+			}
+			selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);
+		} finally {
+			isDeactivating = false;
 		}
-		setKeyboardFocus(null);
-		selector.main.getInputProcessor().getKeyBoardInputProcesseor().setTextInputMode(false);
+	}
+
+	public void unfocus(MusicSelector selector) {
+		deactivateTextInput(selector, true);
 	}
 
 	public void dispose() {
 //		super.dispose();
+		if (search != null && selector != null) {
+			deactivateTextInput(selector, false);
+		}
 		if(generator != null) {
 			generator.dispose();
 			generator = null;

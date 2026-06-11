@@ -87,6 +87,12 @@ public class SettingsActivity extends Activity {
     private LinearLayout tableUrlContainer;
     private Spinner playerSpinner;
 
+    private View focusIndicator;
+    private boolean gamepadMode = false;
+    private long lastGamepadInputTime = 0;
+    private android.widget.ScrollView settingsScrollView;
+    private java.util.List<View> focusableControls = new java.util.ArrayList<>();
+
     private Handler keepAliveHandler;
     private boolean isSimulatingTouch = false;
 
@@ -128,7 +134,36 @@ public class SettingsActivity extends Activity {
 
         readConfigDirectly();
         setContentView(R.layout.activity_settings);
+        settingsScrollView = findViewById(R.id.settingsScrollView);
         initViews();
+
+        // 构建手柄导航用的焦点控件列表
+        buildFocusableControlsList();
+
+        // 监听焦点变化，显示手柄高光
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus, newFocus) -> {
+            if (gamepadMode) {
+                updateFocusIndicator(newFocus);
+            }
+        });
+
+        // 监听滚动，确保高光跟随并支持手动触发滚动
+        getWindow().getDecorView().getViewTreeObserver().addOnScrollChangedListener(() -> {
+            if (gamepadMode) {
+                updateFocusIndicator(getCurrentFocus());
+            }
+        });
+
+        // 手柄模式下触摸屏幕则退出手柄模式
+        android.view.View touchInterceptor = findViewById(android.R.id.content);
+        touchInterceptor.setOnTouchListener((v, event) -> {
+            if (gamepadMode) {
+                gamepadMode = false;
+                if (focusIndicator != null) focusIndicator.setVisibility(View.GONE);
+                Log.i("SettingsActivity", "Touch detected, exiting gamepad mode");
+            }
+            return false;
+        });
 
         // API 33+ (targetSdk 36): 使用 OnBackInvokedDispatcher 处理返回手势
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -560,6 +595,7 @@ public class SettingsActivity extends Activity {
                 playOptionsContent.setVisibility(View.VISIBLE);
                 playOptionsArrow.setText("▼");
             }
+            buildFocusableControlsList();
         });
 
         // BMS Path Container
@@ -632,6 +668,7 @@ public class SettingsActivity extends Activity {
         }
 
         ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
+        setupGamepadFocusable(findViewById(R.id.greenNumberInput));
 
         Spinner targetScoreSpinner = findViewById(R.id.targetScoreSpinner);
         ArrayAdapter<String> tsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, targetScoreOptions);
@@ -647,6 +684,7 @@ public class SettingsActivity extends Activity {
         gaugeTypeSpinner.setSelection(Math.min(selectedGaugeType, gaugeTypeOptions.length - 1));
 
         ((EditText) findViewById(R.id.noteTimingOffsetInput)).setText(String.valueOf(selectedNoteTimingOffset));
+        setupGamepadFocusable(findViewById(R.id.noteTimingOffsetInput));
 
         ((Switch) findViewById(R.id.autoTimingAdjustSwitch)).setChecked(selectedAutoTimingAdjust);
 
@@ -684,10 +722,12 @@ public class SettingsActivity extends Activity {
             EditText editText = new EditText(this);
             editText.setText(currentPath);
             editText.setTextColor(0xFFFFFFFF);
-            editText.setBackgroundColor(0xFF333333);
+            editText.setBackgroundResource(R.drawable.focus_highlight);
             editText.setPadding(16, 12, 16, 12);
             editText.setTextSize(14);
             editText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
+            editText.setFocusable(true);
+            editText.setFocusableInTouchMode(true);
             final LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(0, 4, 0, 4);
@@ -713,6 +753,7 @@ public class SettingsActivity extends Activity {
             }
             bmsPathContainer.addView(row);
         }
+        buildFocusableControlsList();
     }
 
     private void refreshTableUrlList() {
@@ -722,10 +763,12 @@ public class SettingsActivity extends Activity {
             EditText editText = new EditText(this);
             editText.setText(tableUrls.get(i));
             editText.setTextColor(0xFFFFFFFF);
-            editText.setBackgroundColor(0xFF333333);
+            editText.setBackgroundResource(R.drawable.focus_highlight);
             editText.setPadding(16, 12, 16, 12);
             editText.setTextSize(14);
             editText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
+            editText.setFocusable(true);
+            editText.setFocusableInTouchMode(true);
             final LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setPadding(0, 4, 0, 4);
@@ -748,6 +791,7 @@ public class SettingsActivity extends Activity {
             row.addView(editText); row.addView(updateBtn); row.addView(removeBtn);
             tableUrlContainer.addView(row);
         }
+        buildFocusableControlsList();
     }
 
     private void updateSingleTable(int index, EditText editText, Button updateBtn) {
@@ -1211,6 +1255,7 @@ public class SettingsActivity extends Activity {
     @Override protected void onResume() {
         super.onResume();
         startKeepAlive();
+        gamepadMode = false;
         readAllOptionsFromUI();
         saveConfigToJson();
     }
@@ -1219,19 +1264,232 @@ public class SettingsActivity extends Activity {
         stopKeepAlive();
         super.onPause();
     }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        if (event.getAction() == KeyEvent.ACTION_DOWN && event.getKeyCode() == KeyEvent.KEYCODE_BACK) {
-            // API 33+: OnBackInvokedCallback 处理返回（在 onCreate 中注册）
-            // API < 33: 通过此 dispatchKeyEvent 拦截返回键，保存设置后 finish
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                readAllOptionsFromUI();
-                saveConfigToJson();
-                finish();
-                return true;
+        if (event.getAction() == KeyEvent.ACTION_DOWN) {
+            int keyCode = event.getKeyCode();
+            if (isGamepadKeyCode(keyCode)) {
+                if (!gamepadMode) {
+                    gamepadMode = true;
+                    updateTouchModeForGamepad();
+                }
+                lastGamepadInputTime = SystemClock.uptimeMillis();
+            }
+            if (gamepadMode) {
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP) { moveFocus(MoveDirection.UP); return true; }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) { moveFocus(MoveDirection.DOWN); return true; }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { moveFocus(MoveDirection.LEFT); return true; }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) { moveFocus(MoveDirection.RIGHT); return true; }
+                if (keyCode == KeyEvent.KEYCODE_BACK || keyCode == KeyEvent.KEYCODE_BUTTON_B) {
+                    readAllOptionsFromUI(); saveConfigToJson(); finish(); return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_BUTTON_A || keyCode == KeyEvent.KEYCODE_ENTER) {
+                    activateCurrentFocus(); return true;
+                }
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private enum MoveDirection { UP, DOWN, LEFT, RIGHT }
+
+    private boolean isGamepadKeyCode(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_BUTTON_A || keyCode == KeyEvent.KEYCODE_BUTTON_B ||
+               keyCode == KeyEvent.KEYCODE_BUTTON_X || keyCode == KeyEvent.KEYCODE_BUTTON_Y ||
+               keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+               keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
+               keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER;
+    }
+
+    private void moveFocus(MoveDirection direction) {
+        buildFocusableControlsList();
+        View current = getCurrentFocus();
+        if (current == null) {
+            if (!focusableControls.isEmpty()) {
+                focusableControls.get(0).requestFocus();
+                updateFocusIndicator(focusableControls.get(0));
+            }
+            return;
+        }
+        int currentIndex = focusableControls.indexOf(current);
+        int nextIndex = -1;
+        switch (direction) {
+            case DOWN: nextIndex = findNextDown(current, currentIndex); break;
+            case UP: nextIndex = findPrevUp(current, currentIndex); break;
+            case RIGHT: nextIndex = findNextRight(current, currentIndex); break;
+            case LEFT: nextIndex = findPrevLeft(current, currentIndex); break;
+        }
+        if (nextIndex >= 0 && nextIndex < focusableControls.size()) {
+            View next = focusableControls.get(nextIndex);
+            next.requestFocus();
+            ensureViewVisible(next);
+        }
+    }
+
+    private int findNextDown(View current, int currentIndex) {
+        int bestIndex = -1; long bestScore = Long.MAX_VALUE;
+        int[] currLoc = new int[2]; current.getLocationOnScreen(currLoc);
+        int currentBottom = currLoc[1] + current.getHeight();
+        int currentCenterX = currLoc[0] + current.getWidth() / 2;
+        for (int i = 0; i < focusableControls.size(); i++) {
+            if (i == currentIndex) continue;
+            View v = focusableControls.get(i);
+            int[] vLoc = new int[2]; v.getLocationOnScreen(vLoc);
+            if (vLoc[1] <= currentBottom - 5) continue;
+            int vCenterX = vLoc[0] + v.getWidth() / 2;
+            int distX = Math.abs(vCenterX - currentCenterX);
+            int distY = vLoc[1] - currentBottom;
+            long score = (long) distY * 1000 + distX;
+            if (score < bestScore) { bestScore = score; bestIndex = i; }
+        }
+        return bestIndex >= 0 ? bestIndex : currentIndex;
+    }
+
+    private int findPrevUp(View current, int currentIndex) {
+        int bestIndex = -1; long bestScore = Long.MAX_VALUE;
+        int[] currLoc = new int[2]; current.getLocationOnScreen(currLoc);
+        int currentTop = currLoc[1];
+        int currentCenterX = currLoc[0] + current.getWidth() / 2;
+        for (int i = 0; i < focusableControls.size(); i++) {
+            if (i == currentIndex) continue;
+            View v = focusableControls.get(i);
+            int[] vLoc = new int[2]; v.getLocationOnScreen(vLoc);
+            int vBottom = vLoc[1] + v.getHeight();
+            if (vBottom >= currentTop + 5) continue;
+            int vCenterX = vLoc[0] + v.getWidth() / 2;
+            int distX = Math.abs(vCenterX - currentCenterX);
+            int distY = currentTop - vBottom;
+            long score = (long) distY * 1000 + distX;
+            if (score < bestScore) { bestScore = score; bestIndex = i; }
+        }
+        return bestIndex >= 0 ? bestIndex : currentIndex;
+    }
+
+    private int findNextRight(View current, int currentIndex) {
+        int bestIndex = -1; long bestScore = Long.MAX_VALUE;
+        int[] currLoc = new int[2]; current.getLocationOnScreen(currLoc);
+        int currentRight = currLoc[0] + current.getWidth();
+        int currentCenterY = currLoc[1] + current.getHeight() / 2;
+        for (int i = 0; i < focusableControls.size(); i++) {
+            if (i == currentIndex) continue;
+            View v = focusableControls.get(i);
+            int[] vLoc = new int[2]; v.getLocationOnScreen(vLoc);
+            if (vLoc[0] <= currentRight - 5) continue;
+            int vCenterY = vLoc[1] + v.getHeight() / 2;
+            int distY = Math.abs(vCenterY - currentCenterY);
+            int distX = vLoc[0] - currentRight;
+            long score = (long) distX * 1000 + distY;
+            if (score < bestScore) { bestScore = score; bestIndex = i; }
+        }
+        return bestIndex >= 0 ? bestIndex : currentIndex;
+    }
+
+    private int findPrevLeft(View current, int currentIndex) {
+        int bestIndex = -1; long bestScore = Long.MAX_VALUE;
+        int[] currLoc = new int[2]; current.getLocationOnScreen(currLoc);
+        int currentLeft = currLoc[0];
+        int currentCenterY = currLoc[1] + current.getHeight() / 2;
+        for (int i = 0; i < focusableControls.size(); i++) {
+            if (i == currentIndex) continue;
+            View v = focusableControls.get(i);
+            int[] vLoc = new int[2]; v.getLocationOnScreen(vLoc);
+            int vRight = vLoc[0] + v.getWidth();
+            if (vRight >= currentLeft + 5) continue;
+            int vCenterY = vLoc[1] + v.getHeight() / 2;
+            int distY = Math.abs(vCenterY - currentCenterY);
+            int distX = currentLeft - vRight;
+            long score = (long) distX * 1000 + distY;
+            if (score < bestScore) { bestScore = score; bestIndex = i; }
+        }
+        return bestIndex >= 0 ? bestIndex : currentIndex;
+    }
+
+    private void buildFocusableControlsList() {
+        focusableControls.clear();
+        View root = findViewById(android.R.id.content);
+        if (root != null) collectFocusableViews((ViewGroup) root);
+    }
+
+    private void collectFocusableViews(ViewGroup parent) {
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            View child = parent.getChildAt(i);
+            if (child.getVisibility() == View.VISIBLE) {
+                if (child.isFocusable() && !(child instanceof android.widget.ScrollView)) focusableControls.add(child);
+                if (child instanceof ViewGroup) collectFocusableViews((ViewGroup) child);
+            }
+        }
+    }
+
+    private void ensureViewVisible(View view) {
+        if (settingsScrollView == null || view == null) return;
+        int[] scrollLoc = new int[2];
+        settingsScrollView.getLocationOnScreen(scrollLoc);
+        int[] viewLoc = new int[2];
+        view.getLocationOnScreen(viewLoc);
+
+        int viewTop = viewLoc[1];
+        int viewBottom = viewLoc[1] + view.getHeight();
+        int scrollTop = scrollLoc[1];
+        int scrollBottom = scrollLoc[1] + settingsScrollView.getHeight();
+
+        if (viewTop < scrollTop + 150) {
+            settingsScrollView.smoothScrollBy(0, viewTop - scrollTop - 200);
+        } else if (viewBottom > scrollBottom - 150) {
+            settingsScrollView.smoothScrollBy(0, viewBottom - scrollBottom + 200);
+        }
+    }
+
+    private void activateCurrentFocus() {
+        View focused = getCurrentFocus();
+        if (focused != null) {
+            focused.performClick();
+            if (focused instanceof EditText && gamepadMode) showCharacterWheelForEditText((EditText) focused);
+        }
+    }
+
+    private void updateTouchModeForGamepad() {
+        buildFocusableControlsList();
+        if (getCurrentFocus() != null) updateFocusIndicator(getCurrentFocus());
+        else if (!focusableControls.isEmpty()) {
+            focusableControls.get(0).requestFocus();
+            updateFocusIndicator(focusableControls.get(0));
+        }
+    }
+
+    private void updateFocusIndicator(View focusedView) {
+        if (focusedView == null || !gamepadMode) {
+            if (focusIndicator != null) focusIndicator.setVisibility(View.GONE);
+            return;
+        }
+        if (focusIndicator == null) {
+            focusIndicator = new View(this);
+            focusIndicator.setBackgroundResource(R.drawable.focus_highlight);
+            focusIndicator.setFocusable(false);
+            focusIndicator.setClickable(false);
+            ((ViewGroup) findViewById(android.R.id.content)).addView(focusIndicator);
+        }
+        focusIndicator.setVisibility(View.VISIBLE);
+        int[] loc = new int[2]; focusedView.getLocationInWindow(loc);
+        int[] rootLoc = new int[2]; findViewById(android.R.id.content).getLocationInWindow(rootLoc);
+        focusIndicator.setX(loc[0] - rootLoc[0]);
+        focusIndicator.setY(loc[1] - rootLoc[1]);
+        ViewGroup.LayoutParams lp = focusIndicator.getLayoutParams();
+        lp.width = focusedView.getWidth(); lp.height = focusedView.getHeight();
+        focusIndicator.setLayoutParams(lp);
+        focusIndicator.bringToFront();
+    }
+
+    private void setupGamepadFocusable(View view) {
+        if (view == null) return;
+        view.setFocusable(true);
+        view.setFocusableInTouchMode(true);
+    }
+
+    private void showCharacterWheelForEditText(EditText editText) {
+        new CharacterWheelDialog(this, editText.getText().toString(), text -> {
+            editText.setText(text); editText.setSelection(text.length());
+        }).show();
     }
 
     @Override

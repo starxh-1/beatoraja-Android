@@ -302,6 +302,11 @@ public class MainController {
     }
 
     public void changeState(MainStateType state) {
+        // 保险：任何状态切换都先尝试关闭文本输入模式，防止搜索框干扰
+        if (input != null && input.getKeyBoardInputProcesseor() != null) {
+            input.getKeyBoardInputProcesseor().setTextInputMode(false);
+        }
+
         // 在切换状态时，再次积极请求高刷新率
         if (isAndroid) {
             if (is32BitARM && state == MainStateType.MUSICSELECT) {
