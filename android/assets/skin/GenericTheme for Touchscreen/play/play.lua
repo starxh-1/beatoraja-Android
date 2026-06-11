@@ -1911,23 +1911,25 @@ local function main(keysNumber)
 	end
 
 	-- musicProgressBar
-	local w = 10 local slider_h = 20
-	local margin = 34
-	local bar_h = geo.lane.h - margin * 2
-	local x = geo.lanearea.x + 24
-	if is2P() then
-		x = geo.lanearea.x + geo.lanearea.w - 24 - w
+	if isPortraitLayout() or not property.laneSize.item.full.isSelected() then
+		local w = 10 local slider_h = 20
+		local margin = 34
+		local bar_h = geo.lane.h - margin * 2
+		local x = geo.lanearea.x + 24
+		if is2P() then
+			x = geo.lanearea.x + geo.lanearea.w - 24 - w
+		end
+		y = geo.lane.y + margin - 15
+		if isPortraitLayout() then
+			x = geo.gauge.x + 360
+			bar_h = 480
+			y = 320
+		end
+		x = x + offset.lane.x
+		table.insert(skin.slider,
+			{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
+		)
 	end
-	y = geo.lane.y + margin - 15
-	if isPortraitLayout() then
-		x = geo.gauge.x + 360
-		bar_h = 480
-		y = 320
-	end
-	x = x + offset.lane.x
-	table.insert(skin.slider,
-		{id = "musicprogress", src = "src_progress", x = 0, y = 0, w = w, h = slider_h, angle = 2, range = bar_h - slider_h, type = 6}
-	)
 	-- musicProgressBar destination (frame + bar + slider) is appended later (after gauge) to avoid being covered
 
 	-- lane
@@ -2605,7 +2607,7 @@ local function main(keysNumber)
 		}})
 	end
 	-- musicProgressBar destination (after gauge to avoid being covered)
-	do
+	if isPortraitLayout() or not property.laneSize.item.full.isSelected() then
 		local _w = 10 local _slider_h = 20
 		local _margin = 34
 		local _bar_h = geo.lane.h - _margin * 2
