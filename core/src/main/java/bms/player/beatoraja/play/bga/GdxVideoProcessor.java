@@ -47,7 +47,8 @@ public class GdxVideoProcessor implements MovieProcessor {
 
     // 异常大漂移阈值 (ms) - 通常是 pause/resume 后或解码卡顿造成的
     private static final long SEVERE_DRIFT_THRESHOLD = 1000;
-    private static final long SEEK_COOLDOWN_MS = 200;  // seek 冷却时间 (ms)
+    private static final long SEEK_COOLDOWN_MS = 200;          // seek 冷却时间 (ms)
+    private static final long INITIAL_SEEK_DELAY_MS = 1000;    // play() 后延迟这么久再 seek，让 MediaCodec 完成冷启动
     private static final long SYNC_LOG_INTERVAL_MS = 60_000;  // seek log 最小间隔 (ms)
     private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
@@ -170,7 +171,7 @@ public class GdxVideoProcessor implements MovieProcessor {
      * 不做每帧强制对齐——会让视频反复 seek 引起卡顿。
      *
      * 只在以下情况 seek：
-     * 1. 首次同步（play 后第一次）：seek 到目标位置，处理 MediaCodec 冷启动延迟
+     * 1. 首次同步（play 后 INITIAL_SEEK_DELAY_MS）：seek 到目标位置，让 MediaCodec 冷启动后再做有意义的对齐
      * 2. 异常大漂移（> 1s）：通常是 pause/resume 后，seek 一次拉齐
      *
      * @param gameTime 当前游戏时间（毫秒）
@@ -193,8 +194,12 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
         syncCorrectionCount++;
 
-        // 首次同步：seek 到目标位置，处理 MediaCodec 冷启动延迟（100-300ms）
+        // 首次同步：等 INITIAL_SEEK_DELAY_MS 后再 seek，让 MediaCodec 完成冷启动。
+        // 22ms 时 seek 目标 ≈ 0，无意义且会扰动正在初始化的解码器。
         if (!initialSeekDone) {
+            if (targetVideoTime < INITIAL_SEEK_DELAY_MS) {
+                return;  // 还没到 seek 时机
+            }
             initialSeekDone = true;
             int target = (int) targetVideoTime;
             try {
