@@ -45,19 +45,16 @@ public class GdxVideoProcessor implements MovieProcessor {
     private int syncCorrectionCount = 0;     // 同步修正计数（用于日志）
 
     // 同步参数阈值（可根据设备性能调整）
-    private static final long SYNC_THRESHOLD_FAST = 80;      // 快速同步阈值 (ms) - 超过此值需要立即修正
-    private static final long SYNC_THRESHOLD_SMOOTH = 30;    // 平滑同步阈值 (ms) - 超过此值需要微调
-    private static final long SYNC_SKIP_THRESHOLD = 500;     // 跳帧阈值 (ms) - 超过此值直接跳帧
-    private static final long SYNC_LOG_INTERVAL_MS = 60_000; // 快速同步 log 最小间隔 (ms)
+    // 16ms = 60fps 一帧：人眼对 < 1 帧的音画偏移基本无感
+    private static final long SYNC_SEEK_THRESHOLD = 16;       // seek 阈值 (ms) - 超过此值直接 seek
+    private static final long SEEK_COOLDOWN_MS = 80;          // seek 冷却时间 (ms) - 防 seek storm
+    private static final long SYNC_LOG_INTERVAL_MS = 60_000;  // seek log 最小间隔 (ms)
     private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
     // 快速同步 log 节流：避免漂移时 logcat 刷屏
     private long lastFastSyncLogTime = -1;
     private long lastPeriodicSyncLogTime = -1;
-
-    // P0 同步纠正：planSyncCorrection() 在 update() 之前设置，由 update() 消费
-    private boolean skipNextUpdate = false;  // 视频超前游戏时：下一帧不调 videoPlayer.update()
-    private int pendingExtraUpdates = 0;     // 视频滞后游戏时：本帧额外调 videoPlayer.update() 的次数
+    private long lastSeekTime = -1;          // 上次 seek 的时间戳，用于防 seek storm
 
     /**
      * 复用的 IntBuffer，用于保存/恢复 GL 状态，避免每帧分配。
@@ -119,16 +116,8 @@ public class GdxVideoProcessor implements MovieProcessor {
         if (time == lastUpdateTime) return;
         lastUpdateTime = time;
 
-        // P0 同步决策：可能设置 skipNextUpdate / pendingExtraUpdates
+        // 同步纠正：可能内部调用 videoPlayer.seek()
         synchronizeVideo(time);
-
-        if (skipNextUpdate) {
-            skipNextUpdate = false;
-            return;
-        }
-
-        int extraUpdates = pendingExtraUpdates;
-        pendingExtraUpdates = 0;
 
         try {
             // ─── 核心 GL 状态保存 ───
@@ -153,19 +142,11 @@ public class GdxVideoProcessor implements MovieProcessor {
             // 解绑纹理，防止 updateTexImage 冲突。移除 glFlush 以提升触控响应性能。
             Gdx.gl20.glBindTexture(GL20.GL_TEXTURE_2D, 0);
 
-            // ─── 驱动解码器：主更新 + 可能的追赶更新 ───
+            // ─── 驱动解码器：一次 update 取新帧 ───
             if (videoPlayer.update()) {
                 Texture tex = videoPlayer.getTexture();
                 if (tex != null) {
                     currentTexture = tex;
-                }
-            }
-            for (int i = 0; i < extraUpdates; i++) {
-                if (videoPlayer.update()) {
-                    Texture tex = videoPlayer.getTexture();
-                    if (tex != null) {
-                        currentTexture = tex;
-                    }
                 }
             }
 
@@ -185,10 +166,12 @@ public class GdxVideoProcessor implements MovieProcessor {
     }
 
     /**
-     * P0 同步纠正：用游戏时间计算目标帧位置。
-     * - 偏差 < 30ms：不干预
-     * - 偏差 30~500ms：skip update（视频超前）或连续 update 多次（视频滞后）追赶
-     * - 偏差 > 500ms：调用 videoPlayer.seek() 直接跳到目标位置（物理消除漂移）
+     * 同步纠正：用游戏时间计算目标帧位置。
+     * - 偏差 ≤ 16ms (1 frame @60fps)：不干预
+     * - 偏差 > 16ms：调用 videoPlayer.seek() 物理跳到目标位置
+     *
+     * 注意：MediaPlayer.seekTo() 是异步的，getCurrentPosition() 在 seek 生效前
+     * 仍会返回旧值，所以加了 SEEK_COOLDOWN_MS 冷却时间防止 seek storm。
      *
      * @param gameTime 当前游戏时间（毫秒）
      */
@@ -210,44 +193,26 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
         syncCorrectionCount++;
 
-        if (Math.abs(drift) <= SYNC_THRESHOLD_SMOOTH) {
-            return;  // 偏差可接受，不干预
+        if (Math.abs(drift) <= SYNC_SEEK_THRESHOLD) {
+            return;  // 偏差在 1 帧内，不干预
         }
 
-        // 严重偏差（>500ms）：直接 seek 跳到目标位置，物理上消除漂移
-        if (Math.abs(drift) > SYNC_SKIP_THRESHOLD) {
-            int target = (int) targetVideoTime;
-            try {
-                videoPlayer.seek(target);
-                if (shouldLogFastSync()) {
-                    Logger.getGlobal().info("Video sync: severe drift " + drift + "ms, seek to " + target + "ms (count=" + syncCorrectionCount + ")");
-                }
-            } catch (Exception e) {
-                Logger.getGlobal().warning("Video seek failed: " + e.getMessage());
-            }
-            resetSyncPoint();
+        // Seek 冷却：MediaPlayer.seekTo() 是异步的，期间 getCurrentPosition()
+        // 仍返回旧值。如果不冷却，连续帧会反复触发 seek。
+        long now = System.currentTimeMillis();
+        if (lastSeekTime > 0 && now - lastSeekTime < SEEK_COOLDOWN_MS) {
             return;
         }
 
-        if (drift > 0) {
-            // 视频超前：下一帧不取新帧，让视频"等"游戏
-            skipNextUpdate = true;
-            if (drift > SYNC_THRESHOLD_FAST) {
-                if (shouldLogFastSync()) {
-                    Logger.getGlobal().info("Video sync: video ahead " + drift + "ms, skip next update (count=" + syncCorrectionCount + ")");
-                }
-                resetSyncPoint();
+        int target = (int) targetVideoTime;
+        try {
+            videoPlayer.seek(target);
+            lastSeekTime = now;
+            if (shouldLogFastSync()) {
+                Logger.getGlobal().info("Video sync: drift " + drift + "ms, seek to " + target + "ms (count=" + syncCorrectionCount + ")");
             }
-        } else {
-            // 视频滞后：假设每帧 ~30ms，按偏差算追赶次数，封顶 3 避免卡顿
-            int catchupFrames = (int) Math.min((-drift) / 30, 3);
-            pendingExtraUpdates = catchupFrames;
-            if (-drift > SYNC_THRESHOLD_FAST) {
-                if (shouldLogFastSync()) {
-                    Logger.getGlobal().info("Video sync: video behind " + (-drift) + "ms, " + catchupFrames + " catch-up updates (count=" + syncCorrectionCount + ")");
-                }
-                resetSyncPoint();
-            }
+        } catch (Exception e) {
+            Logger.getGlobal().warning("Video seek failed: " + e.getMessage());
         }
     }
 
@@ -275,14 +240,6 @@ public class GdxVideoProcessor implements MovieProcessor {
             return true;
         }
         return false;
-    }
-
-    /**
-     * 重置同步基准点
-     * 在偏差过大时调用，重新对齐游戏时间与视频时间
-     */
-    private void resetSyncPoint() {
-        startTime = System.currentTimeMillis();
     }
 
     @Override
@@ -326,6 +283,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             syncCorrectionCount = 0;
             lastFastSyncLogTime = -1;
             lastPeriodicSyncLogTime = -1;
+            lastSeekTime = -1;
 
             Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " Video playback started successfully (gameStartTime=" + time + ")");
         } catch (Exception e) {
@@ -345,6 +303,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             initialized = false;
             startTime = -1;
             gameStartTime = -1;
+            lastSeekTime = -1;
             currentTexture = null;
         } catch (Exception e) {
             // 静默失败
@@ -376,10 +335,9 @@ public class GdxVideoProcessor implements MovieProcessor {
         if (disposed || videoPlayer == null || !playing) return;
         try {
             videoPlayer.resume();
-            // 恢复时重新对齐同步基准，避免暂停期间的时间偏差
-            if (gameStartTime >= 0) {
-                resetSyncPoint();
-            }
+            // 恢复后由同步纠正机制自动拉齐：gameStartTime 不变，
+            // videoPlayer.getCurrentTimestamp() 返回实际位置，synchronizeVideo()
+            // 检测到偏差后会 seek 到目标位置。
         } catch (Exception e) {
             // 静默失败
         }
