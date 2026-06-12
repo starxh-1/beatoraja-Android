@@ -340,6 +340,17 @@ public class AndroidLauncher extends AndroidApplication {
 
         initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
 
+        // 反射清空 libGDX 内部在 initialize() 里注册的 audio LifecycleListener
+        // (它在 onPause 时调 audio.pause() → Oboe requestStop stream,锁屏会让所有状态没声音)。
+        // 移除后,Oboe stream 的 pause/resume 完全由 AndroidLauncher.onPause/onResume 控制,
+        // 以便在 MusicPlayer 状态时不让流停,其他状态仍可走"锁屏音频停"的默认行为。
+        try {
+            com.badlogic.gdx.utils.SnapshotArray<com.badlogic.gdx.LifecycleListener> listeners = getLifecycleListeners();
+            if (listeners != null) listeners.clear();
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to clear libGDX audio lifecycle listeners", t);
+        }
+
         Gdx.input.setCatchKey(Keys.BACK, true);
 
         // 修复屏幕录像/overlay不可见问题：
@@ -726,6 +737,11 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     protected void onResume() {
         super.onResume();
+        // libGDX 默认的 audio lifecycle listener 已被 onCreate 清空,
+        // 这里手动确保 Oboe stream 处于 Started 状态。resume() 在已 Started 时是 noop。
+        if (oboeAudio != null) {
+            try { oboeAudio.resume(); } catch (Throwable t) { Log.w(TAG, "oboeAudio.resume failed", t); }
+        }
         if (!isTextInputActive) {
             getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
             suppressImeForGameInput();
@@ -789,6 +805,32 @@ public class AndroidLauncher extends AndroidApplication {
     @Override
     protected void onPause() {
         stopKeepAlive();
+        // libGDX 默认的 audio lifecycle listener 已被 onCreate 清空,
+        // 这里按状态手动控制 Oboe stream:
+        //   - MusicPlayer 状态:不调 pause() → 锁屏/切后台 音频流保持 running
+        //   - 其他状态(普通 BMSPlayer 等):调 pause() → 维持原本"锁屏音频停"的默认行为
+        boolean isMusicPlayer = false;
+        try {
+            com.badlogic.gdx.ApplicationListener al = Gdx.app != null ? Gdx.app.getApplicationListener() : null;
+            if (al instanceof com.starxh.beatoraja.BeatorajaGame) {
+                bms.player.beatoraja.MainController mc = ((com.starxh.beatoraja.BeatorajaGame) al).getMainController();
+                if (mc != null && mc.getCurrentState() instanceof bms.player.beatoraja.play.MusicPlayer) {
+                    isMusicPlayer = true;
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to read current state in onPause", t);
+        }
+        if (oboeAudio != null) {
+            try {
+                if (isMusicPlayer) {
+                    // 让流继续;resume() 幂等(已在 Started 时 noop)
+                    oboeAudio.resume();
+                } else {
+                    oboeAudio.pause();
+                }
+            } catch (Throwable t) { Log.w(TAG, "oboeAudio pause/resume failed", t); }
+        }
         super.onPause();
     }
 

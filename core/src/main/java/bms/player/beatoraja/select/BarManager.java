@@ -538,6 +538,40 @@ public final class BarManager {
 		return currentsongs != null ? currentsongs[selectedindex] : null;
 	}
 
+	/**
+	 * 現在のバー一覧を取得する（外部から読み取り専用）
+	 */
+	public Bar[] getBarList() {
+		return currentsongs;
+	}
+
+	/**
+	 * 選択中のバーのインデックスを取得する
+	 */
+	public int getSelectedIndex() {
+		return selectedindex;
+	}
+
+	/**
+	 * インデックスで選択バーを切り替える（外部からのジャンプ用）
+	 */
+	public void setSelectedIndex(int index) {
+		if (currentsongs == null) {
+			return;
+		}
+		int n = currentsongs.length;
+		if (n <= 0) {
+			return;
+		}
+		int newIndex = ((index % n) + n) % n;
+		if (newIndex == selectedindex) {
+			return;
+		}
+		selectedindex = newIndex;
+		select.getScoreDataProperty().update(currentsongs[selectedindex].getScore(),
+				currentsongs[selectedindex].getRivalScore());
+	}
+
 	// Safe wrapper around DirectoryBar.getChildren() to avoid throwing or blocking the GLThread
 	private Bar[] safeGetChildren(Bar bar) {
 		if (bar == null) return new Bar[0];

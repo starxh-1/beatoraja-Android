@@ -28,6 +28,7 @@ import bms.player.beatoraja.input.BMSPlayerInputProcessor;
 import bms.player.beatoraja.input.KeyCommand;
 import bms.player.beatoraja.ir.*;
 import bms.player.beatoraja.play.BMSPlayer;
+import bms.player.beatoraja.play.MusicPlayer;
 import bms.player.beatoraja.play.TargetProperty;
 import bms.player.beatoraja.result.CourseResult;
 import bms.player.beatoraja.result.MusicResult;
@@ -57,6 +58,7 @@ public class MainController {
     private long mouseMovedTime;
 
     private BMSPlayer bmsplayer;
+    private MusicPlayer musicPlayer;
     private MusicDecide decide;
     private MusicSelector selector;
     private MusicResult result;
@@ -223,11 +225,35 @@ public class MainController {
     public RankingDataCache getRankingDataCache() { return ircache; }
     public SpriteBatch getSpriteBatch() { return sprite; }
     public PlayerResource getPlayerResource() { return resource; }
+    public bms.player.beatoraja.select.MusicSelector getMusicSelector() { return selector; }
     public Config getConfig() { return config; }
     public PlayerConfig getPlayerConfig() { return player; }
     public BitmapFont getSystemFont18() { return systemfont18; }
     public Object getBeatorajaGame() { return beatorajaGame; }
     public void setBeatorajaGame(Object game) { this.beatorajaGame = game; }
+
+    /**
+     * 构建日语字符集字符串，用于 FreeTypeFontGenerator 生成包含假名/汉字的 BitmapFont。
+     * 包含: ASCII 可印字符 + 平假名 + 片假名 + 常用汉字范围 + 半角片假名 + 常用符号。
+     * FreeTypeFontGenerator 会按 font 文件实际覆盖度 pick，实际不存在的字形会跳过不报错。
+     */
+    private static String buildJapaneseCharacters() {
+        StringBuilder sb = new StringBuilder();
+        // ASCII 可印字符 (0x20-0x7E)
+        for (int i = 0x20; i <= 0x7E; i++) sb.append((char) i);
+        // 平假名: \u3040-\u309F
+        for (int i = 0x3040; i <= 0x309F; i++) sb.append((char) i);
+        // 片假名: \u30A0-\u30FF
+        for (int i = 0x30A0; i <= 0x30FF; i++) sb.append((char) i);
+        // 半角片假名: \uFF65-\uFF9F
+        for (int i = 0xFF65; i <= 0xFF9F; i++) sb.append((char) i);
+        // 常用汉字 (JIS X 0208 常用汉字范围的一部分,4E00-9FFF 太大会生成几千个 glyph)
+        // 取 1 区-4 区常用: 4E00-4FFF (CJK Ideographs 第 1 block)
+        for (int i = 0x4E00; i <= 0x4FFF; i++) sb.append((char) i);
+        // 常用記号・数字・英大文字已在 ASCII 里,追加全角数字・英大文字 (FF01-FF5E)
+        for (int i = 0xFF01; i <= 0xFF5E; i++) sb.append((char) i);
+        return sb.toString();
+    }
 
     /**
      * 解析字体文件 FileHandle，支持 Android 多路径查找：
@@ -341,6 +367,11 @@ public class MainController {
                 // - 实际想要的是"老 BMSPlayer 释放的内存尽快可复用",交给年轻代自然晋升即可
                 bmsplayer = new BMSPlayer(this, resource);
                 newState = bmsplayer;
+                break;
+            case MUSICPLAYER:
+                if (musicPlayer != null) { musicPlayer.dispose(); }
+                musicPlayer = new MusicPlayer(this);
+                newState = musicPlayer;
                 break;
             case RESULT: newState = result; break;
             case COURSERESULT: newState = gresult; break;
@@ -506,6 +537,7 @@ public class MainController {
             systemfontGenerator = new FreeTypeFontGenerator(fontFile);
             FreeTypeFontParameter parameter = new FreeTypeFontParameter();
             parameter.size = 24;
+            parameter.characters = buildJapaneseCharacters();
             systemfont = systemfontGenerator.generateFont(parameter);
             // Pre-generate 18pt version for LaneRenderer and PracticeConfiguration
             parameter.size = 18;
@@ -537,6 +569,7 @@ public class MainController {
         gresult = new CourseResult(this);
         keyconfig = new KeyConfiguration(this);
         skinconfig = new SkinConfiguration(this, player);
+        musicPlayer = new MusicPlayer(this);
 
         // 初始化浮动快捷键菜单（必须在 changeState 之前，确保 InputMultiplexer 包含它）
         if (isAndroid) {
@@ -904,11 +937,11 @@ public class MainController {
             // 当浮动菜单或PlayTouchKeyMapper正在消费触摸时，跳过皮肤鼠标事件处理
             boolean menuConsuming = (floatingMenu != null && floatingMenu.isConsumingTouch()) || playTouchKeyConsuming;
 
-            if (input.isMousePressed() && !menuConsuming) {
+            if (input.isMousePressed() && !menuConsuming && current.getSkin() != null) {
                 input.setMousePressed();
                 current.getSkin().mousePressed(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
             }
-            if (input.isMouseDragged() && !menuConsuming) {
+            if (input.isMouseDragged() && !menuConsuming && current.getSkin() != null) {
                 input.setMouseDragged();
                 current.getSkin().mouseDragged(current, input.getMouseButton(), input.getMouseX(), input.getMouseY());
             }
@@ -1142,6 +1175,7 @@ public class MainController {
                     systemfontGenerator = new FreeTypeFontGenerator(systemfontFileHandle);
                     FreeTypeFontParameter parameter = new FreeTypeFontParameter();
                     parameter.size = 24;
+                    parameter.characters = buildJapaneseCharacters();
                     systemfont = systemfontGenerator.generateFont(parameter);
                     parameter.size = 18;
                     systemfont18 = systemfontGenerator.generateFont(parameter);
