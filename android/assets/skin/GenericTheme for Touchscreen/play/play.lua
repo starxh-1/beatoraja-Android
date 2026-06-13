@@ -2151,7 +2151,7 @@ local function main(keysNumber)
 	do
 		if isPortraitLayout() then
 			table.insert(skin.slider,
-				{id = "lanecover", src = "src_lanecover", x = 0, y = 0, w = -1, h = -1, angle = 1, range = geo.lane.w, type = 4}
+				{id = "lanecover", src = "src_lanecover", x = 0, y = 0, w = -1, h = -1, angle = 3, range = geo.lane.w, type = 4}
 			)
 		else
 			table.insert(skin.slider,
@@ -2232,15 +2232,14 @@ local function main(keysNumber)
 
 		-- lanecover(sudden)
 		if isPortraitLayout() then
-			-- Portrait: lanecover starts at spawn side (right edge) and slides left toward judgment line.
-			-- Rotated 270 degrees: w=thickness, h=geo.lane.w (full lane width after rotation).
-			local cover_thickness = 30
+			-- Portrait: lanecover starts at spawn side (bottom) and reveals toward judgment line (top).
+			-- Vertical bar (w = cover_h), angle = 3 expands left, range = geo.lane.w.
 			append_all(skin.destination, {
 				{id = "lanecover", dst = {
-					{x = geo.lane.x + geo.lane.w, y = geo.lane.y + geo.lane.h / 2, w = cover_thickness, h = geo.lane.w, angle = 270, cx = 0.5, cy = 0.5},
+					{x = geo.lane.x + geo.lane.w, y = geo.lane.y, w = geo.lane.w, h = geo.lane.h},
 				}},
 				{id = "num_lanecover", offset = 4, op = {270}, filter = 1, dst = {
-					{x = geo.lane.x + geo.lane.w + num_h + num_margin_y, y = geo.lane.y + geo.lane.h * 0.25, w = num_w, h = num_h, angle = 270},
+					{x = geo.lane.x + geo.lane.w + num_margin_y, y = geo.lane.y + geo.lane.h * 0.25, w = num_w, h = num_h},
 				}},
 			})
 		else
