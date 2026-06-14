@@ -153,6 +153,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     }
 
     @Override
+    public SongData[] getSongDatas() {
+        SQLiteDatabase db = helper.getReadableDatabase();
+        List<SongData> list = new ArrayList<>();
+        String sql = "SELECT * FROM song";
+        try (Cursor c = db.rawQuery(sql, null)) {
+            while (c.moveToNext()) {
+                SongData sd = cursorToSongData(c);
+                list.add(sd);
+            }
+        } catch (Throwable t) {
+            Log.e(TAG, "getSongDatas all failed: " + t.getMessage(), t);
+        }
+        return Validatable.removeInvalidElements(list.toArray(new SongData[0]));
+    }
+
+    @Override
     public SongData[] getSongDatas(String[] hashes) {
         if (hashes == null || hashes.length == 0) return SongData.EMPTY;
         StringBuilder md5s = new StringBuilder();

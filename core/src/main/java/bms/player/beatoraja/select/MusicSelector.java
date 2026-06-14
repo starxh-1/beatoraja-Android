@@ -848,9 +848,11 @@ public final class MusicSelector extends MainState {
 
 	}
 
-	// 浮动音乐播放器入口按钮(屏幕左下角 96x96)
+	// 浮动音乐播放器入口按钮(96x96)
+	// 位置跟随 FloatingMenu：对角分布，如 FloatingMenu 在右上角则此按钮在左上角
 	private static final float MUSIC_BTN_SIZE = 96f;
 	private static final float MUSIC_BTN_MARGIN = 24f;
+	private static final float MUSIC_BTN_GAP = 12f; // 与 FloatingMenu 的间距
 
 	private Texture createMusicPlayerButtonTexture() {
 		final int size = 96;
@@ -887,16 +889,29 @@ public final class MusicSelector extends MainState {
 		if (batch == null) return;
 		int skinW = main.getPlayerResource().getConfig().getResolution().width;
 		int skinH = main.getPlayerResource().getConfig().getResolution().height;
-		// 屏幕坐标系下,左下角 (skinX, skinY) 起点
-		float x = MUSIC_BTN_MARGIN;
-		float y = MUSIC_BTN_MARGIN;
-		// 检查按钮是否被屏幕边缘裁切(若皮肤分辨率宽,按钮直接位于皮肤左下)
-		if (x + MUSIC_BTN_SIZE > skinW) {
-			// 不用缩放,直接绘制
+
+		float x, y;
+		int pos = main.getConfig().getFloatingMenuPosition();
+		switch (pos) {
+			case 1: // FloatingMenu 在右上角 -> 按钮在左上角
+				x = MUSIC_BTN_MARGIN;
+				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
+				break;
+			case 2: // FloatingMenu 在底部居中 -> 按钮在顶部居中
+				x = (skinW - MUSIC_BTN_SIZE) / 2f;
+				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
+				break;
+			case 3: // FloatingMenu 在右下角 -> 按钮在左下角
+				x = MUSIC_BTN_MARGIN;
+				y = MUSIC_BTN_MARGIN;
+				break;
+			case 0: // FloatingMenu 在顶部居中 -> 按钮在底部居中
+			default:
+				x = (skinW - MUSIC_BTN_SIZE) / 2f;
+				y = MUSIC_BTN_MARGIN;
+				break;
 		}
-		if (y + MUSIC_BTN_SIZE > skinH) {
-			// 不用缩放,直接绘制
-		}
+
 		batch.begin();
 		batch.setColor(1, 1, 1, 1);
 		batch.draw(musicPlayerButtonTex, x, y, MUSIC_BTN_SIZE, MUSIC_BTN_SIZE);
@@ -909,7 +924,33 @@ public final class MusicSelector extends MainState {
 		final BMSPlayerInputProcessor input = main.getInputProcessor();
 		int gx = input.getMouseX();
 		int gy = input.getMouseY();
-		return gx >= MUSIC_BTN_MARGIN && gx <= MUSIC_BTN_MARGIN + MUSIC_BTN_SIZE
-			&& gy >= MUSIC_BTN_MARGIN && gy <= MUSIC_BTN_MARGIN + MUSIC_BTN_SIZE;
+
+		int skinW = main.getPlayerResource().getConfig().getResolution().width;
+		int skinH = main.getPlayerResource().getConfig().getResolution().height;
+
+		float x, y;
+		int pos = main.getConfig().getFloatingMenuPosition();
+		switch (pos) {
+			case 1: // 左上角
+				x = MUSIC_BTN_MARGIN;
+				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
+				break;
+			case 2: // 顶部居中
+				x = (skinW - MUSIC_BTN_SIZE) / 2f;
+				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
+				break;
+			case 3: // 左下角
+				x = MUSIC_BTN_MARGIN;
+				y = MUSIC_BTN_MARGIN;
+				break;
+			case 0: // 底部居中
+			default:
+				x = (skinW - MUSIC_BTN_SIZE) / 2f;
+				y = MUSIC_BTN_MARGIN;
+				break;
+		}
+
+		return gx >= x && gx <= x + MUSIC_BTN_SIZE
+			&& gy >= y && gy <= y + MUSIC_BTN_SIZE;
 	}
 }

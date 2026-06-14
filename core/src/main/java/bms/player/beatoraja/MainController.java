@@ -247,10 +247,10 @@ public class MainController {
         for (int i = 0x30A0; i <= 0x30FF; i++) sb.append((char) i);
         // 半角片假名: \uFF65-\uFF9F
         for (int i = 0xFF65; i <= 0xFF9F; i++) sb.append((char) i);
-        // 常用汉字 (JIS X 0208 常用汉字范围的一部分,4E00-9FFF 太大会生成几千个 glyph)
-        // 取 1 区-4 区常用: 4E00-4FFF (CJK Ideographs 第 1 block)
-        for (int i = 0x4E00; i <= 0x4FFF; i++) sb.append((char) i);
-        // 常用記号・数字・英大文字已在 ASCII 里,追加全角数字・英大文字 (FF01-FF5E)
+        // 常用汉字 (CJK Unified Ideographs): \u4E00-\u9FA5
+        // 包含日语常用汉字及中文汉字。使用 incremental 模式时，此处仅作为预生成集合。
+        for (int i = 0x4E00; i <= 0x5FFF; i++) sb.append((char) i);
+        // 追加全角符号、数字、英大文字 (FF01-FF5E)
         for (int i = 0xFF01; i <= 0xFF5E; i++) sb.append((char) i);
         return sb.toString();
     }
@@ -537,6 +537,7 @@ public class MainController {
             systemfontGenerator = new FreeTypeFontGenerator(fontFile);
             FreeTypeFontParameter parameter = new FreeTypeFontParameter();
             parameter.size = 24;
+            parameter.incremental = true; // 启用增量渲染，支持全量 CJK 字符
             parameter.characters = buildJapaneseCharacters();
             systemfont = systemfontGenerator.generateFont(parameter);
             // Pre-generate 18pt version for LaneRenderer and PracticeConfiguration
@@ -1175,6 +1176,7 @@ public class MainController {
                     systemfontGenerator = new FreeTypeFontGenerator(systemfontFileHandle);
                     FreeTypeFontParameter parameter = new FreeTypeFontParameter();
                     parameter.size = 24;
+                    parameter.incremental = true; // 启用增量渲染
                     parameter.characters = buildJapaneseCharacters();
                     systemfont = systemfontGenerator.generateFont(parameter);
                     parameter.size = 18;

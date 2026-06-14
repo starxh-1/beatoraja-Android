@@ -19,6 +19,12 @@ public interface SongDatabaseAccessor {
 	public SongData[] getSongDatas(String key, String value);
 
 	/**
+	 * すべての楽曲を取得する
+	 * @return 検索結果
+	 */
+	public SongData[] getSongDatas();
+
+	/**
 	 * MD5/SHA256で指定した楽曲をまとめて取得する
 	 *
 	 * @param hashes

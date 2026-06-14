@@ -37,7 +37,9 @@ import com.starxh.beatoraja.AudioSpectrumProvider;
  */
 public class MusicPlayer extends MainState {
 
-	private BarManager barManager;
+	// 自己的歌曲列表（显示所有文件夹的歌曲）
+	private SongData[] allSongs;
+	private int selectedIndex = 0;
 	private SongData currentSong;
 	private BMSModel currentModel;
 	private BGAutoplayThread bgThread;
@@ -112,14 +114,27 @@ public class MusicPlayer extends MainState {
 			audioDriver.stop((Note) null);
 		}
 
-		this.barManager = main.getMusicSelector().getBarManager();
-		Bar bar = barManager.getSelected();
-		if (!(bar instanceof SongBar)) {
+		// 获取所有歌曲（不再依赖 MusicSelector 的 BarManager）
+		this.allSongs = main.getSongDatabase().getSongDatas();
+		if (allSongs == null || allSongs.length == 0) {
 			main.changeState(MainStateType.MUSICSELECT);
 			return;
 		}
 
-		this.currentSong = ((SongBar) bar).getSongData();
+		// 如果 MusicSelector 当前选中的是 SongBar，保持同步
+		BarManager selectorBarManager = main.getMusicSelector().getBarManager();
+		Bar selectorBar = selectorBarManager.getSelected();
+		if (selectorBar instanceof SongBar) {
+			SongData selectorSong = ((SongBar) selectorBar).getSongData();
+			for (int i = 0; i < allSongs.length; i++) {
+				if (allSongs[i].getSha256().equals(selectorSong.getSha256())) {
+					selectedIndex = i;
+					break;
+				}
+			}
+		}
+
+		this.currentSong = allSongs[selectedIndex];
 		this.currentModel = resource.loadBMSModel(
 				Gdx.files.absolute(currentSong.getPath()),
 				resource.getPlayerConfig().getLnmode());
@@ -248,9 +263,7 @@ public class MusicPlayer extends MainState {
 
 	private void drawSongList(SpriteBatch batch) {
 		if (font == null) return;
-		Bar[] bars = barManager.getBarList();
-		if (bars == null || bars.length == 0) return;
-		int sel = barManager.getSelectedIndex();
+		if (allSongs == null || allSongs.length == 0) return;
 		int half = LIST_VISIBLE / 2;
 
 		// 第一行的基线 y(libGDX 坐标,自下而上)
@@ -259,9 +272,9 @@ public class MusicPlayer extends MainState {
 
 		batch.begin();
 		for (int row = 0; row < LIST_VISIBLE; row++) {
-			int idx = (sel + row - half + bars.length) % bars.length;
-			Bar b = bars[idx];
-			String title = b == null ? "" : (b.getTitle() == null ? "" : b.getTitle());
+			int idx = (selectedIndex + row - half + allSongs.length) % allSongs.length;
+			SongData song = allSongs[idx];
+			String title = song == null ? "" : (song.getFullTitle() == null ? song.getTitle() : song.getFullTitle());
 
 			// 随拖拽偏移整体平移:手指下滑(gdx_y 减小)→ listDragOffset > 0 → 行向下移
 			float y = topRowBaselineY - row * LIST_LINE_H - listDragOffset;
@@ -492,7 +505,7 @@ public class MusicPlayer extends MainState {
 				if (Math.abs(listDragOffset) < LIST_TAP_THRESHOLD) {
 					// 视为 tap:选中并开始播放
 					if (listTouchedBarIndex >= 0) {
-						barManager.setSelectedIndex(listTouchedBarIndex);
+						selectedIndex = listTouchedBarIndex;
 						loadAndPlaySelected();
 					}
 				} else {
@@ -500,13 +513,10 @@ public class MusicPlayer extends MainState {
 					// 渲染方向(手指下滑 → 行下移)走的是 convention 1(content follows finger),
 					// 手指下滑时进入视野的是上方(LOWER 索引)的曲子,snap 必须与之一致:
 					// listDragOffset > 0 → newSel 减小。
-					Bar[] bars = barManager.getBarList();
-					if (bars != null && bars.length > 0) {
+					if (allSongs != null && allSongs.length > 0) {
 						int deltaSel = -Math.round(listDragOffset / LIST_LINE_H);
-						int cur = barManager.getSelectedIndex();
-						int n = bars.length;
-						int newSel = ((cur + deltaSel) % n + n) % n;
-						barManager.setSelectedIndex(newSel);
+						int n = allSongs.length;
+						selectedIndex = ((selectedIndex + deltaSel) % n + n) % n;
 					}
 				}
 				listDragging = false;
@@ -523,25 +533,51 @@ public class MusicPlayer extends MainState {
 	}
 
 	private int computeBarIndexAtTouch(int gy) {
-		Bar[] bars = barManager.getBarList();
-		if (bars == null || bars.length == 0) return -1;
-		int sel = barManager.getSelectedIndex();
+		if (allSongs == null || allSongs.length == 0) return -1;
 		int half = LIST_VISIBLE / 2;
 		// 绘制公式:row r 中心 y = baseRow0Y - r * LIST_LINE_H - listDragOffset
 		// (见 drawSongList) —— 反推 row 应该用 (baseRow0Y - listDragOffset - gy) / LIST_LINE_H
 		float baseRow0Y = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
 		int row = Math.round((baseRow0Y - listDragOffset - gy) / LIST_LINE_H);
 		if (row < 0 || row >= LIST_VISIBLE) return -1;
-		int idx = (sel + row - half + bars.length) % bars.length;
+		int idx = (selectedIndex + row - half + allSongs.length) % allSongs.length;
 		return idx;
 	}
 
 	private void loadAndPlaySelected() {
-		Bar next = barManager.getSelected();
-		if (next instanceof SongBar) {
-			shutdownResources();
-			create();
+		if (allSongs == null || selectedIndex < 0 || selectedIndex >= allSongs.length) return;
+		SongData next = allSongs[selectedIndex];
+		if (next == null) return;
+
+		shutdownResources();
+
+		this.currentSong = next;
+		this.currentModel = resource.loadBMSModel(
+				Gdx.files.absolute(currentSong.getPath()),
+				resource.getPlayerConfig().getLnmode());
+		if (this.currentModel == null) {
+			main.changeState(MainStateType.MUSICSELECT);
+			return;
 		}
+
+		main.getAudioProcessor().setModel(currentModel);
+		resource.setPlayMode(BMSPlayerMode.AUTOPLAY);
+
+		loadStagefile();
+
+		final int lastTimeMs = currentModel.getLastTime();
+		int tail = currentSong.getTail();
+		if (tail <= 0) {
+			tail = 5000;
+		}
+		this.totalDurationMs = lastTimeMs + tail;
+
+		this.playStartTimeMs = System.currentTimeMillis();
+		this.bgThread = new BGAutoplayThread(currentModel, main, playStartTimeMs);
+		this.bgThread.start();
+
+		this.advanceThread = new AutoAdvanceThread();
+		this.advanceThread.start();
 	}
 
 	private int hitTestControlButton(int gx, int gy) {
@@ -569,33 +605,34 @@ public class MusicPlayer extends MainState {
 	 * 按当前 playMode 推进到下一首/上一首(用于手动 PREV/NEXT 按钮和歌曲结束的自动切歌)。
 	 *  - LOOP_ONE:不切歌,直接重新播放当前曲目
 	 *  - RANDOM:随机选一首跟当前不同的;若曲目数 <= 1 则保持当前
-	 *  - SEQUENCE:走 BarManager 默认行为(folder 内循环)
+	 *  - SEQUENCE:在所有歌曲列表中顺序/逆序移动
 	 */
 	private void advanceByMode(boolean forward) {
+		if (allSongs == null || allSongs.length == 0) return;
+
 		switch (playMode) {
 			case LOOP_ONE:
 				loadAndPlaySelected();
 				return;
 			case RANDOM: {
-				Bar[] bars = barManager.getBarList();
-				if (bars == null || bars.length <= 1) {
+				if (allSongs.length <= 1) {
 					loadAndPlaySelected();
 					return;
 				}
-				int cur = barManager.getSelectedIndex();
 				java.util.Random rng = new java.util.Random();
-				int newIdx = cur;
+				int newIdx = selectedIndex;
 				int safety = 16;
-				while (newIdx == cur && safety-- > 0) {
-					newIdx = rng.nextInt(bars.length);
+				while (newIdx == selectedIndex && safety-- > 0) {
+					newIdx = rng.nextInt(allSongs.length);
 				}
-				barManager.setSelectedIndex(newIdx);
+				selectedIndex = newIdx;
 				loadAndPlaySelected();
 				return;
 			}
 			case SEQUENCE:
 			default:
-				barManager.move(forward);
+				int n = allSongs.length;
+				selectedIndex = forward ? (selectedIndex + 1) % n : (selectedIndex - 1 + n) % n;
 				loadAndPlaySelected();
 				return;
 		}
@@ -839,39 +876,41 @@ public class MusicPlayer extends MainState {
 			// 2. 按 playMode 推进到下一首(与 advanceByMode 同逻辑)
 			// 注意:先推进歌曲再清理 stagefile,确保 render() 如果在此期间运行
 			// 看到的是已更新的 currentSong,从而 loadStagefile() 加载正确的封面。
+			if (allSongs == null || allSongs.length == 0) {
+				Gdx.app.postRunnable(() -> main.changeState(MainStateType.MUSICSELECT));
+				return true;
+			}
+
 			switch (playMode) {
 				case LOOP_ONE:
 					// 保持当前曲目,直接重启
 					break;
 				case RANDOM: {
-					Bar[] bars = barManager.getBarList();
-					if (bars != null && bars.length > 1) {
+					if (allSongs.length > 1) {
 						java.util.Random rng = new java.util.Random();
-						int cur = barManager.getSelectedIndex();
+						int cur = selectedIndex;
 						int newIdx = cur;
 						for (int safety = 16; safety > 0 && newIdx == cur; safety--) {
-							newIdx = rng.nextInt(bars.length);
+							newIdx = rng.nextInt(allSongs.length);
 						}
-						barManager.setSelectedIndex(newIdx);
+						selectedIndex = newIdx;
 					}
 					break;
 				}
 				case SEQUENCE:
 				default:
-					barManager.move(true);
+					selectedIndex = (selectedIndex + 1) % allSongs.length;
 					break;
-			}
-
-			// 4. 检查新曲目是否有效
-			Bar bar = barManager.getSelected();
-			if (!(bar instanceof SongBar)) {
-				Gdx.app.postRunnable(() -> main.changeState(MainStateType.MUSICSELECT));
-				return true;
 			}
 
 			// 5. currentSong 已更新,在此之后清理 stagefile,保证 render() 若同时运行
 			// 看到的是新 currentSong,loadStagefile() 会加载正确封面。
-			this.currentSong = ((SongBar) bar).getSongData();
+			this.currentSong = allSongs[selectedIndex];
+			if (currentSong == null) {
+				Gdx.app.postRunnable(() -> main.changeState(MainStateType.MUSICSELECT));
+				return true;
+			}
+
 			if (this.stagefile != null) {
 				this.stagefileToDispose = this.stagefile;
 				this.stagefile = null;

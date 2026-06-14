@@ -1041,21 +1041,30 @@ public class SettingsActivity extends Activity {
         new Thread(() -> {
             try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(getContentResolver().openOutputStream(uri))) {
                 File playerDir = new File(getExternalFilesDir(null), "player/" + selectedPlayerName);
-                String[] files = {"score.db", "score.db-wal", "score.db-shm"};
                 byte[] buf = new byte[8192];
-                for (String name : files) {
-                    File f = new File(playerDir, name);
-                    if (f.exists()) {
-                        zos.putNextEntry(new java.util.zip.ZipEntry(name));
-                        try (java.io.FileInputStream fis = new java.io.FileInputStream(f)) {
-                            int r; while ((r = fis.read(buf)) != -1) zos.write(buf, 0, r);
-                        }
-                        zos.closeEntry();
-                    }
-                }
+                addDirectoryToZip(zos, playerDir, "", buf);
                 runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_exported), Toast.LENGTH_SHORT).show());
             } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_export_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
         }).start();
+    }
+
+    private void addDirectoryToZip(java.util.zip.ZipOutputStream zos, File dir, String basePath, byte[] buf) throws java.io.IOException {
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                String entryPath = basePath.isEmpty() ? file.getName() : basePath + "/" + file.getName();
+                if (file.isDirectory()) {
+                    addDirectoryToZip(zos, file, entryPath, buf);
+                } else {
+                    zos.putNextEntry(new java.util.zip.ZipEntry(entryPath));
+                    try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+                        int r;
+                        while ((r = fis.read(buf)) != -1) zos.write(buf, 0, r);
+                    }
+                    zos.closeEntry();
+                }
+            }
+        }
     }
 
     private void importScoreDatabase() {
@@ -1071,14 +1080,24 @@ public class SettingsActivity extends Activity {
                 byte[] buf = new byte[8192];
                 java.util.zip.ZipEntry entry;
                 while ((entry = zis.getNextEntry()) != null) {
-                    String name = new File(entry.getName()).getName();
-                    if (!name.equals("score.db") && !name.equals("score.db-wal") && !name.equals("score.db-shm")) {
+                    String name = entry.getName();
+                    // 防止路径遍历攻击：确保文件不会写到目标目录之外
+                    File outFile = new File(playerDir, name);
+                    String canonicalDir = playerDir.getCanonicalPath();
+                    String canonicalFile = outFile.getCanonicalPath();
+                    if (!canonicalFile.startsWith(canonicalDir + java.io.File.separator)) {
                         zis.closeEntry();
                         continue;
                     }
-                    File outFile = new File(playerDir, name);
-                    try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
-                        int r; while ((r = zis.read(buf)) != -1) fos.write(buf, 0, r);
+                    // 确保父目录存在
+                    if (entry.isDirectory()) {
+                        outFile.mkdirs();
+                    } else {
+                        outFile.getParentFile().mkdirs();
+                        try (java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile)) {
+                            int r;
+                            while ((r = zis.read(buf)) != -1) fos.write(buf, 0, r);
+                        }
                     }
                     zis.closeEntry();
                 }

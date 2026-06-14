@@ -43,12 +43,11 @@ public class GdxVideoProcessor implements MovieProcessor {
     private boolean loop = false;            // 是否循环播放
     private long videoDuration = -1;         // 视频时长（毫秒）
     private int syncCorrectionCount = 0;     // 同步修正计数（用于日志）
-    private boolean initialSeekDone = false; // play() 后是否已做过初始 seek
+    private boolean initialSeekDone = false; // 是否已完成首次同步（用于 log 节流）
 
     // 异常大漂移阈值 (ms) - 通常是 pause/resume 后或解码卡顿造成的
     private static final long SEVERE_DRIFT_THRESHOLD = 1000;
     private static final long SEEK_COOLDOWN_MS = 200;          // seek 冷却时间 (ms)
-    private static final long INITIAL_SEEK_DELAY_MS = 1000;    // play() 后延迟这么久再 seek，让 MediaCodec 完成冷启动
     private static final long SYNC_LOG_INTERVAL_MS = 60_000;  // seek log 最小间隔 (ms)
     private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
@@ -170,9 +169,8 @@ public class GdxVideoProcessor implements MovieProcessor {
      * 同步策略：视频是连续流（30fps），游戏是渲染循环（60fps），两者帧率不同。
      * 不做每帧强制对齐——会让视频反复 seek 引起卡顿。
      *
-     * 只在以下情况 seek：
-     * 1. 首次同步（play 后 INITIAL_SEEK_DELAY_MS）：seek 到目标位置，让 MediaCodec 冷启动后再做有意义的对齐
-     * 2. 异常大漂移（> 1s）：通常是 pause/resume 后，seek 一次拉齐
+     * 只在异常大漂移（> 1s）时 seek 一次拉齐：
+     * 这种情况通常是 pause/resume 后或解码卡顿造成的。
      *
      * @param gameTime 当前游戏时间（毫秒）
      */
@@ -194,22 +192,14 @@ public class GdxVideoProcessor implements MovieProcessor {
         }
         syncCorrectionCount++;
 
-        // 首次同步：等 INITIAL_SEEK_DELAY_MS 后再 seek，让 MediaCodec 完成冷启动。
-        // 22ms 时 seek 目标 ≈ 0，无意义且会扰动正在初始化的解码器。
+        // 首次同步：不做初始 seek，让视频自然从当前位置播放。
+        // 之前尝试用 INITIAL_SEEK_DELAY_MS 延迟 seek 来处理冷启动，
+        // 但这会导致某些视频在 seek 时出现黑屏/花屏问题，且跳过了视频开头内容。
+        // 后续 drift 由 SEVERE_DRIFT_THRESHOLD 修正。
         if (!initialSeekDone) {
-            if (targetVideoTime < INITIAL_SEEK_DELAY_MS) {
-                return;  // 还没到 seek 时机
-            }
             initialSeekDone = true;
-            int target = (int) targetVideoTime;
-            try {
-                videoPlayer.seek(target);
-                lastSeekTime = System.currentTimeMillis();
-                if (shouldLogFastSync()) {
-                    Logger.getGlobal().info("Video sync: initial seek to " + target + "ms (drift was " + drift + "ms)");
-                }
-            } catch (Exception e) {
-                Logger.getGlobal().warning("Video initial seek failed: " + e.getMessage());
+            if (shouldLogFastSync()) {
+                Logger.getGlobal().info("Video sync: skip initial seek, natural play from current position");
             }
             return;
         }
@@ -459,6 +449,14 @@ public class GdxVideoProcessor implements MovieProcessor {
                 }
             }
             videoPlayer.pause();
+
+            // 预热后 seek 到 0，让视频位置干净，避免 warmup 暂停位置（~30-50ms）影响后续播放
+            try {
+                videoPlayer.seek(0);
+            } catch (Exception e) {
+                // seek 失败不影响，继续
+            }
+
             Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId
                     + " preload: decoder warmed" + (firstFrameDecoded ? "" : " (timeout)")
                     + " in " + (System.currentTimeMillis() - warmupStart) + "ms");
