@@ -57,12 +57,13 @@ public class MusicPlayer extends MainState {
 	private static final float BTN_MARGIN_BOTTOM = 48f;
 	private static final float BTN_GAP = 32f;
 
-	// 频谱显示区域 (屏幕坐标,左下原点)
-	private static final float SPEC_X = 1840f;
-	private static final float SPEC_Y = 540f;
-	private static final float SPEC_W = 540f;
-	private static final float SPEC_H = 200f;
+	// 频谱显示区域 (基于原始比例换算到当前分辨率)
+	private static final float SPEC_W_RATIO = 0.28125f; // 540/1920 - 保持原始比例
+	private static final float SPEC_H_RATIO = 0.185f;   // 200/1080 - 高度比例
+	private static final float SPEC_Y_OFFSET = 0.50f;   // Y 居中
 	private static final int SPEC_BANDS = 32;
+	// 运行时计算的频谱坐标
+	private float specX, specY, specW, specH;
 
 	// 歌曲列表区域
 	private static final int LIST_VISIBLE = 10; // 上下各 4 条,中间 1 条
@@ -180,6 +181,12 @@ public class MusicPlayer extends MainState {
 		if (this.shapeRenderer == null) {
 			this.shapeRenderer = new ShapeRenderer();
 		}
+
+		// 计算频谱显示区域坐标
+		specW = skinW * SPEC_W_RATIO;
+		specH = skinH * SPEC_H_RATIO;
+		specX = (int)(skinW * 0.70f);  // 向右移动到了屏幕70%位置
+		specY = skinH * SPEC_Y_OFFSET - specH / 2;
 
 		// 启动后开启持续渲染(选曲界面默认是关的),并把 FPS 限制到 60
 		Gdx.graphics.setContinuousRendering(true);
@@ -346,33 +353,34 @@ public class MusicPlayer extends MainState {
 		}
 		Gdx.gl.glEnable(Gdx.gl.GL_BLEND);
 		Gdx.gl.glBlendFunc(Gdx.gl.GL_SRC_ALPHA, Gdx.gl.GL_ONE_MINUS_SRC_ALPHA);
+		shapeRenderer.setProjectionMatrix(batch.getProjectionMatrix());
 		shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
 
 		// 背景框
 		shapeRenderer.setColor(0f, 0f, 0f, 0.6f);
-		shapeRenderer.rect(SPEC_X, SPEC_Y, SPEC_W, SPEC_H);
+		shapeRenderer.rect(specX, specY, specW, specH);
 
 		// 频谱条
-		float bandW = SPEC_W / SPEC_BANDS;
+		float bandW = specW / SPEC_BANDS;
 		float barThickness = bandW * 0.7f;
 		for (int i = 0; i < SPEC_BANDS; i++) {
-			float x = SPEC_X + i * bandW;
+			float x = specX + i * bandW;
 			float v = specBands[i];
 			float top = specTopValues[i];
-			float barHeight = v * (SPEC_H - 4f);
-			float topY = top * (SPEC_H - 4f);
-			barHeight = Math.min(barHeight, SPEC_H - 4f);
+			float barHeight = v * (specH - 4f);
+			float topY = top * (specH - 4f);
+			barHeight = Math.min(barHeight, specH - 4f);
 
 			// 主条:蓝绿渐变(按频率从低到高,颜色从青到紫)
 			float hue = (float) i / SPEC_BANDS;
 			shapeRenderer.setColor(0.3f + hue * 0.4f, 0.7f, 1f - hue * 0.5f, 0.85f);
-			shapeRenderer.rect(x + (bandW - barThickness) / 2f, SPEC_Y + 2f,
+			shapeRenderer.rect(x + (bandW - barThickness) / 2f, specY + 2f,
 					barThickness, barHeight);
 
 			// 顶部峰值
 			if (topY > 2f) {
 				shapeRenderer.setColor(1f, 1f, 1f, 0.9f);
-				shapeRenderer.rect(x + (bandW - barThickness) / 2f, SPEC_Y + 2f + topY - 2f,
+				shapeRenderer.rect(x + (bandW - barThickness) / 2f, specY + 2f + topY - 2f,
 						barThickness, 2f);
 			}
 		}

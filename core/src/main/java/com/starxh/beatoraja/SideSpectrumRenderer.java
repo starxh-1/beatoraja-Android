@@ -122,7 +122,7 @@ public class SideSpectrumRenderer {
             float specScreenX = gameLeft + (gameAreaX / 1920f) * gameWidth;
             float specScreenW = (gameAreaW / 1920f) * gameWidth;
             float specScreenH = (gameAreaH / 1080f) * gameHeight;
-            float specScreenY_bottom = gameAreaY;
+            float specScreenY_bottom = (gameAreaY / 1080f) * gameHeight;
 
             // 设置viewport和camera只覆盖spectrum区域
             Gdx.gl.glViewport((int) specScreenX, (int) specScreenY_bottom, (int) specScreenW, (int) specScreenH);
