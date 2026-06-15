@@ -237,19 +237,6 @@ public final class PlayerConfig {
 
 	private IRConfig[] irconfig;
 
-	private String twitterConsumerKey;
-
-	private String twitterConsumerSecret;
-
-	private String twitterAccessToken;
-
-	private String twitterAccessTokenSecret;
-
-	// -- Stream
-	private boolean enableRequest = false;
-	private boolean notifyRequest = false;
-	private int maxRequestCount = 30;
-
 	public PlayerConfig() {
 		validate();
 	}
@@ -732,38 +719,6 @@ public final class PlayerConfig {
 		this.showpastnote = showpastnote;
 	}
 
-	public String getTwitterConsumerKey() {
-		return twitterConsumerKey;
-	}
-
-	public void setTwitterConsumerKey(String twitterConsumerKey) {
-		this.twitterConsumerKey = twitterConsumerKey;
-	}
-
-	public String getTwitterConsumerSecret() {
-		return twitterConsumerSecret;
-	}
-
-	public void setTwitterConsumerSecret(String twitterConsumerSecret) {
-		this.twitterConsumerSecret = twitterConsumerSecret;
-	}
-
-	public String getTwitterAccessToken() {
-		return twitterAccessToken;
-	}
-
-	public void setTwitterAccessToken(String twitterAccessToken) {
-		this.twitterAccessToken = twitterAccessToken;
-	}
-
-	public String getTwitterAccessTokenSecret() {
-		return twitterAccessTokenSecret;
-	}
-
-	public void setTwitterAccessTokenSecret(String twitterAccessTokenSecret) {
-		this.twitterAccessTokenSecret = twitterAccessTokenSecret;
-	}
-
 	// -- Spectrum offset (Java-side, independent of luaskin)
 	private int spectrumOffsetX = 0;
 	private int spectrumOffsetY = 0;
@@ -775,31 +730,6 @@ public final class PlayerConfig {
 	private int touchKeyOffsetY = 0;
 	private int touchKeyOffsetW = 0;
 	private int touchKeyOffsetH = 0;
-
-	// --Stream
-	public boolean getRequestEnable() {
-        return enableRequest;
-    }
-
-	public boolean getRequestNotify() {
-        return notifyRequest;
-    }
-
-    public void setRequestEnable(boolean requestEnable) {
-        this.enableRequest = requestEnable;
-    }
-
-    public void setRequestNotify(boolean notifyEnable) {
-        this.notifyRequest = notifyEnable;
-    }
-
-    public int getMaxRequestCount() {
-        return maxRequestCount;
-    }
-
-    public void setMaxRequestCount(int maxRequestCount) {
-        this.maxRequestCount = maxRequestCount;
-    }
 
 	public void validate() {
 		if(skin == null) {
@@ -909,9 +839,6 @@ public final class PlayerConfig {
 			}
 		}
 		irconfig = Validatable.removeInvalidElements(irconfig);
-
-		// --Stream
-		maxRequestCount = MathUtils.clamp(maxRequestCount, 0, 100);
 	}
 
 	public static void init(Config config) {

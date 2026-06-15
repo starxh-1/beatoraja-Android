@@ -76,12 +76,6 @@ public class Config implements Validatable, Serializable {
 	private boolean androidUnlimitedFPS = false;
 
 	/**
-	 * Android 专用设置：是否启用稳定帧率模式（保留字段，已由绝对时间对齐帧率控制取代）
-	 * 新版帧率控制逻辑不再区分此模式，始终使用绝对时间对齐方式
-	 */
-	private boolean androidStableFPS = true;
-
-	/**
 	 * Android 专用设置：Play 界面是否显示触摸按键
 	 */
 	private boolean showTouchKey = true;
@@ -109,20 +103,6 @@ public class Config implements Validatable, Serializable {
 	 */
 	public void setAndroidUnlimitedFPS(boolean androidUnlimitedFPS) {
 		this.androidUnlimitedFPS = androidUnlimitedFPS;
-	}
-
-	/**
-	 * 获取是否启用 Android 稳定帧率模式
-	 */
-	public boolean isAndroidStableFPS() {
-		return androidStableFPS;
-	}
-
-	/**
-	 * 设置是否启用 Android 稳定帧率模式
-	 */
-	public void setAndroidStableFPS(boolean androidStableFPS) {
-		this.androidStableFPS = androidStableFPS;
 	}
 
 	public boolean isShowTouchKey() {
@@ -281,9 +261,6 @@ public class Config implements Validatable, Serializable {
 	private String ipfsurl = "https://gateway.ipfs.io/";
 
 	private int irSendCount = 5;
-
-	private boolean useDiscordRPC = false;
-	private boolean setClipboardScreenshot = false;
 
 	private static final String[] DEFAULT_TABLEURL = { "https://rattoto10.jounin.jp/table.html",
 			"https://rattoto10.jounin.jp/table_insane.html",
@@ -501,22 +478,6 @@ public class Config implements Validatable, Serializable {
 
 	public void setCacheSkinImage(boolean cacheSkinImage) {
 		this.cacheSkinImage = cacheSkinImage;
-	}
-
-	public boolean isUseDiscordRPC() {
-		return useDiscordRPC;
-	}
-
-	public void setUseDiscordRPC(boolean useDiscordRPC) {
-		this.useDiscordRPC = useDiscordRPC;
-	}
-
-	public boolean isSetClipboardWhenScreenshot() {
-		return setClipboardScreenshot;
-	}
-
-	public void setClipboardWhenScreenshot(boolean setClipboardScreenshot) {
-		this.setClipboardScreenshot = setClipboardScreenshot;
 	}
 
 	public boolean isUpdatesong() {
@@ -837,10 +798,7 @@ public class Config implements Validatable, Serializable {
         c.enableIpfs = this.enableIpfs;
         c.ipfsurl = this.ipfsurl;
         c.irSendCount = this.irSendCount;
-        c.useDiscordRPC = this.useDiscordRPC;
-        c.setClipboardScreenshot = this.setClipboardScreenshot;
         c.androidUnlimitedFPS = this.androidUnlimitedFPS;
-        c.androidStableFPS = this.androidStableFPS;
         c.showTouchKey = this.showTouchKey;
         // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
@@ -891,10 +849,7 @@ public class Config implements Validatable, Serializable {
         c.enableIpfs = changes.enableIpfs;
         c.ipfsurl = changes.ipfsurl != null ? changes.ipfsurl : this.ipfsurl;
         c.irSendCount = changes.irSendCount;
-        c.useDiscordRPC = changes.useDiscordRPC;
-        c.setClipboardScreenshot = changes.setClipboardScreenshot;
         c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
-        c.androidStableFPS = changes.androidStableFPS;
         c.showTouchKey = changes.showTouchKey;
         // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;

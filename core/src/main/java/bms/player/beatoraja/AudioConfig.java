@@ -220,10 +220,6 @@ public class AudioConfig implements Validatable, Serializable {
 		 */
 		OpenAL,
 		/**
-		 * PortAudio
-		 */
-		PortAudio,
-		/**
 		 * AudioDevice (libGDX AudioDevice, 未実装)
 		 */
 //		AudioDevice,

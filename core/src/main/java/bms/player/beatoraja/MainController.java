@@ -38,7 +38,6 @@ import bms.player.beatoraja.skin.SkinLoader;
 import bms.player.beatoraja.skin.SkinObject.SkinOffset;
 import bms.player.beatoraja.skin.SkinProperty;
 import bms.player.beatoraja.song.*;
-import bms.player.beatoraja.stream.StreamController;
 import bms.tool.mdprocessor.MusicDownloadProcessor;
 
 /**
@@ -99,7 +98,6 @@ public class MainController {
     private Thread inputPollingThread;
     private volatile boolean pollingRunning = false;
     private MusicDownloadProcessor download;
-    private StreamController streamController;
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
     private boolean selectorInitialized = false;
 
@@ -561,10 +559,6 @@ public class MainController {
 
         resource = new PlayerResource(audio, config, player);
         selector = new MusicSelector(this, songUpdated);
-        if(player.getRequestEnable()) {
-            streamController = new StreamController(selector, (player.getRequestNotify() ? messageRenderer : null));
-            streamController.run();
-        }
         decide = new MusicDecide(this);
         result = new MusicResult(this);
         gresult = new CourseResult(this);
@@ -959,18 +953,6 @@ public class MainController {
                 showfps = !showfps;
             }
 
-            // fullscrees - windowed
-            if (input.isActivated(KeyCommand.SWITCH_SCREEN_MODE)) {
-                boolean fullscreen = Gdx.graphics.isFullscreen();
-                Graphics.DisplayMode currentMode = Gdx.graphics.getDisplayMode();
-                if (fullscreen) {
-                    Gdx.graphics.setWindowedMode(currentMode.width, currentMode.height);
-                } else {
-                    Gdx.graphics.setFullscreenMode(currentMode);
-                }
-                config.setDisplaymode(fullscreen ? Config.DisplayMode.WINDOW : Config.DisplayMode.FULLSCREEN);
-            }
-
             // screen shot
             if (input.isActivated(KeyCommand.SAVE_SCREENSHOT)) {
                 if (screenshot == null || !screenshot.isAlive()) {
@@ -1090,9 +1072,6 @@ public class MainController {
         }
         if (selector != null) {
             selector.dispose();
-        }
-        if (streamController != null) {
-            streamController.dispose();
         }
         if (decide != null) {
             decide.dispose();
