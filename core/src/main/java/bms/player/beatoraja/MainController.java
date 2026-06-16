@@ -448,6 +448,10 @@ public class MainController {
                 if (state == MainStateType.PLAY && config != null && config.isShowFloatingMenuInPlay()) {
                     menuVisible = true;
                 }
+                // MUSICSELECT 必须常驻浮动菜单（无论默认皮肤还是自定义皮肤，避免被其他路径覆盖）
+                if (state == MainStateType.MUSICSELECT) {
+                    menuVisible = true;
+                }
                 floatingMenu.setVisible(menuVisible);
                 floatingMenu.setSelectMode(state == MainStateType.MUSICSELECT);
                 floatingMenu.setKeyConfigMode(state == MainStateType.CONFIG);

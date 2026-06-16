@@ -400,6 +400,11 @@ public class MusicResult extends AbstractResult {
 			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.probeReadScoreEnd();
 			oldscore = oldsc != null ? oldsc : new ScoreData();
 			getScoreDataProperty().setTargetScore(oldscore.getExscore(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0, resource.getBMSModel().getTotalNotes());
+			// FIX: setTargetScore 只更新 bestscore 字段，需重新调 update() 才能让
+			// nowbestscore / nowbestscorerate 反映真正的旧分（修复 NUMBER_DIFF_HIGHSCORE 等
+			// 显示为新分 +nowpoint 而非真实差分 -2294 的 bug）。postRunnable 保证 happens-before。
+			final ScoreDataProperty sdp = getScoreDataProperty();
+			Gdx.app.postRunnable(() -> sdp.update(newscoreFinal));
 			// [DEBUG PROBE] 旧分加载完成，记录 exscore
 			// bms.player.beatoraja.result.debug.ResultFreezeDiagnostics.log("updateScoreDB:oldScore loaded, old exscore=" + oldscore.getExscore());
 

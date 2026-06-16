@@ -160,11 +160,13 @@ public class SkinConfiguration extends MainState {
 			java.util.logging.Logger.getGlobal().info("SkinConfiguration:   [" + i + "] " + availableSkins.get(i).getName() + " - " + availableSkins.get(i).getPath());
 		}
 		if (config != null && this.config.getPath() != null && !config.getPath().isEmpty()) {
+			final String cfgPath = normalizeSkinPath(config.getPath());
 			int index = -1;
 			for (int i = 0; i < availableSkins.size(); i++) {
 				SkinHeader header = availableSkins.get(i);
-				if (header != null && config.getPath().equals(header.getPath())) {
+				if (header != null && cfgPath.equals(normalizeSkinPath(header.getPath()))) {
 					index = i;
+					break;
 				}
 			}
 			selectSkin(index);
@@ -190,7 +192,25 @@ public class SkinConfiguration extends MainState {
 			saveSkinHistory();
 		}
 
-		int index = selectedSkinIndex < 0 ? 0 : (selectedSkinIndex + indexDiff + availableSkins.size()) % availableSkins.size();
+		int index = selectedSkinIndex;
+		if (index < 0) {
+			// 之前没有选中的皮肤（如首次进入或 config 路径不在当前 availableSkins 中），
+			// 重新尝试按 config.path 匹配一次，避免永远跳到列表首位。
+			final String cfgPath = config.getPath() != null ? normalizeSkinPath(config.getPath()) : null;
+			if (cfgPath != null) {
+				for (int i = 0; i < availableSkins.size(); i++) {
+					if (cfgPath.equals(normalizeSkinPath(availableSkins.get(i).getPath()))) {
+						index = i;
+						break;
+					}
+				}
+			}
+			if (index < 0) {
+				index = 0;
+			}
+		} else {
+			index = (index + indexDiff + availableSkins.size()) % availableSkins.size();
+		}
 		config.setPath(availableSkins.get(index).getPath());
 		config.setProperties(new SkinConfig.Property());
 		selectSkin(index);
@@ -716,6 +736,28 @@ public class SkinConfiguration extends MainState {
 			value = i;
 			displayValue = String.valueOf(value);
 			setCustomOffset(offsetName, kind, value);
+		}
+	}
+
+	/**
+	 * 规范化皮肤路径用于匹配：消除绝对/相对路径差异（Android 上 config 默认路径为
+	 * "skin/default/select.json"，而 header.getPath() 是 File.toString() 的绝对路径），
+	 * 以及大小写差异与多余分隔符。
+	 */
+	private static String normalizeSkinPath(String path) {
+		if (path == null) return null;
+		String p = path.replace("\\", "/");
+		try {
+			File f = new File(p);
+			String abs;
+			try {
+				abs = f.getCanonicalPath();
+			} catch (Exception e) {
+				abs = f.getAbsolutePath();
+			}
+			return abs.replace("\\", "/").toLowerCase();
+		} catch (Throwable t) {
+			return p.toLowerCase();
 		}
 	}
 
