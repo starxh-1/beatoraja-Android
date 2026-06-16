@@ -60,7 +60,7 @@ public class MusicPlayer extends MainState {
 	// 频谱显示区域 (基于原始比例换算到当前分辨率)
 	private static final float SPEC_W_RATIO = 0.28125f; // 540/1920 - 保持原始比例
 	private static final float SPEC_H_RATIO = 0.185f;   // 200/1080 - 高度比例
-	private static final float SPEC_Y_OFFSET = 0.50f;   // Y 居中
+	private static final float SPEC_Y_OFFSET = 0.80f;   // Y 放到上方，向下 5%
 	private static final int SPEC_BANDS = 32;
 	// 运行时计算的频谱坐标
 	private float specX, specY, specW, specH;
@@ -105,6 +105,7 @@ public class MusicPlayer extends MainState {
 
 	@Override
 	public void create() {
+		// 使用 Config 的分辨率（4:3 模式下会返回实际屏幕分辨率）
 		this.skinW = resource.getConfig().getResolution().width;
 		this.skinH = resource.getConfig().getResolution().height;
 
@@ -185,8 +186,8 @@ public class MusicPlayer extends MainState {
 		// 计算频谱显示区域坐标
 		specW = skinW * SPEC_W_RATIO;
 		specH = skinH * SPEC_H_RATIO;
-		specX = (int)(skinW * 0.70f);  // 向右移动到了屏幕70%位置
-		specY = skinH * SPEC_Y_OFFSET - specH / 2;
+		specX = (skinW - specW) / 2;  // X 居中
+		specY = (int)(skinH * SPEC_Y_OFFSET);  // Y 放到上方
 
 		// 启动后开启持续渲染(选曲界面默认是关的),并把 FPS 限制到 60
 		Gdx.graphics.setContinuousRendering(true);
@@ -544,9 +545,10 @@ public class MusicPlayer extends MainState {
 		if (allSongs == null || allSongs.length == 0) return -1;
 		int half = LIST_VISIBLE / 2;
 		// 绘制公式:row r 中心 y = baseRow0Y - r * LIST_LINE_H - listDragOffset
-		// (见 drawSongList) —— 反推 row 应该用 (baseRow0Y - listDragOffset - gy) / LIST_LINE_H
+		// (见 drawSongList) —— 反推 row 应该用 (baseRow0Y - gy) / LIST_LINE_H + listDragOffset / LIST_LINE_H
+		// 注意:滚动后内容向下移动(listDragOffset > 0)，所以要用 + 往回推算实际在那个位置的 row
 		float baseRow0Y = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
-		int row = Math.round((baseRow0Y - listDragOffset - gy) / LIST_LINE_H);
+		int row = Math.round((baseRow0Y - gy) / LIST_LINE_H + listDragOffset / LIST_LINE_H);
 		if (row < 0 || row >= LIST_VISIBLE) return -1;
 		int idx = (selectedIndex + row - half + allSongs.length) % allSongs.length;
 		return idx;

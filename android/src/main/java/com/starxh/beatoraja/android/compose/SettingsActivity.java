@@ -114,6 +114,12 @@ public class SettingsActivity extends Activity {
 
     private Object backInvokedCallback;
 
+    /** Activity 销毁标志，用于停止后台线程 */
+    private volatile boolean destroyed = false;
+
+    /** 后台线程列表，用于 onDestroy 时停止 */
+    private final List<Thread> backgroundThreads = new java.util.ArrayList<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 在加载视图之前，强制刷新当前上下文的语言环境
@@ -1503,6 +1509,35 @@ public class SettingsActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        destroyed = true;
+
+        // 停止所有后台线程
+        synchronized (backgroundThreads) {
+            for (Thread t : backgroundThreads) {
+                if (t != null && t.isAlive()) {
+                    try {
+                        t.interrupt();
+                        t.join(500);
+                    } catch (InterruptedException ignored) {}
+                }
+            }
+            backgroundThreads.clear();
+        }
+
+        // 停止 Handler 的所有 callbacks
+        if (keepAliveHandler != null) {
+            keepAliveHandler.removeCallbacksAndMessages(null);
+            keepAliveHandler = null;
+        }
+
+        // 清理 View 引用，帮助 GC
+        settingsScrollView = null;
+        bmsPathContainer = null;
+        tableUrlContainer = null;
+        playerSpinner = null;
+        focusIndicator = null;
+        focusableControls.clear();
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
             try {
                 getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(
@@ -1585,6 +1620,9 @@ public class SettingsActivity extends Activity {
     }
 
     private void launchGame() {
+        // 在启动游戏前先清理所有资源，释放内存
+        cleanupResources();
+
         Intent intent = new Intent(this, AndroidLauncher.class);
         // 不使用 FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP：
         // 这些标志会销毁 SettingsActivity 并重建任务栈，导致 Android 16
@@ -1593,6 +1631,42 @@ public class SettingsActivity extends Activity {
         // 改为同任务内标准 Activity 切换，finish() 会关闭 SettingsActivity。
         startActivity(intent);
         finish();
+    }
+
+    /** 提前清理资源，用于 launchGame 时释放内存 */
+    private void cleanupResources() {
+        destroyed = true;
+
+        // 停止所有后台线程
+        synchronized (backgroundThreads) {
+            for (Thread t : backgroundThreads) {
+                if (t != null && t.isAlive()) {
+                    try {
+                        t.interrupt();
+                        t.join(100);
+                    } catch (InterruptedException ignored) {}
+                }
+            }
+            backgroundThreads.clear();
+        }
+
+        // 停止 Handler
+        if (keepAliveHandler != null) {
+            keepAliveHandler.removeCallbacksAndMessages(null);
+        }
+
+        // 清理 View 引用
+        settingsScrollView = null;
+        bmsPathContainer = null;
+        tableUrlContainer = null;
+        playerSpinner = null;
+        focusIndicator = null;
+        focusableControls.clear();
+
+        // 清理 List 引用
+        bmsPaths.clear();
+        tableUrls.clear();
+        availablePlayers.clear();
     }
 
     private void showHelpDialog(String title, String message) {

@@ -97,6 +97,8 @@ public class MainController {
      */
     private Thread inputPollingThread;
     private volatile boolean pollingRunning = false;
+    /** 正在 dispose 标志，防止 dispose 过程中渲染线程继续访问已释放的资源 */
+    private volatile boolean disposing = false;
     private MusicDownloadProcessor download;
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
     private boolean selectorInitialized = false;
@@ -440,9 +442,9 @@ public class MainController {
             };
             Gdx.input.setInputProcessor(escapeMapper);
         } else {
-            // 浮动菜单：在 PLAY / DECIDE 状态隐藏（除非 config 允许在 PLAY 显示）
+            // 浮动菜单：在 PLAY / DECIDE / MUSICPLAYER 状态隐藏（除非 config 允许在 PLAY 显示）
             if (floatingMenu != null) {
-                boolean menuVisible = state != MainStateType.PLAY && state != MainStateType.DECIDE;
+                boolean menuVisible = state != MainStateType.PLAY && state != MainStateType.DECIDE && state != MainStateType.MUSICPLAYER;
                 if (state == MainStateType.PLAY && config != null && config.isShowFloatingMenuInPlay()) {
                     menuVisible = true;
                 }
@@ -726,6 +728,8 @@ public class MainController {
     public int getViewportH() { return viewportH; }
 
     public void render() {
+        // dispose 过程中跳过渲染，防止访问已释放的资源导致 NPE
+        if (disposing) return;
         // ── Android 渲染线程优先级提升（仅首次）──
         // 将 GL 线程优先级设为 THREAD_PRIORITY_DISPLAY (-4)，
         // 确保渲染线程在无触控时不会被系统调度器降低优先级。
@@ -1200,7 +1204,10 @@ public class MainController {
         Logger.getGlobal().info("設定情報を保存");
     }
 
-    public void exit() { Gdx.app.exit(); }
+    public void exit() {
+        disposing = true;
+        dispose();
+    }
 
     public BMSPlayerInputProcessor getInputProcessor() { return input; }
     public AudioDriver getAudioProcessor() { return audio; }

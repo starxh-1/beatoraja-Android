@@ -240,6 +240,9 @@ public class AndroidLauncher extends AndroidApplication {
         config.useImmersiveMode = true;
         config.useWakelock = true;
 
+        // 使用默认的 FillResolutionStrategy（全屏填充）
+        config.resolutionStrategy = new FillResolutionStrategy();
+
         File filesDir = getExternalFilesDir(null);
         String root = filesDir.getAbsolutePath();
         System.setProperty("beatoraja.root", root);
@@ -1102,7 +1105,13 @@ public class AndroidLauncher extends AndroidApplication {
                 .setMessage("Are you sure you want to exit?")
                 .setPositiveButton("YES", (dialog, which) -> {
                     isExitDialogShowing = false;
-                    Gdx.app.exit();
+                    // 调用 exit() 会设置 disposing=true 并停止渲染线程，然后 dispose() 清理资源
+                    BeatorajaGame game = (BeatorajaGame) Gdx.app.getApplicationListener();
+                    if (game != null && game.getMainController() != null) {
+                        game.getMainController().exit();
+                    }
+                    // 自然结束 Activity
+                    finish();
                 })
                 .setNegativeButton("NO", (dialog, which) -> {
                     isExitDialogShowing = false;
