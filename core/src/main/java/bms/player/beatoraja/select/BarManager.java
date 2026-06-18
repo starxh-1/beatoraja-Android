@@ -215,11 +215,6 @@ public final class BarManager {
 		courses = new TableBar(select, courseReader.read(), courseReader);
 
 		CourseData[] cds = new CourseDataAccessor("favorite").readAll();
-//		if(cds.length == 0) {
-//			cds = new CourseData[1];
-//			cds[0] = new CourseData();
-//			cds[0].setName("FAVORITE");
-//		}
 
 		favorites = Stream.of(cds).map(cd -> new HashBar(select, cd.getName(), cd.getSong())).toArray(HashBar[]::new);
 
@@ -300,7 +295,7 @@ public final class BarManager {
 			l.addAll(tables);
 			l.addAll(commands);
 			l.addAll(search);
-			
+
 			// 在根目录时，异步更新所有子文件夹的状态
 			if (select.resource.getConfig().isFolderlamp()) {
 				final Array<Bar> foldersToUpdate = new Array<>();

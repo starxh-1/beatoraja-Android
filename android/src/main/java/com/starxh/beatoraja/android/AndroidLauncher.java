@@ -48,7 +48,6 @@ import android.view.WindowInsets;
 import org.json.JSONObject;
 
 import bms.player.beatoraja.Config;
-import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.MainStateListener;
 import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.BMSPlayerMode;

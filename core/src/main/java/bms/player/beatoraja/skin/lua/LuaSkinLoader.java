@@ -7,6 +7,7 @@ import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.skin.json.JSONSkinLoader;
 import bms.player.beatoraja.skin.json.JsonSkin;
 import bms.player.beatoraja.skin.property.*;
+import bms.player.beatoraja.select.MusicSelector;
 
 import com.badlogic.gdx.utils.ObjectMap;
 import com.badlogic.gdx.utils.reflect.ClassReflection;
@@ -15,6 +16,7 @@ import com.badlogic.gdx.utils.reflect.ReflectionException;
 import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.lib.TwoArgFunction;
 
 import java.io.File;
 import java.lang.reflect.Array;
@@ -35,13 +37,19 @@ public class LuaSkinLoader extends JSONSkinLoader {
 	/** 缓存编译后的 Lua 闭包，避免重复读取磁盘和解析 */
 	private LuaValue cachedClosure;
 	private File cachedFile;
+	/** 调用方传入的 MainState，用于判断是否 MusicSelect 走路径重定向 */
+	private final MainState state;
+	/** 是否已为本次加载安装过 io.open 重定向（避免重入） */
+	private boolean ioRedirectInstalled = false;
 
 	public LuaSkinLoader() {
 		super(new SkinLuaAccessor(false));
+		this.state = null;
 	}
 
 	public LuaSkinLoader(MainState state, Config c) {
 		super(state, c, new SkinLuaAccessor(false));
+		this.state = state;
 	}
 
 	private LuaValue getExecResult(File p) {
@@ -69,6 +77,7 @@ public class LuaSkinLoader extends JSONSkinLoader {
 		SkinHeader header = null;
 		try {
 			lua.setDirectory(p.getParentFile());
+			installIoRedirectIfMusicSelect(p.getParentFile());
 			LuaValue value = getExecResult(p);
 			if (value.istable()) {
 				LuaValue h = value.get("header");
@@ -227,5 +236,41 @@ public class LuaSkinLoader extends JSONSkinLoader {
 				return null;
 			}
 		}
+	}
+
+	/**
+	 * 仅当加载 MusicSelect 皮肤时，把 lua 的 io.open 重定向为以皮肤目录为基准。
+	 * 这样皮肤脚本里的 `io.open("skin/xxx/djpoint_log.txt", "w")` 这类相对路径
+	 * 在 Android（user.dir == "/"）下也能找到。其它状态（PLAY/RESULT 等）走原始 io.open。
+	 */
+	private void installIoRedirectIfMusicSelect(File skinDir) {
+		if (ioRedirectInstalled) return;
+		if (state == null || !(state instanceof MusicSelector)) return;
+		if (skinDir == null) return;
+		LuaTable io;
+		try {
+			LuaValue ioVal = lua.getGlobals().get("io");
+			if (!(ioVal instanceof LuaTable)) return;
+			io = (LuaTable) ioVal;
+		} catch (Throwable t) {
+			return;
+		}
+		final LuaValue originalOpen = io.get("open");
+		final File baseDir = skinDir;
+		io.set("open", new TwoArgFunction() {
+			@Override
+			public LuaValue call(LuaValue arg1, LuaValue arg2) {
+				String path = arg1.tojstring();
+				if (path != null && !path.isEmpty()) {
+					File f = new File(path);
+					if (!f.isAbsolute()) {
+						f = new File(baseDir, path);
+						arg1 = LuaValue.valueOf(f.getAbsolutePath());
+					}
+				}
+				return originalOpen.call(arg1, arg2);
+			}
+		});
+		ioRedirectInstalled = true;
 	}
 }

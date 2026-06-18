@@ -512,20 +512,6 @@ public final class BarRenderer {
 		// favorite書き込み
 //		CourseData course = new CourseData();
 //		course.setName(favorites[0].getTitle());
-//		List<String> l = new ArrayList<>();
-//		for(TableData.TableSongData element : favorites[0].getElements()) {
-//			l.add(element.getHash());
-//		}
-//		course.setHash(l.toArray(new String[l.size()]));
-//		CourseDataAccessor cda = new CourseDataAccessor("favorite");
-//		if(!Files.exists(Paths.get("favorite"))) {
-//			try {
-//				Files.createDirectory(Paths.get("favorite"));
-//			} catch (IOException e) {
-//				e.printStackTrace();
-//			}
-//		}
-//		cda.write("default", course);
 	}
 
 }

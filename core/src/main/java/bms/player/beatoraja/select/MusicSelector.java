@@ -497,7 +497,7 @@ public final class MusicSelector extends MainState {
 					chartOption.doubleoption = rival.getOption() / 100;
 					chartOption.randomoptionseed = rival.getSeed() % (65536 * 256);
 					chartOption.randomoption2seed = rival.getSeed() / (65536 * 256);
-//					chartOption.rand = rival.getRandom();
+
 				}
 				break;
 			case RIVALOPTION:

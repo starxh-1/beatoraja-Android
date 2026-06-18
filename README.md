@@ -1,48 +1,48 @@
 # beatoraja-Android
 
-beatoraja 的 Android 移植版，使用 [libGDX](https://libgdx.com/) 构建。
+Android port of beatoraja, built with [libGDX](https://libgdx.com/).
 
-[English](README-en.md)
+[中文](README_zh.md)
 
-## 1. 为啥做这个beatoraja-Android移植
+## 1. Why port beatoraja to Android
 
-移动端已经快十年没出现过能看的 BMS Player 了。Malody 吗？那个不支持 base62, bmson, 本身也不算 BMS 生态的，味不够。
+It's been nearly a decade since a usable BMS Player showed up on mobile. Malody? Doesn't support base62 or bmson, and it's not really part of the BMS ecosystem — not the right flavor.
 
-beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，于是干脆借 AI 的力量把它搬到了 Android 上。
-（其实这句话也是AI写的，实际上我觉得这句话看着很傻不拉几，:)
+beatoraja is almost entirely written in Java, so the code structure is fairly port-friendly. I just leaned on AI to bring it over to Android.
 
-主要还是我嫌 x86 掌机太重了，把这个移植到 Android 上，我就可以去买轻便的 Android 掌机了。
+The real reason: x86 handhelds are too damn heavy. Port it to Android and I can buy a lightweight Android handheld.
 
-## 2. 跟原来的beatoraja比多了什么功能，差在哪里
+## 2. What's added vs the original, and what's missing
 
-多出来的：音频频谱 (Audio Spectrum)，launcher 的 Play Option 选项就有
+What's added: Audio Spectrum — it's in the Play Option in the launcher.
 
-区别：
-1. JavaFX 相关的实现都没有了，让 AI 随便写了个新的 launcher，能改选项就行
-2. 音频引擎换成了 libgdx-oboe，可以说如果没有 Oboe 这个移植项目根本搞不出来。
+What's different:
+1. All JavaFX-related implementations are gone — I had AI throw together a new launcher, it just needs to be able to change options.
+2. Audio engine swapped to libgdx-oboe — honestly, without Oboe this port couldn't have happened at all.
 
-其余功能基本沿袭自 beatoraja。
+Everything else is essentially inherited from beatoraja.
 
-## 3. 配置要求
+## 3. System Requirements
 
-- CPU：arm64-v8a，以 Snapdragon 810 为参考基准。
-- 屏幕：16:9 的 1080P 屏幕可获得最佳体验，考虑到现代手机很少 16:9 比例，音频频谱默认做在了游戏外的左右两边。
-- 内存：2GB RAM 或以上
-- 说明：app 本身支持 32bit 设备，但性能太差，勉强跑跑无 K 音的 BMS 吧。BGA 都带不起来。(Tested on Xiaomi 2s)
+- CPU: arm64-v8a, reference baseline is Snapdragon 810.
+- Display: 16:9 1080P for the best experience. Since modern phones rarely have 16:9, the audio spectrum is placed outside the playfield on the left and right by default.
+- RAM: 2GB or above
+- Note: The app technically supports 32-bit devices, but performance is terrible — only barely runnable on K-less BMS. BGA won't even work. (Tested on Xiaomi 2s)
 
-## 4. 正在实现中的功能 
+## 4. Features In Progress
 
-- 待补充
+- TBD
 
-## 5. 无法实现（实现难度过大）的功能
-- 非 mp4 (H.264, HEVC) 的 视频软解（难度过大，期待有人提出新思路）
-- Internet Ranking 功能
-- CimFS 读取和解析
+## 5. Features That Can't Be Implemented (too difficult)
 
-## 6. 已知 bug
+- Software decoding of non-mp4 (H.264, HEVC) video formats (too hard, hoping someone comes up with a new approach)
+- Internet Ranking
+- CimFS reading and parsing
 
-- 部分皮肤无法在 Skin Select 界面更改元素（如 WMII）
-- Result 界面的 Gauge 区域有几率会卡死，不影响操作
+## 6. Known Bugs
+
+- Some skins can't change elements in the Skin Select screen (e.g. WMII)
+- The Gauge area on the Result screen may occasionally freeze — doesn't affect operations
 
 # Special Thanks
 
@@ -57,4 +57,4 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 
 - Anonymous test human guys
 
-- I love keysounded VSRG, yeah. ~~所以管他呢就算AI写屎山我也要弄出来我就要玩反正修啥bug不是修~~
+- I love keysounded VSRG, yeah.
