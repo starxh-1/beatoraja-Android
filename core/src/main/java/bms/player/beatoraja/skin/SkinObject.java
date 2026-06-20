@@ -21,7 +21,8 @@ public abstract class SkinObject extends DisposableObject {
 	/**
 	 * オフセットの参照ID
 	 */
-	private int[] offset = new int[0];
+	private static final int[] EMPTY_INT = new int[0];
+	private int[] offset = EMPTY_INT;
 
 	private boolean relative;
 
@@ -66,8 +67,9 @@ public abstract class SkinObject extends DisposableObject {
 	/**
 	 * 描画条件となるオプション定義
 	 */
-	private int[] dstop = new int[0];
-	private BooleanProperty[] dstdraw = new BooleanProperty[0];
+	private int[] dstop = EMPTY_INT;
+	private static final BooleanProperty[] EMPTY_DRAW = new BooleanProperty[0];
+	private BooleanProperty[] dstdraw = EMPTY_DRAW;
 	/**
 	 * 描画条件のマウス範囲
 	 */
@@ -91,7 +93,8 @@ public abstract class SkinObject extends DisposableObject {
 	/**
 	 * 描画先
 	 */
-	private SkinObjectDestination[] dst = new SkinObjectDestination[0];
+	private static final SkinObjectDestination[] EMPTY_DST = new SkinObjectDestination[0];
+	private SkinObjectDestination[] dst = EMPTY_DST;
 
 	// 以下、高速化用
 	private long starttime;
@@ -101,7 +104,8 @@ public abstract class SkinObject extends DisposableObject {
 	public Rectangle region = new Rectangle();
 	public Color color = new Color();
 	public int angle;
-	private SkinOffset[] off = new SkinOffset[0];
+	private static final SkinOffset[] EMPTY_OFF = new SkinOffset[0];
+	private SkinOffset[] off = EMPTY_OFF;
 
 	private Rectangle fixr = null;
 	private Color fixc = null;
@@ -241,7 +245,7 @@ public abstract class SkinObject extends DisposableObject {
 	}
 
 	public void setOption(int[] dstop) {
-		this.dstop = dstop;
+		this.dstop = (dstop == null || dstop.length == 0) ? EMPTY_INT : dstop;
 	}
 
 	public void setDrawCondition(int[] dstop) {
@@ -259,12 +263,12 @@ public abstract class SkinObject extends DisposableObject {
 				l.add(i);
 			}
 		}
-		this.dstop = op.toArray();
-		this.dstdraw = draw.toArray(BooleanProperty.class);
+		this.dstop = op.size == 0 ? EMPTY_INT : op.toArray();
+		this.dstdraw = draw.size == 0 ? EMPTY_DRAW : draw.toArray(BooleanProperty.class);
 	}
 
 	public void setDrawCondition(BooleanProperty[] dstdraw) {
-		this.dstdraw = dstdraw;
+		this.dstdraw = (dstdraw == null || dstdraw.length == 0) ? EMPTY_DRAW : dstdraw;
 	}
 
 	public final void setStretch(int stretch) {
@@ -750,6 +754,9 @@ public abstract class SkinObject extends DisposableObject {
 		if(a.size > 0) {
 			this.offset = a.iterator().toArray().toArray();
 			this.off = new SkinOffset[this.offset.length];
+		} else {
+			this.offset = EMPTY_INT;
+			this.off = EMPTY_OFF;
 		}
 	}
 

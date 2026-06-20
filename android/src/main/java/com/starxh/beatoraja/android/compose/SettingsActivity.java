@@ -92,6 +92,10 @@ public class SettingsActivity extends Activity {
     private android.widget.ScrollView settingsScrollView;
     private java.util.List<View> focusableControls = new java.util.ArrayList<>();
 
+    private android.view.ViewTreeObserver.OnGlobalFocusChangeListener focusChangeListener;
+    private android.view.ViewTreeObserver.OnScrollChangedListener scrollChangedListener;
+    private CharacterWheelDialog currentCharacterWheel;
+
     private Handler keepAliveHandler;
     private boolean isSimulatingTouch = false;
 
@@ -146,18 +150,20 @@ public class SettingsActivity extends Activity {
         buildFocusableControlsList();
 
         // 监听焦点变化，显示手柄高光
-        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener((oldFocus, newFocus) -> {
+        focusChangeListener = (oldFocus, newFocus) -> {
             if (gamepadMode) {
                 updateFocusIndicator(newFocus);
             }
-        });
+        };
+        getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(focusChangeListener);
 
         // 监听滚动，确保高光跟随并支持手动触发滚动
-        getWindow().getDecorView().getViewTreeObserver().addOnScrollChangedListener(() -> {
+        scrollChangedListener = () -> {
             if (gamepadMode) {
                 updateFocusIndicator(getCurrentFocus());
             }
-        });
+        };
+        getWindow().getDecorView().getViewTreeObserver().addOnScrollChangedListener(scrollChangedListener);
 
         // 手柄模式下触摸屏幕则退出手柄模式
         android.view.View touchInterceptor = findViewById(android.R.id.content);
@@ -798,7 +804,7 @@ public class SettingsActivity extends Activity {
             return;
         }
         updateBtn.setText("..."); updateBtn.setEnabled(false); editText.setEnabled(false);
-        new Thread(() -> {
+        Thread updateThread = new Thread(() -> {
             try {
                 File tableDir = new File(getExternalFilesDir(null), "table");
                 if (!tableDir.exists()) tableDir.mkdirs();
@@ -823,7 +829,9 @@ public class SettingsActivity extends Activity {
             } catch (Exception e) {
                 runOnUiThread(() -> { updateBtn.setText(getString(R.string.btn_update)); updateBtn.setEnabled(true); editText.setEnabled(true); Toast.makeText(this, getString(R.string.msg_update_failed, e.getMessage()), Toast.LENGTH_LONG).show(); });
             }
-        }).start();
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(updateThread); }
+        updateThread.start();
     }
 
     private String sha256(String input) {
@@ -889,7 +897,7 @@ public class SettingsActivity extends Activity {
         Button updateAllBtn = findViewById(R.id.updateAllTablesBtn);
         updateAllBtn.setText(getString(R.string.btn_update) + "..."); updateAllBtn.setEnabled(false);
         Toast.makeText(this, getString(R.string.msg_updating_tables, total), Toast.LENGTH_SHORT).show();
-        new Thread(() -> {
+        Thread updateThread = new Thread(() -> {
             int updated = 0, failed = 0;
             for (String url : tableUrls) {
                 if (url == null || url.trim().isEmpty()) continue;
@@ -905,7 +913,9 @@ public class SettingsActivity extends Activity {
             }
             final int s = updated, f = failed;
             runOnUiThread(() -> { updateAllBtn.setText(getString(R.string.btn_update)); updateAllBtn.setEnabled(true); Toast.makeText(this, getString(R.string.msg_tables_updated_summary, s, f), Toast.LENGTH_LONG).show(); });
-        }).start();
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(updateThread); }
+        updateThread.start();
     }
 
     private void saveConfigToJson() {
@@ -1044,14 +1054,16 @@ public class SettingsActivity extends Activity {
     }
 
     private void exportScoreToUri(Uri uri) {
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             try (java.util.zip.ZipOutputStream zos = new java.util.zip.ZipOutputStream(getContentResolver().openOutputStream(uri))) {
                 File playerDir = new File(getExternalFilesDir(null), "player/" + selectedPlayerName);
                 byte[] buf = new byte[8192];
                 addDirectoryToZip(zos, playerDir, "", buf);
                 runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_exported), Toast.LENGTH_SHORT).show());
             } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_export_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
-        }).start();
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(thread); }
+        thread.start();
     }
 
     private void addDirectoryToZip(java.util.zip.ZipOutputStream zos, File dir, String basePath, byte[] buf) throws java.io.IOException {
@@ -1080,7 +1092,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void importScoreFromUri(Uri uri) {
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             try (java.util.zip.ZipInputStream zis = new java.util.zip.ZipInputStream(getContentResolver().openInputStream(uri))) {
                 File playerDir = new File(getExternalFilesDir(null), "player/" + selectedPlayerName);
                 byte[] buf = new byte[8192];
@@ -1109,7 +1121,9 @@ public class SettingsActivity extends Activity {
                 }
                 runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_imported), Toast.LENGTH_SHORT).show());
             } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_score_import_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
-        }).start();
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(thread); }
+        thread.start();
     }
 
     private void importPlayerConfig() {
@@ -1119,7 +1133,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void importPlayerFromUri(Uri uri) {
-        new Thread(() -> {
+        Thread thread = new Thread(() -> {
             try {
                 StringBuilder sb = new StringBuilder();
                 try (BufferedReader br = new BufferedReader(new java.io.InputStreamReader(getContentResolver().openInputStream(uri), StandardCharsets.UTF_8))) {
@@ -1138,7 +1152,9 @@ public class SettingsActivity extends Activity {
                 }
                 runOnUiThread(() -> { availablePlayers.add(finalId); ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged(); playerSpinner.setSelection(availablePlayers.indexOf(finalId)); selectedPlayerName = finalId; Toast.makeText(this, getString(R.string.msg_import_success, finalId), Toast.LENGTH_SHORT).show(); });
             } catch (Exception e) { runOnUiThread(() -> Toast.makeText(this, getString(R.string.msg_import_failed, e.getMessage()), Toast.LENGTH_LONG).show()); }
-        }).start();
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(thread); }
+        thread.start();
     }
 
     private String extractPlayerIdFromJson(String json) {
@@ -1502,14 +1518,33 @@ public class SettingsActivity extends Activity {
     }
 
     private void showCharacterWheelForEditText(EditText editText) {
-        new CharacterWheelDialog(this, editText.getText().toString(), text -> {
+        if (currentCharacterWheel != null && currentCharacterWheel.isShowing()) {
+            currentCharacterWheel.dismiss();
+        }
+        currentCharacterWheel = new CharacterWheelDialog(this, editText.getText().toString(), text -> {
             editText.setText(text); editText.setSelection(text.length());
-        }).show();
+        });
+        currentCharacterWheel.show();
     }
 
     @Override
     protected void onDestroy() {
         destroyed = true;
+
+        // 移除 ViewTreeObserver 监听器
+        try {
+            View decorView = getWindow().getDecorView();
+            if (decorView != null) {
+                if (focusChangeListener != null) {
+                    decorView.getViewTreeObserver().removeOnGlobalFocusChangeListener(focusChangeListener);
+                    focusChangeListener = null;
+                }
+                if (scrollChangedListener != null) {
+                    decorView.getViewTreeObserver().removeOnScrollChangedListener(scrollChangedListener);
+                    scrollChangedListener = null;
+                }
+            }
+        } catch (Exception ignored) {}
 
         // 停止所有后台线程
         synchronized (backgroundThreads) {
@@ -1530,13 +1565,21 @@ public class SettingsActivity extends Activity {
             keepAliveHandler = null;
         }
 
+        // 关闭 Dialog
+        if (currentCharacterWheel != null && currentCharacterWheel.isShowing()) {
+            currentCharacterWheel.dismiss();
+            currentCharacterWheel = null;
+        }
+
         // 清理 View 引用，帮助 GC
         settingsScrollView = null;
         bmsPathContainer = null;
         tableUrlContainer = null;
         playerSpinner = null;
         focusIndicator = null;
-        focusableControls.clear();
+        if (focusableControls != null) {
+            focusableControls.clear();
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && backInvokedCallback != null) {
             try {
@@ -1637,6 +1680,21 @@ public class SettingsActivity extends Activity {
     private void cleanupResources() {
         destroyed = true;
 
+        // 移除 ViewTreeObserver 监听器
+        try {
+            View decorView = getWindow().getDecorView();
+            if (decorView != null) {
+                if (focusChangeListener != null) {
+                    decorView.getViewTreeObserver().removeOnGlobalFocusChangeListener(focusChangeListener);
+                    focusChangeListener = null;
+                }
+                if (scrollChangedListener != null) {
+                    decorView.getViewTreeObserver().removeOnScrollChangedListener(scrollChangedListener);
+                    scrollChangedListener = null;
+                }
+            }
+        } catch (Exception ignored) {}
+
         // 停止所有后台线程
         synchronized (backgroundThreads) {
             for (Thread t : backgroundThreads) {
@@ -1655,18 +1713,26 @@ public class SettingsActivity extends Activity {
             keepAliveHandler.removeCallbacksAndMessages(null);
         }
 
+        // 关闭 Dialog
+        if (currentCharacterWheel != null && currentCharacterWheel.isShowing()) {
+            currentCharacterWheel.dismiss();
+            currentCharacterWheel = null;
+        }
+
         // 清理 View 引用
         settingsScrollView = null;
         bmsPathContainer = null;
         tableUrlContainer = null;
         playerSpinner = null;
         focusIndicator = null;
-        focusableControls.clear();
+        if (focusableControls != null) {
+            focusableControls.clear();
+        }
 
         // 清理 List 引用
-        bmsPaths.clear();
-        tableUrls.clear();
-        availablePlayers.clear();
+        if (bmsPaths != null) bmsPaths.clear();
+        if (tableUrls != null) tableUrls.clear();
+        if (availablePlayers != null) availablePlayers.clear();
     }
 
     private void showHelpDialog(String title, String message) {

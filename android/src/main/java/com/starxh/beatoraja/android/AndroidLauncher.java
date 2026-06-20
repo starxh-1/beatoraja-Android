@@ -58,6 +58,19 @@ public class AndroidLauncher extends AndroidApplication {
 	public static float maxRefreshRate = 60f;
     private static final String TAG = "AndroidLauncher";
     private static AndroidLauncher instance;
+
+    /** 静态 VSync 回调，防止持有 Activity 引用导致内存泄漏，同时保持全局同步稳定性 */
+    private static boolean vsyncCallbackRegistered = false;
+    private static final android.view.Choreographer.FrameCallback vsyncCallback = new android.view.Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long frameTimeNanos) {
+            bms.player.beatoraja.MainController.setLastVsyncTimeNanos(frameTimeNanos);
+            // 只要进程存活且窗口可见，Choreographer 就会持续触发此回调。
+            // 静态引用不会阻止 Activity 被回收。
+            android.view.Choreographer.getInstance().postFrameCallback(this);
+        }
+    };
+
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
     private OboeAudio oboeAudio;
@@ -326,15 +339,13 @@ public class AndroidLauncher extends AndroidApplication {
         setupHighRefreshRate();
         inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 
-        // VSync 相位同步：使用 Choreographer 定时向 MainController 发送 VSync 时间戳，
+        // VSync 相位同步：使用全局静态 Choreographer 回调向 MainController 发送 VSync 时间戳，
         // 从而将应用层的绝对时间帧率控制与系统 VSync 锁定。
-        android.view.Choreographer.getInstance().postFrameCallback(new android.view.Choreographer.FrameCallback() {
-            @Override
-            public void doFrame(long frameTimeNanos) {
-                bms.player.beatoraja.MainController.setLastVsyncTimeNanos(frameTimeNanos);
-                android.view.Choreographer.getInstance().postFrameCallback(this);
-            }
-        });
+        // 使用静态实例避免了匿名内部类持有 Activity 引用造成的内存泄漏。
+        if (!vsyncCallbackRegistered) {
+            android.view.Choreographer.getInstance().postFrameCallback(vsyncCallback);
+            vsyncCallbackRegistered = true;
+        }
 
         // Set up unified score DB factory (Android native SQLite, not JDBC)
         bms.player.beatoraja.ScoreDatabaseAccessor.setFactory(
@@ -1139,6 +1150,7 @@ public class AndroidLauncher extends AndroidApplication {
             }
         } catch (Exception ignored) {}
         stopKeepAlive();
+        instance = null;
         super.onDestroy();
     }
 }

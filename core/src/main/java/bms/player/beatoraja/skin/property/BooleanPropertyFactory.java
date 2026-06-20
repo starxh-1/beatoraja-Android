@@ -17,23 +17,25 @@ import bms.player.beatoraja.select.MusicSelector;
 import bms.player.beatoraja.select.bar.*;
 import bms.player.beatoraja.skin.SkinProperty;
 import bms.player.beatoraja.song.SongData;
+import com.badlogic.gdx.utils.IntMap;
 
 public class BooleanPropertyFactory {
 
 	private static final int ID_LENGTH = 65536;
-	private static final BooleanProperty[] pcache = new BooleanProperty[ID_LENGTH];
-	private static final BooleanProperty[] npcache = new BooleanProperty[ID_LENGTH];
-	
-	public static BooleanProperty getBooleanProperty(int optionid) {
+	private static final IntMap<BooleanProperty> pcache = new IntMap<>();
+	private static final IntMap<BooleanProperty> npcache = new IntMap<>();
+
+	public static synchronized BooleanProperty getBooleanProperty(int optionid) {
 		final int id = Math.abs(optionid);
 		if(id >= ID_LENGTH) {
 			return null;
 		}
-		if(optionid >= 0 && pcache[id] != null) {
-			return pcache[id];
-		}
-		if(optionid < 0 && npcache[id] != null) {
-			return npcache[id];
+		if(optionid >= 0) {
+			BooleanProperty p = pcache.get(id);
+			if (p != null) return p;
+		} else {
+			BooleanProperty p = npcache.get(id);
+			if (p != null) return p;
 		}
 		BooleanProperty result = null;
 		for(BooleanType t : BooleanType.values()) {
@@ -42,7 +44,7 @@ public class BooleanPropertyFactory {
 				break;
 			}
 		}
-		
+
 		if (id >= OPTION_COURSE_STAGE1 && id <= OPTION_COURSE_STAGE4) {
 			int index = id - OPTION_COURSE_STAGE1;
 			result = new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT, (state) -> {
@@ -54,7 +56,7 @@ public class BooleanPropertyFactory {
 			result = new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT, (state) -> {
 				final CourseData course = state.resource.getCourseData();
 				final int courseIndex = state.resource.getCourseIndex();
-				return course != null && courseIndex == course.getSong().length - 1;				
+				return course != null && courseIndex == course.getSong().length - 1;
 			});
 		}
 
@@ -75,15 +77,15 @@ public class BooleanPropertyFactory {
 						return !dc.get(state);
 					}
 				};
-				npcache[id] = result;
+				npcache.put(id, result);
 			} else {
-				pcache[id] = result;				
+				pcache.put(id, result);
 			}
 		}
-		
+
 		return result;
 	}
-	
+
 	private static BooleanProperty getBooleanProperty0(int optionid) {
 		switch (optionid) {
 		case OPTION_TABLE_SONG:
@@ -138,10 +140,10 @@ public class BooleanPropertyFactory {
 			return new DrawProperty(DrawProperty.TYPE_NO_STATIC, (state) -> (state.main.getPlayerResource().isUpdateScore()));
 
 		}
-		
+
 		return null;
 	}
-	
+
 	private static DrawProperty createCourseDataConstraintProperty(CourseData.CourseDataConstraint constraint) {
 		return new DrawProperty(DrawProperty.TYPE_NO_STATIC,(state) -> ((state instanceof MusicSelector) ? ((MusicSelector) state).existsConstraint(constraint) : false));
 	}
@@ -184,7 +186,7 @@ public class BooleanPropertyFactory {
 		}
 
 	}
-	
+
 	private static class NowJudgeDrawCondition extends DrawProperty {
 
 		public NowJudgeDrawCondition(final int player, final int type) {
@@ -199,7 +201,7 @@ public class BooleanPropertyFactory {
 						return judge.getNowJudge(player) > 1 && judge.getRecentJudgeTiming(player) < 0;
 					}
 				}
-				return false;				
+				return false;
 			});
 		}
 	}
@@ -231,9 +233,9 @@ public class BooleanPropertyFactory {
 			super(TYPE_NO_STATIC, (state) -> {
 				if(state instanceof MusicSelector) {
 					ScoreData score = ((MusicSelector) state).getSelectedBar().getScore();
-					return score != null ? score.getClear() == type.id : false; 
+					return score != null ? score.getClear() == type.id : false;
 				}
-				return false;				
+				return false;
 			});
 		}
 	}
@@ -306,7 +308,7 @@ public class BooleanPropertyFactory {
 		public TrophyDrawCondition(final SongTrophy trophy) {
 			super(TYPE_STATIC_WITHOUT_MUSICSELECT, (state) -> {
 				final ScoreData score = state.getScoreDataProperty().getScoreData();
-				return score != null && score.getTrophy() != null && score.getTrophy().indexOf(trophy.character) >= 0;				
+				return score != null && score.getTrophy() != null && score.getTrophy().indexOf(trophy.character) >= 0;
 			});
 		}
 	}
@@ -323,12 +325,12 @@ public class BooleanPropertyFactory {
 				return ((AbstractResult) state).getReplayStatus(index) == (type == 0 ? AbstractResult.ReplayStatus.EXIST
 						: (type == 1 ? AbstractResult.ReplayStatus.NOT_EXIST : AbstractResult.ReplayStatus.SAVED));
 			}
-			return false;				
+			return false;
 		});
 	}
-	
+
 	public enum BooleanType {
-		
+
 		bgaoff(40, new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT, (state) -> (!state.resource.getBMSResource().isBGAOn()))),
 		bgaon(41, new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT, (state) -> (state.resource.getBMSResource().isBGAOn()))),
 		gauge_groove(42, new DrawProperty(DrawProperty.TYPE_NO_STATIC, (state) -> {
@@ -351,7 +353,7 @@ public class BooleanPropertyFactory {
 			}
 			if (type != Integer.MIN_VALUE)
 				return type >= 3;
-			return false;			
+			return false;
 		})),
 		autoplay_on(OPTION_AUTOPLAYON, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> ((state instanceof BMSPlayer) ? state.resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY : false))),
@@ -390,13 +392,13 @@ public class BooleanPropertyFactory {
 		chart_judge_normal(OPTION_JUDGE_NORMAL, new SongDataBooleanProperty(model -> model.getJudge() == 2 || (model.getJudge() >= 60 && model.getJudge() < 85))),
 		chart_judge_easy(OPTION_JUDGE_EASY, new SongDataBooleanProperty(model -> model.getJudge() == 3 || (model.getJudge() >= 85 && model.getJudge() < 110))),
 		chart_judge_veryeasy(OPTION_JUDGE_VERYEASY, new SongDataBooleanProperty(model -> model.getJudge() == 4 || model.getJudge() >= 110)),
-		
+
 		chart_7key(160, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.BEAT_7K.id))),
 		chart_5key(161, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.BEAT_5K.id))),
 		chart_14key(162, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.BEAT_14K.id))),
 		chart_10key(163, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.BEAT_10K.id))),
 		chart_9key(164, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.POPN_9K.id))),
-		
+
 		select_bar_failed(OPTION_SELECT_BAR_FAILED, new SelectedBarClearDrawCondition(Failed)),
 		select_bar_assist_easy(OPTION_SELECT_BAR_ASSIST_EASY_CLEARED, new SelectedBarClearDrawCondition(AssistEasy)),
 		select_bar_light_assist_easy(OPTION_SELECT_BAR_LIGHT_ASSIST_EASY_CLEARED, new SelectedBarClearDrawCondition(LightAssistEasy)),
@@ -420,7 +422,7 @@ public class BooleanPropertyFactory {
 		replaydata_saved_2(OPTION_REPLAYDATA2_SAVED, createReplayProperty(1, 2)),
 		replaydata_saved_3(OPTION_REPLAYDATA3_SAVED, createReplayProperty(2, 2)),
 		replaydata_saved_4(OPTION_REPLAYDATA4_SAVED, createReplayProperty(3, 2)),
-		
+
 		select_replaydata_1(OPTION_SELECT_REPLAYDATA, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> ((state instanceof MusicSelector) ? ((MusicSelector) state).getSelectedReplay() == 0 : false))),
 		select_replaydata_2(OPTION_SELECT_REPLAYDATA2, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
@@ -459,7 +461,7 @@ public class BooleanPropertyFactory {
 		course_cn(OPTION_GRADEBAR_CN,createCourseDataConstraintProperty(CourseData.CourseDataConstraint.CN)),
 		course_hcn(OPTION_GRADEBAR_HCN,createCourseDataConstraintProperty(CourseData.CourseDataConstraint.HCN)),
 
-		stagefile(OPTION_STAGEFILE, new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT, 
+		stagefile(OPTION_STAGEFILE, new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT,
 				(state) -> (state.main.getPlayerResource().getBMSResource().getStagefile() != null))),
 		no_stagefile(OPTION_NO_STAGEFILE, new DrawProperty(DrawProperty.TYPE_STATIC_WITHOUT_MUSICSELECT,
 				(state) -> (state.main.getPlayerResource().getBMSResource().getStagefile() == null))),
@@ -481,7 +483,7 @@ public class BooleanPropertyFactory {
 		judge_3p_perfect(OPTION_3P_PERFECT, new NowJudgeDrawCondition(2, 0)),
 		judge_3p_early(OPTION_3P_EARLY, new NowJudgeDrawCondition(2, 1)),
 		judge_3p_late(OPTION_3P_LATE, new NowJudgeDrawCondition(2, 2)),
-		
+
 		judge_perfect_exist(OPTION_PERFECT_EXIST, new DrawProperty(DrawProperty.TYPE_STATIC_ON_RESULT,
 				(state) -> (state.getJudgeCount(0, true) + state.getJudgeCount(0, false) > 0))),
 		judge_great_exist(OPTION_GREAT_EXIST, new DrawProperty(DrawProperty.TYPE_STATIC_ON_RESULT,
@@ -494,7 +496,7 @@ public class BooleanPropertyFactory {
 				(state) -> (state.getJudgeCount(4, true) + state.getJudgeCount(4, false) > 0))),
 		judge_miss_exist(OPTION_MISS_EXIST, new DrawProperty(DrawProperty.TYPE_STATIC_ON_RESULT,
 				(state) -> (state.getJudgeCount(5, true) + state.getJudgeCount(5, false) > 0))),
-		
+
 		lanecover1_changing(OPTION_LANECOVER1_CHANGING, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> (state.main.getInputProcessor().startPressed() || state.main.getInputProcessor().isSelectPressed()))),
 		lanecover1_on(OPTION_LANECOVER1_ON, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
@@ -588,11 +590,11 @@ public class BooleanPropertyFactory {
 			final ScoreData cscore = state.main.getPlayerResource().getCourseScoreData();
 			return score.getClear() == Failed.id || (cscore != null && cscore.getClear() == Failed.id);
 		})),
-		result_1pwin(OPTION_1PWIN,new DrawProperty(DrawProperty.TYPE_NO_STATIC, 
+		result_1pwin(OPTION_1PWIN,new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> (state.getScoreDataProperty().getNowEXScore() > state.getScoreDataProperty().getRivalScore()))),
-		result_2pwin(OPTION_2PWIN,new DrawProperty(DrawProperty.TYPE_NO_STATIC, 
+		result_2pwin(OPTION_2PWIN,new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> (state.getScoreDataProperty().getNowEXScore() < state.getScoreDataProperty().getRivalScore()))),
-		result_draw(OPTION_DRAW,new DrawProperty(DrawProperty.TYPE_NO_STATIC, 
+		result_draw(OPTION_DRAW,new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> (state.getScoreDataProperty().getNowEXScore() == state.getScoreDataProperty().getRivalScore()))),
 
 		ir_offline(OPTION_OFFLINE, new DrawProperty(DrawProperty.TYPE_STATIC_ALL, (state) -> (state.main.getIRStatus().length == 0))),
@@ -610,7 +612,7 @@ public class BooleanPropertyFactory {
 				return irc != null && irc.getState() == RankingData.FAIL;
 			}
 			return false;
-		})),		
+		})),
 		ir_busy(OPTION_IR_BUSY, new DrawProperty(DrawProperty.TYPE_NO_STATIC, (state) -> {
 			if(state instanceof MusicSelector) {
 				final RankingData irc = ((MusicSelector)state).getCurrentRankingData();
@@ -618,9 +620,9 @@ public class BooleanPropertyFactory {
 			}
 			return false;
 		})),
-		ir_waiting(OPTION_IR_WAITING, new DrawProperty(DrawProperty.TYPE_NO_STATIC,	
+		ir_waiting(OPTION_IR_WAITING, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
 				(state) -> ((state instanceof MusicSelector) ? ((MusicSelector)state).getCurrentRankingData() == null : false))),
-		
+
 		chart_24key(1160, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.KEYBOARD_24K.id))),
 		chart_48key(1161, new SongDataBooleanProperty((model) -> (model.getMode() == Mode.KEYBOARD_24K_DOUBLE.id))),
 		gauge_ex(1046, new DrawConditionProperty(DrawConditionProperty.TYPE_NO_STATIC) {
@@ -637,7 +639,7 @@ public class BooleanPropertyFactory {
 				return false;
 			}
 		}),
-		
+
 		trophy_gauge_easy(OPTION_CLEAR_EASY, new TrophyDrawCondition(SongTrophy.EASY)),
 		trophy_gauge_normal(OPTION_CLEAR_GROOVE, new TrophyDrawCondition(SongTrophy.GROOVE)),
 		trophy_gauge_hard(OPTION_CLEAR_HARD, new TrophyDrawCondition(SongTrophy.HARD)),
@@ -676,7 +678,7 @@ public class BooleanPropertyFactory {
 		 * StringProperty
 		 */
 		private final BooleanProperty property;
-		
+
 		private BooleanType(int id, BooleanProperty property) {
 			this.id = id;
 			this.property = property;

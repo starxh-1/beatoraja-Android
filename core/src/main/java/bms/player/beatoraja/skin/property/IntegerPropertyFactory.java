@@ -24,19 +24,21 @@ import bms.player.beatoraja.select.bar.Bar;
 import bms.player.beatoraja.select.bar.DirectoryBar;
 import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.song.SongData;
+import com.badlogic.gdx.utils.IntMap;
 
 public class IntegerPropertyFactory {
 
 	private static final int ID_LENGTH = 65536;
-	private static final IntegerProperty[] vcache = new IntegerProperty[ID_LENGTH];
-	private static final IntegerProperty[] icache = new IntegerProperty[ID_LENGTH];
+	private static final IntMap<IntegerProperty> vcache = new IntMap<>();
+	private static final IntMap<IntegerProperty> icache = new IntMap<>();
 
-	public static IntegerProperty getIntegerProperty(int optionid) {
+	public static synchronized IntegerProperty getIntegerProperty(int optionid) {
 		if(optionid < 0 || optionid >= ID_LENGTH) {
 			return null;
 		}
-		if(vcache[optionid] != null) {
-			return vcache[optionid];
+		IntegerProperty cached = vcache.get(optionid);
+		if(cached != null) {
+			return cached;
 		}
 		IntegerProperty result = null;
 		if (optionid >= NUMBER_DURATION_LANECOVER_ON && optionid <= NUMBER_MAXBPM_DURATION_GREEN_LANECOVER_OFF) {
@@ -125,7 +127,7 @@ public class IntegerPropertyFactory {
 			result = getIntegerProperty0(optionid);
 		}
 
-		vcache[optionid] = result;
+		vcache.put(optionid, result);
 		return result;
 	}
 
@@ -953,12 +955,13 @@ public class IntegerPropertyFactory {
 		}
 	}
 
-	public static IntegerProperty getImageIndexProperty(int optionid) {
-		if(optionid < 0 || optionid >= icache.length) {
+	public static synchronized IntegerProperty getImageIndexProperty(int optionid) {
+		if(optionid < 0 || optionid >= ID_LENGTH) {
 			return null;
 		}
-		if(icache[optionid] != null) {
-			return icache[optionid];
+		IntegerProperty cached = icache.get(optionid);
+		if(cached != null) {
+			return cached;
 		}
 		IntegerProperty result = null;
 
@@ -988,7 +991,7 @@ public class IntegerPropertyFactory {
 			}
 		}
 
-		icache[optionid] = result;
+		icache.put(optionid, result);
 		return result;
 	}
 
