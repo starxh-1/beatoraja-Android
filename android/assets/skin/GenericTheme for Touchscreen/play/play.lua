@@ -429,7 +429,6 @@ local function main(keysNumber)
 		geo.lane.visual_x = geo.lane.x
 		geo.lane.visual_w = geo.lane.w
 		geo.lane.center_x = geo.lane.x + geo.lane.w / 2
-		geo.lane.fivekey_center_x = geo.lane.center_x
 		geo.lane.judgeline_h = 15
 
 		-- Gauge area - at top in portrait
@@ -470,8 +469,6 @@ local function main(keysNumber)
 			h = geo.bgaarea.h,
 			center_x = geo.bgaarea.center_x,
 			center_y = geo.bgaarea.center_y,
-			frame_w = 0,
-			frame_h = 0
 		}
 
 		-- Lanearea
@@ -574,8 +571,6 @@ local function main(keysNumber)
 	end
 
 	geo.lane.center_x = geo.lane.x + geo.lane.w / 2
-	-- 5K native layout: visible keys fill the lane, so center == lane center
-	geo.lane.fivekey_center_x = geo.lane.center_x
 
 	geo.lane.order = {8, 1, 2, 3, 4, 5, 6, 7}
 	if keysNumber == 5 then
@@ -762,8 +757,6 @@ local function main(keysNumber)
 		{id = "src_number_genshin_monospace_border_red", path = "parts/number/genshin_monospace_border_red.png"},
 		{id = "src_number_dot", path = "parts/number/dot.png"},
 		{id = "src_rank_random", path = "parts/rank_random.png"},
-
-		{id = "src_frame_bga", path = "parts/frame_bga.png"},
 
 
 		{id = "src_fullcombo_glow", path = "parts/fullcombo/glow.png"},
@@ -1182,61 +1175,6 @@ local function main(keysNumber)
 
 	skin.destination = {}
 
-	local function frame_dst(x, y, w, h, a, thickness_w, thickness_h, dst_additional_params)
-		x = math.floor(x) y = math.floor(y) -- 小数による座標ズレ防止
-		w = math.floor(w) h = math.floor(h)
-		thickness_w = math.floor(thickness_w) thickness_h = math.floor(thickness_h)
-		local frame_id = "_"..x..y..w..h..thickness_w..thickness_h
-		local src = "src_frame_bga"
-		local img_w = 1182 local img_h = 880
-		local img_thickness_w = thickness_w + 4 local img_thickness_h = thickness_h + 4 -- コーナーのぼかしを上手く入れる調整
-		append_all(skin.image, {
-			{id = "frame_corner_upperleft"..frame_id, src = src, x = 0, y = 0, w = img_thickness_w, h = img_thickness_h},
-			{id = "frame_corner_upperright"..frame_id, src = src, x = img_w - img_thickness_w, y = 0, w = img_thickness_w, h = img_thickness_h},
-			{id = "frame_corner_lowerleft"..frame_id, src = src, x = 0, y = img_h - img_thickness_h, w = img_thickness_w, h = img_thickness_h},
-			{id = "frame_corner_lowerright"..frame_id, src = src, x = img_w - img_thickness_w, y = img_h - img_thickness_h, w = img_thickness_w, h = img_thickness_h},
-
-			{id = "frame_straight_upper"..frame_id, src = src, x = img_thickness_w, y = 0, w = img_w - img_thickness_w * 2, h = img_thickness_h},
-			{id = "frame_straight_lower"..frame_id, src = src, x = img_thickness_w, y = img_h - img_thickness_h, w = img_w - img_thickness_w * 2, h = img_thickness_h},
-			{id = "frame_straight_left"..frame_id, src = src, x = 0, y = img_thickness_h, w = img_thickness_w, h = img_h - img_thickness_h * 2},
-			{id = "frame_straight_right"..frame_id, src = src, x = img_w - img_thickness_w, y = img_thickness_h, w = img_thickness_w, h = img_h - img_thickness_h * 2},
-		})
-
-		local dst = {
-			{id = "frame_corner_upperleft"..frame_id, dst = {
-				{x = x - thickness_w, y = y + h, w = thickness_w, h = thickness_h}
-			}},
-			{id = "frame_corner_upperright"..frame_id, dst = {
-				{x = x + w, y = y + h, w = thickness_w, h = thickness_h}
-			}},
-			{id = "frame_corner_lowerleft"..frame_id, dst = {
-				{x = x - thickness_w, y = y - thickness_h, w = thickness_w, h = thickness_h}
-			}},
-			{id = "frame_corner_lowerright"..frame_id, dst = {
-				{x = x + w, y = y - thickness_h, w = thickness_w, h = thickness_h}
-			}},
-
-			{id = "frame_straight_upper"..frame_id, dst = {
-				{x = x, y = y + h, w = w, h = thickness_h}
-			}},
-			{id = "frame_straight_lower"..frame_id, dst = {
-				{x = x, y = y - thickness_h, w = w, h = thickness_h}
-			}},
-			{id = "frame_straight_left"..frame_id, dst = {
-				{x = x - thickness_w, y = y, w = thickness_w, h = h}
-			}},
-			{id = "frame_straight_right"..frame_id, dst = {
-				{x = x + w, y = y, w = thickness_w, h = h}
-			}},
-		}
-		for i, v in ipairs(dst) do
-			dst[i] = merge_all(v, dst_additional_params)
-			dst[i].dst[1].a = a
-		end
-
-		return dst
-	end
-
 	local function border_dst(x, y, w, h, color, a, thickness_w, thickness_h)
 		return {
 			-- upper
@@ -1462,8 +1400,6 @@ local function main(keysNumber)
 
 			-- frame
 			if property.hideFrames.item.off.isSelected() then
-				append_all(skin.destination, frame_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, bga_a, geo.bga.frame_w, geo.bga.frame_h, {}))
-
 				-- フレームの内側の黒いボーダー
 				append_all(skin.destination, border_dst(real_bga_x, real_bga_y, real_bga_w, real_bga_h, {r = 0, g = 0, b = 0}, bga_a, 3, 3))
 			end
@@ -1568,9 +1504,6 @@ local function main(keysNumber)
 				}}
 			)
 
-			local frame_thickness = 5
-			local f_dst = frame_dst(x, y, w, geo.playinfo.h, a, frame_thickness, frame_thickness, {timer = timer})
-			append_all(skin.destination, f_dst)
 		end
 	end
 
@@ -2293,9 +2226,6 @@ local function main(keysNumber)
 					angle = 270 -- Right-side up in portrait
 				else
 					local lane_center_x = geo.lane.center_x
-					if keysNumber == 5 then
-						lane_center_x = geo.lane.fivekey_center_x
-					end
 					if anotherIsOnAndTypeA then
 						local between_space = 15
 						if isJudgeDetail then
@@ -2430,7 +2360,6 @@ local function main(keysNumber)
 		local stagefile_w, stagefile_h, stagefile_x, stagefile_y
 		local sf_angle = 0
 		local sf_cx, sf_cy = 0, 0
-		local frame_w = 5 local frame_h = 5
 
 		if isPortraitLayout() then
 			-- portrait: 只显示 stagefile，不显示 loading progress
@@ -2452,7 +2381,6 @@ local function main(keysNumber)
 					{x = stagefile_x, y = stagefile_y, w = stagefile_w, h = stagefile_h, angle = sf_angle, cx = sf_cx, cy = sf_cy},
 				}},
 			}
-			dst = merge_all(dst, frame_dst(stagefile_x, stagefile_y, stagefile_w, stagefile_h, 255, frame_w, frame_h, {op = {80}}))
 			local dst_default = deepcopy(dst)
 			for i, v in ipairs(dst_default) do
 				table.insert(dst_default[i].op, -270)
@@ -2502,7 +2430,6 @@ local function main(keysNumber)
 					{x = stagefile_x, y = y + graph_h, w = stagefile_w, h = space_h, r = 100, g = 100, b = 100},
 				}},
 			}
-			dst = merge_all(dst, frame_dst(stagefile_x, y, stagefile_w, stagefile_h + graph_h + space_h, 255, frame_w, frame_h, {op = {80}}))
 			local dst_default = deepcopy(dst)
 			for i, v in ipairs(dst_default) do
 					table.insert(dst_default[i].op, -270)

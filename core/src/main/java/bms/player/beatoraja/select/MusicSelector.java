@@ -27,6 +27,7 @@ import bms.player.beatoraja.input.KeyCommand;
 import bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys;
 import bms.player.beatoraja.ir.*;
 import bms.player.beatoraja.select.bar.*;
+import bms.player.beatoraja.skin.SkinLoader;
 import bms.player.beatoraja.skin.SkinType;
 import bms.player.beatoraja.skin.property.EventFactory.EventType;
 import bms.player.beatoraja.song.SongData;
@@ -427,6 +428,13 @@ public final class MusicSelector extends MainState {
 		}
 		banners.disposeOld();
 		stagefiles.disposeOld();
+
+		// 进入 play 前立即清空 select 阶段的皮肤纹理 Pixmap,
+		// 避免长时间浏览选曲界面后 SkinLoader.resource 堆积大量 banner / stagefile / 皮肤图片。
+		// SkinLoader.resource 默认 maxgen=1, 连调两次 disposeOld 强制清空所有条目
+		// (已被上传到 GPU 的 Texture 独立于 Pixmap, 不受此处清理影响)
+		SkinLoader.getResource().disposeOld();
+		SkinLoader.getResource().disposeOld();
 	}
 
 	public void select(Bar current) {
