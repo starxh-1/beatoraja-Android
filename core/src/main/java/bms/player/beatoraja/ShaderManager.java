@@ -65,11 +65,17 @@ public class ShaderManager {
 									 "uniform vec4 u_shadowColor;\n" +
 									 "uniform float u_shadowSmoothing;\n" +
 									 "uniform vec2 u_shadowOffset;\n" +
+									 "const float smoothing = 1.0/16.0;\n" +
 									 "void main() {\n" +
 									 "    float distance = texture2D(u_texture, v_texCoord).a;\n" +
-									 "    float smoothing = 1.0 / 32.0;\n" +
-									 "    float alpha = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);\n" +
-									 "    gl_FragColor = vec4(v_color.rgb, v_color.a * alpha);\n" +
+									 "    float outlineFactor = smoothstep(0.5 - smoothing, 0.5 + smoothing, distance);\n" +
+									 "    vec4 color = mix(u_outlineColor, v_color, outlineFactor);\n" +
+									 "    float alpha = smoothstep(u_outlineDistance - smoothing, u_outlineDistance + smoothing, distance);\n" +
+									 "    vec4 mainColor = vec4(color.rgb, color.a * alpha);\n" +
+									 "    float shadowDistance = texture2D(u_texture, v_texCoord - u_shadowOffset).a;\n" +
+									 "    float shadowAlpha = smoothstep(0.5 - u_shadowSmoothing, 0.5 + u_shadowSmoothing, shadowDistance);\n" +
+									 "    vec4 shadow = vec4(u_shadowColor.rgb, u_shadowColor.a * shadowAlpha);\n" +
+									 "    gl_FragColor = mix(shadow, mainColor, mainColor.a);\n" +
 									 "}";
 					ShaderProgram shader = new ShaderProgram(vertSrc, fragSrc);
 					if (shader.isCompiled()) {
