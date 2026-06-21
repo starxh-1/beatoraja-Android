@@ -2,7 +2,6 @@ package bms.player.beatoraja.skin.lr2;
 
 import java.io.File;
 
-import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.utils.IntIntMap;
 import com.badlogic.gdx.utils.ObjectMap;
 
@@ -17,16 +16,18 @@ import bms.player.beatoraja.skin.property.*;
  */
 public abstract class LR2SkinLoader extends SkinLoader {
 
-	private Array<Command> commands = new Array<Command>();
+	private ObjectMap<String, Command> commands = new ObjectMap<>();
 
 	protected IntIntMap op = new IntIntMap();
 
 	protected void addCommandWord(Command cm) {
-		commands.add(cm);
+		commands.put(cm.name().toLowerCase(), cm);
 	}
 
 	protected void addCommandWord(Command... cm) {
-		commands.addAll(cm);
+		for (Command c : cm) {
+			commands.put(c.name().toLowerCase(), c);
+		}
 	}
 
 	boolean skip = false;
@@ -120,15 +121,9 @@ public abstract class LR2SkinLoader extends SkinLoader {
 					op.put(index, Integer.parseInt(str[2]) >= 1 ? 1 : 0);
 				}
 
-				Command command = null;
-				for (Command cm : commands) {
-					if (str[0].substring(1).equalsIgnoreCase(cm.name())) {
-						command = cm;
-						break;
-					}
-				}
+				Command command = commands.get(str[0].substring(1).toLowerCase());
 				if(command != null) {
-					command.execute(this, str);					
+					command.execute(this, str);
 				}
 			}
 		}

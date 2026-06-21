@@ -74,21 +74,17 @@ enum FontCommand implements Command<LR2FontLoader> {
 				(com.badlogic.gdx.Gdx.files.internal(path).exists() || com.badlogic.gdx.Gdx.files.absolute(path).exists()) :
 				imagefile.exists();
 
-		// Android 大小写敏感问题修复
-		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
-			java.io.File parentDir = imagefile.getParentFile();
-			if (parentDir != null && parentDir.exists()) {
-				String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), imagefile.getName());
-				if (actualName != null) {
-					File candidate = new File(parentDir, actualName);
-					String actualPath = candidate.getAbsolutePath().replace("\\", "/");
-					if (com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists()) {
-						imagefile = candidate;
+			// Android大小写不敏感修复：目录列表已确认文件存在，无需再 exists()
+			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
+				java.io.File parentDir = imagefile.getParentFile();
+				if (parentDir != null && parentDir.exists()) {
+					String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), imagefile.getName());
+					if (actualName != null) {
+						imagefile = new File(parentDir, actualName);
 						exists = true;
 					}
 				}
 			}
-		}
 
 		if (exists) {
 			loader.textimage.setPath(Integer.parseInt(str[1]),imagefile.getPath());

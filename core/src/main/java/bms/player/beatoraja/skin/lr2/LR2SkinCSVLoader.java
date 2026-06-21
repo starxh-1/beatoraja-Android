@@ -119,7 +119,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						imagefile.exists();
 				String actualPath = path;
 
-				// Android 大小写敏感问题修复
+				// Android大小写不敏感修复：目录列表已确认文件存在，无需再 exists()
 				if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
 					File file = new File(path);
 					File parentDir = file.getParentFile();
@@ -127,10 +127,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), file.getName());
 						if (actualName != null) {
 							actualPath = new File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
-							exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-							if (exists) {
-								java.util.logging.Logger.getGlobal().info("Case-insensitive match found (IMAGE): " + path + " -> " + actualPath);
-							}
+							exists = true;
 						}
 					}
 				}
@@ -177,7 +174,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 				String actualPath = path;
 				File actualFile = imagefile;
 
-				// Android 大小写敏感问题修复
+				// Android大小写不敏感修复：目录列表已确认文件存在，无需再 exists()
 				if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
 					File file = new File(path);
 					File parentDir = file.getParentFile();
@@ -186,10 +183,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						if (actualName != null) {
 							actualPath = new File(parentDir, actualName).getAbsolutePath().replace("\\", "/");
 							actualFile = new File(actualPath);
-							exists = com.badlogic.gdx.Gdx.files.internal(actualPath).exists() || com.badlogic.gdx.Gdx.files.absolute(actualPath).exists();
-							if (exists) {
-								java.util.logging.Logger.getGlobal().info("Case-insensitive match found (LR2FONT): " + path + " -> " + actualPath);
-							}
+							exists = true;
 						}
 					}
 				}
@@ -874,12 +868,31 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		int[] result = new int[22];
 		for (int i = 1; i < result.length && i < s.length; i++) {
 			try {
-				result[i] = Integer.parseInt(s[i].replace('!', '-').replaceAll(" ", ""));
+				result[i] = parseIntFast(s[i]);
 			} catch (Exception e) {
 
 			}
 		}
 		return result;
+	}
+
+	/** Fast integer parse: replace '!' with '-', strip spaces without regex allocation */
+	private static int parseIntFast(String s) {
+		boolean negative = false;
+		int result = 0;
+		boolean started = false;
+		for (int i = 0, n = s.length(); i < n; i++) {
+			char c = s.charAt(i);
+			if (c == '!' || c == '-') {
+				negative = true;
+			} else if (c == ' ') {
+				continue;
+			} else if (c >= '0' && c <= '9') {
+				started = true;
+				result = result * 10 + (c - '0');
+			}
+		}
+		return negative ? -result : result;
 	}
 
 	protected int[] readOffset(String[] str, int startIndex) {
@@ -892,9 +905,17 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			result.add(i);
 		}
 		for (int i = startIndex; i < str.length; i++) {
-			String s = str[i].replaceAll("[^0-9-]", "");
-			if(s.length() > 0) {
-				result.add(Integer.parseInt(s));
+			String s = str[i];
+			if (s == null || s.length() == 0) continue;
+			boolean hasDigit = false;
+			for (int j = 0, n = s.length(); j < n; j++) {
+				if (s.charAt(j) >= '0' && s.charAt(j) <= '9') {
+					hasDigit = true;
+					break;
+				}
+			}
+			if (hasDigit) {
+				result.add(parseIntFast(s));
 			}
 		}
 		return result.toArray();
