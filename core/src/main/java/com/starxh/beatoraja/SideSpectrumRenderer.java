@@ -225,7 +225,7 @@ public class SideSpectrumRenderer {
 
         // 整组水平居中，占屏幕宽度的 75%。上黑边放左 32 频段，下黑边放右 32 频段。
         final int BANDS_PER_BAR = 32;
-        float totalSpan = w * 0.75f;
+        float totalSpan = w * 0.5f;
         float barW = totalSpan / BANDS_PER_BAR;
         float barThickness = barW * 0.7f;
         float startX = (w - totalSpan) / 2f;
