@@ -214,8 +214,7 @@ public class SideSpectrumRenderer {
     // 垂直排列渲染（用于上下黑边的屏幕，如 4:3、5:4、3:2 等比 16:9 更"方"的屏）
     private void renderVerticalInBlackBars(float[] spectrum, float[] topValues, int w, int h, boolean hasRealData) {
         // 游戏区域是按宽度等比缩放的 16:9 矩形（letterbox）：viewportW = w, viewportH = w * 9/16
-        // 上下黑边各占 (h - viewportH) / 2。原先错误地把 gameW 算成 h * 16/9 当高度减，导致
-        // topBarH 为负，频谱完全看不见。
+        // 上下黑边各占 (h - viewportH) / 2。
         float gameH = w * (1080f / 1920f);
         float topBarH = (h - gameH) / 2f;    // 上黑边高度
         float bottomBarH = topBarH;          // 下黑边高度
@@ -224,48 +223,40 @@ public class SideSpectrumRenderer {
             return; // 没有足够空间，跳过
         }
 
-        // 上黑边（左 32 频段，从下往上）；下黑边（右 32 频段，从上往下）
-        float halfW = w / 2f;
-        float barW = halfW / 32f;  // 每边 32 个 band 平分一半宽度
+        // 整组水平居中，占屏幕宽度的 75%。64 频段（左右声道拼成一条 mono 序列）平均铺开。
+        final int BANDS = 64;
+        float totalSpan = w * 0.75f;
+        float barW = totalSpan / BANDS;
         float barThickness = barW * 0.7f;
+        float startX = (w - totalSpan) / 2f;
         Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
 
-        // 上黑边：左声道 32 频段（从屏幕左边排到中间）
-        for (int i = 0; i < 32; i++) {
-            float x = i * barW;
-            float val = spectrum[i];
-            float top = topValues[i];
+        // 上下黑边各画一份：合并左右声道为 mono（与游戏内布局保持一致），下边方向从上到下。
+        for (int i = 0; i < BANDS; i++) {
+            float monoVal = (spectrum[i] + spectrum[32 + i]) / 2f;
+            float monoTop = (topValues[i] + topValues[32 + i]) / 2f;
+            float x = startX + i * barW;
 
-            float barHeight = Math.min(val * topBarH * 0.85f, topBarH - 4);
-            float topHeight = Math.min(top * topBarH * 0.85f, topBarH - 4);
-
-            // 频谱条从上黑边底部（即游戏区顶边）向上延伸
-            float baseY = h - topBarH + 2;
+            // 上黑边：从游戏区顶边向上长（条形图 baseY 贴游戏区顶）
+            float topHeight = Math.min(monoVal * topBarH * 0.85f, topBarH - 4);
+            float topPeak = Math.min(monoTop * topBarH * 0.85f, topBarH - 4);
+            float topBaseY = h - topBarH + 2;  // 紧贴游戏区上边
             shapeRenderer.setColor(barColor);
-            shapeRenderer.rect(x + (barW - barThickness) / 2, baseY, barThickness, barHeight);
-
-            if (topHeight > 2) {
+            shapeRenderer.rect(x + (barW - barThickness) / 2, topBaseY, barThickness, topHeight);
+            if (topPeak > 2) {
                 shapeRenderer.setColor(Color.WHITE);
-                shapeRenderer.rect(x + (barW - barThickness) / 2, baseY + barHeight - 2, barThickness, 2);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, topBaseY + topHeight - 2, barThickness, 2);
             }
-        }
 
-        // 下黑边：右声道 32 频段（从中间排到屏幕右边）
-        for (int i = 0; i < 32; i++) {
-            float x = halfW + i * barW;
-            float val = spectrum[32 + i];
-            float top = topValues[32 + i];
-
-            float barHeight = Math.min(val * bottomBarH * 0.85f, bottomBarH - 4);
-            float topHeight = Math.min(top * bottomBarH * 0.85f, bottomBarH - 4);
-
-            // 频谱条从游戏区底边向下延伸
+            // 下黑边：从游戏区底边向下长（条形图顶端贴游戏区底），方向与上相反——上到下
+            float botHeight = Math.min(monoVal * bottomBarH * 0.85f, bottomBarH - 4);
+            float botPeak = Math.min(monoTop * bottomBarH * 0.85f, bottomBarH - 4);
+            float botTopY = bottomBarH - 2;   // 紧贴游戏区下边；条向下增长
             shapeRenderer.setColor(barColor);
-            shapeRenderer.rect(x + (barW - barThickness) / 2, 2, barThickness, barHeight);
-
-            if (topHeight > 2) {
+            shapeRenderer.rect(x + (barW - barThickness) / 2, botTopY - botHeight, barThickness, botHeight);
+            if (botPeak > 2) {
                 shapeRenderer.setColor(Color.WHITE);
-                shapeRenderer.rect(x + (barW - barThickness) / 2, 2 + barHeight - 2, barThickness, 2);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, botTopY - botPeak, barThickness, 2);
             }
         }
     }
