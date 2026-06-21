@@ -3,6 +3,10 @@
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja 设置</string>
     <string name="audio_powered_by">Android audio powered by Oboe</string>
+    <string name="section_display">显示</string>
+    <string name="stretch_fullscreen">拉伸至全屏</string>
+    <string name="stretch_fullscreen_help_title">拉伸至全屏</string>
+    <string name="stretch_fullscreen_help">默认情况下游戏保持原始 16:9 宽高比，因此在非 16:9 屏幕（大多数现代手机）会出现黑边。开启此选项后画面会被拉伸填满整个屏幕，画面比例将与游戏原始设计不同。注：开启后侧边音频频谱会被自动禁用（开关变为不可调节）。</string>
     <string name="section_audio">音频</string>
     <string name="system_volume">系统音量</string>
     <string name="key_volume">按键音量</string>

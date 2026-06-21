@@ -777,7 +777,13 @@ public class MainController {
         float targetAspect = (float) gameW / gameH;
         float screenAspect = (float) screenW / screenH;
 
-        if (screenAspect > targetAspect) {
+        if (config != null && config.isStretchFullscreen()) {
+            // 拉伸至全屏：跳过 pillarbox/letterbox 计算，画面铺满整个 surface
+            viewportW = screenW;
+            viewportH = screenH;
+            viewportX = 0;
+            viewportY = 0;
+        } else if (screenAspect > targetAspect) {
             // 屏幕比游戏更宽 → pillarbox（左右黑边）
             viewportH = screenH;
             viewportW = Math.round(screenH * targetAspect);
@@ -843,6 +849,15 @@ public class MainController {
             && !(current instanceof BMSPlayer)
             && !(current instanceof MusicDecide)
             && (floatingMenu == null || !floatingMenu.isConsumingTouch())) {
+            int skinW = current.getSkin() != null ? (int) current.getSkin().getWidth() : config.getResolution().width;
+            int skinH = current.getSkin() != null ? (int) current.getSkin().getHeight() : config.getResolution().height;
+
+            // 关键：上方的 stage.draw() 会调用其 Viewport.apply() 改写 GL 视口（如 SearchTextField
+            // 的 FitViewport）；若不恢复，触摸指针的 (gameX, gameY) 会画到错误的屏幕区域。
+            // 恢复成 MainController 的等比/拉伸视口，投影也用 skin 坐标，保证指针落在指尖位置。
+            Gdx.gl.glViewport(viewportX, viewportY, viewportW, viewportH);
+            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, skinW, skinH));
+
             // 更新触摸活动时间
             boolean isTouched = Gdx.input.isTouched();
             final long nowMs = System.currentTimeMillis();
@@ -857,9 +872,6 @@ public class MainController {
 
             // 仅在触摸时或触摸后500ms内显示
             if (wasTouching && (isTouched || (nowMs - lastTouchActivity < 500))) {
-                int skinW = current.getSkin() != null ? (int) current.getSkin().getWidth() : config.getResolution().width;
-                int skinH = current.getSkin() != null ? (int) current.getSkin().getHeight() : config.getResolution().height;
-
                 // 计算淡出透明度
                 float alpha = 1.0f;
                 if (!isTouched) {
@@ -868,7 +880,6 @@ public class MainController {
                 }
 
                 // 触摸指针 + 坐标文字合并为一个 begin/end 对
-                sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, skinW, skinH));
                 sprite.begin();
                 sprite.setColor(1, 1, 1, alpha);
                 float size = 64;

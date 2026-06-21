@@ -252,7 +252,8 @@ public class AndroidLauncher extends AndroidApplication {
         config.useImmersiveMode = true;
         config.useWakelock = true;
 
-        // 使用默认的 FillResolutionStrategy（全屏填充）
+        // 使用默认的 FillResolutionStrategy（全屏填充，缓冲尺寸 = 屏幕原生分辨率）
+        // 是否拉伸到全屏（去黑边）由 MainController.render() 根据 config.stretchFullscreen 决定
         config.resolutionStrategy = new FillResolutionStrategy();
 
         File filesDir = getExternalFilesDir(null);

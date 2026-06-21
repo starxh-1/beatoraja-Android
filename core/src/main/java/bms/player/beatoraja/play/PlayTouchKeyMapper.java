@@ -345,7 +345,14 @@ public class PlayTouchKeyMapper implements InputProcessor, Disposable {
         // 必须使用 play timer（判定系统也以此为基准），不能使用 native event time（不同时间基）
         final long pressTime = player.timer.getNowMicroTime(SkinProperty.TIMER_PLAY);
 
-        stage.screenToStageCoordinates(tmpCoords.set(screenX, screenY));
+        // 不能直接用 stage.screenToStageCoordinates()：Stage 的 FitViewport 假设游戏画面
+        // 等比居中渲染（pillarbox/letterbox），但拉伸至全屏时 MainController 视口铺满整个 surface，
+        // 此时 FitViewport 的偏移/缩放与实际渲染区域不一致。统一走 MainController 的视口转换，
+        // 与 select 界面 getMouseX/Y 走同一条路径，保证与渲染 1:1 对齐。
+        int gameX = inputProcessor != null ? inputProcessor.convertScreenX(screenX) : screenX;
+        int gameY = inputProcessor != null ? inputProcessor.convertScreenY(screenY) : screenY;
+        // 与 KeyBoardInputProcesseor.touchDown 一致：Y 翻转
+        tmpCoords.set(gameX, logicH - gameY);
         for (int i = 0; i < keyButtons.length; i++) {
             if (keyButtons[i] != null && keyButtons[i].getBounds().contains(tmpCoords.x, tmpCoords.y)) {
                 pointerMap[pointer] = i;

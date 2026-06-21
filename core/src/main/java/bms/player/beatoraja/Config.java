@@ -80,6 +80,13 @@ public class Config implements Validatable, Serializable {
 	 */
 	private boolean showTouchKey = true;
 
+	/**
+	 * Android 专用设置：拉伸渲染以去除黑边。
+	 * 关闭时（默认）按游戏原始宽高比渲染，非 16:9 屏幕会出现 pillarbox/letterbox。
+	 * 开启时画面被拉伸到全屏，长宽比会与游戏原始比例不同。
+	 */
+	private boolean stretchFullscreen = false;
+
 	private int inputPollingRate = 1000;
 
 	// Polling rate is hardcoded to 1000Hz per Endless Dream upstream fix.
@@ -111,6 +118,14 @@ public class Config implements Validatable, Serializable {
 
 	public void setShowTouchKey(boolean showTouchKey) {
 		this.showTouchKey = showTouchKey;
+	}
+
+	public boolean isStretchFullscreen() {
+		return stretchFullscreen;
+	}
+
+	public void setStretchFullscreen(boolean stretchFullscreen) {
+		this.stretchFullscreen = stretchFullscreen;
 	}
 
 	public int getInputPollingRate() {
@@ -800,6 +815,7 @@ public class Config implements Validatable, Serializable {
         c.irSendCount = this.irSendCount;
         c.androidUnlimitedFPS = this.androidUnlimitedFPS;
         c.showTouchKey = this.showTouchKey;
+        c.stretchFullscreen = this.stretchFullscreen;
         // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
         return c;
@@ -851,6 +867,7 @@ public class Config implements Validatable, Serializable {
         c.irSendCount = changes.irSendCount;
         c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
         c.showTouchKey = changes.showTouchKey;
+        c.stretchFullscreen = changes.stretchFullscreen;
         // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;
         return c;

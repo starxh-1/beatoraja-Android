@@ -3,6 +3,10 @@
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja Settings</string>
     <string name="audio_powered_by">Android audio powered by Oboe</string>
+    <string name="section_display">Display</string>
+    <string name="stretch_fullscreen">Stretch to Fullscreen</string>
+    <string name="stretch_fullscreen_help_title">Stretch to Fullscreen</string>
+    <string name="stretch_fullscreen_help">By default the game keeps the original 16:9 aspect ratio, which causes black bars on devices that are not 16:9 (most modern phones). Enable this to stretch the game image and fill the entire screen. The aspect ratio will no longer match the game\'s original design. Note: when enabled, the side audio spectrum will be disabled automatically (the on/off switch becomes unavailable).</string>
     <string name="section_audio">Audio</string>
     <string name="system_volume">System Volume</string>
     <string name="key_volume">Key Volume</string>

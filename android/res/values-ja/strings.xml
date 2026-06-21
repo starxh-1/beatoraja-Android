@@ -3,6 +3,10 @@
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja 設定</string>
     <string name="audio_powered_by">Android audio powered by Oboe</string>
+    <string name="section_display">ディスプレイ</string>
+    <string name="stretch_fullscreen">フルスクリーンに引き伸ばし</string>
+    <string name="stretch_fullscreen_help_title">フルスクリーンに引き伸ばし</string>
+    <string name="stretch_fullscreen_help">デフォルトではゲームはオリジナルの 16:9 アスペクト比を維持するため、16:9 以外の端末（ほとんどの現代スマートフォン）では黒帯が表示されます。このオプションを有効にすると画面が引き伸ばされ、端末全体を覆います。アスペクト比はゲームのオリジナル設計と一致しなくなります。注意：有効化時、サイドオーディオスペクトラムは自動的に無効化されます（スイッチは操作不能になります）。</string>
     <string name="section_audio">オーディオ</string>
     <string name="system_volume">システム音量</string>
     <string name="key_volume">キー音量</string>

@@ -79,6 +79,7 @@ public class SettingsActivity extends Activity {
     private int selectedBga = 0;
     // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
+    private boolean selectedStretchFullscreen = false;
 
     private String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
 
@@ -245,6 +246,7 @@ public class SettingsActivity extends Activity {
                 // selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000); // hardcoded to 1000Hz
                 selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
+                selectedStretchFullscreen = findJsonBooleanValue(json, "stretchFullscreen", false);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
             } else {
@@ -593,6 +595,10 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.bmsPathHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.bms_path_help_title), getString(R.string.bms_path_help)));
         findViewById(R.id.audioSpectrumHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.audio_spectrum_help_title), getString(R.string.audio_spectrum_help)));
         findViewById(R.id.gaugeAutoShiftHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.gauge_auto_shift_help_title), getString(R.string.gauge_auto_shift_help)));
+        findViewById(R.id.stretchFullscreenHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.stretch_fullscreen_help_title), getString(R.string.stretch_fullscreen_help)));
+
+        // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
+        // 注：Switch 初始化在更下方的 Play Options 之后，与 Show Audio Spectrum 一起设置以确保正确的锁定顺序。
 
         // Play Options expandable section
         final LinearLayout playOptionsContent = findViewById(R.id.playOptionsContent);
@@ -628,6 +634,15 @@ public class SettingsActivity extends Activity {
         Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
         showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
         showAudioSpectrumSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> showAudioSpectrum = isChecked);
+
+        // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
+        Switch stretchFullscreenSwitch = findViewById(R.id.stretchFullscreenSwitch);
+        stretchFullscreenSwitch.setChecked(selectedStretchFullscreen);
+        stretchFullscreenSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            selectedStretchFullscreen = isChecked;
+            applyStretchFullscreenLockState();
+        });
+        applyStretchFullscreenLockState();
 
         // Floating Menu Position
         Spinner floatingMenuPositionSpinner = findViewById(R.id.floatingMenuPositionSpinner);
@@ -940,6 +955,7 @@ public class SettingsActivity extends Activity {
             // config.put("inputPollingRate", selectedPollingRate); // hardcoded to 1000Hz
             config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
+            config.put("stretchFullscreen", selectedStretchFullscreen);
 
             // 自动同步当前系统语言给游戏内核
             String currentLang = Locale.getDefault().getLanguage();
@@ -1606,6 +1622,7 @@ public class SettingsActivity extends Activity {
         showAudioSpectrum = ((Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
         selectedFloatingMenuPosition = ((Spinner) findViewById(R.id.floatingMenuPositionSpinner)).getSelectedItemPosition();
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
+        selectedStretchFullscreen = ((Switch) findViewById(R.id.stretchFullscreenSwitch)).isChecked();
         tableUrls.clear();
         for (int i = 0; i < tableUrlContainer.getChildCount(); i++) {
             View r = tableUrlContainer.getChildAt(i);
@@ -1643,6 +1660,22 @@ public class SettingsActivity extends Activity {
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (isSimulatingTouch) return true;
         return super.dispatchTouchEvent(ev);
+    }
+
+    /**
+     * 当「拉伸至全屏」开启时，强制禁用并关闭音频频谱开关；
+     * 关闭时恢复可调，但 showAudioSpectrum 的值会保持锁定期间被强制设置的 false，
+     * 用户可以重新手动开启。
+     */
+    private void applyStretchFullscreenLockState() {
+        Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
+        if (selectedStretchFullscreen) {
+            showAudioSpectrumSwitch.setEnabled(false);
+            showAudioSpectrumSwitch.setChecked(false);
+            showAudioSpectrum = false;
+        } else {
+            showAudioSpectrumSwitch.setEnabled(true);
+        }
     }
 
     private void updatePlayOptionsUI() {
