@@ -339,8 +339,14 @@ public abstract class SkinLoader {
 
     public static String normalizePath(String path) {
         if (path == null || path.isEmpty()) return path;
-        boolean isAbsolute = path.startsWith("/");
-        File f = new File(path);
+        // Strip leading ./ (Windows-style current-directory prefix) so it doesn't
+        // cause the path to be treated as relative when it's actually absolute
+        String cleanPath = path.replace("\\", "/");
+        while (cleanPath.startsWith("./")) {
+            cleanPath = cleanPath.substring(2);
+        }
+        boolean isAbsolute = cleanPath.startsWith("/");
+        File f = new File(cleanPath);
         // 优先用 getCanonicalPath 解析 .. 和符号链接，失败时降级到手动处理
         String abs;
         try {

@@ -139,7 +139,12 @@ public abstract class LR2SkinLoader extends SkinLoader {
 	}
 	
 	protected static File getPath(String skinpath, String imagepath, ObjectMap<String, String> filemap) {
-		return SkinLoader.getPath(imagepath.replace("LR2files\\Theme", skinpath).replace("\\", "/"), filemap);
+		// Normalize to forward slashes, strip Windows-style ".\" prefix, then replace theme path
+		imagepath = imagepath.replace("\\", "/");
+		if (imagepath.startsWith("./")) {
+			imagepath = imagepath.substring(2);
+		}
+		return SkinLoader.getPath(imagepath.replace("LR2files/Theme", skinpath.replace("\\", "/")), filemap);
 	}
 
 	public abstract class CommandWord implements Command<LR2SkinLoader> {

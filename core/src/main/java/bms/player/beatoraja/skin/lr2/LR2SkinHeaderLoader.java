@@ -123,7 +123,12 @@ enum HeaderCommand implements Command<LR2SkinHeaderLoader> {
 		loader.options.add(new CustomOption(str[1], op, contents.toArray(new String[contents.size()])));
 	}),
 	CUSTOMFILE ((loader, str) -> {
-		loader.files.add(new CustomFile(str[1], str[2].replace("LR2files\\Theme", loader.skinpath).replace("\\", "/"), str.length >= 4 ? str[3] : null));
+		// Normalize path: convert backslashes to forward slashes, strip Windows-style ".\" prefix
+		String path = str[2].replace("\\", "/");
+		if (path.startsWith("./")) {
+			path = path.substring(2);
+		}
+		loader.files.add(new CustomFile(str[1], path.replace("LR2files/Theme", loader.skinpath), str.length >= 4 ? str[3] : null));
 	}),
 	CUSTOMOFFSET ((loader, str) -> {
 		boolean[] op = new boolean[6];
