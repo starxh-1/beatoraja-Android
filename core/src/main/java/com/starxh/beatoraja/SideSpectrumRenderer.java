@@ -186,9 +186,13 @@ public class SideSpectrumRenderer {
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
 
-        // blackBarW <= 0 表示屏幕比例宽于16:9（如16:10），使用垂直排列填充上下黑边
-        if (blackBarW <= 0) {
+        // blackBarW < 0 表示屏幕比 16:9 更高（letterbox，上下黑边），使用垂直排列
+        // blackBarW == 0 表示恰好 16:9，无黑边可显示
+        if (blackBarW < 0) {
             renderVerticalInBlackBars(spectrum, topValues, w, h, hasRealData);
+            return;
+        }
+        if (blackBarW == 0) {
             return;
         }
 
@@ -207,53 +211,61 @@ public class SideSpectrumRenderer {
         }
     }
 
-    // 垂直排列渲染（用于无黑边的宽屏如16:10）
+    // 垂直排列渲染（用于上下黑边的屏幕，如 4:3、5:4、3:2 等比 16:9 更"方"的屏）
     private void renderVerticalInBlackBars(float[] spectrum, float[] topValues, int w, int h, boolean hasRealData) {
-        float gameW = h * (1920f / 1080f);
-        float topBarH = (h - gameW) / 2f;  // 上黑边高度
-        float bottomBarH = topBarH;        // 下黑边高度
+        // 游戏区域是按宽度等比缩放的 16:9 矩形（letterbox）：viewportW = w, viewportH = w * 9/16
+        // 上下黑边各占 (h - viewportH) / 2。原先错误地把 gameW 算成 h * 16/9 当高度减，导致
+        // topBarH 为负，频谱完全看不见。
+        float gameH = w * (1080f / 1920f);
+        float topBarH = (h - gameH) / 2f;    // 上黑边高度
+        float bottomBarH = topBarH;          // 下黑边高度
 
-        float barW = w / 64f;  // 64个band平分宽度，每边32个
+        if (topBarH <= 4 || bottomBarH <= 4) {
+            return; // 没有足够空间，跳过
+        }
+
+        // 上黑边（左 32 频段，从下往上）；下黑边（右 32 频段，从上往下）
+        float halfW = w / 2f;
+        float barW = halfW / 32f;  // 每边 32 个 band 平分一半宽度
         float barThickness = barW * 0.7f;
         Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
 
-        // 在上黑边绘制垂直条形图（从下向上延伸）
+        // 上黑边：左声道 32 频段（从屏幕左边排到中间）
         for (int i = 0; i < 32; i++) {
             float x = i * barW;
-            float val = spectrum[31 - i];  // 频谱从低到高排列
-            float top = topValues[31 - i];
+            float val = spectrum[i];
+            float top = topValues[i];
 
             float barHeight = Math.min(val * topBarH * 0.85f, topBarH - 4);
             float topHeight = Math.min(top * topBarH * 0.85f, topBarH - 4);
 
-            // 频谱条从黑边底部向上延伸
+            // 频谱条从上黑边底部（即游戏区顶边）向上延伸
+            float baseY = h - topBarH + 2;
             shapeRenderer.setColor(barColor);
-            shapeRenderer.rect(x + (barW - barThickness) / 2, h - topBarH + 4, barThickness, barHeight);
+            shapeRenderer.rect(x + (barW - barThickness) / 2, baseY, barThickness, barHeight);
 
-            // 顶部高亮
             if (topHeight > 2) {
                 shapeRenderer.setColor(Color.WHITE);
-                shapeRenderer.rect(x + (barW - barThickness) / 2, h - topBarH + 4 + barHeight - 2, barThickness, 2);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, baseY + barHeight - 2, barThickness, 2);
             }
         }
 
-        // 在下黑边绘制垂直条形图（从上向下延伸）
+        // 下黑边：右声道 32 频段（从中间排到屏幕右边）
         for (int i = 0; i < 32; i++) {
-            float x = w - (32 - i) * barW;  // 从右往左
-            float val = spectrum[32 + i];   // 右声道
+            float x = halfW + i * barW;
+            float val = spectrum[32 + i];
             float top = topValues[32 + i];
 
             float barHeight = Math.min(val * bottomBarH * 0.85f, bottomBarH - 4);
             float topHeight = Math.min(top * bottomBarH * 0.85f, bottomBarH - 4);
 
-            // 频谱条从黑边顶部向下延伸
+            // 频谱条从游戏区底边向下延伸
             shapeRenderer.setColor(barColor);
-            shapeRenderer.rect(x + (barW - barThickness) / 2, 0, barThickness, barHeight);
+            shapeRenderer.rect(x + (barW - barThickness) / 2, 2, barThickness, barHeight);
 
-            // 顶部高亮
             if (topHeight > 2) {
                 shapeRenderer.setColor(Color.WHITE);
-                shapeRenderer.rect(x + (barW - barThickness) / 2, 0, barThickness, 2);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, 2 + barHeight - 2, barThickness, 2);
             }
         }
     }
