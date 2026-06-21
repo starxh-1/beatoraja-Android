@@ -244,7 +244,7 @@ public class SideSpectrumRenderer {
             shapeRenderer.rect(x + (barW - barThickness) / 2, baseY, barThickness, barHeight);
             if (topHeight > 2) {
                 shapeRenderer.setColor(Color.WHITE);
-                shapeRenderer.rect(x + (barW - barThickness) / 2, baseY + barHeight - 2, barThickness, 2);
+                shapeRenderer.rect(x + (barW - barThickness) / 2, baseY + topHeight - 2, barThickness, 2);
             }
         }
 
