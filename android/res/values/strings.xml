@@ -23,6 +23,7 @@
     <string name="section_play_options">Play Options</string>
     <string name="show_audio_spectrum">Show Audio Spectrum</string>
     <string name="bga_display">BGA Display</string>
+    <string name="bga_expand">BGA Expand</string>
     <string name="gauge_auto_shift">Gauge Auto Shift</string>
     <string name="auto_save_replay">Auto Save Replay</string>
     <string name="green_number">Green Number</string>
@@ -78,6 +79,11 @@
     <string-array name="bga_display_options">
         <item>On</item>
         <item>Auto</item>
+        <item>Off</item>
+    </string-array>
+    <string-array name="bga_expand_options">
+        <item>Full</item>
+        <item>Keep Ratio</item>
         <item>Off</item>
     </string-array>
     <string-array name="gauge_auto_shift_options">

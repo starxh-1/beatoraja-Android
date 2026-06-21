@@ -77,6 +77,7 @@ public class SettingsActivity extends Activity {
     private boolean selectedEnableLanecover = false;
     private boolean selectedEnableLift = false;
     private int selectedBga = 0;
+    private int selectedBgaExpand = 1;
     // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
     private boolean selectedStretchFullscreen = false;
@@ -246,6 +247,7 @@ public class SettingsActivity extends Activity {
                 // selectedPollingRate = findJsonIntValue(json, "inputPollingRate", 1000); // hardcoded to 1000Hz
                 selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
+                selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
                 selectedStretchFullscreen = findJsonBooleanValue(json, "stretchFullscreen", false);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
@@ -660,6 +662,14 @@ public class SettingsActivity extends Activity {
         bgaDisplaySpinner.setAdapter(bgaDisplayAdapter);
         bgaDisplaySpinner.setSelection(selectedBga);
 
+        // BGA Expand
+        Spinner bgaExpandSpinner = findViewById(R.id.bgaExpandSpinner);
+        String[] bgaExpandOptions = getResources().getStringArray(R.array.bga_expand_options);
+        ArrayAdapter<String> bgaExpandAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, bgaExpandOptions);
+        bgaExpandAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        bgaExpandSpinner.setAdapter(bgaExpandAdapter);
+        bgaExpandSpinner.setSelection(Math.min(selectedBgaExpand, bgaExpandOptions.length - 1));
+
         // Table URL
         tableUrlContainer = findViewById(R.id.tableUrlContainer);
         findViewById(R.id.addTableUrlBtn).setOnClickListener(v -> { tableUrls.add(""); refreshTableUrlList(); });
@@ -955,6 +965,7 @@ public class SettingsActivity extends Activity {
             // config.put("inputPollingRate", selectedPollingRate); // hardcoded to 1000Hz
             config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
+            config.put("bgaExpand", selectedBgaExpand);
             config.put("stretchFullscreen", selectedStretchFullscreen);
 
             // 自动同步当前系统语言给游戏内核
@@ -1622,6 +1633,7 @@ public class SettingsActivity extends Activity {
         showAudioSpectrum = ((Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
         selectedFloatingMenuPosition = ((Spinner) findViewById(R.id.floatingMenuPositionSpinner)).getSelectedItemPosition();
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
+        selectedBgaExpand = ((Spinner) findViewById(R.id.bgaExpandSpinner)).getSelectedItemPosition();
         selectedStretchFullscreen = ((Switch) findViewById(R.id.stretchFullscreenSwitch)).isChecked();
         tableUrls.clear();
         for (int i = 0; i < tableUrlContainer.getChildCount(); i++) {
