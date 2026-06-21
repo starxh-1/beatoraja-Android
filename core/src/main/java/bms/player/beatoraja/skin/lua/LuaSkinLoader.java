@@ -16,7 +16,9 @@ import com.badlogic.gdx.utils.reflect.ReflectionException;
 import org.luaj.vm2.LuaFunction;
 import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
+import org.luaj.vm2.Varargs;
 import org.luaj.vm2.lib.TwoArgFunction;
+import org.luaj.vm2.lib.VarArgFunction;
 
 import java.io.File;
 import java.lang.reflect.Array;
@@ -239,9 +241,11 @@ public class LuaSkinLoader extends JSONSkinLoader {
 	}
 
 	/**
-	 * 仅当加载 MusicSelect 皮肤时，把 lua 的 io.open 重定向为以皮肤目录为基准。
-	 * 这样皮肤脚本里的 `io.open("skin/xxx/djpoint_log.txt", "w")` 这类相对路径
-	 * 在 Android（user.dir == "/"）下也能找到。其它状态（PLAY/RESULT 等）走原始 io.open。
+	 * 仅当加载 MusicSelect 皮肤时，把 lua 的 io.open / io.lines 重定向为以皮肤目录为基准。
+	 * 在 Android（user.dir == "/"）下，Lua 皮肤脚本里相对路径（如 "skin/hij_simple/djpoint_log.txt"）
+	 * 无法正确解析。此方法拦截 io.open 和 io.lines，将相对路径先尝试皮肤目录，
+	 * 再尝试 beatoraja.root（Android 外部存储根），最后回退到原始调用。
+	 * 其它状态（PLAY/RESULT 等）走原始 io 函数。
 	 */
 	private void installIoRedirectIfMusicSelect(File skinDir) {
 		if (ioRedirectInstalled) return;
@@ -256,19 +260,51 @@ public class LuaSkinLoader extends JSONSkinLoader {
 			return;
 		}
 		final LuaValue originalOpen = io.get("open");
-		final File baseDir = skinDir;
+		final String androidRoot = System.getProperty("beatoraja.root");
+		final File skinDirFinal = skinDir;
+
+		// Helper: resolve a relative path against multiple base directories
+		java.util.function.Function<String, String> resolvePath = path -> {
+			if (path == null || path.isEmpty()) return path;
+			File f = new File(path);
+			if (f.isAbsolute()) return path;
+			// Try skin directory first
+			f = new File(skinDirFinal, path);
+			if (f.exists()) return f.getAbsolutePath();
+			// Try beatoraja.root (covers "skin/xxx/yyy.txt" style paths)
+			if (androidRoot != null && !androidRoot.isEmpty()) {
+				File f2 = new File(androidRoot, path);
+				if (f2.exists()) return f2.getAbsolutePath();
+			}
+			// Fallback: resolve relative to skinDir even if file doesn't exist yet (for writes)
+			return new File(skinDirFinal, path).getAbsolutePath();
+		};
+
 		io.set("open", new TwoArgFunction() {
 			@Override
 			public LuaValue call(LuaValue arg1, LuaValue arg2) {
-				String path = arg1.tojstring();
-				if (path != null && !path.isEmpty()) {
-					File f = new File(path);
-					if (!f.isAbsolute()) {
-						f = new File(baseDir, path);
-						arg1 = LuaValue.valueOf(f.getAbsolutePath());
+				String resolved = resolvePath.apply(arg1.tojstring());
+				return originalOpen.call(LuaValue.valueOf(resolved), arg2);
+			}
+		});
+
+		// io.lines in LuaJ's IoLib does NOT delegate to io.open internally;
+		// it opens files directly via openFile(), so we must override it separately.
+		final LuaValue originalLines = io.get("lines");
+		io.set("lines", new VarArgFunction() {
+			@Override
+			public Varargs invoke(Varargs args) {
+				if (args.narg() > 0) {
+					LuaValue arg1 = args.arg1();
+					String resolved = resolvePath.apply(arg1.tojstring());
+					LuaValue[] newArgs = new LuaValue[args.narg()];
+					newArgs[0] = LuaValue.valueOf(resolved);
+					for (int i = 1; i < args.narg(); i++) {
+						newArgs[i] = args.arg(i + 1);
 					}
+					return originalLines.invoke(LuaValue.varargsOf(newArgs));
 				}
-				return originalOpen.call(arg1, arg2);
+				return originalLines.invoke(args);
 			}
 		});
 		ioRedirectInstalled = true;

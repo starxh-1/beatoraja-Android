@@ -12,9 +12,11 @@ import org.luaj.vm2.LuaTable;
 import org.luaj.vm2.LuaValue;
 import org.luaj.vm2.lib.OneArgFunction;
 import org.luaj.vm2.lib.ResourceFinder;
+import org.luaj.vm2.lib.TwoArgFunction;
 import org.luaj.vm2.lib.jse.JsePlatform;
 
 import java.io.File;
+import java.lang.reflect.Method;
 import java.util.function.Function;
 import java.util.logging.Logger;
 
@@ -56,6 +58,7 @@ public class SkinLuaAccessor {
 
 	public SkinLuaAccessor(boolean isGlobal) {
 		globals = JsePlatform.standardGlobals();
+		customizeLuajavaClassLoading();
 		// 设置自定义资源查找器，解决 Android 上 require 找不到文件的问题
 		globals.finder = new ResourceFinder() {
 			@Override
@@ -544,5 +547,45 @@ public class SkinLuaAccessor {
 			offsets.set(ofs.name, offsetTable);
 		}
 		table.set("offset", offsets);
+	}
+
+	/**
+	 * Android で luajava.bindClass が APK 内のクラス（com.badlogic.gdx.Gdx 等）を
+	 * 見つけられるように、package.preload.luajava をラップして bindClass を
+	 * アプリの ClassLoader を使うようにカスタマイズする。
+	 */
+	private void customizeLuajavaClassLoading() {
+		try {
+			LuaValue pkg = globals.get("package");
+			final LuaValue originalPreload = pkg.get("preload").get("luajava");
+			if (originalPreload.isnil() || !originalPreload.isfunction()) return;
+			final ClassLoader appClassLoader = SkinLuaAccessor.class.getClassLoader();
+			pkg.get("preload").set("luajava", new TwoArgFunction() {
+				@Override
+				public LuaValue call(LuaValue modname, LuaValue env) {
+					LuaValue module = originalPreload.call(modname, env);
+					if (module.istable()) {
+						LuaTable lj = (LuaTable) module;
+						final LuaValue origBindClass = lj.get("bindClass");
+						lj.set("bindClass", new OneArgFunction() {
+							@Override
+							public LuaValue call(LuaValue className) {
+								try {
+									Class<?> cls = Class.forName(className.tojstring(), true, appClassLoader);
+									Method m = Class.forName("org.luaj.vm2.lib.jse.JavaClass")
+											.getMethod("forClass", Class.class);
+									return (LuaValue) m.invoke(null, cls);
+								} catch (Exception e) {
+									return origBindClass.call(className);
+								}
+							}
+						});
+					}
+					return module;
+				}
+			});
+		} catch (Exception e) {
+			Logger.getGlobal().warning("Failed to configure luajava: " + e.getMessage());
+		}
 	}
 }
