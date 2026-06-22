@@ -2,6 +2,7 @@ package bms.player.beatoraja.skin.lr2;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.function.BiConsumer;
 
 import bms.player.beatoraja.skin.SkinTextImage;
@@ -13,6 +14,9 @@ import bms.player.beatoraja.skin.lr2.LR2SkinLoader.Command;
  * @author exch
  */
 public class LR2FontLoader extends LR2SkinLoader {
+	private static final Charset MS932 = Charset.forName("MS932");
+	private static final Charset SHIFT_JIS = Charset.forName("Shift_JIS");
+
 	/**
 	 * 生成するテキストイメージソース
 	 */
@@ -34,7 +38,7 @@ public class LR2FontLoader extends LR2SkinLoader {
 		this.path = p;
 
 //		long l = System.nanoTime();
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(p), "MS932"))) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(p), MS932))) {
 			br.lines().forEach(line -> {
 				processLine(line, null);
 			});
@@ -105,6 +109,8 @@ enum FontCommand implements Command<LR2FontLoader> {
 		}
 	});
 
+	private static final Charset SHIFT_JIS = Charset.forName("Shift_JIS");
+
 	private static int[] mapCode(int code) {
 		int sjiscode = code;
 		byte[] sjisbyte;
@@ -127,16 +133,12 @@ enum FontCommand implements Command<LR2FontLoader> {
 			sjisbyte[0] = (byte) (sjiscode & 0xff);
 		}
 
-		try {
-			byte[] b = new String(sjisbyte, "Shift_JIS").getBytes("utf-16le");
-			int utfcode = 0;
-			for (int i = 0; i < b.length; i++) {
-				utfcode |= (b[i] & 0xff) << (8 * i);
-			}
-			return new int[]{utfcode};
-		} catch (UnsupportedEncodingException e) {
+		byte[] bytes = new String(sjisbyte, SHIFT_JIS).getBytes(StandardCharsets.UTF_16LE);
+		int utfcode = 0;
+		for (int i = 0; i < bytes.length; i++) {
+			utfcode |= (bytes[i] & 0xff) << (8 * i);
 		}
-		return new int[0];
+		return new int[]{utfcode};
 	}
 
 	public final BiConsumer<LR2FontLoader, String[]> function;

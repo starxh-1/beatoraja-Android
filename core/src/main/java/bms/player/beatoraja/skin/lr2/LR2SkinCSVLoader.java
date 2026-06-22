@@ -33,6 +33,8 @@ import com.badlogic.gdx.utils.ObjectMap;
  */
 public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
+	private static final Charset MS932 = Charset.forName("MS932");
+
 	Array<Object> imagelist = new Array<Object>();
 	Array<SkinTextImage.SkinTextImageSource> fontlist = new Array<SkinTextImage.SkinTextImageSource>();
 
@@ -95,7 +97,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
 				if (handle.exists()) {
 					try (BufferedReader br = new BufferedReader(
-							new InputStreamReader(handle.read(), "MS932"));) {
+							new InputStreamReader(handle.read(), MS932))) {
 						while ((line = br.readLine()) != null) {
 							processLine(line, state);
 						}
@@ -844,7 +846,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		com.badlogic.gdx.files.FileHandle handle = com.badlogic.gdx.Gdx.files.internal(path);
 		if (!handle.exists()) handle = com.badlogic.gdx.Gdx.files.absolute(path);
 
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(handle.read(), "MS932"))) {
+		try (BufferedReader br = new BufferedReader(new InputStreamReader(handle.read(), MS932))) {
 			br.lines().forEach(line -> {
 				try {
 					processLine(line, state);

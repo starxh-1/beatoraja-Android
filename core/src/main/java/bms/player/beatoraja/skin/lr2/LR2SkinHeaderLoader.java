@@ -29,6 +29,8 @@ import static bms.player.beatoraja.Resolution.*;
  * @author exch
  */
 public class LR2SkinHeaderLoader extends LR2SkinLoader {
+	private static final Charset MS932 = Charset.forName("MS932");
+
 
 	SkinHeader header = new SkinHeader();
 	Array<CustomFile> files = new Array<CustomFile>();
@@ -55,7 +57,7 @@ public class LR2SkinHeaderLoader extends LR2SkinLoader {
 
 		header.setPath(f.getPath());
 
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(f), Charset.forName("MS932")))) {
+		try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(f), MS932))) {
 			reader.lines().forEach(line -> {
 				try {
 					processLine(line, state);
