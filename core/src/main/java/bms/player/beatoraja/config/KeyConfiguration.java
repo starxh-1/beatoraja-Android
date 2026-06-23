@@ -558,8 +558,12 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private int getKeyboardKeyAssign(int index) {
+		// 2P 槽位 (index >= 100) 没有 2P 键盘配置 — 一律视为未绑定
+		if (index >= 100) {
+			return -1;
+		}
 		if (index >= 0) {
-			return keyboardConfig.getKeyAssign()[index % 100];
+			return keyboardConfig.getKeyAssign()[index];
 		} else if (index == -1) {
 			return keyboardConfig.getStart();
 		} else if (index == -2) {
@@ -569,6 +573,10 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setKeyboardKeyAssign(int index) {
+		// 2P 槽位不允许绑定键盘 — 2P 仅支持 controller
+		if (index >= 100) {
+			return;
+		}
 		if (keyboard.isReservedKey(keyboard.getLastPressedKey())) {
 			return;
 		}
@@ -583,6 +591,10 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private String getMouseScratchKeyString(int index, String defaultKeyString) {
+		// 2P 槽位不支持鼠标转盘
+		if (index >= 100) {
+			return null;
+		}
 		String keyString = null;
 		if (index >= 0) {
 			keyString = keyboardConfig.getMouseScratchConfig().getKeyString(index);
@@ -599,6 +611,10 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setMouseScratchKeyAssign(int index, KeyBoardInputProcesseor kbp) {
+		// 2P 槽位不允许绑定鼠标转盘
+		if (index >= 100) {
+			return;
+		}
 		resetKeyAssign(index);
 		int lastMouseScratch = kbp.getMouseScratchInput().getLastMouseScratch();
 		if (index >= 0) {
@@ -662,6 +678,10 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private MidiConfig.Input getMidiKeyAssign(int index) {
+		// 2P 槽位不支持 MIDI
+		if (index >= 100) {
+			return null;
+		}
 		if (index >= 0) {
 			return midiconfig.getKeyAssign(index);
 		} else if (index == -1) {
@@ -675,24 +695,30 @@ public class KeyConfiguration extends MainState {
 	private void resetKeyAssign(int index) {
 		if (index >= 0) {
 			final int slot = index % 100;
-			keyboardConfig.getKeyAssign()[slot] = -1;
+			final boolean is2P = index >= 100;
+			if (!is2P) {
+				keyboardConfig.getKeyAssign()[slot] = -1;
+				keyboardConfig.getMouseScratchConfig().getKeyAssign()[slot] = -1;
+				midiconfig.setKeyAssign(slot, null);
+			}
 			for (ControllerConfig cc : controllerConfigs) {
 				cc.getKeyAssign()[slot] = -1;
 			}
-			keyboardConfig.getMouseScratchConfig().getKeyAssign()[slot] = -1;
-			midiconfig.setKeyAssign(slot, null);
 		}
 	}
 
 	private void deleteKeyAssign(int index) {
 		final int noAssign = -1;
-		if (index >= 0) keyboardConfig.getKeyAssign()[index % 100] = noAssign;
+		final boolean is2P = index >= 100;
 		if(index >= 0) {
-			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index % 100] = noAssign;
+			if (!is2P) {
+				keyboardConfig.getKeyAssign()[index % 100] = noAssign;
+				keyboardConfig.getMouseScratchConfig().getKeyAssign()[index % 100] = noAssign;
+				midiconfig.setKeyAssign(index % 100, null);
+			}
 			for (ControllerConfig cc : controllerConfigs) {
 				cc.getKeyAssign()[index % 100] = noAssign;
 			}
-			midiconfig.setKeyAssign(index % 100, null);
 		} else if (index == -1) {
 			keyboardConfig.getMouseScratchConfig().setStart(noAssign);
 			for (int i = 0; i < controllerConfigs.length; i++) {
@@ -710,6 +736,10 @@ public class KeyConfiguration extends MainState {
 
 	private void setMidiKeyAssign(int index) {
 		if (midiinput == null) return;
+		// 2P 槽位不支持 MIDI
+		if (index >= 100) {
+			return;
+		}
 		resetKeyAssign(index);
 		if (index >= 0) {
 			midiconfig.setKeyAssign(index, midiinput.getLastPressedKey());
@@ -721,10 +751,12 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void validateKeyboardLength() {
+		// 键盘配置只承担 1P 槽位 (index < 100),2P 槽位的 key % 100 才是 1P 位置
+		// 这里用 key%100 计算 maxKey,避免把键盘数组膨胀到 100+ 长度
 		int maxKey = 0;
 		for (int key : KEYSA[mode]) {
-			if (key > maxKey) {
-				maxKey = key;
+			if (key % 100 > maxKey) {
+				maxKey = key % 100;
 			}
 		}
 		if (keyboardConfig.getKeyAssign().length <= maxKey) {
@@ -767,10 +799,11 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void validateMidiLength() {
+		// MIDI 也只承担 1P 槽位
 		int maxKey = 0;
 		for (int key : KEYSA[mode]) {
-			if (key > maxKey) {
-				maxKey = key;
+			if (key % 100 > maxKey) {
+				maxKey = key % 100;
 			}
 		}
 		if (midiconfig.getKeys().length <= maxKey) {
