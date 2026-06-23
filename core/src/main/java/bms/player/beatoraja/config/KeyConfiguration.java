@@ -322,9 +322,9 @@ public class KeyConfiguration extends MainState {
 			} else if (btn == XboxControllerHelper.XBOX_BUTTON_R3) {
 				simKey = Keys.ESCAPE;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
-				simKey = Keys.UP;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {
 				simKey = Keys.DOWN;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {
+				simKey = Keys.UP;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_PLUS) {
 				simKey = Keys.RIGHT;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_MINUS) {
