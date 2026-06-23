@@ -76,6 +76,20 @@ public final class SkinGraph extends SkinObject {
 		this.direction = direction;
 	}
 
+	// Path-based lazy constructors (LR2 SRC_BARGRAPH_*). SkinSource loads texture on first draw.
+
+	public SkinGraph(SkinSource source, int id, int direction) {
+		this.source = source;
+		ref = FloatPropertyFactory.getRateProperty(id);
+		this.direction = direction;
+	}
+
+	public SkinGraph(SkinSource source, int id, int min, int max, int direction) {
+		this.source = source;
+		ref = new RateProperty(id, min, max);
+		this.direction = direction;
+	}
+
 	public boolean validate() {
 		if(source == null || !source.validate()) {
 			return false;

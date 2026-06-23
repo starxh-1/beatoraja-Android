@@ -67,11 +67,36 @@ public class SkinHidden extends SkinObject {
 		}
 	}
 
+	/**
+	 * Path-based lazy constructor (LR2 SRC_HIDDEN/SRC_LIFT). Texture is loaded on first prepare().
+	 * Only SkinSourceImage is supported — SkinHidden expects a sequence of static frames indexed
+	 * by the cycle timer, which other SkinSource types do not provide.
+	 */
+	public SkinHidden(SkinSourceImage source, int timer, int cycle) {
+		this.source = source;
+		this.timer = timer > 0 ? TimerPropertyFactory.getTimerProperty(timer) : null;
+		this.cycle = cycle;
+	}
+
+	private SkinSourceImage source;
+
 	@Override
 	public void prepare(long time, MainState state) {
 		if(originalImages == null) {
-			draw = false;
-			return;
+			if (source != null) {
+				TextureRegion[] resolved = source.getImages();
+				if (resolved != null && resolved.length > 0) {
+					originalImages = resolved;
+					trimmedImages = new TextureRegion[originalImages.length];
+					for(int i = 0; i < trimmedImages.length; i++) {
+						trimmedImages[i] = new TextureRegion(originalImages[i]);
+					}
+				}
+			}
+			if(originalImages == null) {
+				draw = false;
+				return;
+			}
 		}
 		if(this.state != state) {
 			this.state = state;

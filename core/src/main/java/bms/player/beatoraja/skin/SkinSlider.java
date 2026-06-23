@@ -94,6 +94,24 @@ public final class SkinSlider extends SkinObject {
 		writer = null;
 	}
 
+	// Path-based lazy constructors (LR2 SKIN_SRC_SLIDER_*). SkinSource loads texture on first draw.
+
+	public SkinSlider(SkinSource source, int angle, int range, int type, boolean changeable) {
+		this.source = source;
+		this.direction = angle;
+		this.range = range;
+		ref = FloatPropertyFactory.getRateProperty(type);
+		writer = changeable ? FloatPropertyFactory.getRateWriter(type) : null;
+	}
+
+	public SkinSlider(SkinSource source, int angle, int range, int type, int min, int max) {
+		this.source = source;
+		this.direction = angle;
+		this.range = range;
+		ref = new RateProperty(type, min, max);
+		writer = null;
+	}
+
 	public boolean validate() {
 		if(source == null || !source.validate()) {
 			return false;

@@ -116,10 +116,12 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				TextureRegion[] images = getSourceImage(values);
-				if (images != null) {
-					SkinImage li = new SkinImage(images, values[10], values[9]);
-					lines[values[1]] = li;
+				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+				if (entry != null && !entry.isMovie) {
+					SkinSource source = new SkinSourceImage(entry.path,
+							values[3], values[4], values[5], values[6],
+							values[7], values[8], values[10], values[9], usecim);
+					lines[values[1]] = new SkinImage(source);
 					// System.out.println("Object Added - " +
 					// (part.getTiming()));
 				}
@@ -317,13 +319,16 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				TextureRegion[] images = getSourceImage(values);
-				if (images != null) {
+				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+				if (entry != null && !entry.isMovie) {
+					SkinSource source = new SkinSourceImage(entry.path,
+							values[3], values[4], values[5], values[6],
+							values[7], values[8], values[10], values[9], usecim);
 					if (judge[0] == null) {
 						judge[0] = new SkinJudge(0, (values[11] != 1));
 						skin.add(judge[0]);
 					}
-					judge[0].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(images, values[10], values[9]));
+					judge[0].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
 					// values[1]));
 				}
@@ -369,13 +374,16 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				TextureRegion[] images = getSourceImage(values);
-				if (images != null) {
+				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+				if (entry != null && !entry.isMovie) {
+					SkinSource source = new SkinSourceImage(entry.path,
+							values[3], values[4], values[5], values[6],
+							values[7], values[8], values[10], values[9], usecim);
 					if (judge[1] == null) {
 						judge[1] = new SkinJudge(1, (values[11] != 1));
 						skin.add(judge[1]);
 					}
-					judge[1].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(images, values[10], values[9]));
+					judge[1].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
 					// values[1]));
 				}
@@ -420,13 +428,16 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				TextureRegion[] images = getSourceImage(values);
-				if (images != null) {
+				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+				if (entry != null && !entry.isMovie) {
+					SkinSource source = new SkinSourceImage(entry.path,
+							values[3], values[4], values[5], values[6],
+							values[7], values[8], values[10], values[9], usecim);
 					if (judge[2] == null) {
 						judge[2] = new SkinJudge(2, (values[11] != 1));
 						skin.add(judge[2]);
 					}
-					judge[2].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(images, values[10], values[9]));
+					judge[2].setJudge(values[1] <= 5  ? (5 - values[1]) : values[1], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
 					// values[1]));
 				}
@@ -514,9 +525,12 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				TextureRegion[] images = getSourceImage(values);
-				if (images != null) {
-					line = new SkinImage(images, values[10], values[9]);
+				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+				if (entry != null && !entry.isMovie) {
+					SkinSource source = new SkinSourceImage(entry.path,
+							values[3], values[4], values[5], values[6],
+							values[7], values[8], values[10], values[9], usecim);
+					line = new SkinImage(source);
 					// System.out.println("Object Added - " +
 					// (part.getTiming()));
 				}
@@ -804,9 +818,12 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			return;
 		}
 		if (lane < note.length && note[lane] == null) {
-			TextureRegion[] images = getSourceImage(values);
-			if (images != null) {
-				note[lane] = new SkinSourceImage(images, animation ? values[10] : 0, animation ? values[9] : 0);
+			LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+			if (entry != null && !entry.isMovie) {
+				note[lane] = new SkinSourceImage(entry.path,
+						values[3], values[4], values[5], values[6],
+						values[7], values[8],
+						animation ? values[10] : 0, animation ? values[9] : 0, usecim);
 			}
 		}
 	}
@@ -866,9 +883,12 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 	private void setSrcHidden(String[] str) {
 		hidden = null;
 		int[] values = parseInt(str);
-		TextureRegion[] images = getSourceImage(values);
-		if (images != null) {
-			hidden = new SkinHidden(images, values[10], values[9]);
+		LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
+		if (entry != null && !entry.isMovie) {
+			SkinSourceImage source = new SkinSourceImage(entry.path,
+					values[3], values[4], values[5], values[6],
+					values[7], values[8], values[10], values[9], usecim);
+			hidden = new SkinHidden(source, values[10], values[9]);
 		}
 		if (hidden != null) {
 			if(str[11].length() > 0 && values[11] > 0) hidden.setDisapearLine(dsth - values[11] * dsth / srch);

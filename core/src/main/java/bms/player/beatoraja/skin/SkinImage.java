@@ -77,6 +77,15 @@ public class SkinImage extends SkinObject {
 		ref = null;
 	}
 
+	/**
+	 * Path-based lazy constructor. The {@link SkinSource} (typically a {@link SkinSourceImage}
+	 * built from a texture path) defers its {@code getImage} until first draw.
+	 */
+	public SkinImage(SkinSource source) {
+		this.image = new SkinSource[]{source};
+		ref = null;
+	}
+
 	public SkinImage(SkinSourceImage[] image, int ref) {
 		this(image, IntegerPropertyFactory.getImageIndexProperty(ref));
 	}
@@ -124,8 +133,12 @@ public class SkinImage extends SkinObject {
 		super.load();
 		// 静态图片（无动画计时器、无引用属性、SkinSourceReference除外）在加载时缓存
 		// SkinSourceReference 需要 state 才能解析图片，不能缓存
+		// SkinSourceImage 的 lazy 模式(path-based)也不缓存：缓存调用 getImage 会触发纹理 I/O，
+		// Skin.prepare() 在绘制前跑 load()，会破坏懒加载目标。
 		if (getDestinationTimer() == null && ref == null && cachedImage == null &&
-		    image != null && image.length > 0 && !(image[0] instanceof SkinSourceReference)) {
+		    image != null && image.length > 0 &&
+		    !(image[0] instanceof SkinSourceReference) &&
+		    !(image[0] instanceof SkinSourceImage && ((SkinSourceImage) image[0]).isLazy())) {
 			cachedImage = getImage(0, 0, null);
 		}
 	}
