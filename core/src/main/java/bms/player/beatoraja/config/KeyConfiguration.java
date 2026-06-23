@@ -618,6 +618,8 @@ public class KeyConfiguration extends MainState {
 		} else if (index == -2) {
 			controllerConfigs[cindex].setSelect(bmc.getLastPressedButton());
 		}
+		// 消费 lastPressedButton,防止下一帧 pollControllerNavShortcuts 把它当 nav 快捷键
+		bmc.setLastPressedButton(-1);
 	}
 
 	private MidiConfig.Input getMidiKeyAssign(int index) {
