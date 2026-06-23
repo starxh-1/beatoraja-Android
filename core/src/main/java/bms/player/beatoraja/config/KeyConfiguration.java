@@ -163,6 +163,8 @@ public class KeyConfiguration extends MainState {
 			setMode((mode + 1) % KEYS.length);
 		}
 
+		pollControllerNavShortcuts();
+
 		currentKeys = KEYS[mode];
 		currentKeysa = KEYSA[mode];
 
@@ -294,6 +296,41 @@ public class KeyConfiguration extends MainState {
 
 		// 渲染界面内容
 		renderContent(sprite, scaleX, scaleY);
+	}
+
+	/**
+	 * 手柄全局快捷键：十字键/摇杆 → UP/DOWN/LEFT/RIGHT，A → Enter，X → Del，B → Esc。
+	 * 必须在 keyinput 块之前调用，否则 A/X/B 会被当作"绑定到当前光标位"。
+	 */
+	private void pollControllerNavShortcuts() {
+		for (BMControllerInputProcessor bmc : controllers) {
+			int btn = bmc.getLastPressedButton();
+			if (btn < 0) continue;
+			// 调试：记录所有非 AXIS 的手柄按键,首次发现时打印
+			if (btn < BMControllerInputProcessor.BMKeys.AXIS1_PLUS) {
+				Gdx.app.log("KeyConfigNav", "Controller [" + bmc.getName() + "] button id=" + btn);
+			}
+			int simKey = -1;
+			if (btn == XboxControllerHelper.XBOX_BUTTON_A) {
+				simKey = Keys.ENTER;
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X) {
+				simKey = Keys.FORWARD_DEL;
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B) {
+				simKey = Keys.ESCAPE;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_PLUS) {
+				simKey = Keys.UP;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_MINUS) {
+				simKey = Keys.DOWN;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
+				simKey = Keys.RIGHT;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {
+				simKey = Keys.LEFT;
+			}
+			if (simKey >= 0) {
+				keyboard.simulateKeyPress(simKey);
+				bmc.setLastPressedButton(-1);
+			}
+		}
 	}
 
 	/**
