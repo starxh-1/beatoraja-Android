@@ -307,11 +307,13 @@ public class KeyConfiguration extends MainState {
 			int btn = bmc.getLastPressedButton();
 			if (btn < 0) continue;
 			int simKey = -1;
-			if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A || btn == XboxControllerHelper.XBOX_BUTTON_L3) {
+			if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A
+					|| btn == XboxControllerHelper.XBOX_BUTTON_L3 || btn == XboxControllerHelper.ANDROID_BUTTON_L3) {
 				simKey = Keys.ENTER;
 			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X || btn == XboxControllerHelper.ANDROID_BUTTON_X) {
 				simKey = Keys.FORWARD_DEL;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B || btn == XboxControllerHelper.ANDROID_BUTTON_B || btn == XboxControllerHelper.XBOX_BUTTON_R3) {
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B || btn == XboxControllerHelper.ANDROID_BUTTON_B
+					|| btn == XboxControllerHelper.XBOX_BUTTON_R3 || btn == XboxControllerHelper.ANDROID_BUTTON_R3) {
 				simKey = Keys.ESCAPE;
 			} else if (btn == XboxControllerHelper.XBOX_BUTTON_Y || btn == XboxControllerHelper.ANDROID_BUTTON_Y) {
 				simKey = Keys.FORWARD_DEL;

@@ -33,6 +33,8 @@ public class XboxControllerHelper {
     public static final int ANDROID_BUTTON_B = 98;
     public static final int ANDROID_BUTTON_X = 100;
     public static final int ANDROID_BUTTON_Y = 101;
+    public static final int ANDROID_BUTTON_L3 = 107;
+    public static final int ANDROID_BUTTON_R3 = 108;
 
     // XBOX手柄轴代码
     public static final int XBOX_AXIS_LEFT_X = 0;
