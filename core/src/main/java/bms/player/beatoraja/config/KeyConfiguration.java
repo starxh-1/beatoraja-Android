@@ -39,9 +39,15 @@ public class KeyConfiguration extends MainState {
 			Mode.KEYBOARD_24K_DOUBLE };
 
 	private static final String[][] KEYS = {
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "8 KEY", "9 KEY", "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "F-SCR", "R-SCR",
+			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-F-SCR", "2P-R-SCR",
+			  "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "F-SCR", "R-SCR",
+			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY", "2P-F-SCR", "2P-R-SCR",
+			  "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "8 KEY", "9 KEY",
+			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY", "2P-8 KEY", "2P-9 KEY",
+			  "START", "SELECT" },
 			{ "1P-1 KEY", "1P-2 KEY", "1P-3 KEY", "1P-4 KEY", "1P-5 KEY", "1P-F-SCR",
 				"1P-R-SCR", "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY",
 				"2P-F-SCR", "2P-R-SCR", "START", "SELECT" },
@@ -49,19 +55,32 @@ public class KeyConfiguration extends MainState {
 					"1P-R-SCR", "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY",
 					"2P-F-SCR", "2P-R-SCR", "START", "SELECT" },
 			{ "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2",
-					"E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "WHEEL-UP", "WHEEL-DOWN", "START", "SELECT" },
+					"E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "WHEEL-UP", "WHEEL-DOWN",
+					"2P-C1", "2P-C#1", "2P-D1", "2P-D#1", "2P-E1", "2P-F1", "2P-F#1", "2P-G1", "2P-G#1", "2P-A1", "2P-A#1",
+					"2P-B1", "2P-C2", "2P-C#2", "2P-D2", "2P-D#2", "2P-E2", "2P-F2", "2P-F#2", "2P-G2", "2P-G#2",
+					"2P-A2", "2P-A#2", "2P-B2", "2P-WHEEL-UP", "2P-WHEEL-DOWN",
+					"START", "SELECT" },
 			{ "1P-C1", "1P-C#1", "1P-D1", "1P-D#1", "1P-E1", "1P-F1", "1P-F#1", "1P-G1", "1P-G#1", "1P-A1", "1P-A#1",
 					"1P-B1", "1P-C2", "1P-C#2", "1P-D2", "1P-D#2", "1P-E2", "1P-F2", "1P-F#2", "1P-G2", "1P-G#2",
 					"1P-A2", "1P-A#2", "1P-B2", "1P-WHEEL-UP", "1P-WHEEL-DOWN", "2P-C1", "2P-C#1", "2P-D1", "2P-D#1",
 					"2P-E1", "2P-F1", "2P-F#1", "2P-G1", "2P-G#1", "2P-A1", "2P-A#1", "2P-B1", "2P-C2", "2P-C#2",
 					"2P-D2", "2P-D#2", "2P-E2", "2P-F2", "2P-F#2", "2P-G2", "2P-G#2", "2P-A2", "2P-A#2", "2P-B2",
 					"2P-WHEEL-UP", "2P-WHEEL-DOWN", "START", "SELECT" } };;
-	private static final int[][] KEYSA = { { 0, 1, 2, 3, 4, 5, 6, -1, -2 },
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, -1, -2 },
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, -1, -2 },
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -2 },
+	private static final int[][] KEYSA = {
+			// 5 KEYS: 1P (0..6) + START/SELECT (-1/-2) + 2P (100..106)
+			{ 0, 1, 2, 3, 4, 5, 6, 100, 101, 102, 103, 104, 105, 106, -1, -2 },
+			// 7 KEYS: 1P (0..8) + 2P (100..108)
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107, 108, -1, -2 },
+			// 9 KEYS (popn): 1P (0..8) + 2P (100..108)
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107, 108, -1, -2 },
+			// 10 KEYS: 1P (0..13) + 2P (100..113)
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, -1, -2 },
+			// 14 KEYS: 1P (0..17) + 2P (100..117)
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, -1, -2 },
+			// 24 KEYS: 1P (0..25) + 2P (100..125)
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
+			  100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, -1, -2 },
+			// 24 KEYS DOUBLE: 共享同一 controllerConfigs[0],1P (0..25) + 2P (26..51)
 			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
 					29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1,
 					-2 } };
@@ -540,7 +559,7 @@ public class KeyConfiguration extends MainState {
 
 	private int getKeyboardKeyAssign(int index) {
 		if (index >= 0) {
-			return keyboardConfig.getKeyAssign()[index];
+			return keyboardConfig.getKeyAssign()[index % 100];
 		} else if (index == -1) {
 			return keyboardConfig.getStart();
 		} else if (index == -2) {
@@ -593,7 +612,7 @@ public class KeyConfiguration extends MainState {
 
 	private int getControllerKeyAssign(int device, int index) {
 		if (index >= 0) {
-			return controllerConfigs[device].getKeyAssign()[index];
+			return controllerConfigs[device].getKeyAssign()[index % 100];
 		} else if (index == -1) {
 			return controllerConfigs[device].getStart();
 		} else if (index == -2) {
@@ -603,24 +622,40 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setControllerKeyAssign(int index, BMControllerInputProcessor bmc) {
-		int cindex = -1;
-		for (int i = 0; i < controllerConfigs.length; i++) {
-			if (bmc.getName().equals(controllerConfigs[i].getName())) {
-				cindex = i;
-				break;
+		// index 格式: 1P=0..N, 2P=100..N+100, START=-1, SELECT=-2
+		// cindex (1P 还是 2P controller) 由 index/playerOffset 决定
+		final int cindex;
+		if (index >= 100) {
+			cindex = index / 100;
+		} else {
+			cindex = 0;
+		}
+		if (cindex < 0 || cindex >= controllerConfigs.length) {
+			return;
+		}
+		// 找名字匹配的 controller:如果当前 cindex 名字不匹配,在所有 controllers 里找
+		int actualCindex = -1;
+		if (bmc.getName().equals(controllerConfigs[cindex].getName())) {
+			actualCindex = cindex;
+		} else {
+			for (int i = 0; i < controllerConfigs.length; i++) {
+				if (bmc.getName().equals(controllerConfigs[i].getName())) {
+					actualCindex = i;
+					break;
+				}
 			}
 		}
-		if (cindex < 0) {
+		if (actualCindex < 0) {
 			return;
 		}
 
 		resetKeyAssign(index);
 		if (index >= 0) {
-			controllerConfigs[cindex].getKeyAssign()[index] = bmc.getLastPressedButton();
+			controllerConfigs[actualCindex].getKeyAssign()[index % 100] = bmc.getLastPressedButton();
 		} else if (index == -1) {
-			controllerConfigs[cindex].setStart(bmc.getLastPressedButton());
+			controllerConfigs[actualCindex].setStart(bmc.getLastPressedButton());
 		} else if (index == -2) {
-			controllerConfigs[cindex].setSelect(bmc.getLastPressedButton());
+			controllerConfigs[actualCindex].setSelect(bmc.getLastPressedButton());
 		}
 		// 消费 lastPressedButton,防止下一帧 pollControllerNavShortcuts 把它当 nav 快捷键
 		bmc.setLastPressedButton(-1);
@@ -639,24 +674,25 @@ public class KeyConfiguration extends MainState {
 
 	private void resetKeyAssign(int index) {
 		if (index >= 0) {
-			keyboardConfig.getKeyAssign()[index] = -1;
+			final int slot = index % 100;
+			keyboardConfig.getKeyAssign()[slot] = -1;
 			for (ControllerConfig cc : controllerConfigs) {
-				cc.getKeyAssign()[index] = -1;
+				cc.getKeyAssign()[slot] = -1;
 			}
-			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index] = -1;
-			midiconfig.setKeyAssign(index, null);
+			keyboardConfig.getMouseScratchConfig().getKeyAssign()[slot] = -1;
+			midiconfig.setKeyAssign(slot, null);
 		}
 	}
 
 	private void deleteKeyAssign(int index) {
 		final int noAssign = -1;
-		if (index >= 0) keyboardConfig.getKeyAssign()[index] = noAssign;
+		if (index >= 0) keyboardConfig.getKeyAssign()[index % 100] = noAssign;
 		if(index >= 0) {
-			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index] = noAssign;
+			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index % 100] = noAssign;
 			for (ControllerConfig cc : controllerConfigs) {
-				cc.getKeyAssign()[index] = noAssign;
+				cc.getKeyAssign()[index % 100] = noAssign;
 			}
-			midiconfig.setKeyAssign(index, null);
+			midiconfig.setKeyAssign(index % 100, null);
 		} else if (index == -1) {
 			keyboardConfig.getMouseScratchConfig().setStart(noAssign);
 			for (int i = 0; i < controllerConfigs.length; i++) {
