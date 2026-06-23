@@ -306,21 +306,15 @@ public class KeyConfiguration extends MainState {
 		for (BMControllerInputProcessor bmc : controllers) {
 			int btn = bmc.getLastPressedButton();
 			if (btn < 0) continue;
-			// 调试：记录所有非 AXIS 的手柄按键,首次发现时打印
-			if (btn < BMControllerInputProcessor.BMKeys.AXIS1_PLUS) {
-				Gdx.app.log("KeyConfigNav", "Controller [" + bmc.getName() + "] button id=" + btn);
-			}
 			int simKey = -1;
-			if (btn == XboxControllerHelper.XBOX_BUTTON_A) {
+			if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A || btn == XboxControllerHelper.XBOX_BUTTON_L3) {
 				simKey = Keys.ENTER;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_L3) {
-				simKey = Keys.ENTER;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X) {
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X || btn == XboxControllerHelper.ANDROID_BUTTON_X) {
 				simKey = Keys.FORWARD_DEL;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B) {
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B || btn == XboxControllerHelper.ANDROID_BUTTON_B || btn == XboxControllerHelper.XBOX_BUTTON_R3) {
 				simKey = Keys.ESCAPE;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_R3) {
-				simKey = Keys.ESCAPE;
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_Y || btn == XboxControllerHelper.ANDROID_BUTTON_Y) {
+				simKey = Keys.FORWARD_DEL;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
 				simKey = Keys.DOWN;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {

@@ -28,6 +28,12 @@ public class XboxControllerHelper {
     public static final int XBOX_BUTTON_L3 = 8;
     public static final int XBOX_BUTTON_R3 = 9;
 
+    // Android libGDX 后端 remap 后的实测 button id（与 KeyEvent.KEYCODE_BUTTON_* 对应）
+    public static final int ANDROID_BUTTON_A = 97;
+    public static final int ANDROID_BUTTON_B = 98;
+    public static final int ANDROID_BUTTON_X = 100;
+    public static final int ANDROID_BUTTON_Y = 101;
+
     // XBOX手柄轴代码
     public static final int XBOX_AXIS_LEFT_X = 0;
     public static final int XBOX_AXIS_LEFT_Y = 1;
