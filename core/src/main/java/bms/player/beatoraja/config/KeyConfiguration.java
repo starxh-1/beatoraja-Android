@@ -591,9 +591,9 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private String getMouseScratchKeyString(int index, String defaultKeyString) {
-		// 2P 槽位不支持鼠标转盘
+		// 2P 槽位不支持鼠标转盘 — 直接返回调用方的 defaultKeyString,避免后续 null 引起 NPE
 		if (index >= 100) {
-			return null;
+			return defaultKeyString;
 		}
 		String keyString = null;
 		if (index >= 0) {
