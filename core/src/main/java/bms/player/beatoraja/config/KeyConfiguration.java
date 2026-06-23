@@ -314,13 +314,17 @@ public class KeyConfiguration extends MainState {
 			int btn = bmc.getLastPressedButton();
 			if (btn < 0) continue;
 			int simKey = -1;
-			if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
-				simKey = Keys.DOWN;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {
+			if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS
+					|| btn == XboxControllerHelper.ANDROID_DPAD_UP) {
 				simKey = Keys.UP;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_PLUS) {
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS
+					|| btn == XboxControllerHelper.ANDROID_DPAD_DOWN) {
+				simKey = Keys.DOWN;
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_PLUS
+					|| btn == XboxControllerHelper.ANDROID_DPAD_RIGHT) {
 				simKey = Keys.RIGHT;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_MINUS) {
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_MINUS
+					|| btn == XboxControllerHelper.ANDROID_DPAD_LEFT) {
 				simKey = Keys.LEFT;
 			} else if (consumeAsNav) {
 				if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A

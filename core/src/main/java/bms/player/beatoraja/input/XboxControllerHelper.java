@@ -36,6 +36,12 @@ public class XboxControllerHelper {
     public static final int ANDROID_BUTTON_L3 = 107;
     public static final int ANDROID_BUTTON_R3 = 108;
 
+    // Android D-pad libGDX remap id (用户实测: 上下=20/21, 左右=22/23)
+    public static final int ANDROID_DPAD_UP = 20;
+    public static final int ANDROID_DPAD_DOWN = 21;
+    public static final int ANDROID_DPAD_LEFT = 22;
+    public static final int ANDROID_DPAD_RIGHT = 23;
+
     // XBOX手柄轴代码
     public static final int XBOX_AXIS_LEFT_X = 0;
     public static final int XBOX_AXIS_LEFT_Y = 1;
