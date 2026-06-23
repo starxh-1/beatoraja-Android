@@ -313,9 +313,13 @@ public class KeyConfiguration extends MainState {
 			int simKey = -1;
 			if (btn == XboxControllerHelper.XBOX_BUTTON_A) {
 				simKey = Keys.ENTER;
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_L3) {
+				simKey = Keys.ENTER;
 			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X) {
 				simKey = Keys.FORWARD_DEL;
 			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B) {
+				simKey = Keys.ESCAPE;
+			} else if (btn == XboxControllerHelper.XBOX_BUTTON_R3) {
 				simKey = Keys.ESCAPE;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
 				simKey = Keys.UP;
