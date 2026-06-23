@@ -163,7 +163,10 @@ public class KeyConfiguration extends MainState {
 			setMode((mode + 1) % KEYS.length);
 		}
 
-		pollControllerNavShortcuts();
+		pollControllerNavShortcuts(!keyinput);
+		if (!keyinput) {
+			// 调试：追踪 keyinput 模式状态
+		}
 
 		currentKeys = KEYS[mode];
 		currentKeysa = KEYSA[mode];
@@ -302,22 +305,16 @@ public class KeyConfiguration extends MainState {
 	 * 手柄全局快捷键：十字键/摇杆 → UP/DOWN/LEFT/RIGHT，A → Enter，X → Del，B → Esc。
 	 * 必须在 keyinput 块之前调用，否则 A/X/B 会被当作"绑定到当前光标位"。
 	 */
-	private void pollControllerNavShortcuts() {
+	/**
+	 * 手柄全局快捷键：D-pad/摇杆 始终用作方向导航；A/B/X/Y/L3/R3 仅在 keyinput=false 时
+	 * 用作 Enter/Del/Esc，keyinput=true 时留给原绑定循环消费。
+	 */
+	private void pollControllerNavShortcuts(boolean consumeAsNav) {
 		for (BMControllerInputProcessor bmc : controllers) {
 			int btn = bmc.getLastPressedButton();
 			if (btn < 0) continue;
 			int simKey = -1;
-			if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A
-					|| btn == XboxControllerHelper.XBOX_BUTTON_L3 || btn == XboxControllerHelper.ANDROID_BUTTON_L3) {
-				simKey = Keys.ENTER;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_X || btn == XboxControllerHelper.ANDROID_BUTTON_X) {
-				simKey = Keys.FORWARD_DEL;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_B || btn == XboxControllerHelper.ANDROID_BUTTON_B
-					|| btn == XboxControllerHelper.XBOX_BUTTON_R3 || btn == XboxControllerHelper.ANDROID_BUTTON_R3) {
-				simKey = Keys.ESCAPE;
-			} else if (btn == XboxControllerHelper.XBOX_BUTTON_Y || btn == XboxControllerHelper.ANDROID_BUTTON_Y) {
-				simKey = Keys.FORWARD_DEL;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
+			if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS) {
 				simKey = Keys.DOWN;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS) {
 				simKey = Keys.UP;
@@ -325,6 +322,18 @@ public class KeyConfiguration extends MainState {
 				simKey = Keys.RIGHT;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_MINUS) {
 				simKey = Keys.LEFT;
+			} else if (consumeAsNav) {
+				if (btn == XboxControllerHelper.XBOX_BUTTON_A || btn == XboxControllerHelper.ANDROID_BUTTON_A
+						|| btn == XboxControllerHelper.XBOX_BUTTON_L3 || btn == XboxControllerHelper.ANDROID_BUTTON_L3) {
+					simKey = Keys.ENTER;
+				} else if (btn == XboxControllerHelper.XBOX_BUTTON_X || btn == XboxControllerHelper.ANDROID_BUTTON_X) {
+					simKey = Keys.FORWARD_DEL;
+				} else if (btn == XboxControllerHelper.XBOX_BUTTON_B || btn == XboxControllerHelper.ANDROID_BUTTON_B
+						|| btn == XboxControllerHelper.XBOX_BUTTON_R3 || btn == XboxControllerHelper.ANDROID_BUTTON_R3) {
+					simKey = Keys.ESCAPE;
+				} else if (btn == XboxControllerHelper.XBOX_BUTTON_Y || btn == XboxControllerHelper.ANDROID_BUTTON_Y) {
+					simKey = Keys.FORWARD_DEL;
+				}
 			}
 			if (simKey >= 0) {
 				keyboard.simulateKeyPress(simKey);
