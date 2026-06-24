@@ -8,6 +8,7 @@ import bms.player.beatoraja.Resolution;
 import bms.player.beatoraja.select.*;
 import bms.player.beatoraja.skin.*;
 
+import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.utils.IntIntMap;
@@ -81,7 +82,7 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 					values[4] += values[6];
 					values[6] = -values[6];
 				}
-				
+
 				if(barimageoff[values[1]] == null) {
 	                barimageoff[values[1]] = new SkinImage(barimage, 0, barcycle, null);
 				}
@@ -214,11 +215,11 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 				if(values[1] < 0 && values[1] >= SkinBar.BARLAMP_COUNT) {
 					return;
 				}
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					int[] lamps = lampg[values[1]];
 					skinbar.setLamp(lamps[0], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
@@ -259,11 +260,11 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 				if(values[1] < 0 && values[1] >= SkinBar.BARLAMP_COUNT) {
 					return;
 				}
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					int[] lamps = lampg[values[1]];
 					skinbar.setPlayerLamp(lamps[0], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
@@ -304,11 +305,11 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 				if(values[1] < 0 && values[1] >= SkinBar.BARLAMP_COUNT) {
 					return;
 				}
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					int[] lamps = lampg[values[1]];
 					skinbar.setRivalLamp(lamps[0], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
@@ -351,11 +352,11 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 				if(values[1] < 0 && values[1] >= SkinBar.BARTROPHY_COUNT) {
 					return;
 				}
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					skinbar.setTrophy(values[1], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
 					// values[1]));
@@ -393,11 +394,11 @@ public class LR2SelectSkinLoader extends LR2SkinCSVLoader<MusicSelectSkin> {
 				if(values[1] < 0 && values[1] >= SkinBar.BARLABEL_COUNT) {
 					return;
 				}
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					skinbar.setLabel(values[1], new SkinImage(source));
 					// System.out.println("Nowjudge Added - " + (5 -
 					// values[1]));

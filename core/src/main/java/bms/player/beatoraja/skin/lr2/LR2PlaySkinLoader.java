@@ -77,7 +77,7 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 		srch = src.height;
 		dstw = dst.width;
 		dsth = dst.height;
-		
+
 		addCommandWord(PlayCommand.values());
 
 		addCommandWord(new CommandWord("FINISHMARGIN") {
@@ -116,11 +116,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					lines[values[1]] = new SkinImage(source);
 					// System.out.println("Object Added - " +
 					// (part.getTiming()));
@@ -319,11 +319,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					if (judge[0] == null) {
 						judge[0] = new SkinJudge(0, (values[11] != 1));
 						skin.add(judge[0]);
@@ -374,11 +374,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					if (judge[1] == null) {
 						judge[1] = new SkinJudge(1, (values[11] != 1));
 						skin.add(judge[1]);
@@ -428,11 +428,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					if (judge[2] == null) {
 						judge[2] = new SkinJudge(2, (values[11] != 1));
 						skin.add(judge[2]);
@@ -525,11 +525,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			@Override
 			public void execute(String[] str) {
 				int[] values = parseInt(str);
-				LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
+					SkinSource source = new SkinSourceImage(getSourceImage(tex,
 							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+							values[7], values[8]), values[10], values[9]);
 					line = new SkinImage(source);
 					// System.out.println("Object Added - " +
 					// (part.getTiming()));
@@ -763,7 +763,7 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 		});
 
 	}
-	
+
 	private void setSrcNowCombo(int index, String[] str) {
 		int[] values = parseInt(str);
 		final int divx = values[7] > 0 ? values[7] : 1;
@@ -818,12 +818,12 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 			return;
 		}
 		if (lane < note.length && note[lane] == null) {
-			LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-			if (entry != null && !entry.isMovie) {
-				note[lane] = new SkinSourceImage(entry.path,
+			if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+				Texture tex = (Texture) imagelist.get(values[2]);
+				note[lane] = new SkinSourceImage(getSourceImage(tex,
 						values[3], values[4], values[5], values[6],
-						values[7], values[8],
-						animation ? values[10] : 0, animation ? values[9] : 0, usecim);
+						values[7], values[8]),
+						animation ? values[10] : 0, animation ? values[9] : 0);
 			}
 		}
 	}
@@ -883,11 +883,11 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 	private void setSrcHidden(String[] str) {
 		hidden = null;
 		int[] values = parseInt(str);
-		LR2SkinCSVLoader.ImageEntry entry = getImageEntry(values);
-		if (entry != null && !entry.isMovie) {
-			SkinSourceImage source = new SkinSourceImage(entry.path,
+		if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+			Texture tex = (Texture) imagelist.get(values[2]);
+			SkinSourceImage source = new SkinSourceImage(getSourceImage(tex,
 					values[3], values[4], values[5], values[6],
-					values[7], values[8], values[10], values[9], usecim);
+					values[7], values[8]), values[10], values[9]);
 			hidden = new SkinHidden(source, values[10], values[9]);
 		}
 		if (hidden != null) {
@@ -1032,7 +1032,7 @@ enum PlayCommand implements LR2SkinLoader.Command<LR2PlaySkinLoader> {
 	})
 	;
 
-	
+
 	public final BiConsumer<LR2PlaySkinLoader, String[]> function;
 
 	private PlayCommand(BiConsumer<LR2PlaySkinLoader, String[]> function) {

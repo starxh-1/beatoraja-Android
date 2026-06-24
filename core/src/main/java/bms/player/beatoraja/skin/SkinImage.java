@@ -137,8 +137,7 @@ public class SkinImage extends SkinObject {
 		// Skin.prepare() 在绘制前跑 load()，会破坏懒加载目标。
 		if (getDestinationTimer() == null && ref == null && cachedImage == null &&
 		    image != null && image.length > 0 &&
-		    !(image[0] instanceof SkinSourceReference) &&
-		    !(image[0] instanceof SkinSourceImage && ((SkinSourceImage) image[0]).isLazy())) {
+		    !(image[0] instanceof SkinSourceReference)) {
 			cachedImage = getImage(0, 0, null);
 		}
 	}

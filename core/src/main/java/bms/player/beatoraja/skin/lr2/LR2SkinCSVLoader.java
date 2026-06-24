@@ -35,7 +35,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
 	private static final Charset MS932 = Charset.forName("MS932");
 
-	Array<ImageEntry> imagelist = new Array<ImageEntry>();
+	Array<Object> imagelist = new Array<Object>();
 	Array<SkinTextImage.SkinTextImageSource> fontlist = new Array<SkinTextImage.SkinTextImageSource>();
 
 	/**
@@ -143,8 +143,17 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 							break;
 						}
 					}
-					// Lazy: store path only — texture/movie is created on first SRC_* draw.
-					imagelist.add(new ImageEntry(actualFile.getPath(), isMovie));
+					if (isMovie) {
+						try {
+							imagelist.add(new SkinSourceMovie(actualFile.getAbsolutePath()));
+						} catch (Throwable e) {
+							Logger.getGlobal().warning("BGAファイル読み込み失敗。" + e.getMessage() + " path: " + actualPath);
+							e.printStackTrace();
+							imagelist.add(null);
+						}
+					} else {
+						imagelist.add(SkinLoader.getTexture(actualFile.getPath(), usecim));
+					}
 				} else {
 					Logger.getGlobal()
 							.warning("IMAGE " + imagelist.size + " : ファイルが見つかりません : " + path);
@@ -214,19 +223,13 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 					// + gr);
 				} else {
 					int[] values = parseInt(str);
-					ImageEntry entry = getImageEntry(values);
-					if (entry == null) {
-						// missing IMAGE — skip
-					} else if (entry.isMovie) {
-						SkinSourceMovie movie = entry.resolveMovie();
-						if (movie != null) {
-							part = new SkinImage(movie);
+					if (values[2] < imagelist.size && imagelist.get(values[2]) != null) {
+						Object obj = imagelist.get(values[2]);
+						if (obj instanceof SkinSourceMovie) {
+							part = new SkinImage((SkinSourceMovie) obj);
+						} else {
+							part = new SkinImage(new SkinSourceImage(getSourceImage(values), values[10], values[9]));
 						}
-					} else {
-						// Path-based lazy: SkinSourceImage loads texture on first draw
-						part = new SkinImage(new SkinSourceImage(entry.path,
-								values[3], values[4], values[5], values[6],
-								values[7], values[8], values[10], values[9], usecim));
 					}
 				}
 				if (part != null) {
@@ -390,11 +393,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				slider = null;
 				int[] values = parseInt(str);
-				ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
-							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+				TextureRegion[] images = getSourceImage(values);
+				if (images != null) {
+					SkinSource source = new SkinSourceImage(images, values[10], values[9]);
 					slider = new SkinSlider(source, values[11],
 							(int) (values[12] * (values[11] == 1 || values[11] == 3 ? (dstw / srcw) : (dsth / srch))),
 							values[13], values[14] == 0);
@@ -417,11 +418,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				slider = null;
 				int[] values = parseInt(str);
-				ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
-							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+				TextureRegion[] images = getSourceImage(values);
+				if (images != null) {
+					SkinSource source = new SkinSourceImage(images, values[10], values[9]);
 					slider = new SkinSlider(source, values[11],
 							(int) (values[12] * (values[11] == 1 || values[11] == 3 ? (dstw / srcw) : (dsth / srch))),
 							values[13], values[15], values[16]);
@@ -454,11 +453,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 				if (gr >= 100) {
 					bar = new SkinGraph(gr, values[11] + 100, values[12]);
 				} else {
-					ImageEntry entry = getImageEntry(values);
-					if (entry != null && !entry.isMovie) {
-						SkinSource source = new SkinSourceImage(entry.path,
-								values[3], values[4], values[5], values[6],
-								values[7], values[8], values[10], values[9], usecim);
+					TextureRegion[] images = getSourceImage(values);
+					if (images != null) {
+						SkinSource source = new SkinSourceImage(images, values[10], values[9]);
 						bar = new SkinGraph(source, values[11] + 100, values[12]);
 						// System.out.println("Object Added - " +
 						// (part.getTiming()));
@@ -480,11 +477,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 				if (gr >= 100) {
 					bar = new SkinGraph(gr,values[11],values[13],values[14], values[12]);
 				} else {
-					ImageEntry entry = getImageEntry(values);
-					if (entry != null && !entry.isMovie) {
-						SkinSource source = new SkinSourceImage(entry.path,
-								values[3], values[4], values[5], values[6],
-								values[7], values[8], values[10], values[9], usecim);
+					TextureRegion[] images = getSourceImage(values);
+					if (images != null) {
+						SkinSource source = new SkinSourceImage(images, values[10], values[9]);
 						bar = new SkinGraph(source, values[11], values[13], values[14], values[12]);
 						// System.out.println("Object Added - " +
 						// (part.getTiming()));
@@ -516,10 +511,8 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				button = null;
 				int gr = Integer.parseInt(str[2]);
-				if (gr < imagelist.size && imagelist.get(gr) != null) {
-					ImageEntry entry = imagelist.get(gr);
-					Texture tex = entry.isMovie ? null : entry.resolveTexture(usecim);
-					if (tex == null) return;
+				if (gr < imagelist.size && imagelist.get(gr) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(gr);
 					int[] values = parseInt(str);
 					int x = values[3];
 					int y = values[4];
@@ -582,11 +575,9 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				onmouse = null;
 				int[] values = parseInt(str);
-				ImageEntry entry = getImageEntry(values);
-				if (entry != null && !entry.isMovie) {
-					SkinSource source = new SkinSourceImage(entry.path,
-							values[3], values[4], values[5], values[6],
-							values[7], values[8], values[10], values[9], usecim);
+				TextureRegion[] images = getSourceImage(values);
+				if (images != null) {
+					SkinSource source = new SkinSourceImage(images, values[10], values[9]);
 					onmouse = new SkinImage(source);
 					skin.setMouseRect(onmouse, values[12], values[6] - values[13] - values[15], values[14], values[15]);
 					skin.add(onmouse);
@@ -615,10 +606,8 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				gauger = null;
 				int[] values = parseInt(str);
-				if (values[2] < imagelist.size && imagelist.get(values[2]) != null) {
-					ImageEntry entry = imagelist.get(values[2]);
-					Texture tex = entry.isMovie ? null : entry.resolveTexture(usecim);
-					if (tex == null) return;
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
 					int playside = values[1];
 					final int divx = values[7] > 0 ? values[7] : 1;
 					final int divy = values[8] > 0 ? values[8] : 1;
@@ -691,10 +680,8 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 			public void execute(String[] str) {
 				gauger = null;
 				int[] values = parseInt(str);
-				if (values[2] < imagelist.size && imagelist.get(values[2]) != null) {
-					ImageEntry entry = imagelist.get(values[2]);
-					Texture tex = entry.isMovie ? null : entry.resolveTexture(usecim);
-					if (tex == null) return;
+				if (values[2] < imagelist.size && imagelist.get(values[2]) instanceof Texture) {
+					Texture tex = (Texture) imagelist.get(values[2]);
 					int playside = values[1];
 					final int divx = values[7] > 0 ? values[7] : 1;
 					final int divy = values[8] > 0 ? values[8] : 1;
@@ -940,13 +927,10 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
 	protected TextureRegion[] getSourceImage(int[] values) {
 		if (values[2] < imagelist.size && imagelist.get(values[2]) != null) {
-			ImageEntry entry = imagelist.get(values[2]);
-			if (!entry.isMovie) {
-				Texture tex = entry.resolveTexture(usecim);
-				if (tex != null) {
-					return getSourceImage(tex, values[3], values[4], values[5], values[6],
-							values[7], values[8]);
-				}
+			Object obj = imagelist.get(values[2]);
+			if (obj instanceof Texture) {
+				return getSourceImage((Texture) obj, values[3], values[4], values[5], values[6],
+						values[7], values[8]);
 			}
 		}
 		Logger.getGlobal().warning("IMAGEが定義されてないか、読み込みに失敗しています : " + line);
@@ -1008,62 +992,6 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		return null;
 	}
 
-	/**
-	 * Path-based descriptor for an {@code #IMAGE} entry. Texture / MovieProcessor are loaded
-	 * lazily on first {@link #resolveTexture} or {@link #resolveMovie}. The original eager
-	 * loader populated {@code imagelist} with {@link Texture} / {@link SkinSourceMovie} / {@code null}
-	 * directly; this class replaces that with a thin descriptor to keep {@code processLine}
-	 * off the I/O path.
-	 */
-	static class ImageEntry {
-		final String path;
-		final boolean isMovie;
-		private Texture texture;
-		private SkinSourceMovie movie;
-
-		ImageEntry(String path, boolean isMovie) {
-			this.path = path;
-			this.isMovie = isMovie;
-		}
-
-		Texture resolveTexture(boolean usecim) {
-			if (texture != null || path == null || isMovie) return texture;
-			texture = SkinLoader.getTexture(path, usecim);
-			return texture;
-		}
-
-		SkinSourceMovie resolveMovie() {
-			if (movie != null || path == null || !isMovie) return movie;
-			try {
-				movie = new SkinSourceMovie(path);
-			} catch (Throwable e) {
-				Logger.getGlobal().warning("BGAファイル読み込み失敗。" + e.getMessage() + " path: " + path);
-				e.printStackTrace();
-			}
-			return movie;
-		}
-
-		int getWidth(boolean usecim) {
-			Texture tex = resolveTexture(usecim);
-			return tex != null ? tex.getWidth() : 0;
-		}
-
-		int getHeight(boolean usecim) {
-			Texture tex = resolveTexture(usecim);
-			return tex != null ? tex.getHeight() : 0;
-		}
-	}
-
-	/**
-	 * Helper for SRC_* commands that have been migrated to the lazy path-based construction.
-	 * Returns null if the IMAGE index is missing or out of range.
-	 */
-	protected ImageEntry getImageEntry(int[] values) {
-		if (values[2] >= 0 && values[2] < imagelist.size) {
-			return imagelist.get(values[2]);
-		}
-		return null;
-	}
 }
 
 enum CSVCommand implements LR2SkinLoader.Command<LR2SkinCSVLoader> {

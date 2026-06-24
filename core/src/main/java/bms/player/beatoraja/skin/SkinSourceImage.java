@@ -8,7 +8,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 
 /**
@@ -41,42 +40,8 @@ public final class SkinSourceImage extends SkinSource {
 		this.cycle = cycle;
 	}
 
-	/**
-	 * Path-based lazy constructor. Texture is loaded on first {@link #getImage(long, MainState)}.
-	 * Mirrors the eager {@code getSourceImage(Texture, x, y, w, h, divx, divy)} layout from
-	 * {@code LR2SkinCSVLoader}: divides the source texture into a {@code divx * divy} grid.
-	 */
-	public SkinSourceImage(String texturePath, int x, int y, int w, int h,
-						   int divx, int divy, int timer, int cycle, boolean usecim) {
-		this.texturePath = texturePath;
-		this.srcX = x;
-		this.srcY = y;
-		this.srcW = w;
-		this.srcH = h;
-		this.divx = divx > 0 ? divx : 1;
-		this.divy = divy > 0 ? divy : 1;
-		this.timer = timer > 0 ? TimerPropertyFactory.getTimerProperty(timer) : null;
-		this.cycle = cycle;
-		this.usecim = usecim;
-	}
-
-	/**
-	 * True iff constructed via the path-based constructor (texture not yet loaded).
-	 * Used by {@link SkinImage#load()} to skip eager {@code cachedImage} population, which
-	 * would otherwise trigger the lazy load during {@code Skin.prepare()} before drawing.
-	 */
-	public boolean isLazy() {
-		return texturePath != null;
-	}
-
 	public boolean validate() {
-		// Lazy mode: do NOT trigger texture load here. Skin.prepare() runs validate() on every
-		// object before drawing, so eager loading here defeats the lazy optimization. If the
-		// path is set we trust it; missing files fall back to a no-draw frame on first getImage().
-		if (image == null) {
-			return texturePath != null;
-		}
-		if(image.length == 0) {
+		if (image == null || image.length == 0) {
 			return false;
 		}
 
@@ -94,9 +59,6 @@ public final class SkinSourceImage extends SkinSource {
 	}
 
 	public TextureRegion getImage(long time, MainState state) {
-		if (image == null && texturePath != null) {
-			loadImage();
-		}
 		if (image != null && image.length > 0) {
 			return image[getImageIndex(image.length, time, state)];
 		}
@@ -104,28 +66,7 @@ public final class SkinSourceImage extends SkinSource {
 	}
 
 	public TextureRegion[] getImages() {
-		if (image == null) {
-			loadImage();
-		}
 		return image;
-	}
-
-	private void loadImage() {
-		if (texturePath == null) return;
-		Texture tex = SkinLoader.getTexture(texturePath, usecim);
-		if (tex == null) {
-			image = new TextureRegion[0];
-			return;
-		}
-		int w = srcW == -1 ? tex.getWidth() : srcW;
-		int h = srcH == -1 ? tex.getHeight() : srcH;
-		TextureRegion[] regions = new TextureRegion[divx * divy];
-		for (int i = 0; i < divx; i++) {
-			for (int j = 0; j < divy; j++) {
-				regions[divx * j + i] = new TextureRegion(tex, srcX + w / divx * i, srcY + h / divy * j, w / divx, h / divy);
-			}
-		}
-		image = regions;
 	}
 
 	private int getImageIndex(int length, long time, MainState state) {
@@ -152,17 +93,5 @@ public final class SkinSourceImage extends SkinSource {
     		setDisposed();
     	}
 	}
-
-	// Lazy-mode fields. Only set when constructed via the path-based constructor.
-	// Non-final so eager constructors can leave them untouched (Java disallows reassignment to final
-	// fields even with default initializers).
-	private String texturePath;
-	private int srcX;
-	private int srcY;
-	private int srcW;
-	private int srcH;
-	private int divx;
-	private int divy;
-	private boolean usecim;
 
 }
