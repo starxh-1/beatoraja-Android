@@ -5,13 +5,6 @@ import bms.player.beatoraja.skin.json.JSONSkinLoader;
 import bms.player.beatoraja.skin.lr2.LR2SkinCSVLoader;
 import bms.player.beatoraja.skin.lr2.LR2SkinHeaderLoader;
 import bms.player.beatoraja.skin.lua.LuaSkinLoader;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.*;
 import com.badlogic.gdx.utils.Array;
@@ -36,36 +29,6 @@ public abstract class SkinLoader {
     		resource.dispose();
     	}
     	resource = new PixmapResourcePool(gen);
-    }
-
-    /** 皮肤图片并行预加载线程池 */
-    private static final ExecutorService IMAGE_PRELOAD_POOL = Executors.newFixedThreadPool(
-        Math.max(2, Runtime.getRuntime().availableProcessors()), r -> {
-        Thread t = new Thread(r, "SkinImagePreload");
-        t.setDaemon(true);
-        t.setPriority(Thread.NORM_PRIORITY);
-        return t;
-    });
-
-    /**
-     * 批量并行预加载图片到 PixmapResourcePool，用于加速皮肤加载。
-     * 所有路径会被提交到线程池并行解码，调用线程阻塞直到全部完成。
-     */
-    public static void preloadImages(Collection<String> paths) {
-        if (paths == null || paths.isEmpty()) return;
-        PixmapResourcePool pool = getResource();
-        List<Future<?>> futures = new ArrayList<>(paths.size());
-        for (String path : paths) {
-            if (path == null || path.isEmpty() || pool.exists(path)) continue;
-            futures.add(IMAGE_PRELOAD_POOL.submit(() -> {
-                pool.get(path);
-            }));
-        }
-        for (Future<?> f : futures) {
-            try {
-                f.get(30, TimeUnit.SECONDS);
-            } catch (Exception ignored) {}
-        }
     }
 
     /**

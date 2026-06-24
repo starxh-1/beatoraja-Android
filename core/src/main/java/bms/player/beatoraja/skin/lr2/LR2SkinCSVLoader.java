@@ -860,46 +860,14 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		com.badlogic.gdx.files.FileHandle handle = com.badlogic.gdx.Gdx.files.internal(path);
 		if (!handle.exists()) handle = com.badlogic.gdx.Gdx.files.absolute(path);
 
-		// 两阶段解析：先收集所有行，分离 #IMAGE 命令与其他命令
-		java.util.List<String> imageLines = new java.util.ArrayList<>();
-		java.util.List<String> otherLines = new java.util.ArrayList<>();
-
 		try (BufferedReader br = new BufferedReader(new InputStreamReader(handle.read(), MS932))) {
 			br.lines().forEach(line -> {
-				String trimmed = line.trim();
-				if (trimmed.startsWith("#IMAGE") || trimmed.startsWith("#INCLUDE")) {
-					imageLines.add(line);
-				} else {
-					otherLines.add(line);
+				try {
+					processLine(line, state);
+				} catch (Throwable e) {
+					e.printStackTrace();
 				}
 			});
-		}
-
-		// 阶段1: 处理 #IMAGE 命令，填充 imagelist
-		for (String line : imageLines) {
-			try {
-				processLine(line, state);
-			} catch (Throwable e) {
-				e.printStackTrace();
-			}
-		}
-
-		// 阶段2: 并行预加载所有图片到纹理缓存
-		java.util.List<String> paths = new java.util.ArrayList<>();
-		for (ImageEntry entry : imagelist) {
-			if (entry != null && entry.path != null && !entry.isMovie) {
-				paths.add(entry.path);
-			}
-		}
-		SkinLoader.preloadImages(paths);
-
-		// 阶段3: 处理其余命令 (SRC_*, DST_* 等) — resolveTexture 将从缓存即时返回
-		for (String line : otherLines) {
-			try {
-				processLine(line, state);
-			} catch (Throwable e) {
-				e.printStackTrace();
-			}
 		}
 
 		skin.setOption(option);
