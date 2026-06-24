@@ -12,6 +12,7 @@ import bms.player.beatoraja.input.BMSPlayerInputDevice.Type;
 import bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys;
 
 import com.badlogic.gdx.controllers.Controller;
+import com.badlogic.gdx.controllers.ControllerAdapter;
 import com.badlogic.gdx.controllers.Controllers;
 import com.badlogic.gdx.utils.Array;
 
@@ -20,14 +21,16 @@ import com.badlogic.gdx.utils.Array;
  *
  * @author exch
  */
-public class BMSPlayerInputProcessor {
+public class BMSPlayerInputProcessor extends ControllerAdapter {
 
 	private boolean enable = true;
 	private Object mainController; // MainController reference (for coordinate conversion)
 
 	private KeyBoardInputProcesseor kbinput;
 
-	private BMControllerInputProcessor[] bminput;
+	private volatile BMControllerInputProcessor[] bminput;
+
+	private ControllerConfig[] currentControllerConfig;
 
 	private MidiInputProcessor midiinput;
 
@@ -40,42 +43,16 @@ public class BMSPlayerInputProcessor {
 		Resolution resolution = config.getResolution();
 		kbinput = new KeyBoardInputProcesseor(this, player.getMode14().getKeyboardConfig(), resolution);
 		// Gdx.input.setInputProcessor(kbinput);
-		Array<BMControllerInputProcessor> bminput = new Array<BMControllerInputProcessor>();
-		for (Controller controller : Controllers.getControllers()) {
-			Logger.getGlobal().info("控制器被检测到: " + controller.getName());
-			// Android 环境下优先直接按名称查找，不做 EUC_JP 强制转换以避免北通等手柄名称乱码
-			ControllerConfig controllerConfig = Stream.of(player.getMode7().getController())
-				.filter(m -> m.getName() != null && m.getName().equals(controller.getName()))
-				.findFirst()
-				.orElse(new ControllerConfig());
+		this.bminput = new BMControllerInputProcessor[0];
 
-			// 如果没找到，再尝试兼容模式（保留原逻辑兼容性）
-			if (controllerConfig.getName() == null) {
-				controllerConfig = Stream.of(player.getMode7().getController())
-					.filter(m -> {
-						try {
-							return m.getName() != null && m.getName().equals(new String(controller.getName().getBytes("EUC_JP"), "UTF-8"));
-						} catch (Exception e) {
-							return false;
-						}
-					}).findFirst()
-					.orElse(new ControllerConfig());
-			}
-			// デバイス名のユニーク化
-			int index = 1;
-			String name = controller.getName();
-			for(BMControllerInputProcessor bm : bminput) {
-				if(bm.getName().equals(name)) {
-					index++;
-					name = controller.getName() + "-" + index;
-				}
-			}
-			BMControllerInputProcessor bm = new BMControllerInputProcessor(this, name, controller, controllerConfig);
-			// controller.addListener(bm);
-			bminput.add(bm);
+		// Register controllers already connected at startup
+		for (Controller controller : Controllers.getControllers()) {
+			addController(controller, player);
 		}
 
-		this.bminput = bminput.toArray(BMControllerInputProcessor.class);
+		// Attach this class to listen for connect/disconnect events (hotplug)
+		Controllers.addListener(this);
+
 		try {
 			midiinput = new MidiInputProcessor(this);
 			midiinput.open();
@@ -146,7 +123,77 @@ public class BMSPlayerInputProcessor {
 		kbinput.setConfig(config);
 	}
 
+	private void addController(Controller controller, PlayerConfig player) {
+		Logger.getGlobal().info("控制器被检测到: " + controller.getName());
+		ControllerConfig controllerConfig = Stream.of(player.getMode7().getController())
+			.filter(m -> m.getName() != null && m.getName().equals(controller.getName()))
+			.findFirst()
+			.orElse(new ControllerConfig());
+
+		if (controllerConfig.getName() == null) {
+			controllerConfig = Stream.of(player.getMode7().getController())
+				.filter(m -> {
+					try {
+						return m.getName() != null && m.getName().equals(new String(controller.getName().getBytes("EUC_JP"), "UTF-8"));
+					} catch (Exception e) {
+						return false;
+					}
+				}).findFirst()
+				.orElse(new ControllerConfig());
+		}
+		int index = 1;
+		String name = controller.getName();
+		for(BMControllerInputProcessor bm : bminput) {
+			if(bm.getName().equals(name)) {
+				index++;
+				name = controller.getName() + "-" + index;
+			}
+		}
+		BMControllerInputProcessor bm = new BMControllerInputProcessor(this, name, controller, controllerConfig);
+		final BMControllerInputProcessor[] updated = Arrays.copyOf(bminput, bminput.length + 1);
+		updated[bminput.length] = bm;
+		bminput = updated;
+	}
+
+	private void removeController(Controller controller) {
+		BMControllerInputProcessor target = null;
+		for (BMControllerInputProcessor bm : bminput) {
+			if (bm.getController() == controller) {
+				target = bm;
+				break;
+			}
+		}
+		if (target == null) return;
+		final BMControllerInputProcessor[] updated = new BMControllerInputProcessor[bminput.length - 1];
+		int j = 0;
+		for (BMControllerInputProcessor bm : bminput) {
+			if (bm != target) updated[j++] = bm;
+		}
+		bminput = updated;
+	}
+
+	@Override
+	public void connected(Controller controller) {
+		String name = controller.getName();
+		addController(controller, mainPlayerConfig);
+		if (currentControllerConfig != null) {
+			setControllerConfig(currentControllerConfig);
+		}
+		Logger.getGlobal().info("Controller connected: " + name);
+	}
+
+	@Override
+	public void disconnected(Controller controller) {
+		String name = controller.getName();
+		removeController(controller);
+		if (currentControllerConfig != null) {
+			setControllerConfig(currentControllerConfig);
+		}
+		Logger.getGlobal().info("Controller disconnected: " + name);
+	}
+
 	public void setControllerConfig(ControllerConfig[] configs) {
+		this.currentControllerConfig = configs;
 		boolean[] b = new boolean[configs.length];
 		for (BMControllerInputProcessor controller : bminput) {
 			controller.setEnable(false);
@@ -575,39 +622,15 @@ public class BMSPlayerInputProcessor {
 	}
 
 	public void updateControllers(PlayerConfig player) {
-		Array<BMControllerInputProcessor> newBminput = new Array<>();
+		this.mainPlayerConfig = player;
+		this.bminput = new BMControllerInputProcessor[0];
 		for (Controller controller : Controllers.getControllers()) {
-			String controllerName = controller.getName();
-			Logger.getGlobal().info("刷新检测到控制器: " + controllerName);
-
-			// 查找配置
-			ControllerConfig controllerConfig = Stream.of(player.getMode7().getController())
-				.filter(m -> m.getName() != null && (m.getName().equals(controllerName) ||
-					(controllerName.contains("Xbox") && m.getName().contains("Xbox"))))
-				.findFirst()
-				.orElse(null);
-
-			if (controllerConfig == null) {
-				controllerConfig = new ControllerConfig();
-				controllerConfig.setName(controllerName);
-			}
-
-			// 唯一化名称
-			int index = 1;
-			String uniqueName = controllerName;
-			for (BMControllerInputProcessor bm : newBminput) {
-				if (bm.getName().equals(uniqueName)) {
-					index++;
-					uniqueName = controllerName + "-" + index;
-				}
-			}
-
-			BMControllerInputProcessor bm = new BMControllerInputProcessor(this, uniqueName, controller, controllerConfig);
-			newBminput.add(bm);
+			addController(controller, player);
 		}
-
-		this.bminput = newBminput.toArray(BMControllerInputProcessor.class);
-
+		// Apply the current controller config if set
+		if (currentControllerConfig != null) {
+			setControllerConfig(currentControllerConfig);
+		}
 		// 同步更新设备轮询列表
 		devices.clear();
 		devices.add(kbinput);
@@ -634,6 +657,7 @@ public class BMSPlayerInputProcessor {
 	}
 
 	public void dispose() {
+		Controllers.removeListener(this);
 		if (midiinput != null) {
 			midiinput.close();
 		}

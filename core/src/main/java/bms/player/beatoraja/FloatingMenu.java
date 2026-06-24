@@ -102,7 +102,8 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("Skin Select",   Keys.F12, false, true, false, false),
         new MenuItem("Key Config", Keys.NUM_6, false, true, false, false),
         new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
-        new MenuItem("Backspace",        Keys.BACKSPACE, false, false, true, false),
+        new MenuItem("Backspace",        Keys.BACKSPACE, false, false, false, false),
+        new MenuItem("ESC",   Keys.ESCAPE, false, false, true, false),
         new MenuItem("Enter",            Keys.ENTER, false, true, true, false),
         new MenuItem("^ UP",        Keys.UP, false, true, true, false),
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
@@ -123,8 +124,9 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("[-]", -127, false, true, false, true),
         new MenuItem("[+]", -128, false, true, false, true),
         // ── Controller Reset（第3页，仅KeyConfig模式）──
-        new MenuItem("NUM 8 CTRLLER RST", Keys.NUM_8, false, false, true, false),
-        new MenuItem("NUM 2 CTRLLER RST", Keys.NUM_2, false, false, true, false),
+        new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false),
+        new MenuItem("NUM 2", Keys.NUM_2, false, false, true, false),
+
     };
 
     private final Matrix4 menuProj = new Matrix4();

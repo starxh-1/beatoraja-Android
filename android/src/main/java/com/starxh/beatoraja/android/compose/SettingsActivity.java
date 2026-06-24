@@ -569,6 +569,7 @@ public class SettingsActivity extends Activity {
 
         // Player Spinner
         playerSpinner = findViewById(R.id.playerSpinner);
+        setupGamepadFocusable(playerSpinner);
         availablePlayers = getAvailablePlayers();
         ArrayAdapter<String> playerAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, availablePlayers);
         playerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
@@ -609,6 +610,11 @@ public class SettingsActivity extends Activity {
             if (playOptionsContent.getVisibility() == View.VISIBLE) {
                 playOptionsContent.setVisibility(View.GONE);
                 playOptionsArrow.setText("▶");
+                // Move focus back to header if it was inside the collapsed section
+                View currentFocus = getCurrentFocus();
+                if (currentFocus != null && isDescendantOf(playOptionsContent, currentFocus)) {
+                    v.requestFocus();
+                }
             } else {
                 playOptionsContent.setVisibility(View.VISIBLE);
                 playOptionsArrow.setText("▼");
@@ -636,10 +642,12 @@ public class SettingsActivity extends Activity {
         Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
         showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
         showAudioSpectrumSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> showAudioSpectrum = isChecked);
+        setupGamepadFocusable(showAudioSpectrumSwitch);
 
         // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
         Switch stretchFullscreenSwitch = findViewById(R.id.stretchFullscreenSwitch);
         stretchFullscreenSwitch.setChecked(selectedStretchFullscreen);
+        setupGamepadFocusable(stretchFullscreenSwitch);
         stretchFullscreenSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             selectedStretchFullscreen = isChecked;
             applyStretchFullscreenLockState();
@@ -653,6 +661,7 @@ public class SettingsActivity extends Activity {
         fmpAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         floatingMenuPositionSpinner.setAdapter(fmpAdapter);
         floatingMenuPositionSpinner.setSelection(Math.min(selectedFloatingMenuPosition, floatingMenuPositionOptions.length - 1));
+        setupGamepadFocusable(floatingMenuPositionSpinner);
 
         // BGA
         Spinner bgaDisplaySpinner = findViewById(R.id.bgaDisplaySpinner);
@@ -661,6 +670,7 @@ public class SettingsActivity extends Activity {
         bgaDisplayAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         bgaDisplaySpinner.setAdapter(bgaDisplayAdapter);
         bgaDisplaySpinner.setSelection(selectedBga);
+        setupGamepadFocusable(bgaDisplaySpinner);
 
         // BGA Expand
         Spinner bgaExpandSpinner = findViewById(R.id.bgaExpandSpinner);
@@ -669,6 +679,7 @@ public class SettingsActivity extends Activity {
         bgaExpandAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         bgaExpandSpinner.setAdapter(bgaExpandAdapter);
         bgaExpandSpinner.setSelection(Math.min(selectedBgaExpand, bgaExpandOptions.length - 1));
+        setupGamepadFocusable(bgaExpandSpinner);
 
         // Table URL
         tableUrlContainer = findViewById(R.id.tableUrlContainer);
@@ -685,6 +696,7 @@ public class SettingsActivity extends Activity {
         gasAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         gaugeAutoShiftSpinner.setAdapter(gasAdapter);
         gaugeAutoShiftSpinner.setSelection(Math.min(selectedGaugeAutoShift, gaugeAutoShiftOptions.length - 1));
+        setupGamepadFocusable(gaugeAutoShiftSpinner);
 
         Spinner[] asrSpinners = {findViewById(R.id.autoSaveReplay1), findViewById(R.id.autoSaveReplay2), findViewById(R.id.autoSaveReplay3), findViewById(R.id.autoSaveReplay4)};
         String[] asrOptions = getResources().getStringArray(R.array.auto_save_options);
@@ -693,6 +705,7 @@ public class SettingsActivity extends Activity {
         for (int i = 0; i < 4; i++) {
             asrSpinners[i].setAdapter(asrAdapter);
             asrSpinners[i].setSelection(Math.min(selectedAutoSaveReplay[i], asrOptions.length - 1));
+            setupGamepadFocusable(asrSpinners[i]);
         }
 
         ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
@@ -703,6 +716,7 @@ public class SettingsActivity extends Activity {
         tsAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         targetScoreSpinner.setAdapter(tsAdapter);
         targetScoreSpinner.setSelection(Math.min(selectedTargetScore, targetScoreOptions.length - 1));
+        setupGamepadFocusable(targetScoreSpinner);
 
         Spinner gaugeTypeSpinner = findViewById(R.id.gaugeTypeSpinner);
         String[] gaugeTypeOptions = getResources().getStringArray(R.array.gauge_type_options);
@@ -710,11 +724,13 @@ public class SettingsActivity extends Activity {
         gtAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         gaugeTypeSpinner.setAdapter(gtAdapter);
         gaugeTypeSpinner.setSelection(Math.min(selectedGaugeType, gaugeTypeOptions.length - 1));
+        setupGamepadFocusable(gaugeTypeSpinner);
 
         ((EditText) findViewById(R.id.noteTimingOffsetInput)).setText(String.valueOf(selectedNoteTimingOffset));
         setupGamepadFocusable(findViewById(R.id.noteTimingOffsetInput));
 
         ((Switch) findViewById(R.id.autoTimingAdjustSwitch)).setChecked(selectedAutoTimingAdjust);
+        setupGamepadFocusable(findViewById(R.id.autoTimingAdjustSwitch));
 
         Spinner noteModifierSpinner = findViewById(R.id.noteModifierSpinner);
         String[] noteModifierOptions = getResources().getStringArray(R.array.note_modifier_options);
@@ -722,6 +738,7 @@ public class SettingsActivity extends Activity {
         nmAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         noteModifierSpinner.setAdapter(nmAdapter);
         noteModifierSpinner.setSelection(Math.min(selectedNoteModifier, noteModifierOptions.length - 1));
+        setupGamepadFocusable(noteModifierSpinner);
 
         Spinner hispeedFixSpinner = findViewById(R.id.hispeedFixSpinner);
         String[] hsfOptions = getResources().getStringArray(R.array.hispeed_fix_options);
@@ -729,9 +746,12 @@ public class SettingsActivity extends Activity {
         hsfAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         hispeedFixSpinner.setAdapter(hsfAdapter);
         hispeedFixSpinner.setSelection(Math.min(selectedHispeedFix, hsfOptions.length - 1));
+        setupGamepadFocusable(hispeedFixSpinner);
 
         ((Switch) findViewById(R.id.enableLanecoverSwitch)).setChecked(selectedEnableLanecover);
+        setupGamepadFocusable(findViewById(R.id.enableLanecoverSwitch));
         ((Switch) findViewById(R.id.enableLiftSwitch)).setChecked(selectedEnableLift);
+        setupGamepadFocusable(findViewById(R.id.enableLiftSwitch));
 
         findViewById(R.id.saveButton).setOnClickListener(v -> {
             readAllOptionsFromUI();
@@ -1097,6 +1117,8 @@ public class SettingsActivity extends Activity {
         File[] files = dir.listFiles();
         if (files != null) {
             for (File file : files) {
+                // 跳过 config_player.json，避免导出的 score.zip 覆盖目标玩家的键位/选项配置
+                if (file.getName().equals("config_player.json")) continue;
                 String entryPath = basePath.isEmpty() ? file.getName() : basePath + "/" + file.getName();
                 if (file.isDirectory()) {
                     addDirectoryToZip(zos, file, entryPath, buf);
@@ -1542,6 +1564,15 @@ public class SettingsActivity extends Activity {
         if (view == null) return;
         view.setFocusable(true);
         view.setFocusableInTouchMode(true);
+    }
+
+    private boolean isDescendantOf(ViewGroup ancestor, View descendant) {
+        android.view.ViewParent parent = descendant.getParent();
+        while (parent != null) {
+            if (parent == ancestor) return true;
+            parent = parent.getParent();
+        }
+        return false;
     }
 
     private void showCharacterWheelForEditText(EditText editText) {

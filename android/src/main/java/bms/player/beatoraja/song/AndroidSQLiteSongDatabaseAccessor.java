@@ -25,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,12 +49,21 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final Pattern SCORELOG_DATE_COMPARE_PATTERN = Pattern.compile("scorelog\\.date\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+)");
     private final DBHelper helper;
     private final String[] bmsroot;
-    // 多线程扫描：32位设备适当限制，平衡性能与内存安全
+    // 多线程扫描：增加线程数以更好地利用 I/O 并行能力
+    // BMS 文件解析属于 I/O 密集型任务，线程数应超过 CPU 核心数
     private static final int PARALLEL_THREAD_COUNT = "true".equals(System.getProperty("beatoraja.32bit"))
-            ? Math.max(1, Math.min(Runtime.getRuntime().availableProcessors() - 1, 4))
-            : Math.max(2, Runtime.getRuntime().availableProcessors() - 1);
+            ? Math.max(2, Math.min(Runtime.getRuntime().availableProcessors() * 2, 8))
+            : Math.max(4, Runtime.getRuntime().availableProcessors() * 2);
     // 小于此数量则使用串行处理（避免线程创建开销）
     private static final int PARALLEL_THRESHOLD = 50;
+
+    // 共享线程池，供扫描和删除检查复用，避免重复创建/销毁开销
+    private static final ExecutorService SHARED_POOL = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT, r -> {
+        Thread t = new Thread(r, "BmsScanner");
+        t.setDaemon(true);
+        t.setPriority(Thread.NORM_PRIORITY);
+        return t;
+    });
 
     // 插件扩展机制
     private List<SongDatabaseAccessorPlugin> plugins = new ArrayList<>();
@@ -925,19 +935,20 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 if (!candidates.isEmpty()) {
                     long delCheckStart = System.currentTimeMillis();
                     Set<String> toDelete = Collections.newSetFromMap(new ConcurrentHashMap<>());
-                    ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
+                    List<Future<?>> delFutures = new ArrayList<>();
                     for (final String path : candidates) {
-                        executor.submit(() -> {
+                        delFutures.add(SHARED_POOL.submit(() -> {
                             if (!Gdx.files.absolute(path).exists()) {
                                 toDelete.add(path);
                             }
-                        });
+                        }));
                     }
-                    executor.shutdown();
-                    try {
-                        executor.awaitTermination(120, TimeUnit.SECONDS);
-                    } catch (InterruptedException e) {
-                        Log.w(TAG, "Deletion Sync: Executor interrupted", e);
+                    for (Future<?> f : delFutures) {
+                        try {
+                            f.get(30, TimeUnit.SECONDS);
+                        } catch (Exception e) {
+                            Log.w(TAG, "Deletion Sync: Task failed", e);
+                        }
                     }
                     long delCheckElapsed = System.currentTimeMillis() - delCheckStart;
                     Log.i(TAG, "Deletion Sync: Found " + toDelete.size() + " missing files in " + delCheckElapsed + "ms");
@@ -1066,60 +1077,56 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
 
         long decodeStart = System.currentTimeMillis();
         final AtomicInteger processedCount = new AtomicInteger(0);
-        ExecutorService executor = Executors.newFixedThreadPool(PARALLEL_THREAD_COUNT);
-        List<Future<DecodeResult>> futures = new ArrayList<>();
+        ExecutorCompletionService<DecodeResult> ecs = new ExecutorCompletionService<>(SHARED_POOL);
 
         for (final FileHandle file : filesToScan) {
-            futures.add(executor.submit(() -> {
+            ecs.submit(() -> {
                 // 每个线程创建自己的解码器，确保线程安全
                 BMSDecoder localDecoder = new BMSDecoder(BMSModel.LNTYPE_LONGNOTE);
-                // 已经在外层过滤过，此处直接强制解码
                 DecodeResult result = processBmsFileParallel(file, localDecoder, true);
 
-                // 无论是否跳过，都上报进度（增加节流，每 10 个文件更新一次，避免主线程洪水）
+                // 无论是否跳过，都上报进度
                 int current = processedCount.incrementAndGet();
                 if (progress != null && (current % 2 == 0 || current == totalToScan)) {
                     progress.onFileScanned(current, totalToScan);
                 }
                 return result;
-            }));
+            });
         }
 
-        // 阶段3 & 4: 流式写入数据库（单线程事务），避免一次性缓存大量结果导致内存溢出
+        // 阶段3 & 4: 按完成顺序流式写入数据库（CompletionService 消除队头阻塞）
         long writeStart = System.currentTimeMillis();
         SQLiteDatabase db = helper.getWritableDatabase();
         int successCount = 0;
         int batchCount = 0;
-        final int BATCH_SIZE = 100; // 每 100 条记录提交一次事务
+        final int BATCH_SIZE = 100;
 
         db.beginTransaction();
         try {
-            for (int i = 0; i < futures.size(); i++) {
-                Future<DecodeResult> f = futures.get(i);
+            for (int i = 0; i < totalToScan; i++) {
+                DecodeResult result = null;
                 try {
-                    // 设置较长的超时，防止低端设备卡死
-                    DecodeResult result = f.get(60, TimeUnit.SECONDS);
-                    if (result != null && result.songData != null) {
-                        insertSongData(result.songData, db);
-                        if (result.model != null) {
-                            insertInformation(new bms.player.beatoraja.song.SongInformation(result.model), db);
-                        }
-                        successCount++;
-                        batchCount++;
-
-                        // 分批提交事务，降低 32 位系统内存压力
-                        if (batchCount >= BATCH_SIZE) {
-                            db.setTransactionSuccessful();
-                            db.endTransaction();
-                            db.beginTransaction();
-                            batchCount = 0;
-                        }
-                    }
+                    // take() 按完成顺序返回，先解码完的先写入
+                    Future<DecodeResult> f = ecs.take();
+                    result = f.get();
                 } catch (Exception e) {
                     Log.w(TAG, "updateSongDatasParallel: Decode failed", e);
-                } finally {
-                    // 处理完一个结果后立即释放 Future 引用，允许 GC 回收庞大的 BMSModel
-                    futures.set(i, null);
+                    continue;
+                }
+                if (result != null && result.songData != null) {
+                    insertSongData(result.songData, db);
+                    if (result.model != null) {
+                        insertInformation(new bms.player.beatoraja.song.SongInformation(result.model), db);
+                    }
+                    successCount++;
+                    batchCount++;
+
+                    if (batchCount >= BATCH_SIZE) {
+                        db.setTransactionSuccessful();
+                        db.endTransaction();
+                        db.beginTransaction();
+                        batchCount = 0;
+                    }
                 }
             }
             db.setTransactionSuccessful();
@@ -1127,7 +1134,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             Log.e(TAG, "updateSongDatasParallel: Database batch process failed", t);
         } finally {
             db.endTransaction();
-            // 强制 checkpoint
             try {
                 db.execSQL("PRAGMA wal_checkpoint(FULL)");
             } catch (Throwable e) {
@@ -1135,7 +1141,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             }
         }
 
-        executor.shutdown();
         long totalElapsed = System.currentTimeMillis() - startTime;
         long decodeElapsed = System.currentTimeMillis() - decodeStart;
         long writeElapsed = System.currentTimeMillis() - writeStart;

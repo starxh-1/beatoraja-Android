@@ -39,15 +39,9 @@ public class KeyConfiguration extends MainState {
 			Mode.KEYBOARD_24K_DOUBLE };
 
 	private static final String[][] KEYS = {
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "F-SCR", "R-SCR",
-			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-F-SCR", "2P-R-SCR",
-			  "START", "SELECT" },
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "F-SCR", "R-SCR",
-			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY", "2P-F-SCR", "2P-R-SCR",
-			  "START", "SELECT" },
-			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "8 KEY", "9 KEY",
-			  "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY", "2P-8 KEY", "2P-9 KEY",
-			  "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
+			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "8 KEY", "9 KEY", "START", "SELECT" },
 			{ "1P-1 KEY", "1P-2 KEY", "1P-3 KEY", "1P-4 KEY", "1P-5 KEY", "1P-F-SCR",
 				"1P-R-SCR", "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY",
 				"2P-F-SCR", "2P-R-SCR", "START", "SELECT" },
@@ -67,12 +61,10 @@ public class KeyConfiguration extends MainState {
 					"2P-D2", "2P-D#2", "2P-E2", "2P-F2", "2P-F#2", "2P-G2", "2P-G#2", "2P-A2", "2P-A#2", "2P-B2",
 					"2P-WHEEL-UP", "2P-WHEEL-DOWN", "START", "SELECT" } };;
 	private static final int[][] KEYSA = {
-			// 5 KEYS: 1P (0..6) + START/SELECT (-1/-2) + 2P (100..106)
-			{ 0, 1, 2, 3, 4, 5, 6, 100, 101, 102, 103, 104, 105, 106, -1, -2 },
-			// 7 KEYS: 1P (0..8) + 2P (100..108)
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107, 108, -1, -2 },
-			// 9 KEYS (popn): 1P (0..8) + 2P (100..108)
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 100, 101, 102, 103, 104, 105, 106, 107, 108, -1, -2 },
+			// 5/7/9 KEYS: 单人模式,无 2P 区分
+			{ 0, 1, 2, 3, 4, 5, 6, -1, -2 },
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
 			// 10 KEYS: 1P (0..13) + 2P (100..113)
 			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, -1, -2 },
 			// 14 KEYS: 1P (0..17) + 2P (100..117)
@@ -174,6 +166,9 @@ public class KeyConfiguration extends MainState {
 
 		Gdx.gl.glClearColor(0, 0, 0, 1);
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+		// 热插拔：每帧刷新控制器列表，确保新连接/断开的控制器能实时反映
+		controllers = input.getBMInputProcessor();
 
 		if (input.isControlKeyPressed(ControlKeys.LEFT)) {
 			setMode((mode + KEYS.length - 1) % KEYS.length);
@@ -324,19 +319,20 @@ public class KeyConfiguration extends MainState {
 	 * 手柄全局快捷键：十字键/摇杆 → UP/DOWN/LEFT/RIGHT，A → Enter，X → Del，B → Esc。
 	 * 必须在 keyinput 块之前调用，否则 A/X/B 会被当作"绑定到当前光标位"。
 	 */
-	/**
-	 * 手柄全局快捷键：D-pad/摇杆 始终用作方向导航；A/B/X/Y/L3/R3 仅在 keyinput=false 时
-	 * 用作 Enter/Del/Esc，keyinput=true 时留给原绑定循环消费。
+		/**
+		 * 手柄全局快捷键：仅在 keyinput=false (非分配模式) 时生效。
+		 * keyinput=true 时不消费任何手柄按键，全部留给键位分配逻辑。
 	 */
 	private void pollControllerNavShortcuts(boolean consumeAsNav) {
+		if (!consumeAsNav) return;
 		for (BMControllerInputProcessor bmc : controllers) {
 			int btn = bmc.getLastPressedButton();
 			if (btn < 0) continue;
 			int simKey = -1;
-			if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS
+			if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS
 					|| btn == XboxControllerHelper.ANDROID_DPAD_UP) {
 				simKey = Keys.UP;
-			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_MINUS
+			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS2_PLUS
 					|| btn == XboxControllerHelper.ANDROID_DPAD_DOWN) {
 				simKey = Keys.DOWN;
 			} else if (btn == BMControllerInputProcessor.BMKeys.AXIS1_PLUS
@@ -387,54 +383,54 @@ public class KeyConfiguration extends MainState {
 			titlefont.setColor(Color.GREEN);
 			titlefont.draw(sprite, controller1Type, 330 * scaleX, 620 * scaleY);
 
+			if (pc.getController().length > 1) {
+				titlefont.setColor(Color.YELLOW);
+				titlefont.draw(sprite, "Controller2", 480 * scaleX, 620 * scaleY);
+			}
+
 			titlefont.draw(sprite, "MIDI", 630 * scaleX, 620 * scaleY);
 			titlefont.setColor(Color.ORANGE);
 			titlefont.draw(sprite, "Music Select (press [1] to change) :   ", 750 * scaleX, 620 * scaleY);
 			titlefont.draw(sprite, SELECTKEY[config.getMusicselectinput()], 780 * scaleX, 590 * scaleY);
 
+			// 显示所有已连接的控制器，标注哪个是 1P/2P
+			boolean has2P = pc.getController().length > 1;
+			int controllerCount = controllers != null ? controllers.length : 0;
+			String name1 = pc.getController()[0].getName();
+			String name2 = has2P ? pc.getController()[1].getName() : null;
+
 			titlefont.setColor(Color.ORANGE);
-			titlefont.draw(sprite, "Controller Device 1 (press [2] to change) :   ", 750 * scaleX, 500 * scaleY);
-			titlefont.setColor(Color.WHITE);
-			titlefont.draw(sprite, pc.getController()[0].getName(), 780 * scaleX, 470 * scaleY);
-			if (pc.getController().length > 1) {
-				titlefont.setColor(Color.YELLOW);
-				titlefont.draw(sprite, "Controller2", 480 * scaleX, 620 * scaleY);
+			titlefont.draw(sprite, "Controllers (press [2]/[3] to change):", 750 * scaleX, 520 * scaleY);
 
-				// 检测并显示Controller2类型
-				String controller2Name = pc.getController()[1].getName();
-				String controller2Type = "Controller2";
-				if (XboxControllerHelper.isXboxController(controller2Name)) {
-					controller2Type = "XBOX Gamepad";
-				} else if (controller2Name != null && !controller2Name.isEmpty()) {
-					controller2Type = "Gamepad";
+			if (controllerCount == 0) {
+				titlefont.setColor(Color.RED);
+				titlefont.draw(sprite, "  No controllers detected!", 750 * scaleX, 490 * scaleY);
+			} else {
+				int yBase = 490;
+				for (int i = 0; i < controllers.length && i < 8; i++) {
+					String cname = controllers[i].getName();
+					String label;
+					Color labelColor;
+
+					if (cname.equals(name1)) {
+						label = "[1P] " + cname;
+						labelColor = Color.GREEN;
+					} else if (has2P && cname.equals(name2)) {
+						label = "[2P] " + cname;
+						labelColor = Color.CYAN;
+					} else {
+						label = "     " + cname;
+						labelColor = Color.GRAY;
+					}
+					titlefont.setColor(labelColor);
+					titlefont.draw(sprite, label, 760 * scaleX, (yBase - i * 25) * scaleY);
 				}
-				titlefont.setColor(Color.GREEN);
-				titlefont.draw(sprite, controller2Type, 480 * scaleX, 620 * scaleY);
-
-				titlefont.setColor(Color.ORANGE);
-				titlefont.draw(sprite, "Controller Device 2 (press [3] to change) :   ", 750 * scaleX, 300 * scaleY);
-				titlefont.setColor(Color.WHITE);
-				titlefont.draw(sprite, pc.getController()[1].getName(), 780 * scaleX, 270 * scaleY);
 			}
 
 			titlefont.setColor(Color.CYAN);
 			titlefont.draw(sprite, "[7] Restore to Default (Keyboard)", 750 * scaleX, 150 * scaleY);
 			titlefont.draw(sprite, "[8] Restore to Default (Controller)", 750 * scaleX, 120 * scaleY);
 			titlefont.draw(sprite, "[9] Restore to Default (MIDI)", 750 * scaleX, 90 * scaleY);
-
-			// 显示已连接的控制器数量
-			titlefont.setColor(Color.GOLD);
-			int controllerCount = controllers != null ? controllers.length : 0;
-			titlefont.draw(sprite, "Connected Controllers: " + controllerCount, 750 * scaleX, 50 * scaleY);
-
-			// 调试：如果控制器数量为0，显示提示
-			if (controllerCount == 0) {
-				titlefont.setColor(Color.RED);
-				titlefont.draw(sprite, "No controllers detected!", 750 * scaleX, 25 * scaleY);
-				titlefont.draw(sprite, "Check Logcat for details", 750 * scaleX, 5 * scaleY);
-			} else if (controllerCount > 0) {
-				titlefont.draw(sprite, "Press any button to configure", 750 * scaleX, 25 * scaleY);
-			}
 
 			// 每次渲染时记录一次控制器状态（仅第一次）
 			if (titlefont != null && Gdx.graphics.getFrameId() == 1) {
@@ -575,9 +571,6 @@ public class KeyConfiguration extends MainState {
 	private void setKeyboardKeyAssign(int index) {
 		// 2P 槽位不允许绑定键盘 — 2P 仅支持 controller
 		if (index >= 100) {
-			return;
-		}
-		if (keyboard.isReservedKey(keyboard.getLastPressedKey())) {
 			return;
 		}
 		resetKeyAssign(index);
