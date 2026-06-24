@@ -52,7 +52,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 
 	protected S skin;
 
-	ObjectMap<String, String> filemap = new ObjectMap<String, String>();
+	SkinLoader.SkinFileMap filemap = new SkinLoader.SkinFileMap();
 
 	private MainState state;
 
@@ -827,6 +827,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		for (SkinHeader.CustomOffset of : skin.header.getCustomOffsets()) {
 			offset.put(of.id, of.getOffset());
 		}
+		filemap.buildIndex();
 		skin.setOffset(offset);
 
 		op.putAll(option);

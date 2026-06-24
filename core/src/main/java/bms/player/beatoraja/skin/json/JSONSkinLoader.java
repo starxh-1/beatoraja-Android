@@ -34,7 +34,7 @@ public class JSONSkinLoader extends SkinLoader {
 
 	protected final SkinLuaAccessor lua;
 
-	protected ObjectMap<String, String> filemap = new ObjectMap<String, String>();
+	protected SkinLoader.SkinFileMap filemap = new SkinLoader.SkinFileMap();
 
 	protected JsonSkinSerializer serializer;
 
@@ -268,7 +268,7 @@ public class JSONSkinLoader extends SkinLoader {
 
 			serializer.setSerializers(json, getEnabledOptions(header), p);
 
-			filemap = new ObjectMap<>();
+			filemap = new SkinLoader.SkinFileMap();
 			for(SkinHeader.CustomFile customFile : header.getCustomFiles()) {
 				if(customFile.getSelectedFilename() != null) {
 					// Normalize key to match SkinLoader.getPath()'s normalizePath() processing
@@ -282,6 +282,7 @@ public class JSONSkinLoader extends SkinLoader {
 					filemap.put(normalizedKey, customFile.getSelectedFilename());
 				}
 			}
+			filemap.buildIndex();
 
 			lua.exportSkinProperty(header, property, (String path) -> {
 				return getPath(p.getParentFile().toString() + "/" + path, filemap).getPath();

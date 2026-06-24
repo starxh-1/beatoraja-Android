@@ -104,7 +104,7 @@ public class LuaSkinLoader extends JSONSkinLoader {
 		header.setSkinConfigProperty(property);
 
 		try {
-			filemap = new ObjectMap<>();
+			filemap = new SkinLoader.SkinFileMap();
 			for(SkinHeader.CustomFile customFile : header.getCustomFiles()) {
 				if(customFile != null && customFile.getSelectedFilename() != null) {
 					String normalizedKey = customFile.path.replace("\\", "/").replaceAll("/+", "/");
@@ -113,6 +113,7 @@ public class LuaSkinLoader extends JSONSkinLoader {
 					filemap.put(normalizedKey, customFile.getSelectedFilename());
 				}
 			}
+			filemap.buildIndex();
 
 			lua.exportSkinProperty(header, property, (String path) -> {
 				String rawPath = p.getParent() + "/" + path;

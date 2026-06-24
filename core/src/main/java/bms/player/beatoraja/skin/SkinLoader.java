@@ -86,6 +86,54 @@ public abstract class SkinLoader {
         return resource;
     }
 
+    /**
+     * 为提升皮肤加载性能，对 filemap 进行索引。
+     * 支持 O(1) 的精确查找及基于路径层级的后缀查找。
+     */
+    public static class SkinFileMap extends ObjectMap<String, String> {
+        private final ObjectMap<String, String> index = new ObjectMap<>();
+        private final Array<String> absoluteKeys = new Array<>();
+
+        /**
+         * 构建索引。应在 filemap 填充完毕后调用一次。
+         */
+        public void buildIndex() {
+            index.clear();
+            absoluteKeys.clear();
+            for (Entry<String, String> entry : entries()) {
+                String lowerKey = entry.key.toLowerCase();
+                index.put(lowerKey, entry.value);
+                if (lowerKey.startsWith("/")) {
+                    absoluteKeys.add(lowerKey);
+                }
+            }
+        }
+
+        public String findMatchedValue(String currentPath) {
+            if (index.size == 0) return null;
+            String lowerPath = currentPath.toLowerCase();
+
+            // 1. 精确匹配
+            String val = index.get(lowerPath);
+            if (val != null) return val;
+
+            // 2. 后缀匹配（按路径层级递归尝试）
+            int idx = -1;
+            while ((idx = lowerPath.indexOf('/', idx + 1)) != -1) {
+                val = index.get(lowerPath.substring(idx + 1));
+                if (val != null) return val;
+            }
+
+            // 3. 针对以 / 开头的绝对路径 Key 的特殊匹配
+            for (String absKey : absoluteKeys) {
+                if (lowerPath.endsWith(absKey)) {
+                    return index.get(absKey);
+                }
+            }
+            return null;
+        }
+    }
+
     public static File getPath(String imagepath, ObjectMap<String, String> filemap) {
         imagepath = imagepath.replace("\\", "/").replaceAll("/+", "/");
         // 只对非绝对路径去除前导 /，保留 Android 上的绝对路径
@@ -102,42 +150,52 @@ public abstract class SkinLoader {
 
         File imagefile = new File(imagepath);
         String currentPath = imagepath;
-        for (String key : filemap.keys()) {
-            // Normalize key the same way currentPath was normalized above, so that
-            // getCanonicalPath() vs getAbsolutePath() differences don't break matching.
-            String cmpKey = key.replace("\\", "/").replaceAll("/+", "/");
-            try {
-                String nk = normalizePath(cmpKey);
-                if (nk != null && !nk.isEmpty()) {
-                    cmpKey = nk.replace("\\", "/");
-                }
-            } catch (Exception ignore) {}
 
-            boolean matched = currentPath.equalsIgnoreCase(cmpKey);
-            if (!matched) {
-                // Suffix match: try with both raw and normalized key
-                matched = currentPath.toLowerCase().endsWith("/" + cmpKey.toLowerCase());
-                if (!matched && cmpKey.startsWith("/")) {
-                    // If key is absolute, try without leading / for suffix matching
-                    matched = currentPath.toLowerCase().endsWith(cmpKey.toLowerCase());
+        if (filemap instanceof SkinFileMap) {
+            String value = ((SkinFileMap) filemap).findMatchedValue(currentPath);
+            if (value != null) {
+                if (!"Random".equalsIgnoreCase(value)) {
+                    int lastAsterisk = currentPath.lastIndexOf('*');
+                    if (lastAsterisk != -1) {
+                        return new File(currentPath.substring(0, lastAsterisk) + value);
+                    } else {
+                        return new File(value);
+                    }
                 }
+                // "Random" 的情况跳出查找，进入随后的通配符处理逻辑
             }
+        } else {
+            // 回退到原始的 O(N) 遍历逻辑，以保持向后兼容
+            for (String key : filemap.keys()) {
+                String cmpKey = key.replace("\\", "/").replaceAll("/+", "/");
+                try {
+                    String nk = normalizePath(cmpKey);
+                    if (nk != null && !nk.isEmpty()) {
+                        cmpKey = nk.replace("\\", "/");
+                    }
+                } catch (Exception ignore) {}
 
-            if (matched) {
-                String value = filemap.get(key);
-                if ("Random".equalsIgnoreCase(value)) {
-                    break;
+                boolean matched = currentPath.equalsIgnoreCase(cmpKey);
+                if (!matched) {
+                    matched = currentPath.toLowerCase().endsWith("/" + cmpKey.toLowerCase());
+                    if (!matched && cmpKey.startsWith("/")) {
+                        matched = currentPath.toLowerCase().endsWith(cmpKey.toLowerCase());
+                    }
                 }
 
-                int lastAsterisk = currentPath.lastIndexOf('*');
-                if (lastAsterisk != -1) {
-                    imagefile = new File(currentPath.substring(0, lastAsterisk) + value);
-                } else {
-                    imagefile = new File(value);
+                if (matched) {
+                    String value = filemap.get(key);
+                    if ("Random".equalsIgnoreCase(value)) {
+                        break;
+                    }
+
+                    int lastAsterisk = currentPath.lastIndexOf('*');
+                    if (lastAsterisk != -1) {
+                        return new File(currentPath.substring(0, lastAsterisk) + value);
+                    } else {
+                        return new File(value);
+                    }
                 }
-                // Cleared imagepath to prevent fallback random logic
-                imagepath = "";
-                break;
             }
         }
 
