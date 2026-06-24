@@ -6,6 +6,10 @@ local function append_all(list, list1)
 end
 
 local property = {
+	{name = "Song Information", item = {
+		{name = "Show", op = 950},
+		{name = "Hide", op = 951}
+	}, def = "Show"}
 }
 
 
@@ -56,14 +60,14 @@ local function main()
 		{id = -100, dst = {
 			{x = 0, y = 0, w = 1280, h = 720}
 		}},
-		{id = "genre", loop = 2000, dst = {
+		{id = "genre", op = {950}, loop = 2000, dst = {
 			{time = 0, x = 300, y = 420, w = 18, h = 18},
 			{time = 2000, x = 380},
 		}},
-		{id = "title", dst = {
+		{id = "title", op = {950}, dst = {
 			{x = 340, y = 360, w = 18, h = 18}
 		}},
-		{id = "artist", loop = 2000, dst = {
+		{id = "artist", op = {950}, loop = 2000, dst = {
 			{time = 0, x = 380, y = 300, w = 18, h = 18},
 			{time = 2000, x = 300},
 		}},
