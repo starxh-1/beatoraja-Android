@@ -162,8 +162,9 @@ public class SettingsActivity extends Activity {
 
         // 监听焦点变化，显示手柄高光
         focusChangeListener = (oldFocus, newFocus) -> {
-            if (gamepadMode) {
+            if (gamepadMode && newFocus != null) {
                 updateFocusIndicator(newFocus);
+                ensureViewVisible(newFocus);
             }
         };
         getWindow().getDecorView().getViewTreeObserver().addOnGlobalFocusChangeListener(focusChangeListener);
@@ -531,6 +532,7 @@ public class SettingsActivity extends Activity {
         volumePercent.setText(selectedVolume + "%");
         android.widget.SeekBar systemVolumeSeekBar = findViewById(R.id.systemVolumeSeekBar);
         systemVolumeSeekBar.setProgress(selectedVolume);
+        setupGamepadFocusable(systemVolumeSeekBar);
         systemVolumeSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) { selectedVolume = progress; volumePercent.setText(progress + "%"); }
@@ -543,6 +545,7 @@ public class SettingsActivity extends Activity {
         keyVolumePercent.setText(selectedKeyVolume + "%");
         android.widget.SeekBar keyVolumeSeekBar = findViewById(R.id.keyVolumeSeekBar);
         keyVolumeSeekBar.setProgress(selectedKeyVolume);
+        setupGamepadFocusable(keyVolumeSeekBar);
         keyVolumeSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) { selectedKeyVolume = progress; keyVolumePercent.setText(progress + "%"); }
@@ -555,6 +558,7 @@ public class SettingsActivity extends Activity {
         bgmVolumePercent.setText(selectedBgmVolume + "%");
         android.widget.SeekBar bgmVolumeSeekBar = findViewById(R.id.bgmVolumeSeekBar);
         bgmVolumeSeekBar.setProgress(selectedBgmVolume);
+        setupGamepadFocusable(bgmVolumeSeekBar);
         bgmVolumeSeekBar.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
             @Override public void onProgressChanged(android.widget.SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) { selectedBgmVolume = progress; bgmVolumePercent.setText(progress + "%"); }
@@ -620,19 +624,31 @@ public class SettingsActivity extends Activity {
         });
 
         findViewById(R.id.newPlayerBtn).setOnClickListener(v -> showNewPlayerDialog());
+        setupGamepadFocusable(findViewById(R.id.newPlayerBtn));
         findViewById(R.id.deletePlayerBtn).setOnClickListener(v -> deleteCurrentPlayer());
+        setupGamepadFocusable(findViewById(R.id.deletePlayerBtn));
         findViewById(R.id.exportScoreBtn).setOnClickListener(v -> exportScoreDatabase());
+        setupGamepadFocusable(findViewById(R.id.exportScoreBtn));
         findViewById(R.id.importPlayerBtn).setOnClickListener(v -> importScoreDatabase());
+        setupGamepadFocusable(findViewById(R.id.importPlayerBtn));
 
         // Help buttons
         findViewById(R.id.playerHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.player_help_title), getString(R.string.player_help)));
+        setupGamepadFocusable(findViewById(R.id.playerHelp));
         findViewById(R.id.bmsPathHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.bms_path_help_title), getString(R.string.bms_path_help)));
+        setupGamepadFocusable(findViewById(R.id.bmsPathHelp));
         findViewById(R.id.audioSpectrumHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.audio_spectrum_help_title), getString(R.string.audio_spectrum_help)));
+        setupGamepadFocusable(findViewById(R.id.audioSpectrumHelp));
         findViewById(R.id.gaugeAutoShiftHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.gauge_auto_shift_help_title), getString(R.string.gauge_auto_shift_help)));
+        setupGamepadFocusable(findViewById(R.id.gaugeAutoShiftHelp));
         findViewById(R.id.stretchFullscreenHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.stretch_fullscreen_help_title), getString(R.string.stretch_fullscreen_help)));
+        setupGamepadFocusable(findViewById(R.id.stretchFullscreenHelp));
         findViewById(R.id.inputDurationHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.input_duration_help_title), getString(R.string.input_duration_help)));
+        setupGamepadFocusable(findViewById(R.id.inputDurationHelp));
         findViewById(R.id.jkocHackHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.jkoc_hack_help_title), getString(R.string.jkoc_hack_help)));
+        setupGamepadFocusable(findViewById(R.id.jkocHackHelp));
         findViewById(R.id.analogScratchHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.analog_scratch_help_title), getString(R.string.analog_scratch_help)));
+        setupGamepadFocusable(findViewById(R.id.analogScratchHelp));
 
         // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
         // 注：Switch 初始化在更下方的 Play Options 之后，与 Show Audio Spectrum 一起设置以确保正确的锁定顺序。
@@ -640,7 +656,9 @@ public class SettingsActivity extends Activity {
         // Play Options expandable section
         final LinearLayout playOptionsContent = findViewById(R.id.playOptionsContent);
         final TextView playOptionsArrow = findViewById(R.id.playOptionsArrow);
-        findViewById(R.id.playOptionsHeader).setOnClickListener(v -> {
+        View playOptionsHeader = findViewById(R.id.playOptionsHeader);
+        setupGamepadFocusable(playOptionsHeader);
+        playOptionsHeader.setOnClickListener(v -> {
             if (playOptionsContent.getVisibility() == View.VISIBLE) {
                 playOptionsContent.setVisibility(View.GONE);
                 playOptionsArrow.setText("▶");
@@ -659,7 +677,9 @@ public class SettingsActivity extends Activity {
         // Input Options expandable section
         final LinearLayout inputOptionsContent = findViewById(R.id.inputOptionsContent);
         final TextView inputOptionsArrow = findViewById(R.id.inputOptionsArrow);
-        findViewById(R.id.inputOptionsHeader).setOnClickListener(v -> {
+        View inputOptionsHeader = findViewById(R.id.inputOptionsHeader);
+        setupGamepadFocusable(inputOptionsHeader);
+        inputOptionsHeader.setOnClickListener(v -> {
             if (inputOptionsContent.getVisibility() == View.VISIBLE) {
                 inputOptionsContent.setVisibility(View.GONE);
                 inputOptionsArrow.setText("▶");
@@ -676,6 +696,7 @@ public class SettingsActivity extends Activity {
 
         // BMS Path Container
         bmsPathContainer = findViewById(R.id.bmsPathContainer);
+        setupGamepadFocusable(findViewById(R.id.addBmsPathBtn));
         findViewById(R.id.addBmsPathBtn).setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -735,7 +756,9 @@ public class SettingsActivity extends Activity {
 
         // Table URL
         tableUrlContainer = findViewById(R.id.tableUrlContainer);
+        setupGamepadFocusable(findViewById(R.id.addTableUrlBtn));
         findViewById(R.id.addTableUrlBtn).setOnClickListener(v -> { tableUrls.add(""); refreshTableUrlList(); });
+        setupGamepadFocusable(findViewById(R.id.updateAllTablesBtn));
         findViewById(R.id.updateAllTablesBtn).setOnClickListener(v -> updateAllTables());
 
         refreshBmsPathList();
@@ -849,6 +872,7 @@ public class SettingsActivity extends Activity {
             Toast.makeText(this, getString(R.string.msg_settings_saved), Toast.LENGTH_SHORT).show();
             launchGame();
         });
+        setupGamepadFocusable(findViewById(R.id.saveButton));
     }
 
     private void refreshBmsPathList() {
@@ -881,6 +905,7 @@ public class SettingsActivity extends Activity {
                 removeBtn.setText(getString(R.string.btn_remove));
                 removeBtn.setBackgroundColor(0xFFAA3333);
                 removeBtn.setTextColor(0xFFFFFFFF);
+                setupGamepadFocusable(removeBtn);
                 removeBtn.setOnClickListener(v -> { bmsPaths.remove(index); refreshBmsPathList(); });
                 row.addView(removeBtn);
             } else {
@@ -920,11 +945,13 @@ public class SettingsActivity extends Activity {
             updateBtn.setText(getString(R.string.btn_update));
             updateBtn.setBackgroundColor(0xFF4CAF50);
             updateBtn.setTextColor(0xFFFFFFFF);
+            setupGamepadFocusable(updateBtn);
             updateBtn.setOnClickListener(v -> updateSingleTable(index, editText, updateBtn));
             Button removeBtn = new Button(this);
             removeBtn.setText(getString(R.string.btn_remove));
             removeBtn.setBackgroundColor(0xFFAA3333);
             removeBtn.setTextColor(0xFFFFFFFF);
+            setupGamepadFocusable(removeBtn);
             removeBtn.setOnClickListener(v -> { tableUrls.remove(index); refreshTableUrlList(); });
             row.addView(editText); row.addView(updateBtn); row.addView(removeBtn);
             tableUrlContainer.addView(row);
@@ -1475,6 +1502,12 @@ public class SettingsActivity extends Activity {
                 lastGamepadInputTime = SystemClock.uptimeMillis();
             }
             if (gamepadMode) {
+                // 优先让系统处理 DPAD 事件，如果系统处理了（例如 Spinner 下拉框或者标准焦点切换），则不再执行自定义逻辑
+                if (keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
+                    keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    if (super.dispatchKeyEvent(event)) return true;
+                }
+
                 if (keyCode == KeyEvent.KEYCODE_DPAD_UP) { moveFocus(MoveDirection.UP); return true; }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) { moveFocus(MoveDirection.DOWN); return true; }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) { moveFocus(MoveDirection.LEFT); return true; }
@@ -1648,10 +1681,15 @@ public class SettingsActivity extends Activity {
 
     private void updateTouchModeForGamepad() {
         buildFocusableControlsList();
-        if (getCurrentFocus() != null) updateFocusIndicator(getCurrentFocus());
-        else if (!focusableControls.isEmpty()) {
-            focusableControls.get(0).requestFocus();
-            updateFocusIndicator(focusableControls.get(0));
+        View focused = getCurrentFocus();
+        if (focused != null) {
+            updateFocusIndicator(focused);
+            ensureViewVisible(focused);
+        } else if (!focusableControls.isEmpty()) {
+            View first = focusableControls.get(0);
+            first.requestFocus();
+            updateFocusIndicator(first);
+            ensureViewVisible(first);
         }
     }
 

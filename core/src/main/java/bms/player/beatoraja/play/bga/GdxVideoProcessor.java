@@ -48,12 +48,14 @@ public class GdxVideoProcessor implements MovieProcessor {
     // 异常大漂移阈值 (ms) - 通常是 pause/resume 后或解码卡顿造成的
     private static final long SEVERE_DRIFT_THRESHOLD = 1000;
     private static final long SEEK_COOLDOWN_MS = 200;          // seek 冷却时间 (ms)
+    private static final long SYNC_INTERVAL_MS = 200;         // 同步检查间隔 (ms)
     private static final long SYNC_LOG_INTERVAL_MS = 60_000;  // seek log 最小间隔 (ms)
     private static final long SYNC_PERIODIC_LOG_INTERVAL_MS = 30_000; // 周期同步状态 log 间隔 (ms)
 
     // 快速同步 log 节流：避免漂移时 logcat 刷屏
     private long lastFastSyncLogTime = -1;
     private long lastPeriodicSyncLogTime = -1;
+    private long lastSyncTimestamp = -1;     // 上次执行同步检查的系统时间
     private long lastSeekTime = -1;          // 上次 seek 的时间戳，用于防 seek storm
 
     /**
@@ -116,8 +118,12 @@ public class GdxVideoProcessor implements MovieProcessor {
         if (time == lastUpdateTime) return;
         lastUpdateTime = time;
 
-        // 同步纠正：可能内部调用 videoPlayer.seek()
-        synchronizeVideo(time);
+        // 同步纠正：限制频率以减少 Binder 调用开销 (MediaPlayer.getCurrentPosition)
+        long now = System.currentTimeMillis();
+        if (lastSyncTimestamp < 0 || now - lastSyncTimestamp >= SYNC_INTERVAL_MS) {
+            synchronizeVideo(time);
+            lastSyncTimestamp = now;
+        }
 
         try {
             // ─── 核心 GL 状态保存 ───
@@ -291,6 +297,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             syncCorrectionCount = 0;
             lastFastSyncLogTime = -1;
             lastPeriodicSyncLogTime = -1;
+            lastSyncTimestamp = -1;
             lastSeekTime = -1;
             initialSeekDone = false;  // play() 后第一次同步会做初始 seek
 
@@ -431,35 +438,19 @@ public class GdxVideoProcessor implements MovieProcessor {
                 return;
             }
 
-            // 3. 预热：play→等第一帧→pause，预算 500ms
-            long warmupStart = System.currentTimeMillis();
-            long warmupDeadline = warmupStart + 500;
-            boolean firstFrameDecoded = false;
+            // 3. 预热：由于 preload 通常在 GL 线程执行，避免阻塞式等待。
+            // 只调用 play() 后立刻 pause() 以触发底层缓冲。
             videoPlayer.play();
-            while (System.currentTimeMillis() < warmupDeadline) {
-                if (videoPlayer.update()) {
-                    firstFrameDecoded = true;
-                    break;
-                }
-                try {
-                    Thread.sleep(2);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
             videoPlayer.pause();
 
-            // 预热后 seek 到 0，让视频位置干净，避免 warmup 暂停位置（~30-50ms）影响后续播放
+            // 预热后 seek 到 0，让视频位置干净
             try {
                 videoPlayer.seek(0);
             } catch (Exception e) {
                 // seek 失败不影响，继续
             }
 
-            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId
-                    + " preload: decoder warmed" + (firstFrameDecoded ? "" : " (timeout)")
-                    + " in " + (System.currentTimeMillis() - warmupStart) + "ms");
+            Gdx.app.log("GdxVideoProcessor", "Instance #" + instanceId + " preload: decoder triggered");
 
             // 标记为已预加载，play() 将跳过 load() 直接播放
             preloaded = true;
