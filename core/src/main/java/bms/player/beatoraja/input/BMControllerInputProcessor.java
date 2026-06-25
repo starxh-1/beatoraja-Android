@@ -140,36 +140,49 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 
 		// AXISの更新
 		for (int i = 0; i < AXIS_LENGTH; i++) {
-			axis[i] = controller.getAxis(i);
+			try {
+				axis[i] = controller.getAxis(i);
+			} catch (Exception e) {
+				axis[i] = 0;
+			}
 		}
 
 		for (int button = 0; button < buttonstate.length; button++) {
-			if (microtime >= buttontime[button] + duration * 1000) {
-				final boolean prev = buttonstate[button];
-				// 核心修正：仅 32~47 范围属于模拟轴/盘子输入，其余均作为物理按键处理
-				if (button >= BMKeys.AXIS1_PLUS && button <= BMKeys.AXIS8_MINUS) {
-					if (jkoc) {
-						if (button == BMKeys.AXIS1_PLUS) {
-							buttonstate[button] = (axis[0] > 0.9) || (axis[3] > 0.9);
-						} else if (button == BMKeys.AXIS1_MINUS) {
-							buttonstate[button] = (axis[0] < -0.9) || (axis[3] < -0.9);
-						} else {
-							buttonstate[button] = false;
-						}
+			// 核心修正 1：转盘(AXIS)属于模拟信号，必须实时采样以维持算法精度，绕过 duration 消抖过滤。
+			// 核心修正 2：对 getButton 增加异常捕获，防止部分手柄因按钮索引越界导致整个 poll 循环中断（从而导致 32 号后的 Scratch 失效）。
+			final boolean isAxis = button >= BMKeys.AXIS1_PLUS && button <= BMKeys.AXIS8_MINUS;
+
+			if (!isAxis && microtime < buttontime[button] + duration * 1000) {
+				continue;
+			}
+
+			final boolean prev = buttonstate[button];
+			if (isAxis) {
+				if (jkoc) {
+					if (button == BMKeys.AXIS1_PLUS) {
+						buttonstate[button] = (axis[0] > 0.9) || (axis[3] > 0.9);
+					} else if (button == BMKeys.AXIS1_MINUS) {
+						buttonstate[button] = (axis[0] < -0.9) || (axis[3] < -0.9);
 					} else {
-						buttonstate[button] = scratchInput((button - BMKeys.AXIS1_PLUS) / 2, (button - BMKeys.AXIS1_PLUS) % 2 == 0);
+						buttonstate[button] = false;
 					}
 				} else {
+					buttonstate[button] = scratchInput((button - BMKeys.AXIS1_PLUS) / 2, (button - BMKeys.AXIS1_PLUS) % 2 == 0);
+				}
+			} else {
+				try {
 					buttonstate[button] = controller.getButton(button);
+				} catch (Exception e) {
+					buttonstate[button] = false;
 				}
+			}
 
-				if (buttonchanged[button] = (prev != buttonstate[button])) {
-					buttontime[button] = microtime;
-				}
+			if (buttonchanged[button] = (prev != buttonstate[button])) {
+				buttontime[button] = microtime;
+			}
 
-				if (!prev && buttonstate[button]) {
-					setLastPressedButton(button);
-				}
+			if (!prev && buttonstate[button]) {
+				setLastPressedButton(button);
 			}
 		}
 

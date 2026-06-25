@@ -940,6 +940,343 @@
             android:background="#333333"
             android:layout_marginVertical="16dp"/>
 
+        <!-- Input Options Section (Expandable) -->
+        <LinearLayout
+            android:id="@+id/inputOptionsHeader"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="16dp"
+            android:clickable="true"
+            android:focusable="true">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/section_input_options"
+                android:textSize="20sp"
+                android:textColor="#4FC3F7"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/expand"
+                android:textColor="#4FC3F7"
+                android:textSize="12sp"/>
+
+            <TextView
+                android:id="@+id/inputOptionsArrow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▼"
+                android:textColor="#4FC3F7"
+                android:textSize="16sp"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/inputOptionsContent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Minimum Input Duration -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/minimum_input_duration"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp"
+                        android:gravity="center_vertical"/>
+
+                    <TextView
+                        android:id="@+id/inputDurationHelp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" ? "
+                        android:textColor="#4FC3F7"
+                        android:textSize="18sp"
+                        android:paddingStart="8dp"/>
+                </LinearLayout>
+
+                <EditText
+                    android:id="@+id/inputDurationInput"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:background="#333333"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:padding="8dp"/>
+
+                <TextView
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:text="@string/ms"
+                    android:textColor="#888888"
+                    android:textSize="14sp"
+                    android:gravity="center_vertical"
+                    android:paddingStart="4dp"/>
+            </LinearLayout>
+
+            <!-- JKOC HACK -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/jkoc_hack"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/jkocHackHelp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" ? "
+                        android:textColor="#4FC3F7"
+                        android:textSize="18sp"
+                        android:paddingStart="8dp"/>
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/jkocHackSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp" />
+            </LinearLayout>
+
+            <!-- ANALOG SCRATCH -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/analog_scratch"
+                        android:textColor="#FFFFFF"
+                        android:textSize="16sp" />
+
+                    <TextView
+                        android:id="@+id/analogScratchHelp"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text=" ? "
+                        android:textColor="#4FC3F7"
+                        android:textSize="18sp"
+                        android:paddingStart="8dp"/>
+                </LinearLayout>
+
+                <Switch
+                    android:id="@+id/analogScratchSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp" />
+            </LinearLayout>
+
+            <!-- ANALOG SCRATCH THRESHOLD -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/analog_scratch_threshold"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"/>
+
+                <EditText
+                    android:id="@+id/analogScratchThresholdInput"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:background="#333333"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:padding="8dp"/>
+            </LinearLayout>
+
+            <!-- ANALOG SCRATCH ALGORITHM -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/analog_scratch_algorithm"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/analogScratchAlgorithmSpinner"
+                    android:layout_width="160dp"
+                    android:layout_height="48dp"
+                    android:background="#333333"/>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#222222"
+                android:layout_marginVertical="8dp"/>
+
+            <!-- MOUSE SCRATCH -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mouse_scratch"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp" />
+
+                <Switch
+                    android:id="@+id/mouseScratchSwitch"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp" />
+            </LinearLayout>
+
+            <!-- MOUSE SCRATCH THRESHOLD -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mouse_scratch_threshold"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"/>
+
+                <EditText
+                    android:id="@+id/mouseScratchThresholdInput"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:background="#333333"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:padding="8dp"/>
+            </LinearLayout>
+
+            <!-- MOUSE SCRATCH DISTANCE -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="16dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mouse_scratch_distance"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"/>
+
+                <EditText
+                    android:id="@+id/mouseScratchDistanceInput"
+                    android:layout_width="80dp"
+                    android:layout_height="40dp"
+                    android:background="#333333"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:gravity="center"
+                    android:inputType="number"
+                    android:padding="8dp"/>
+            </LinearLayout>
+
+            <!-- MOUSE SCRATCH ALGORITHM -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/mouse_scratch_algorithm"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"/>
+
+                <Spinner
+                    android:id="@+id/mouseScratchAlgorithmSpinner"
+                    android:layout_width="160dp"
+                    android:layout_height="48dp"
+                    android:background="#333333"/>
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#333333"
+            android:layout_marginVertical="16dp"/>
 
         <!-- Table Section -->
         <LinearLayout

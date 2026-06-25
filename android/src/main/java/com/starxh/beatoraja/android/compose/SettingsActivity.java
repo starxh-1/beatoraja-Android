@@ -81,6 +81,15 @@ public class SettingsActivity extends Activity {
     // private int selectedPollingRate = 1000; // hardcoded to 1000Hz
     private int selectedFloatingMenuPosition = 0;
     private boolean selectedStretchFullscreen = false;
+    private int selectedInputDuration = 16;
+    private boolean selectedJkocHack = false;
+    private boolean selectedAnalogScratch = false;
+    private int selectedAnalogScratchThreshold = 100;
+    private int selectedAnalogScratchMode = 0;
+    private boolean selectedMouseScratch = false;
+    private int selectedMouseScratchThreshold = 150;
+    private int selectedMouseScratchDistance = 12;
+    private int selectedMouseScratchMode = 0;
 
     private String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
 
@@ -283,6 +292,28 @@ public class SettingsActivity extends Activity {
                         selectedEnableLanecover = findJsonBooleanValueFrom(json, "enablelanecover", playconfigStart, true);
                         selectedEnableLift = findJsonBooleanValueFrom(json, "enablelift", playconfigStart, false);
                         selectedGreenNumber = findJsonIntValueFrom(json, "duration", playconfigStart, 500);
+
+                        // 从 controller 数组读取输入消抖时间 (duration)
+                        int controllerStart = json.indexOf("\"controller\"", playconfigStart);
+                        if (controllerStart >= 0) {
+                            selectedInputDuration = findJsonIntValueFrom(json, "duration", controllerStart, 16);
+                            selectedJkocHack = findJsonBooleanValueFrom(json, "jkoc_hack", controllerStart, false);
+                            selectedAnalogScratch = findJsonBooleanValueFrom(json, "analogScratch", controllerStart, false);
+                            selectedAnalogScratchThreshold = findJsonIntValueFrom(json, "analogScratchThreshold", controllerStart, 100);
+                            selectedAnalogScratchMode = findJsonIntValueFrom(json, "analogScratchMode", controllerStart, 0);
+                        }
+
+                        // 读取鼠标转盘配置
+                        int kbConfigStart = json.indexOf("\"keyboardConfig\"", playconfigStart);
+                        if (kbConfigStart >= 0) {
+                            int mouseConfigStart = json.indexOf("\"mouseScratchConfig\"", kbConfigStart);
+                            if (mouseConfigStart >= 0) {
+                                selectedMouseScratch = findJsonBooleanValueFrom(json, "mouseScratch", mouseConfigStart, false);
+                                selectedMouseScratchThreshold = findJsonIntValueFrom(json, "mouseScratchThreshold", mouseConfigStart, 150);
+                                selectedMouseScratchDistance = findJsonIntValueFrom(json, "mouseScratchDistance", mouseConfigStart, 12);
+                                selectedMouseScratchMode = findJsonIntValueFrom(json, "mouseScratchMode", mouseConfigStart, 0);
+                            }
+                        }
                     }
                 }
                 String targetidStr = findJsonStringValue(json, "targetid", "MAX");
@@ -599,6 +630,9 @@ public class SettingsActivity extends Activity {
         findViewById(R.id.audioSpectrumHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.audio_spectrum_help_title), getString(R.string.audio_spectrum_help)));
         findViewById(R.id.gaugeAutoShiftHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.gauge_auto_shift_help_title), getString(R.string.gauge_auto_shift_help)));
         findViewById(R.id.stretchFullscreenHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.stretch_fullscreen_help_title), getString(R.string.stretch_fullscreen_help)));
+        findViewById(R.id.inputDurationHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.input_duration_help_title), getString(R.string.input_duration_help)));
+        findViewById(R.id.jkocHackHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.jkoc_hack_help_title), getString(R.string.jkoc_hack_help)));
+        findViewById(R.id.analogScratchHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.analog_scratch_help_title), getString(R.string.analog_scratch_help)));
 
         // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
         // 注：Switch 初始化在更下方的 Play Options 之后，与 Show Audio Spectrum 一起设置以确保正确的锁定顺序。
@@ -618,6 +652,24 @@ public class SettingsActivity extends Activity {
             } else {
                 playOptionsContent.setVisibility(View.VISIBLE);
                 playOptionsArrow.setText("▼");
+            }
+            buildFocusableControlsList();
+        });
+
+        // Input Options expandable section
+        final LinearLayout inputOptionsContent = findViewById(R.id.inputOptionsContent);
+        final TextView inputOptionsArrow = findViewById(R.id.inputOptionsArrow);
+        findViewById(R.id.inputOptionsHeader).setOnClickListener(v -> {
+            if (inputOptionsContent.getVisibility() == View.VISIBLE) {
+                inputOptionsContent.setVisibility(View.GONE);
+                inputOptionsArrow.setText("▶");
+                View currentFocus = getCurrentFocus();
+                if (currentFocus != null && isDescendantOf(inputOptionsContent, currentFocus)) {
+                    v.requestFocus();
+                }
+            } else {
+                inputOptionsContent.setVisibility(View.VISIBLE);
+                inputOptionsArrow.setText("▼");
             }
             buildFocusableControlsList();
         });
@@ -710,6 +762,44 @@ public class SettingsActivity extends Activity {
 
         ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
         setupGamepadFocusable(findViewById(R.id.greenNumberInput));
+
+        ((EditText) findViewById(R.id.inputDurationInput)).setText(String.valueOf(selectedInputDuration));
+        setupGamepadFocusable(findViewById(R.id.inputDurationInput));
+
+        Switch jkocHackSwitch = findViewById(R.id.jkocHackSwitch);
+        jkocHackSwitch.setChecked(selectedJkocHack);
+        setupGamepadFocusable(jkocHackSwitch);
+
+        Switch analogScratchSwitch = findViewById(R.id.analogScratchSwitch);
+        analogScratchSwitch.setChecked(selectedAnalogScratch);
+        setupGamepadFocusable(analogScratchSwitch);
+
+        ((EditText) findViewById(R.id.analogScratchThresholdInput)).setText(String.valueOf(selectedAnalogScratchThreshold));
+        setupGamepadFocusable(findViewById(R.id.analogScratchThresholdInput));
+
+        Spinner analogScratchAlgorithmSpinner = findViewById(R.id.analogScratchAlgorithmSpinner);
+        String[] asAlgoOptions = getResources().getStringArray(R.array.analog_scratch_algorithm_options);
+        ArrayAdapter<String> asAlgoAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, asAlgoOptions);
+        asAlgoAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        analogScratchAlgorithmSpinner.setAdapter(asAlgoAdapter);
+        analogScratchAlgorithmSpinner.setSelection(Math.min(selectedAnalogScratchMode, asAlgoOptions.length - 1));
+        setupGamepadFocusable(analogScratchAlgorithmSpinner);
+
+        Switch mouseScratchSwitch = findViewById(R.id.mouseScratchSwitch);
+        mouseScratchSwitch.setChecked(selectedMouseScratch);
+        setupGamepadFocusable(mouseScratchSwitch);
+
+        ((EditText) findViewById(R.id.mouseScratchThresholdInput)).setText(String.valueOf(selectedMouseScratchThreshold));
+        setupGamepadFocusable(findViewById(R.id.mouseScratchThresholdInput));
+
+        ((EditText) findViewById(R.id.mouseScratchDistanceInput)).setText(String.valueOf(selectedMouseScratchDistance));
+        setupGamepadFocusable(findViewById(R.id.mouseScratchDistanceInput));
+
+        Spinner mouseScratchAlgorithmSpinner = findViewById(R.id.mouseScratchAlgorithmSpinner);
+        // Reuse same algo options for mouse if they are same, else define new ones. PC screenshot shows same.
+        mouseScratchAlgorithmSpinner.setAdapter(asAlgoAdapter);
+        mouseScratchAlgorithmSpinner.setSelection(Math.min(selectedMouseScratchMode, asAlgoOptions.length - 1));
+        setupGamepadFocusable(mouseScratchAlgorithmSpinner);
 
         Spinner targetScoreSpinner = findViewById(R.id.targetScoreSpinner);
         ArrayAdapter<String> tsAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, targetScoreOptions);
@@ -1037,6 +1127,34 @@ public class SettingsActivity extends Activity {
                 pc.put("enablelanecover", selectedEnableLanecover); pc.put("enablelift", selectedEnableLift);
                 pc.put("fixhispeed", selectedHispeedFix);
                 pc.put("duration", selectedGreenNumber);
+
+                // 更新所有控制器的配置
+                org.json.JSONArray controllers = pc.optJSONArray("controller");
+                if (controllers != null) {
+                    for (int i = 0; i < controllers.length(); i++) {
+                        org.json.JSONObject con = controllers.optJSONObject(i);
+                        if (con != null) {
+                            con.put("duration", selectedInputDuration);
+                            con.put("jkoc_hack", selectedJkocHack);
+                            con.put("analogScratch", selectedAnalogScratch);
+                            con.put("analogScratchThreshold", selectedAnalogScratchThreshold);
+                            con.put("analogScratchMode", selectedAnalogScratchMode);
+                        }
+                    }
+                }
+
+                // 更新键盘配置 (鼠标转盘)
+                org.json.JSONObject kbConfig = pc.optJSONObject("keyboardConfig");
+                if (kbConfig != null) {
+                    org.json.JSONObject mouseConfig = kbConfig.optJSONObject("mouseScratchConfig");
+                    if (mouseConfig == null) mouseConfig = new org.json.JSONObject();
+                    mouseConfig.put("mouseScratch", selectedMouseScratch);
+                    mouseConfig.put("mouseScratchThreshold", selectedMouseScratchThreshold);
+                    mouseConfig.put("mouseScratchDistance", selectedMouseScratchDistance);
+                    mouseConfig.put("mouseScratchMode", selectedMouseScratchMode);
+                    kbConfig.put("mouseScratchConfig", mouseConfig);
+                }
+
                 mo.put("playconfig", pc); config.put(m, mo);
             }
             File pDir = configFile.getParentFile(); if (!pDir.exists()) pDir.mkdirs();
@@ -1680,6 +1798,15 @@ public class SettingsActivity extends Activity {
         selectedAutoSaveReplay[2] = ((Spinner) findViewById(R.id.autoSaveReplay3)).getSelectedItemPosition();
         selectedAutoSaveReplay[3] = ((Spinner) findViewById(R.id.autoSaveReplay4)).getSelectedItemPosition();
         try { selectedGreenNumber = Integer.parseInt(((EditText) findViewById(R.id.greenNumberInput)).getText().toString()); } catch (Exception ignored) {}
+        try { selectedInputDuration = Integer.parseInt(((EditText) findViewById(R.id.inputDurationInput)).getText().toString()); } catch (Exception ignored) {}
+        selectedJkocHack = ((Switch) findViewById(R.id.jkocHackSwitch)).isChecked();
+        selectedAnalogScratch = ((Switch) findViewById(R.id.analogScratchSwitch)).isChecked();
+        try { selectedAnalogScratchThreshold = Integer.parseInt(((EditText) findViewById(R.id.analogScratchThresholdInput)).getText().toString()); } catch (Exception ignored) {}
+        selectedAnalogScratchMode = ((Spinner) findViewById(R.id.analogScratchAlgorithmSpinner)).getSelectedItemPosition();
+        selectedMouseScratch = ((Switch) findViewById(R.id.mouseScratchSwitch)).isChecked();
+        try { selectedMouseScratchThreshold = Integer.parseInt(((EditText) findViewById(R.id.mouseScratchThresholdInput)).getText().toString()); } catch (Exception ignored) {}
+        try { selectedMouseScratchDistance = Integer.parseInt(((EditText) findViewById(R.id.mouseScratchDistanceInput)).getText().toString()); } catch (Exception ignored) {}
+        selectedMouseScratchMode = ((Spinner) findViewById(R.id.mouseScratchAlgorithmSpinner)).getSelectedItemPosition();
         selectedTargetScore = ((Spinner) findViewById(R.id.targetScoreSpinner)).getSelectedItemPosition();
         selectedGaugeType = ((Spinner) findViewById(R.id.gaugeTypeSpinner)).getSelectedItemPosition();
         try { selectedNoteTimingOffset = Integer.parseInt(((EditText) findViewById(R.id.noteTimingOffsetInput)).getText().toString()); } catch (Exception ignored) {}
@@ -1728,6 +1855,15 @@ public class SettingsActivity extends Activity {
             Spinner[] s = {findViewById(R.id.autoSaveReplay1), findViewById(R.id.autoSaveReplay2), findViewById(R.id.autoSaveReplay3), findViewById(R.id.autoSaveReplay4)};
             for (int i = 0; i < 4; i++) s[i].setSelection(selectedAutoSaveReplay[i]);
             ((EditText) findViewById(R.id.greenNumberInput)).setText(String.valueOf(selectedGreenNumber));
+            ((EditText) findViewById(R.id.inputDurationInput)).setText(String.valueOf(selectedInputDuration));
+            ((Switch) findViewById(R.id.jkocHackSwitch)).setChecked(selectedJkocHack);
+            ((Switch) findViewById(R.id.analogScratchSwitch)).setChecked(selectedAnalogScratch);
+            ((EditText) findViewById(R.id.analogScratchThresholdInput)).setText(String.valueOf(selectedAnalogScratchThreshold));
+            ((Spinner) findViewById(R.id.analogScratchAlgorithmSpinner)).setSelection(selectedAnalogScratchMode);
+            ((Switch) findViewById(R.id.mouseScratchSwitch)).setChecked(selectedMouseScratch);
+            ((EditText) findViewById(R.id.mouseScratchThresholdInput)).setText(String.valueOf(selectedMouseScratchThreshold));
+            ((EditText) findViewById(R.id.mouseScratchDistanceInput)).setText(String.valueOf(selectedMouseScratchDistance));
+            ((Spinner) findViewById(R.id.mouseScratchAlgorithmSpinner)).setSelection(selectedMouseScratchMode);
             ((Spinner) findViewById(R.id.targetScoreSpinner)).setSelection(selectedTargetScore);
             ((Spinner) findViewById(R.id.gaugeTypeSpinner)).setSelection(selectedGaugeType);
             ((EditText) findViewById(R.id.noteTimingOffsetInput)).setText(String.valueOf(selectedNoteTimingOffset));

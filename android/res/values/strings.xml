@@ -35,6 +35,9 @@
     <string name="gauge_type">Gauge Type</string>
     <string name="note_timing_offset">Judge Timing Offset</string>
     <string name="auto_timing_adjust">Auto Timing Adjust</string>
+    <string name="minimum_input_duration">Minimum input duration</string>
+    <string name="input_duration_help_title">Minimum input duration</string>
+    <string name="input_duration_help">Input debounce time (ms). For high-quality controllers or when pursuing lower latency, set this to 1-5ms. Default is 16ms.</string>
     <string name="note_modifier" translatable="false">Note Modifier</string>
     <string name="ms">ms</string>
 
@@ -59,6 +62,26 @@
         <item>EX-HARD</item>
         <item>HAZARD</item>
     </string-array>
+    <string name="section_input_options">Input Options</string>
+    <string name="jkoc_hack">JKOC HACK</string>
+    <string name="analog_scratch">Analog Scratch</string>
+    <string name="analog_scratch_threshold">Analog Scratch Threshold</string>
+    <string name="analog_scratch_algorithm">Analog Scratch Algorithm</string>
+    <string name="mouse_scratch">Mouse Scratch</string>
+    <string name="mouse_scratch_threshold">Mouse Scratch Threshold</string>
+    <string name="mouse_scratch_distance">Mouse Scratch Distance</string>
+    <string name="mouse_scratch_algorithm">Mouse Scratch Algorithm</string>
+
+    <string-array name="analog_scratch_algorithm_options">
+        <item>Ver. 2 (Newest)</item>
+        <item>Ver. 1</item>
+    </string-array>
+
+    <string name="jkoc_hack_help_title">JKOC HACK</string>
+    <string name="jkoc_hack_help">Hack for Joypad/Keypad compatibility. Enable if you encounter double inputs or mapping issues on certain adapters.</string>
+    <string name="analog_scratch_help_title">Analog Scratch</string>
+    <string name="analog_scratch_help">Enable if your controller uses an analog axis for the turntable (e.g., DAO, YuanCon, or official IIDX Premium controllers).</string>
+
     <string name="section_tables">Difficulty Tables</string>
     <string name="update_all">Update All</string>
     <string name="start_game">Start</string>
