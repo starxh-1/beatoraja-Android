@@ -293,6 +293,13 @@ public final class MusicSelector extends MainState {
 			}
 			playedcourse = null;
 		}
+
+		final BMSPlayerInputProcessor input = main.getInputProcessor();
+		PlayModeConfig pc = (config.getMusicselectinput() == 0 ? config.getMode7()
+				: (config.getMusicselectinput() == 1 ? config.getMode9() : config.getMode14()));
+		input.setKeyboardConfig(pc.getKeyboardConfig());
+		input.setControllerConfig(pc.getController());
+		input.setMidiConfig(pc.getMidiConfig());
 	}
 
 	public void render() {

@@ -131,10 +131,6 @@ public class SkinImage extends SkinObject {
 	@Override
 	public void load() {
 		super.load();
-		// 静态图片（无动画计时器、无引用属性、SkinSourceReference除外）在加载时缓存
-		// SkinSourceReference 需要 state 才能解析图片，不能缓存
-		// SkinSourceImage 的 lazy 模式(path-based)也不缓存：缓存调用 getImage 会触发纹理 I/O，
-		// Skin.prepare() 在绘制前跑 load()，会破坏懒加载目标。
 		if (getDestinationTimer() == null && ref == null && cachedImage == null &&
 		    image != null && image.length > 0 &&
 		    !(image[0] instanceof SkinSourceReference)) {

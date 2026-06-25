@@ -12,7 +12,7 @@ import static bms.player.beatoraja.SystemSoundManager.SoundType.*;
 
 /**
  * 曲決定部分。
- * 
+ *
  * @author exch
  */
 public class MusicDecide extends MainState {
@@ -36,6 +36,12 @@ public class MusicDecide extends MainState {
 
 	public void prepare() {
 		super.prepare();
+		final BMSPlayerInputProcessor input = main.getInputProcessor();
+		PlayModeConfig pc = (resource.getPlayerConfig().getMusicselectinput() == 0 ? resource.getPlayerConfig().getMode7()
+				: (resource.getPlayerConfig().getMusicselectinput() == 1 ? resource.getPlayerConfig().getMode9() : resource.getPlayerConfig().getMode14()));
+		input.setKeyboardConfig(pc.getKeyboardConfig());
+		input.setControllerConfig(pc.getController());
+		input.setMidiConfig(pc.getMidiConfig());
 		play(DECIDE);
 	}
 

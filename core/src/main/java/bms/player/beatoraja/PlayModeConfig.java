@@ -78,7 +78,7 @@ public final class PlayModeConfig {
 	public void setVersion(int version) {
 		this.version = version;
 	}
-	
+
     public void validate(int keys) {
         if(playconfig == null) {
             playconfig = new PlayConfig();
@@ -117,9 +117,9 @@ public final class PlayModeConfig {
                 }
                 c.keys = newkeys;
             }
-            c.duration = MathUtils.clamp(c.duration, 0, 100);            
+            c.duration = MathUtils.clamp(c.duration, 0, 100);
         }
-        
+
 		// ボタsン数拡張(16->32)に伴う変換(0.8.1 -> 0.8.2)。あとで消す
 		if(version == 0) {
 	        for (ControllerConfig c : controller) {
@@ -127,7 +127,7 @@ public final class PlayModeConfig {
 					if(c.keys[i] >= BMKeys.BUTTON_17 && c.keys[i] <= BMKeys.BUTTON_20) {
 						c.keys[i] += BMKeys.AXIS1_PLUS - BMKeys.BUTTON_17;
 					}
-				}	        	
+				}
 	        }
 			version = 1;
 		}
@@ -299,7 +299,7 @@ public final class PlayModeConfig {
          * マウス皿モード
          */
         private int mouseScratchMode = 0;
-        
+
         public MouseScratchConfig() {
             this(Mode.BEAT_7K);
         }
@@ -405,7 +405,7 @@ public final class PlayModeConfig {
     public static final class ControllerConfig {
 
         public static final int ANALOG_SCRATCH_VER_2 = 0;
-        
+
         public static final int ANALOG_SCRATCH_VER_1 = 1;
 
         private String name = "";
@@ -435,13 +435,13 @@ public final class PlayModeConfig {
         private int analogScratchThreshold = 100;
 
         private static final ControllerConfig IIDX_PS2 = new ControllerConfig(new int[] { BMKeys.BUTTON_4, BMKeys.BUTTON_7, BMKeys.BUTTON_3, BMKeys.BUTTON_8,
-				BMKeys.BUTTON_2, BMKeys.BUTTON_5, BMKeys.AXIS4_MINUS, BMKeys.AXIS3_MINUS, BMKeys.AXIS3_PLUS }, 
+				BMKeys.BUTTON_2, BMKeys.BUTTON_5, BMKeys.AXIS4_MINUS, BMKeys.AXIS3_MINUS, BMKeys.AXIS3_PLUS },
 					BMKeys.BUTTON_9, BMKeys.BUTTON_10);
         private static final ControllerConfig DAO = new ControllerConfig(new int[] { BMKeys.BUTTON_1, BMKeys.BUTTON_2, BMKeys.BUTTON_3, BMKeys.BUTTON_4,
-					BMKeys.BUTTON_5, BMKeys.BUTTON_6, BMKeys.BUTTON_7, BMKeys.AXIS1_PLUS, BMKeys.AXIS1_MINUS }, 
+					BMKeys.BUTTON_5, BMKeys.BUTTON_6, BMKeys.BUTTON_7, BMKeys.AXIS1_PLUS, BMKeys.AXIS1_MINUS },
 						BMKeys.BUTTON_9, BMKeys.BUTTON_10);
         private static final ControllerConfig IIDX_PREMIUM = new ControllerConfig(new int[] { BMKeys.BUTTON_1, BMKeys.BUTTON_2, BMKeys.BUTTON_3, BMKeys.BUTTON_4,
-					BMKeys.BUTTON_5, BMKeys.BUTTON_6, BMKeys.BUTTON_7, BMKeys.AXIS1_MINUS, BMKeys.AXIS1_PLUS }, 
+					BMKeys.BUTTON_5, BMKeys.BUTTON_6, BMKeys.BUTTON_7, BMKeys.AXIS1_MINUS, BMKeys.AXIS1_PLUS },
 						BMKeys.BUTTON_9, BMKeys.BUTTON_10);
 
         public ControllerConfig() {
@@ -543,7 +543,7 @@ public final class PlayModeConfig {
         public void setAnalogScratch(boolean analogScratch) {
             this.analogScratch = analogScratch;
         }
-        
+
         public int getAnalogScratchMode() {
             return analogScratchMode;
         }
@@ -551,21 +551,21 @@ public final class PlayModeConfig {
         public void setAnalogScratchMode(int analogScratchMode) {
             this.analogScratchMode = analogScratchMode;
         }
-        
+
         public int getAnalogScratchThreshold() {
             return this.analogScratchThreshold;
         }
 
         public void setAnalogScratchThreshold(int analogScratchThreshold) {
-            this.analogScratchThreshold = 
-            	analogScratchThreshold > 0 ? 
-            		analogScratchThreshold <= 1000 ? analogScratchThreshold : 1000 
+            this.analogScratchThreshold =
+            	analogScratchThreshold > 0 ?
+            		analogScratchThreshold <= 1000 ? analogScratchThreshold : 1000
     			:1;
         }
     }
 
     public static final class MidiConfig {
-    	
+
         public static final class Input {
             public enum Type {
                 NOTE, PITCH_BEND, CONTROL_CHANGE,
