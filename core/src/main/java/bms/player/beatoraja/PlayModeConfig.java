@@ -155,9 +155,8 @@ public final class PlayModeConfig {
 
     private void validate0(int[] keys, boolean[] exclusive) {
         for(int i = 0;i < exclusive.length;i++) {
-            if(exclusive[i]) {
-                keys[i] = -1;
-            } else if(keys[i] != -1){
+            if(i >= keys.length) break;
+            if(keys[i] != -1){
                 exclusive[i] = true;
             }
         }
