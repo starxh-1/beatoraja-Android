@@ -83,6 +83,10 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 	// 手势模式：0=默认, 1=select界面, 2=result界面, 3=decide界面
 	private int gestureMode = 0;
 
+	private boolean[] lanestate;
+	private boolean startPressedState = false;
+	private boolean selectPressedState = false;
+
 	public KeyBoardInputProcesseor(BMSPlayerInputProcessor bmsPlayerInputProcessor, KeyboardConfig config, Resolution resolution) {
 		super(bmsPlayerInputProcessor, Type.KEYBOARD);
 		this.mouseScratchInput = new MouseScratchInput(bmsPlayerInputProcessor, this, config);
@@ -161,27 +165,49 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 				}
 			}
 
+			if (lanestate == null || lanestate.length != keys.length) {
+				lanestate = new boolean[keys.length];
+			}
+
 			for (int i = 0; i < keys.length; i++) {
-				if(keys[i] < 0 || (keys[i] < pendingPressDeadline.length && pendingPressDeadline[keys[i]] > 0)) {
-					continue;
+				final int packed = keys[i];
+				if (packed == -1) continue;
+				// 检查打包键位中的物理按键是否有任何一个处于模拟锁定状态
+				boolean isSimulated = false;
+				if (packed >= 0 && packed < 256) {
+					isSimulated = pendingPressDeadline[packed] > 0;
+				} else {
+					for (int j = 0; j < 4; j++) {
+						int id = (packed >> (j * 8)) & 0xFF;
+						if (id != 0xFF && id < 256 && pendingPressDeadline[id] > 0) {
+							isSimulated = true;
+							break;
+						}
+					}
 				}
-				final boolean pressed = Gdx.input.isKeyPressed(keys[i]);
-				if (pressed != keystate[keys[i]] && microtime >= keytime[keys[i]] + duration * 1000) {
-					keystate[keys[i]] = pressed;
-					keytime[keys[i]] = microtime;
+				if (isSimulated) continue;
+
+				final boolean pressed = isPackedPressed(packed);
+				if (pressed != lanestate[i] && microtime >= keytime[getFirstId(packed)] + duration * 1000) {
+					lanestate[i] = pressed;
+					// 更新物理状态（虽然可能不准确，但保持向后兼容）
+					int firstId = getFirstId(packed);
+					keystate[firstId] = pressed;
+					keytime[firstId] = microtime;
+
 					this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, pressed);
 					this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
 				}
 			}
 
-			final boolean startpressed = Gdx.input.isKeyPressed(control[0]);
-			if (pendingPressDeadline[control[0]] <= 0 && startpressed != keystate[control[0]]) {
-				keystate[control[0]] = startpressed;
+			boolean startpressed = isPackedPressed(control[0]);
+			if (startpressed != startPressedState) {
+				startPressedState = startpressed;
 				this.bmsPlayerInputProcessor.startChanged(startpressed);
 			}
-			final boolean selectpressed = Gdx.input.isKeyPressed(control[1]);
-			if (pendingPressDeadline[control[1]] <= 0 && selectpressed != keystate[control[1]]) {
-				keystate[control[1]] = selectpressed;
+			boolean selectpressed = isPackedPressed(control[1]);
+			if (selectpressed != selectPressedState) {
+				selectPressedState = selectpressed;
 				this.bmsPlayerInputProcessor.setSelectPressed(selectpressed);
 			}
 		}
@@ -214,16 +240,54 @@ public class KeyBoardInputProcesseor extends BMSPlayerInputDevice implements Inp
 				this.bmsPlayerInputProcessor.setKeyState(key.keycode, pressed, microtime);
 				// 如果该按键也被映射到了游戏轨道，触发 keyChanged
 				for (int i = 0; i < keys.length; i++) {
-					if (keys[i] == key.keycode) {
-						this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, pressed);
-						this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
-						break;
+					if (isKeyInPacked(keys[i], key.keycode)) {
+						// 重新评估逻辑轨道的整体状态，而不仅仅是当前物理键的状态
+						boolean currentLaneState = isPackedPressed(keys[i]);
+						if (lanestate == null || lanestate.length <= i) continue; // safety
+						if (currentLaneState != lanestate[i]) {
+							lanestate[i] = currentLaneState;
+							this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, currentLaneState);
+							this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
+						}
 					}
 				}
 			}
 		}
 
 		mouseScratchInput.poll(microtime);
+	}
+
+	private boolean isPackedPressed(int packed) {
+		if (packed == -1) return false;
+		if (packed >= 0 && packed < 256) {
+			return Gdx.input.isKeyPressed(packed);
+		}
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id != 0xFF && id < 256 && Gdx.input.isKeyPressed(id)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private boolean isKeyInPacked(int packed, int physical) {
+		if (packed == -1) return false;
+		if (packed >= 0 && packed < 256) return packed == physical;
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id == physical) return true;
+		}
+		return false;
+	}
+
+	private int getFirstId(int packed) {
+		if (packed >= 0 && packed < 256) return packed;
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id != 0xFF) return id;
+		}
+		return 0; // fallback
 	}
 
 	private int currentlyHeldModifiers() {

@@ -38,6 +38,11 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 	 * セレクトキーアサイン
 	 */
 	private int select = BMKeys.BUTTON_10;
+
+	private boolean startPressedState = false;
+	private boolean selectPressedState = false;
+	private boolean[] lanestate;
+
 	/**
 	 * 各AXIS値(-1.0 - 1.0)
 	 */
@@ -134,7 +139,7 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 		if (!enabled) return;
 
 		// AXISの更新
-		for (int i = 0; i < AXIS_LENGTH ; i++) {
+		for (int i = 0; i < AXIS_LENGTH; i++) {
 			axis[i] = controller.getAxis(i);
 		}
 
@@ -143,20 +148,20 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 				final boolean prev = buttonstate[button];
 				// 核心修正：仅 32~47 范围属于模拟轴/盘子输入，其余均作为物理按键处理
 				if (button >= BMKeys.AXIS1_PLUS && button <= BMKeys.AXIS8_MINUS) {
-                    if (jkoc) {
-                        if (button == BMKeys.AXIS1_PLUS) {
-                            buttonstate[button] = (axis[0] > 0.9) || (axis[3] > 0.9);
-                        } else if (button == BMKeys.AXIS1_MINUS) {
-                            buttonstate[button] = (axis[0] < -0.9) || (axis[3] < -0.9);
-                        } else {
-                            buttonstate[button] = false;
-                        }
-                    } else {
-                        buttonstate[button] = scratchInput((button - BMKeys.AXIS1_PLUS) / 2, (button - BMKeys.AXIS1_PLUS) % 2 == 0);
-                    }
-                } else {
+					if (jkoc) {
+						if (button == BMKeys.AXIS1_PLUS) {
+							buttonstate[button] = (axis[0] > 0.9) || (axis[3] > 0.9);
+						} else if (button == BMKeys.AXIS1_MINUS) {
+							buttonstate[button] = (axis[0] < -0.9) || (axis[3] < -0.9);
+						} else {
+							buttonstate[button] = false;
+						}
+					} else {
+						buttonstate[button] = scratchInput((button - BMKeys.AXIS1_PLUS) / 2, (button - BMKeys.AXIS1_PLUS) % 2 == 0);
+					}
+				} else {
 					buttonstate[button] = controller.getButton(button);
-                }
+				}
 
 				if (buttonchanged[button] = (prev != buttonstate[button])) {
 					buttontime[button] = microtime;
@@ -168,33 +173,72 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 			}
 		}
 
+		if (lanestate == null || lanestate.length != buttons.length) {
+			lanestate = new boolean[buttons.length];
+		}
+
 		for (int i = 0; i < buttons.length; i++) {
-			final int button = buttons[i];
-			if (button >= 0 && button < BMKeys.MAXID && buttonchanged[button]) {
-				this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, buttonstate[button]);
-				buttonchanged[button] = false;
+			final int packed = buttons[i];
+			boolean current = isPackedPressed(packed);
+
+			if (current != lanestate[i]) {
+				lanestate[i] = current;
+				this.bmsPlayerInputProcessor.keyChanged(this, microtime, i, current);
 			}
 		}
 
-		if (start >= 0 && start < BMKeys.MAXID && buttonchanged[start]) {
-			this.bmsPlayerInputProcessor.startChanged(buttonstate[start]);
-			buttonchanged[start] = false;
+		boolean startCurrent = isPackedPressed(start);
+		if (startCurrent != startPressedState) {
+			startPressedState = startCurrent;
+			this.bmsPlayerInputProcessor.startChanged(startCurrent);
 		}
-        if (select >= 0 && select < BMKeys.MAXID && buttonchanged[select]) {
-            this.bmsPlayerInputProcessor.setSelectPressed(buttonstate[select]);
-            buttonchanged[select] = false;
-        }
 
-        boolean isAnalog = !jkoc && analogScratchAlgorithm != null;
-        for (int i = 0; i < buttons.length; i++) {
-            final int button = buttons[i];
-            if (button < 0 || button >= BMKeys.MAXID) continue;
-            if (isAnalog && button >= BMKeys.AXIS1_PLUS) {
-                this.bmsPlayerInputProcessor.setAnalogState(i, true, getAnalogValue(button));
-            } else {
-                this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
-            }
-        }
+		boolean selectCurrent = isPackedPressed(select);
+		if (selectCurrent != selectPressedState) {
+			selectPressedState = selectCurrent;
+			this.bmsPlayerInputProcessor.setSelectPressed(selectCurrent);
+		}
+
+		boolean isAnalog = !jkoc && analogScratchAlgorithm != null;
+		for (int i = 0; i < buttons.length; i++) {
+			final int packed = buttons[i];
+			if (packed == -1) continue;
+			// 模拟值仅取打包中的第一个有效轴
+			int firstBtn = getFirstPhysicalId(packed);
+			if (isAnalog && firstBtn >= BMKeys.AXIS1_PLUS && firstBtn < BMKeys.MAXID) {
+				this.bmsPlayerInputProcessor.setAnalogState(i, true, getAnalogValue(firstBtn));
+			} else {
+				this.bmsPlayerInputProcessor.setAnalogState(i, false, 0);
+			}
+		}
+	}
+
+	/**
+	 * 检查打包的按键是否被按下。
+	 * 打包规则：ID < 256 为单键，否则为 ID1 | ID2<<8 | ID3<<16 | ID4<<24，0xFF 表示空位。
+	 */
+	private boolean isPackedPressed(int packed) {
+		if (packed == -1) return false;
+		if (packed >= 0 && packed < 256) {
+			return buttonstate[packed];
+		}
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id != 0xFF && id < BMKeys.MAXID && buttonstate[id]) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private int getFirstPhysicalId(int packed) {
+		if (packed == -1) return -1;
+		if (packed >= 0 && packed < 256) return packed;
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id != 0xFF) return id;
+		}
+		return -1;
 	}
 
     private float getAnalogValue(int button) {
@@ -307,12 +351,21 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
                 "AXIS 3 +", "AXIS 3 -", "AXIS 4 +", "AXIS 4 -", "AXIS 5 +", "AXIS 5 -", "AXIS 6 +", "AXIS 6 -", "AXIS 7 +", "AXIS 7 -", "AXIS 8 +", "AXIS 8 -" };
 
 		public static final String toString(int keycode) {
-			if (keycode >= 0 && keycode < BMCODE.length) {
-				return BMCODE[keycode];
-			} else if (keycode >= 0 && keycode < MAXID) {
+			if (keycode == -1) return "----";
+			if (keycode >= 0 && keycode < 256) {
+				if (keycode < BMCODE.length) return BMCODE[keycode];
 				return "BUTTON " + (keycode + 1);
 			}
-			return "Unknown";
+			// Packed IDs
+			StringBuilder sb = new StringBuilder();
+			for (int j = 0; j < 4; j++) {
+				int subId = (keycode >> (j * 8)) & 0xFF;
+				if (subId == 0xFF) continue;
+				if (sb.length() > 0) sb.append(" / ");
+				if (subId < BMCODE.length) sb.append(BMCODE[subId]);
+				else sb.append("BUTTON ").append(subId + 1);
+			}
+			return sb.length() == 0 ? "----" : sb.toString();
 		}
 	}
 

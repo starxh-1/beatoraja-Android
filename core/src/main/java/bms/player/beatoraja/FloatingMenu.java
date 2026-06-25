@@ -126,6 +126,7 @@ public class FloatingMenu implements InputProcessor {
         // ── Controller Reset（第3页，仅KeyConfig模式）──
         new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false),
         new MenuItem("NUM 2", Keys.NUM_2, false, false, true, false),
+        new MenuItem("DELETE", Keys.FORWARD_DEL, false, false, true, false),
 
     };
 

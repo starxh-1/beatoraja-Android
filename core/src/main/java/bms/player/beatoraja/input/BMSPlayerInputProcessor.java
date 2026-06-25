@@ -380,8 +380,15 @@ public class BMSPlayerInputProcessor extends ControllerAdapter {
 	private int setPlayConfig0(int[] keys, boolean[] exclusive) {
 		int count = 0;
 		for(int i = 0;i < keys.length;i++) {
+			if (i >= exclusive.length) break; // safety
 			if(exclusive[i]) {
-				keys[i] = -1;
+				// 核心修复：如果该轨道（lane）已经被键盘或其他设备占据，则该设备的当前按键映射失效。
+				// 但是，如果按键是“打包”的（packed keys），我们需要确保不破坏它，或者正确处理。
+				// 原逻辑：keys[i] = -1;
+				// 既然我们要支持多键位，这里如果简单置为 -1 会导致该槽位彻底失效。
+				// 我们暂时注释掉排他性覆盖，允许不同设备映射到同一轨道。
+				// keys[i] = -1;
+				count++;
 			} else if(keys[i] != -1){
 				exclusive[i] = true;
 				count++;

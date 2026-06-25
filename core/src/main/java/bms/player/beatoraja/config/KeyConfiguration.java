@@ -463,7 +463,7 @@ public class KeyConfiguration extends MainState {
 				titlefont.setColor(Color.WHITE);
 				titlefont.draw(sprite, currentKeys[i], 50 * scaleX, (y + 22) * scaleY);
 				titlefont.draw(sprite, getMouseScratchKeyString(currentKeysa[i], getKeyboardKeyAssign(currentKeysa[i]) != -1 ?
-					Keys.toString(getKeyboardKeyAssign(currentKeysa[i])) : "----"), 202 * scaleX, (y + 22) * scaleY);
+					getKeyboardKeyString(getKeyboardKeyAssign(currentKeysa[i])) : "----"), 202 * scaleX, (y + 22) * scaleY);
 				titlefont.draw(sprite, getControllerKeyAssign(0, currentKeysa[i]) != -1
 						? BMControllerInputProcessor.BMKeys.toString(getControllerKeyAssign(0, currentKeysa[i])) : "----",
 						352 * scaleX, (y + 22) * scaleY);
@@ -573,14 +573,27 @@ public class KeyConfiguration extends MainState {
 		if (index >= 100) {
 			return;
 		}
-		resetKeyAssign(index);
+		int newKey = keyboard.getLastPressedKey();
 		if (index >= 0) {
-			keyboardConfig.getKeyAssign()[index] = keyboard.getLastPressedKey();
+			keyboardConfig.getKeyAssign()[index] = packKey(keyboardConfig.getKeyAssign()[index], newKey);
 		} else if (index == -1) {
-			keyboardConfig.setStart(keyboard.getLastPressedKey());
+			keyboardConfig.setStart(packKey(keyboardConfig.getStart(), newKey));
 		} else if (index == -2) {
-			keyboardConfig.setSelect(keyboard.getLastPressedKey());
+			keyboardConfig.setSelect(packKey(keyboardConfig.getSelect(), newKey));
 		}
+	}
+
+	private String getKeyboardKeyString(int packed) {
+		if (packed == -1) return "----";
+		if (packed >= 0 && packed < 256) return Keys.toString(packed);
+		StringBuilder sb = new StringBuilder();
+		for (int j = 0; j < 4; j++) {
+			int id = (packed >> (j * 8)) & 0xFF;
+			if (id == 0xFF) continue;
+			if (sb.length() > 0) sb.append(" / ");
+			sb.append(Keys.toString(id));
+		}
+		return sb.length() == 0 ? "----" : sb.toString();
 	}
 
 	private String getMouseScratchKeyString(int index, String defaultKeyString) {
@@ -658,16 +671,57 @@ public class KeyConfiguration extends MainState {
 			return;
 		}
 
-		resetKeyAssign(index);
+		int newBtn = bmc.getLastPressedButton();
 		if (index >= 0) {
-			controllerConfigs[actualCindex].getKeyAssign()[index % 100] = bmc.getLastPressedButton();
+			controllerConfigs[actualCindex].getKeyAssign()[index % 100] = packKey(controllerConfigs[actualCindex].getKeyAssign()[index % 100], newBtn);
 		} else if (index == -1) {
-			controllerConfigs[actualCindex].setStart(bmc.getLastPressedButton());
+			controllerConfigs[actualCindex].setStart(packKey(controllerConfigs[actualCindex].getStart(), newBtn));
 		} else if (index == -2) {
-			controllerConfigs[actualCindex].setSelect(bmc.getLastPressedButton());
+			controllerConfigs[actualCindex].setSelect(packKey(controllerConfigs[actualCindex].getSelect(), newBtn));
 		}
 		// 消费 lastPressedButton,防止下一帧 pollControllerNavShortcuts 把它当 nav 快捷键
 		bmc.setLastPressedButton(-1);
+	}
+
+	private int packKey(int current, int next) {
+		if (next == -1) return current;
+		if (current == -1) return next;
+		if (current >= 0 && current < 256) {
+			if (current == next) return -1; // Toggle off
+			// Pack 2 keys: Key1 | Key2 << 8 | 0xFF << 16 | 0xFF << 24
+			return current | (next << 8) | (0xFF << 16) | (0xFF << 24);
+		}
+		// Already packed, toggle or append
+		int[] ids = new int[3];
+		int count = 0;
+		boolean found = false;
+		for (int j = 0; j < 3; j++) {
+			int id = (current >> (j * 8)) & 0xFF;
+			if (id == 0xFF) continue;
+			if (id == next) {
+				found = true;
+				continue;
+			}
+			ids[count++] = id;
+		}
+
+		if (found) {
+			// Toggle off
+			if (count == 0) return -1;
+			if (count == 1) return ids[0];
+			return ids[0] | (ids[1] << 8) | (0xFF << 16) | (0xFF << 24);
+		} else {
+			// Append
+			if (count >= 3) return current; // Limit to 3 keys
+			int result = current;
+			for (int j = 0; j < 3; j++) {
+				if (((current >> (j * 8)) & 0xFF) == 0xFF) {
+					result = (current & ~(0xFF << (j * 8))) | (next << (j * 8));
+					break;
+				}
+			}
+			return result;
+		}
 	}
 
 	private MidiConfig.Input getMidiKeyAssign(int index) {
@@ -713,12 +767,14 @@ public class KeyConfiguration extends MainState {
 				cc.getKeyAssign()[index % 100] = noAssign;
 			}
 		} else if (index == -1) {
+			keyboardConfig.setStart(noAssign);
 			keyboardConfig.getMouseScratchConfig().setStart(noAssign);
 			for (int i = 0; i < controllerConfigs.length; i++) {
 				controllerConfigs[i].setStart(noAssign);
 			}
 			midiconfig.setStart(null);
 		} else if (index == -2) {
+			keyboardConfig.setSelect(noAssign);
 			keyboardConfig.getMouseScratchConfig().setSelect(noAssign);
 			for (int i = 0; i < controllerConfigs.length; i++) {
 				controllerConfigs[i].setSelect(noAssign);
