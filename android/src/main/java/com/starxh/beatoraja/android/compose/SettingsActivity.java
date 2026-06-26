@@ -1719,7 +1719,8 @@ public class SettingsActivity extends Activity {
     private void setupGamepadFocusable(View view) {
         if (view == null) return;
         view.setFocusable(true);
-        view.setFocusableInTouchMode(true);
+        // 只有输入框允许在触摸模式下获取焦点，否则普通按钮需要点击两次才能触发（第一下获取焦点，第二下触发点击）
+        view.setFocusableInTouchMode(view instanceof EditText);
     }
 
     private boolean isDescendantOf(ViewGroup ancestor, View descendant) {

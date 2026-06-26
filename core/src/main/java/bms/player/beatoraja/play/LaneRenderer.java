@@ -560,6 +560,22 @@ public class LaneRenderer {
 				}
 
 				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
+
+				// 可见性裁剪：跳过视口外的时间线和文字
+				boolean isVisible;
+				if (isPortrait) {
+					float visualX = (float) (hu - notePos);
+					isVisible = visualX >= visibleViewport.x - 100 && visualX <= visibleViewport.x + visibleViewport.width + 100;
+				} else {
+					float visualY = (float) notePos;
+					isVisible = visualY >= visibleViewport.y - 100 && visualY <= visibleViewport.y + visibleViewport.height + 100;
+				}
+
+				if (!isVisible) {
+					nbpm = tl.getBPM();
+					continue;
+				}
+
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
