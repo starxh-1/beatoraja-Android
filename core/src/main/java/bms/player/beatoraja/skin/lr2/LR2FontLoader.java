@@ -52,7 +52,10 @@ public class LR2FontLoader extends LR2SkinLoader {
 		int[] result = new int[22];
 		for (int i = 1; i < result.length && i < s.length; i++) {
 			try {
-				result[i] = Integer.parseInt(s[i].replace('!', '-').replaceAll(" ", ""));
+				String val = s[i].trim();
+				if (val.isEmpty()) continue;
+				// 优化：避免使用正则表达式 replaceAll，改用普通 replace
+				result[i] = Integer.parseInt(val.replace('!', '-').replace(" ", ""));
 			} catch (Exception e) {
 
 			}
@@ -73,25 +76,28 @@ enum FontCommand implements Command<LR2FontLoader> {
 	// texture
 	T ((loader, str) -> {
 		File imagefile = new File(loader.path.getParent(), str[2]);
-		String path = imagefile.getPath().replace("\\", "/");
-		boolean exists = com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android ?
-				(com.badlogic.gdx.Gdx.files.internal(path).exists() || com.badlogic.gdx.Gdx.files.absolute(path).exists()) :
-				imagefile.exists();
+		boolean exists;
 
-			// Android大小写不敏感修复：目录列表已确认文件存在，无需再 exists()
-			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android && !exists) {
-				java.io.File parentDir = imagefile.getParentFile();
-				if (parentDir != null && parentDir.exists()) {
-					String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentDir.getAbsolutePath(), imagefile.getName());
-					if (actualName != null) {
-						imagefile = new File(parentDir, actualName);
-						exists = true;
-					}
-				}
+		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+			// Android: 核心优化 - 移除极其缓慢的 Gdx.files.internal(...).exists()
+			// 直接使用 PixmapResourcePool 提供的 O(1) 大小写不敏感缓存来定位文件
+			java.io.File parentDir = imagefile.getParentFile();
+			String parentPath = parentDir != null ? parentDir.getAbsolutePath() : "";
+			String actualName = bms.player.beatoraja.PixmapResourcePool.findFileIgnoreCase(parentPath, imagefile.getName());
+			if (actualName != null) {
+				imagefile = new File(parentDir, actualName);
+				exists = true;
+			} else {
+				// 只有在缓存未命中时才回退到系统级检查
+				String path = imagefile.getPath().replace("\\", "/");
+				exists = com.badlogic.gdx.Gdx.files.internal(path).exists() || com.badlogic.gdx.Gdx.files.absolute(path).exists();
 			}
+		} else {
+			exists = imagefile.exists();
+		}
 
 		if (exists) {
-			loader.textimage.setPath(Integer.parseInt(str[1]),imagefile.getPath());
+			loader.textimage.setPath(Integer.parseInt(str[1]), imagefile.getPath());
 		}
 	}),
 	// reference
