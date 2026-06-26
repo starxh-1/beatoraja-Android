@@ -37,7 +37,6 @@ public class LaneRenderer {
 
 	private BMSModel model;
 	private TimeLine[] timelines;
-	private double[] visualSections;
 
 	private int pos;
 
@@ -130,18 +129,6 @@ public class LaneRenderer {
 			cscr = tl.getScroll();
 		}
 		this.timelines = tls.toArray(new TimeLine[tls.size()]);
-
-		visualSections = new double[timelines.length];
-		for (int i = 0; i < timelines.length; i++) {
-			TimeLine tl = timelines[i];
-			if (i == 0) {
-				visualSections[i] = tl.getSection();
-			} else {
-				TimeLine prev = timelines[i - 1];
-				visualSections[i] = visualSections[i - 1] + (tl.getSection() - prev.getSection()) * prev.getScroll();
-			}
-		}
-
 		// Pre-cache all timeline text strings to avoid per-frame allocation
 		cachedTimeText = new String[timelines.length];
 		cachedBpmText = new String[timelines.length];
@@ -271,6 +258,26 @@ public class LaneRenderer {
 		}
 	}
 
+	/**
+	 * Computes the delta to add to notePos for a single timeline.
+	 * @param tl The current timeline
+	 * @param prevtl The previous timeline (null if i == 0)
+	 * @param microtime Current playback time in microseconds
+	 * @param rxhs The pixel-per-section factor
+	 * @return The delta value to add to notePos
+	 */
+	private double computeNotePosDelta(TimeLine tl, TimeLine prevtl, long microtime, double rxhs) {
+		if (prevtl == null) {
+			return tl.getSection() * (tl.getMicroTime() - microtime) / tl.getMicroTime() * rxhs;
+		}
+		if (prevtl.getMicroTime() + prevtl.getMicroStop() > microtime) {
+			return (tl.getSection() - prevtl.getSection()) * prevtl.getScroll() * rxhs;
+		}
+		return (tl.getSection() - prevtl.getSection()) * prevtl.getScroll()
+				* (tl.getMicroTime() - microtime)
+				/ (tl.getMicroTime() - prevtl.getMicroTime() - prevtl.getMicroStop()) * rxhs;
+	}
+
 	public void setEnableLanecover(boolean b) {
 		playconfig.setEnablelanecover(b);
 	}
@@ -366,31 +373,11 @@ public class LaneRenderer {
 		final Rectangle[] playerr = skin.getLaneGroupRegion();
 		double nbpm = model.getBpm();
 		double nscroll = 1.0;
-		int k = (pos > 5 ? pos - 5 : 0);
-		for (; k < timelines.length && timelines[k].getMicroTime() <= microtime; k++) {
-			nbpm = timelines[k].getBPM();
-			nscroll = timelines[k].getScroll();
+		for (int i = (pos > 5 ? pos - 5 : 0); i < timelines.length && timelines[i].getMicroTime() <= microtime; i++) {
+			nbpm = timelines[i].getBPM();
+			nscroll = timelines[i].getScroll();
 		}
-		k = Math.max(0, k - 1);
 		nowbpm = nbpm;
-
-		double globalVisualSection;
-		TimeLine currentTL = timelines[k];
-		if (microtime < currentTL.getMicroTime()) {
-			globalVisualSection = currentTL.getSection() * (double) microtime / currentTL.getMicroTime();
-		} else {
-			globalVisualSection = visualSections[k];
-			if (k + 1 < timelines.length) {
-				long segmentStart = currentTL.getMicroTime() + currentTL.getMicroStop();
-				if (microtime > segmentStart) {
-					long segmentDuration = timelines[k + 1].getMicroTime() - segmentStart;
-					if (segmentDuration > 0) {
-						globalVisualSection += (visualSections[k + 1] - visualSections[k]) * (double) (microtime - segmentStart) / segmentDuration;
-					}
-				}
-			}
-		}
-
 		final double region = nscroll > 0 ? (240000 / nbpm / hispeed) / nscroll : 0;
 		// double sect = (bpm / 60) * 4 * 1000;
 		// TODO hu,hlをレーン毎に変更
@@ -556,41 +543,23 @@ public class LaneRenderer {
 		final double orgNotePos = notePos;
 		final boolean enableConstant = playconfig.isEnableConstant() && (main.getState() != BMSPlayer.STATE_PRACTICE);
 		final int baseduration = playconfig.getDuration();
-		final float alphaLimit = playconfig.getConstantFadeinTime() * 1000;
-		for (int i = pos; i < timelines.length; i++) {
+		final float alphaLimit =  playconfig.getConstantFadeinTime() * 1000;
+		for (int i = pos; i < timelines.length && notePos <= hu; i++) {
 			final TimeLine tl = timelines[i];
-
-			notePos = hl + (visualSections[i] - globalVisualSection) * rxhs;
-			if (notePos > hu + 100) break;
-
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
 			sprite.setColor(1f, 1f, 1f, 1f);
 			if (tl.getMicroTime() >= microtime) {
-				// 可见性裁剪：跳过视口外的元素
-				float visualPos = isPortrait ? (float) (hu - notePos) : (float) notePos;
-				if (isPortrait) {
-					if (visualPos < visibleViewport.x - 100 || visualPos > visibleViewport.x + visibleViewport.width + 100) {
-						nbpm = tl.getBPM();
-						continue;
-					}
-				} else {
-					if (visualPos < visibleViewport.y - 100 || visualPos > visibleViewport.y + visibleViewport.height + 100) {
-						nbpm = tl.getBPM();
-						continue;
-					}
-				}
-
 				if (enableConstant) {
 					final long targetTime = microtime + (baseduration * 1000);
 					float alpha = computeConstantFadeAlpha(tl, targetTime, alphaLimit);
 					if (alpha < 0) {
-						nbpm = tl.getBPM();
 						continue;
 					}
 					sprite.setColor(1f, 1f, 1f, alpha);
 				}
 
+				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
@@ -685,12 +654,8 @@ public class LaneRenderer {
 		notePos = orgNotePos;
 		final long now = main.timer.getNowTime();
 
-		for (int i = pos; i < timelines.length; i++) {
+		for (int i = pos; i < timelines.length && notePos <= hu; i++) {
 			final TimeLine tl = timelines[i];
-
-			notePos = hl + (visualSections[i] - globalVisualSection) * rxhs;
-			if (notePos > hu + 100) break;
-
 			// Reset to full opacity at the beginning of each timeline iteration
 			// This fixes the bug where alpha from a previous continue'd timeline affects the next timeline
 			sprite.setColor(1f, 1f, 1f, 1f);
@@ -703,6 +668,9 @@ public class LaneRenderer {
 				sprite.setColor(1f, 1f, 1f, alpha);
 			}
 
+			if (tl.getMicroTime() >= microtime) {
+				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
+			}
 			// ノート描画
 			for (int lane = 0; lane < lanes.length; lane++) {
 				final float scale = lanes[lane].scale;
