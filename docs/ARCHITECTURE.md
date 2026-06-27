@@ -38,7 +38,7 @@ beatoraja-Android 是 beatoraja 的 Android 移植版。它保留了原项目的
 | Android compile/target SDK | 36 |
 | Android min SDK | 21 |
 | Android applicationId | `com.starxh.beatoraja` |
-| Android versionName | `2.3` |
+| Android versionName | `2.4` |
 | JSON | Jackson 2.21.2 |
 | Lua | LuaJ 3.0.1 |
 | Android SQLite | 原生 SQLite + SQLDroid 依赖 |
