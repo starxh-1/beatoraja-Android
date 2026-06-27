@@ -574,6 +574,9 @@ public class KeyConfiguration extends MainState {
 			return;
 		}
 		int newKey = keyboard.getLastPressedKey();
+		if (newKey == Keys.ENTER || newKey == Keys.NUMPAD_ENTER) {
+			return;
+		}
 		if (index >= 0) {
 			keyboardConfig.getKeyAssign()[index] = packKey(keyboardConfig.getKeyAssign()[index], newKey);
 		} else if (index == -1) {

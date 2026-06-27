@@ -30,19 +30,17 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 - 内存：2GB RAM 或以上
 - 说明：app 本身支持 32bit 设备，但性能太差，勉强跑跑无 K 音的 BMS 吧。BGA 都带不起来。(Tested on Xiaomi 2s)
 
-## 4. 正在实现中的功能 
+## 4. 计划实现的功能 
 
-- 待补充
+- Walkure 推荐表（需要开发者授权才能做）
 
 ## 5. 无法实现（实现难度过大）的功能
 - 非 mp4 (H.264, HEVC) 的 视频软解（难度过大，期待有人提出新思路）
 - Internet Ranking 功能
-- CimFS 读取和解析
 
 ## 6. 已知 bug
 
-- 部分皮肤无法在 Skin Select 界面更改元素（如 WMII）
-- Result 界面的 Gauge 区域有几率会卡死，不影响操作
+- 手柄摇杆区可能会出现位置错乱问题
 
 # Special Thanks
 

@@ -29,9 +29,9 @@ Everything else is essentially inherited from beatoraja.
 - RAM: 2GB or above
 - Note: The app technically supports 32-bit devices, but performance is terrible — only barely runnable on K-less BMS. BGA won't even work. (Tested on Xiaomi 2s)
 
-## 4. Features In Progress
+## 4. TBD Features
 
-- TBD
+- Walkure recommendation (permission from developer needed)
 
 ## 5. Features That Can't Be Implemented (too difficult)
 
@@ -41,8 +41,7 @@ Everything else is essentially inherited from beatoraja.
 
 ## 6. Known Bugs
 
-- Some skins can't change elements in the Skin Select screen (e.g. WMII)
-- The Gauge area on the Result screen may occasionally freeze — doesn't affect operations
+- The joystick area may experience drift or misalignment issues
 
 # Special Thanks
 
