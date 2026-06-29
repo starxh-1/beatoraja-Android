@@ -57,3 +57,5 @@ Everything else is essentially inherited from beatoraja.
 - Anonymous test human guys
 
 - I love keysounded VSRG, yeah.
+
+- **Don't use this application for playing copyrighted contents.**

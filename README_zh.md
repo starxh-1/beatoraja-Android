@@ -56,3 +56,5 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 - Anonymous test human guys
 
 - I love keysounded VSRG, yeah. ~~所以管他呢就算AI写屎山我也要弄出来我就要玩反正修啥bug不是修~~
+
+- **请勿使用该程序游玩受版权保护的内容。**
