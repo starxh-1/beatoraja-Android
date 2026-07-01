@@ -299,7 +299,7 @@ public class BMSPlayer extends MainState {
 		}
 		lastNoteEndTime = lastTimeMs;
 		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束
-		playtime = lastTimeMs + Math.max(5000, maxTailMs);
+		playtime = lastTimeMs + Math.max(1000, maxTailMs);
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {
