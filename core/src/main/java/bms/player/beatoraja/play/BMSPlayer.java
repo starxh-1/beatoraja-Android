@@ -256,8 +256,8 @@ public class BMSPlayer extends MainState {
 				final int wavid = entry.getKey();
 				final int lastTime = entry.getValue();
 
-				// 只有在距离歌曲结束 20 秒内的采样才需要检测时长
-				if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null && lastTime > lastTimeMs - 20000) {
+				// 检测音频时长
+				if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
 					Integer dur = wavDurationCache.get(wavid);
 					if (dur == null) {
 						checkCount++;
