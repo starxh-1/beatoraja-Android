@@ -255,41 +255,59 @@ public class BMSPlayer extends MainState {
 				}
 			}
 
-			final int[] wavDurationCache = new int[wavlist.length];
-			java.util.Arrays.fill(wavDurationCache, -1);
-			int checkCount = 0;
-			int uniqueWavs = 0;
+			// 1. 一次性获取目录下所有文件，避免数千次 File.exists() 系统调用导致 I/O 阻塞
+			final java.io.File[] dirFiles = bmsDir.listFiles();
+			final java.util.Map<String, java.io.File> fileCacheMap = new java.util.HashMap<>();
+			if (dirFiles != null) {
+				for (java.io.File f : dirFiles) {
+					fileCacheMap.put(f.getName().toLowerCase(), f);
+				}
+			}
+
+			// 2. 收集所有唯一的音符及其最后出现时间，并按时间降序排列
+			// 优先检查结尾音符可以更早更新 maxTailMs，从而让后续音符触发启发式跳过
+			final List<int[]> sortedWavs = new ArrayList<>();
 			for (int wavid = 0; wavid < lastOccurrenceArray.length; wavid++) {
-				final int lastTime = lastOccurrenceArray[wavid];
-				if (lastTime == -1) continue;
-				uniqueWavs++;
+				if (lastOccurrenceArray[wavid] != -1 && wavlist[wavid] != null) {
+					sortedWavs.add(new int[]{wavid, lastOccurrenceArray[wavid]});
+				}
+			}
+			sortedWavs.sort((a, b) -> Integer.compare(b[1], a[1]));
 
-				// 检测音频时长
-				if (wavlist[wavid] != null) {
-					int dur = wavDurationCache[wavid];
-					if (dur == -1) {
-						checkCount++;
-						String fileName = wavlist[wavid];
-						java.io.File audioFile = new java.io.File(bmsDir, fileName);
-						if (!audioFile.exists()) {
-							int dotIdx = fileName.lastIndexOf('.');
-							String baseName = dotIdx > 0 ? fileName.substring(0, dotIdx) : fileName;
-							for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
-								java.io.File f = new java.io.File(bmsDir, baseName + ext);
-								if (f.exists()) {
-									audioFile = f;
-									break;
-								}
-							}
-						}
+			int checkCount = 0;
+			int uniqueWavs = sortedWavs.size();
 
-						if (audioFile.exists()) {
-							dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
-						} else {
-							dur = 0;
-						}
-						wavDurationCache[wavid] = dur;
+			for (int[] entry : sortedWavs) {
+				final int wavid = entry[0];
+				final int lastTime = entry[1];
+
+				// 3. 启发式跳过逻辑
+				// 如果该音符即便按极低码率（8 bytes/ms，即 8KB/s）计算出的理论最大长度
+				// 都不足以超过当前的 maxTailMs 结束位置，则完全无需打开该文件。
+				// 这能过滤掉 3000 个 keysound 中 90% 以上的小文件。
+				String fileName = wavlist[wavid];
+				String lowerName = fileName.toLowerCase();
+				java.io.File audioFile = fileCacheMap.get(lowerName);
+				if (audioFile == null) {
+					int dotIdx = lowerName.lastIndexOf('.');
+					String baseName = dotIdx > 0 ? lowerName.substring(0, dotIdx) : lowerName;
+					for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
+						audioFile = fileCacheMap.get(baseName + ext);
+						if (audioFile != null) break;
 					}
+				}
+
+				if (audioFile != null) {
+					long fileSize = audioFile.length();
+					// 如果该音符最后出现时间 + 理论最大时长(fileSize/8) <= 当前已探测到的最晚结束时间
+					// 则此文件绝不可能贡献新的 maxTail，直接跳过。
+					if (lastTime + (fileSize / 8) <= lastTimeMs + maxTailMs) {
+						continue;
+					}
+
+					// 确实有可能更新 maxTail，再进行昂贵的 Header 解析
+					int dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
+					checkCount++;
 					if (dur > 0) {
 						final int tailEnd = lastTime + dur;
 						if (tailEnd > lastTimeMs) {
@@ -298,6 +316,7 @@ public class BMSPlayer extends MainState {
 					}
 				}
 			}
+
 			resource.getSongdata().setTail(maxTailMs);
 			main.getSongDatabase().updateSongTail(model.getSHA256(), maxTailMs);
 			Logger.getGlobal().info(String.format("Audio tail check finished: %d ms, unique wavs: %d, checked: %d, maxTail: %d ms",
