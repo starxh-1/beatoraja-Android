@@ -233,8 +233,9 @@ public class BMSPlayer extends MainState {
 			long startTime = System.currentTimeMillis();
 			final String[] wavlist = model.getWavList();
 			final java.io.File bmsDir = new java.io.File(model.getPath()).getParentFile();
-			// 记录每个 wavid 最后一次出现的时间
-			final java.util.HashMap<Integer, Integer> lastOccurrenceMap = new java.util.HashMap<>();
+			// 记录每个 wavid 最后一次出现的时间。使用数组代替 HashMap 减少 GC 压力（避免数万次 Integer 装箱）
+			final int[] lastOccurrenceArray = new int[wavlist.length];
+			java.util.Arrays.fill(lastOccurrenceArray, -1);
 
 			for (TimeLine tl : model.getAllTimeLines()) {
 				final int time = tl.getTime();
@@ -242,24 +243,31 @@ public class BMSPlayer extends MainState {
 				for (int lane = 0; lane < model.getMode().key; lane++) {
 					Note n = tl.getNote(lane);
 					if (n == null) n = tl.getHiddenNote(lane);
-					if (n != null) lastOccurrenceMap.put(n.getWav(), time);
+					if (n != null && n.getWav() >= 0 && n.getWav() < lastOccurrenceArray.length) {
+						lastOccurrenceArray[n.getWav()] = time;
+					}
 				}
 				// BGM通道
 				for (Note n : tl.getBackGroundNotes()) {
-					if (n != null) lastOccurrenceMap.put(n.getWav(), time);
+					if (n != null && n.getWav() >= 0 && n.getWav() < lastOccurrenceArray.length) {
+						lastOccurrenceArray[n.getWav()] = time;
+					}
 				}
 			}
 
-			final java.util.HashMap<Integer, Integer> wavDurationCache = new java.util.HashMap<>();
+			final int[] wavDurationCache = new int[wavlist.length];
+			java.util.Arrays.fill(wavDurationCache, -1);
 			int checkCount = 0;
-			for (java.util.Map.Entry<Integer, Integer> entry : lastOccurrenceMap.entrySet()) {
-				final int wavid = entry.getKey();
-				final int lastTime = entry.getValue();
+			int uniqueWavs = 0;
+			for (int wavid = 0; wavid < lastOccurrenceArray.length; wavid++) {
+				final int lastTime = lastOccurrenceArray[wavid];
+				if (lastTime == -1) continue;
+				uniqueWavs++;
 
 				// 检测音频时长
-				if (wavid >= 0 && wavid < wavlist.length && wavlist[wavid] != null) {
-					Integer dur = wavDurationCache.get(wavid);
-					if (dur == null) {
+				if (wavlist[wavid] != null) {
+					int dur = wavDurationCache[wavid];
+					if (dur == -1) {
 						checkCount++;
 						String fileName = wavlist[wavid];
 						java.io.File audioFile = new java.io.File(bmsDir, fileName);
@@ -280,7 +288,7 @@ public class BMSPlayer extends MainState {
 						} else {
 							dur = 0;
 						}
-						wavDurationCache.put(wavid, dur);
+						wavDurationCache[wavid] = dur;
 					}
 					if (dur > 0) {
 						final int tailEnd = lastTime + dur;
@@ -293,7 +301,7 @@ public class BMSPlayer extends MainState {
 			resource.getSongdata().setTail(maxTailMs);
 			main.getSongDatabase().updateSongTail(model.getSHA256(), maxTailMs);
 			Logger.getGlobal().info(String.format("Audio tail check finished: %d ms, unique wavs: %d, checked: %d, maxTail: %d ms",
-					System.currentTimeMillis() - startTime, lastOccurrenceMap.size(), checkCount, maxTailMs));
+					System.currentTimeMillis() - startTime, uniqueWavs, checkCount, maxTailMs));
 		} else {
 			Logger.getGlobal().info("Audio tail loaded from database: " + maxTailMs + " ms");
 		}

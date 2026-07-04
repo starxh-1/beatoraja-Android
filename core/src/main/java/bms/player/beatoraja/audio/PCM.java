@@ -94,6 +94,8 @@ public abstract class PCM<T> {
         if (dur > 0) return dur;
         dur = tryOggDuration(file);
         if (dur > 0) return dur;
+        dur = tryMp3Duration(file);
+        if (dur > 0) return dur;
 
         return 0;
     }
@@ -265,6 +267,104 @@ public abstract class PCM<T> {
             return 0;
         } finally {
             if (raf != null) try { raf.close(); } catch (Exception ex) {}
+        }
+    }
+
+    /**
+     * MP3 时长解析。支持 Xing/VBRI 头部读取（VBR），若无则按 CBR 估算。
+     */
+    private static int tryMp3Duration(File file) {
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            long fileLen = raf.length();
+            if (fileLen < 100) return 0;
+
+            byte[] buf = new byte[16384];
+            int read = raf.read(buf);
+            if (read < 10) return 0;
+
+            int offset = 0;
+            // 跳过 ID3v2 标签以定位音频起始位置
+            if (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
+                int size = ((buf[6] & 0x7F) << 21) | ((buf[7] & 0x7F) << 14) | ((buf[8] & 0x7F) << 7) | (buf[9] & 0x7F);
+                offset = size + 10;
+                if (offset >= fileLen) return 0;
+                raf.seek(offset);
+                read = raf.read(buf);
+                if (read < 10) return 0;
+            }
+
+            // 查找第一个 MPEG 帧同步字 (0xFFE/0xFFF)
+            int syncPos = -1;
+            for (int i = 0; i < read - 10; i++) {
+                if ((buf[i] & 0xFF) == 0xFF && (buf[i + 1] & 0xE0) == 0xE0) {
+                    syncPos = i;
+                    break;
+                }
+            }
+            if (syncPos < 0) return 0;
+
+            // 解析基本参数：版本、层、码率索引、采样率索引
+            int b1 = buf[syncPos + 1] & 0xFF;
+            int b2 = buf[syncPos + 2] & 0xFF;
+            int b3 = buf[syncPos + 3] & 0xFF;
+
+            int version = (b1 >> 3) & 3; // 3=MPEG V1, 2=V2, 0=V2.5
+            int layer = (b1 >> 1) & 3;   // 1=L3, 2=L2, 3=L1
+            int bitrateIdx = (b2 >> 4) & 0xF;
+            int sampleRateIdx = (b2 >> 2) & 3;
+            int channelMode = (b3 >> 6) & 3; // 3=Mono
+
+            if (bitrateIdx == 0 || bitrateIdx == 15 || sampleRateIdx == 3) return 0;
+
+            // 采样率表
+            int sampleRate = 0;
+            int[][] srTable = {{11025, 12000, 8000}, null, {22050, 24000, 16000}, {44100, 48000, 32000}};
+            if (version >= 0 && version < srTable.length && srTable[version] != null) {
+                sampleRate = srTable[version][sampleRateIdx];
+            }
+            if (sampleRate == 0) return 0;
+
+            // 每帧采样数
+            int samplesPerFrame;
+            if (layer == 3) samplesPerFrame = 384; // L1
+            else if (layer == 2) samplesPerFrame = 1152; // L2
+            else samplesPerFrame = (version == 3) ? 1152 : 576; // L3: V1=1152, V2=576
+
+            // 1. 检查 Xing/Info 头部 (VBR)
+            int xingOffset = (version == 3) ? (channelMode == 3 ? 21 : 36) : (channelMode == 3 ? 13 : 21);
+            xingOffset += syncPos;
+            if (xingOffset + 12 < read) {
+                if ((buf[xingOffset] == 'X' && buf[xingOffset+1] == 'i' && buf[xingOffset+2] == 'n' && buf[xingOffset+3] == 'g') ||
+                    (buf[xingOffset] == 'I' && buf[xingOffset+1] == 'n' && buf[xingOffset+2] == 'f' && buf[xingOffset+3] == 'o')) {
+                    int flags = ((buf[xingOffset+4] & 0xFF) << 24) | ((buf[xingOffset+5] & 0xFF) << 16) | ((buf[xingOffset+6] & 0xFF) << 8) | (buf[xingOffset+7] & 0xFF);
+                    if ((flags & 1) != 0) { // Frames 字段存在
+                        int frames = ((buf[xingOffset+8] & 0xFF) << 24) | ((buf[xingOffset+9] & 0xFF) << 16) | ((buf[xingOffset+10] & 0xFF) << 8) | (buf[xingOffset+11] & 0xFF);
+                        return (int) ((long) frames * samplesPerFrame * 1000 / sampleRate);
+                    }
+                }
+            }
+
+            // 2. 检查 VBRI 头部 (VBR)
+            int vbriOffset = syncPos + 36;
+            if (vbriOffset + 18 < read && buf[vbriOffset] == 'V' && buf[vbriOffset+1] == 'B' && buf[vbriOffset+2] == 'R' && buf[vbriOffset+3] == 'I') {
+                int frames = ((buf[vbriOffset+14] & 0xFF) << 24) | ((buf[vbriOffset+15] & 0xFF) << 16) | ((buf[vbriOffset+16] & 0xFF) << 8) | (buf[vbriOffset+17] & 0xFF);
+                return (int) ((long) frames * samplesPerFrame * 1000 / sampleRate);
+            }
+
+            // 3. 兜底方案：CBR 估算
+            int[][] bitrates = {
+                {0, 32, 64, 96, 128, 160, 192, 224, 256, 288, 320, 352, 384, 416, 448}, // V1, L1
+                {0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384},    // V1, L2
+                {0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320},    // V1, L3
+                {0, 32, 48, 56, 64, 80, 96, 112, 128, 144, 160, 176, 192, 224, 256},    // V2, L1
+                {0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160}          // V2, L2/3
+            };
+            int brTable = (version == 3) ? (3 - layer) : (layer == 3 ? 3 : 4);
+            int bitrate = bitrates[brTable][bitrateIdx];
+            if (bitrate <= 0) return 0;
+            return (int) ((fileLen - offset) * 8 / bitrate);
+        } catch (Exception e) {
+            return 0;
         }
     }
 
