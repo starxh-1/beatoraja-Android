@@ -16,25 +16,25 @@
     <string name="delete">删除</string>
     <string name="export">导出</string>
     <string name="import_score_db">导入 Score.zip</string>
-    <string name="section_bms_path">BMS 路径</string>
+    <string name="section_bms_path">歌曲路径</string>
     <string name="add">+ 添加</string>
     <string name="tap_to_remove">点击以移除</string>
     <string name="section_play_options">游玩选项</string>
     <string name="show_audio_spectrum">显示音频频谱</string>
     <string name="bga_display">BGA Display</string>
-    <string name="gauge_auto_shift">Gauge Auto Shift</string>
-    <string name="auto_save_replay">Auto Save Replay</string>
     <string name="green_number">绿数字</string>
+    <string name="green_number_help_title">绿数字</string>
+    <string name="green_number_help">绿数字用于调整下落速度。数字越低，下落越快。</string>
     <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
     <string name="enable_lift">启用抬高 (LIFT)</string>
     <string name="floating_menu_position">悬浮菜单位置</string>
     <string name="target_score">目标分数</string>
     <string name="gauge_type">血条类型</string>
     <string name="note_timing_offset">判定线延迟调整</string>
+    <string name="note_timing_offset_help_title">判定线延迟调整</string>
+    <string name="note_timing_offset_help">调整判定线偏移。当FAST偏多时，请往+调整，SLOW偏多时，则往-调整。</string>
     <string name="auto_timing_adjust">自动延迟调整</string>
     <string name="minimum_input_duration">最小输入持续时间</string>
-    <string name="input_duration_help_title">最小输入持续时间</string>
-    <string name="input_duration_help">输入消抖时间 (ms)。对于高质量手台或追求极低延迟，可设为 1-5ms。默认值为 16ms。</string>
 
     <string-array name="gauge_type_options">
         <item>ASSIST EASY</item>
@@ -45,6 +45,8 @@
         <item>HAZARD</item>
     </string-array>
     <string name="section_input_options">输入设置</string>
+    <string name="input_options_help_title">输入设置</string>
+    <string name="input_options_help">注：这些设置仅针对物理控制器或键盘，不适用于触摸屏游玩。使用触摸游玩的用户可以无视这些设置。</string>
     <string name="jkoc_hack">JKOC HACK</string>
     <string name="analog_scratch">模拟转盘 (Analog Scratch)</string>
     <string name="analog_scratch_threshold">模拟转盘阈值</string>
@@ -150,8 +152,8 @@
     <string name="player_help_title">选择玩家</string>
     <string name="player_help">你可以点击"新建玩家"来新建一个player。在只有一个player的情况下无法删除。\n\n导出和导入分数均使用zip压缩包打包（这是因为player目录下不止score.db造成的）。如想进行分数备份，可以使用导出功能，并放到你想存储的文件夹。当你需要重新导入分数时，只需要点击zip导入即可。</string>
 
-    <string name="bms_path_help_title">BMS 路径</string>
-    <string name="bms_path_help">应用本身已经默认创建了一个BMS路径（位于download/beatoraja/songs，不可删除。）你可以点击添加按钮来增加新的BMS路径。\n\nApp本身支持在目录下放置zip，当更新歌曲目录时，检测到zip会解压，但仍建议直接放置文件夹（App自带的zip解压性能相对较差。）\n\n导入的目录结构要求如下：\n\n如果是Zip : inochi_ogg.zip → 解压 → 解压得到 inochi_ogg 文件夹 → 打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n如果是文件夹：打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+    <string name="bms_path_help_title">歌曲路径</string>
+    <string name="bms_path_help">应用本身已经默认创建了一个歌曲路径（位于download/beatoraja/songs，不可删除。）你可以点击添加按钮来增加新的歌曲路径。\n\nApp本身支持在目录下放置zip，当更新歌曲目录时，检测到zip会解压，但仍建议直接放置文件夹（App自带的zip解压性能相对较差。）\n\n导入的目录结构要求如下：\n\n如果是Zip : inochi_ogg.zip → 解压 → 解压得到 inochi_ogg 文件夹 → 打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n如果是文件夹：打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
 
     <string name="audio_spectrum_help_title">音频频谱</string>
     <string name="audio_spectrum_help">音频频谱，跟着音乐跳动，很酷喔！负责移植的Star*打小就喜欢看着音频频谱听歌，甚至可以说这才是移植者本人对音乐制作和音乐游戏产生兴趣的重要原因。如果不喜欢关闭即可。</string>

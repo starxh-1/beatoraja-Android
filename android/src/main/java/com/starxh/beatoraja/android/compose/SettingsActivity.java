@@ -607,12 +607,16 @@ public class SettingsActivity extends Activity {
         setupGamepadFocusable(findViewById(R.id.gaugeAutoShiftHelp));
         findViewById(R.id.stretchFullscreenHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.stretch_fullscreen_help_title), getString(R.string.stretch_fullscreen_help)));
         setupGamepadFocusable(findViewById(R.id.stretchFullscreenHelp));
-        findViewById(R.id.inputDurationHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.input_duration_help_title), getString(R.string.input_duration_help)));
-        setupGamepadFocusable(findViewById(R.id.inputDurationHelp));
         findViewById(R.id.jkocHackHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.jkoc_hack_help_title), getString(R.string.jkoc_hack_help)));
         setupGamepadFocusable(findViewById(R.id.jkocHackHelp));
         findViewById(R.id.analogScratchHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.analog_scratch_help_title), getString(R.string.analog_scratch_help)));
         setupGamepadFocusable(findViewById(R.id.analogScratchHelp));
+        findViewById(R.id.greenNumberHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.green_number_help_title), getString(R.string.green_number_help)));
+        setupGamepadFocusable(findViewById(R.id.greenNumberHelp));
+        findViewById(R.id.noteTimingOffsetHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.note_timing_offset_help_title), getString(R.string.note_timing_offset_help)));
+        setupGamepadFocusable(findViewById(R.id.noteTimingOffsetHelp));
+        findViewById(R.id.inputOptionsHelp).setOnClickListener(v -> showHelpDialog(getString(R.string.input_options_help_title), getString(R.string.input_options_help)));
+        setupGamepadFocusable(findViewById(R.id.inputOptionsHelp));
 
         // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
         // 注：Switch 初始化在更下方的 Play Options 之后，与 Show Audio Spectrum 一起设置以确保正确的锁定顺序。

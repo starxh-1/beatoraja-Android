@@ -16,7 +16,7 @@
     <string name="delete">Delete</string>
     <string name="export">Export</string>
     <string name="import_score_db">Import Score.zip</string>
-    <string name="section_bms_path">BMS Paths</string>
+    <string name="section_bms_path">Song Paths</string>
     <string name="add">+ Add</string>
     <string name="tap_to_remove">Tap to remove</string>
     <string name="section_play_options">Play Options</string>
@@ -26,6 +26,8 @@
     <string name="gauge_auto_shift" translatable="false">Gauge Auto Shift</string>
     <string name="auto_save_replay" translatable="false">Auto Save Replay</string>
     <string name="green_number">Green Number</string>
+    <string name="green_number_help_title">Green Number</string>
+    <string name="green_number_help">Green Number is used to adjust scroll speed. The lower the number, the faster notes fall.</string>
     <string name="hispeed_fix" translatable="false">HI-SPEED Fix</string>
     <string name="enable_lanecover">ENABLE LANECOVER</string>
     <string name="enable_lift">ENABLE LIFT</string>
@@ -33,10 +35,10 @@
     <string name="target_score">TARGET SCORE</string>
     <string name="gauge_type">Gauge Type</string>
     <string name="note_timing_offset">Judge Timing Offset</string>
+    <string name="note_timing_offset_help_title">Judge Timing Offset</string>
+    <string name="note_timing_offset_help">Adjusts judge line offset. If you get too many FAST judgements, adjust towards +. If you get too many SLOW judgements, adjust towards -.</string>
     <string name="auto_timing_adjust">Auto Timing Adjust</string>
     <string name="minimum_input_duration">Minimum input duration</string>
-    <string name="input_duration_help_title">Minimum input duration</string>
-    <string name="input_duration_help">Input debounce time (ms). For high-quality controllers or when pursuing lower latency, set this to 1-5ms. Default is 16ms.</string>
     <string name="note_modifier" translatable="false">Note Modifier</string>
     <string name="ms" translatable="false">ms</string>
 
@@ -62,6 +64,8 @@
         <item>HAZARD</item>
     </string-array>
     <string name="section_input_options">Input Options</string>
+    <string name="input_options_help_title">Input Options</string>
+    <string name="input_options_help">Note: These settings are for physical controllers/keyboards and do not apply to touchscreen play. Touch players can ignore these.</string>
     <string name="jkoc_hack">JKOC HACK</string>
     <string name="analog_scratch">Analog Scratch</string>
     <string name="analog_scratch_threshold">Analog Scratch Threshold</string>
@@ -169,8 +173,8 @@
     <string name="player_help_title">Select Player</string>
     <string name="player_help">You can click \"New Player\" to create a new player. You cannot delete a player when there is only one player.\n\nExport and import scores are both using zip compressed packages (this is because the player directory contains more than just score.db). If you want to backup your scores, you can use the export function and save it to your desired folder. When you need to import scores again, simply click \"Import Score.zip\" to import.</string>
 
-    <string name="bms_path_help_title">BMS Paths</string>
-    <string name="bms_path_help">The app has a default BMS path created (located at download/beatoraja/songs, cannot be deleted). You can click the add button to add new BMS paths.\n\nThe app supports placing zip files in the directory. When updating song directories, if a zip is detected, it will be extracted. However, it is still recommended to place folders directly (the app\'s built-in zip extraction performance is relatively poor).\n\nThe required directory structure is as follows:\n\nIf zip: inochi_ogg.zip → extract → get inochi_ogg folder → open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nIf folder: open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+    <string name="bms_path_help_title">Song Paths</string>
+    <string name="bms_path_help">The app has a default Song path created (located at download/beatoraja/songs, cannot be deleted). You can click the add button to add new Song paths.\n\nThe app supports placing zip files in the directory. When updating Song directories, if a zip is detected, it will be extracted. However, it is still recommended to place folders directly (the app\'s built-in zip extraction performance is relatively poor).\n\nThe required directory structure is as follows:\n\nIf zip: inochi_ogg.zip → extract → get inochi_ogg folder → open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nIf folder: open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
 
     <string name="audio_spectrum_help_title">Audio Spectrum</string>
     <string name="audio_spectrum_help">The audio spectrum bounces with the music, it\'s cool! The porter (Star*) has loved watching the audio spectrum while listening to music since childhood. It could even be said that this is the important reason why the porter became interested in music production and music games. If you don\'t like it, just turn it off.</string>

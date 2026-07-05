@@ -16,19 +16,23 @@
     <string name="delete">削除</string>
     <string name="export">書き出し</string>
     <string name="import_score_db">Score.zip をインポート</string>
-    <string name="section_bms_path">BMSパス</string>
+    <string name="section_bms_path">楽曲パス</string>
     <string name="add">+ 追加</string>
     <string name="tap_to_remove">タップして削除</string>
     <string name="section_play_options">プレイオプション</string>
     <string name="show_audio_spectrum">オーディオスペクトラムを表示</string>
     <string name="bga_display">BGA ディスプレイ設定</string>
     <string name="green_number">緑数字</string>
+    <string name="green_number_help_title">緑数字</string>
+    <string name="green_number_help">緑数字はノーツの降下速度を調整します。数字が小さいほど早く降下します。</string>
     <string name="enable_lanecover">LANECOVERを有効にする</string>
     <string name="enable_lift">LIFTを有効にする</string>
     <string name="floating_menu_position">フロートメニューの位置</string>
     <string name="target_score">ターゲットスコア</string>
     <string name="gauge_type">ゲージタイプ</string>
     <string name="note_timing_offset">判定タイミング調整</string>
+    <string name="note_timing_offset_help_title">判定タイミング調整</string>
+    <string name="note_timing_offset_help">判定ラインのオフセットを調整します。FASTが多い場合は+方向に、SLOWが多い場合は-方向に調整してください。</string>
     <string name="auto_timing_adjust">自動タイミング調整</string>
 
     <string-array name="gauge_type_options">
@@ -39,6 +43,9 @@
         <item>EX-HARD</item>
         <item>HAZARD</item>
     </string-array>
+    <string name="section_input_options">入力設定</string>
+    <string name="input_options_help_title">入力設定</string>
+    <string name="input_options_help">注意：これらの設定は物理コントローラーやキーボード専用であり、タッチパネル操作には適用されません。タッチで遊ぶ場合は無視して構いません。</string>
     <string name="section_tables">難易度表</string>
     <string name="update_all">すべて更新</string>
     <string name="start_game">スタート</string>
@@ -118,8 +125,8 @@
     <string name="player_help_title">プレイヤー選択</string>
     <string name="player_help">「新規プレイヤー」をクリックして新しいプレイヤーを作成できます。プレイヤーが1人だけの場合は削除できません。\n\nスコアのエクスポートとインポートは両方ともzip圧縮パッケージを使用しています（これはplayerディレクトリにscore.db以外のファイルも存在するためです）。スコアをバックアップしたい場合は、エクスポート機能を使用して、保存したいフォルダに置くことができます。スコアを再度インポートする必要がある場合は、「Score.zip をインポート」をクリックするだけです。</string>
 
-    <string name="bms_path_help_title">BMSパス</string>
-    <string name="bms_path_help">アプリにはデフォルトのBMSパスが作成されています（download/beatoraja/songs にあり、削除できません）。追加ボタンをクリックして新しいBMSパスを追加できます。\n\nアプリ自体はディレクトリにzipファイルを配置することをサポートしています。曲ディレクトリを更新するとき、zipが検出されると解凍されますが、直接フォルダを配置することをお勧めします（アプリの組み込みのzip解凍性能は比較的悪いです）。\n\n必要なディレクトリ構造は次のとおりです：\n\nzipの場合: inochi_ogg.zip → 解凍 → inochi_ogg フォルダが得られる → inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nフォルダの場合: inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+    <string name="bms_path_help_title">楽曲パス</string>
+    <string name="bms_path_help">アプリにはデフォルトの楽曲パスが作成されています（download/beatoraja/songs にあり、削除できません）。追加ボタンをクリックして新しい楽曲パスを追加できます。\n\nアプリ自体はディレクトリにzipファイルを配置することをサポートしています。曲ディレクトリを更新するとき、zipが検出されると解凍されますが、直接フォルダを配置することをお勧めします（アプリの組み込みのzip解凍性能は比較的悪いです）。\n\n必要なディレクトリ構造は次のとおりです：\n\nzipの場合: inochi_ogg.zip → 解凍 → inochi_ogg フォルダが得られる → inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nフォルダの場合: inochi_oggフォルダを開く → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
 
     <string name="audio_spectrum_help_title">オーディオスペクトラム</string>
     <string name="audio_spectrum_help">オーディオスペクトラム、音楽に合わせて跳动、とてもクールです！移植を担当したStar*は子供の頃からオーディオスペクトラムを見ながら音楽を聴くのが好きでした。そう言う意味では、これが移植者自身が音楽制作や音楽ゲームに興味を持った重要な理由とも言えます。嫌いであればオフにしてください。</string>

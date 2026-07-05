@@ -663,16 +663,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="16dp"
+            android:gravity="center_vertical">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/green_number"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/green_number"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center_vertical"/>
+
+                <TextView
+                    android:id="@+id/greenNumberHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <EditText
                 android:id="@+id/greenNumberInput"
@@ -737,16 +754,33 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="24dp"
+            android:gravity="center_vertical">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/note_timing_offset"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:gravity="center_vertical"/>
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/note_timing_offset"
+                    android:textColor="#FFFFFF"
+                    android:textSize="16sp"
+                    android:gravity="center_vertical"/>
+
+                <TextView
+                    android:id="@+id/noteTimingOffsetHelp"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" ? "
+                    android:textColor="#4FC3F7"
+                    android:textSize="18sp"
+                    android:paddingStart="8dp"/>
+            </LinearLayout>
 
             <EditText
                 android:id="@+id/noteTimingOffsetInput"
@@ -913,6 +947,15 @@
                 android:textColor="#4FC3F7"/>
 
             <TextView
+                android:id="@+id/inputOptionsHelp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=" ? "
+                android:textColor="#4FC3F7"
+                android:textSize="18sp"
+                android:paddingEnd="16dp"/>
+
+            <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/expand"
@@ -957,15 +1000,6 @@
                         android:textColor="#FFFFFF"
                         android:textSize="16sp"
                         android:gravity="center_vertical"/>
-
-                    <TextView
-                        android:id="@+id/inputDurationHelp"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=" ? "
-                        android:textColor="#4FC3F7"
-                        android:textSize="18sp"
-                        android:paddingStart="8dp"/>
                 </LinearLayout>
 
                 <EditText

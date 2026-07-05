@@ -16,23 +16,25 @@
     <string name="delete">삭제</string>
     <string name="export">내보내기</string>
     <string name="import_score_db">Score.zip 가져오기</string>
-    <string name="section_bms_path">BMS 경로</string>
+    <string name="section_bms_path">곡 경로</string>
     <string name="add">+ 추가</string>
     <string name="tap_to_remove">탭하여 제거</string>
     <string name="section_play_options">플레이 옵션</string>
     <string name="show_audio_spectrum">오디오 스펙트럼 표시</string>
     <string name="bga_display">BGA 표시</string>
     <string name="green_number">그린 넘버</string>
+    <string name="green_number_help_title">그린 넘버</string>
+    <string name="green_number_help">그린 넘버는 노트의 낙하 속도를 조절합니다. 숫자가 작을수록 더 빠르게 낙하합니다.</string>
     <string name="enable_lanecover">레인커버 사용</string>
     <string name="enable_lift">리프트 사용</string>
     <string name="floating_menu_position">플로팅 메뉴 위치</string>
     <string name="target_score">타겟 스코어</string>
     <string name="gauge_type">게이지 타입</string>
     <string name="note_timing_offset">판정 타이밍 오프셋</string>
+    <string name="note_timing_offset_help_title">판정 타이밍 오프셋</string>
+    <string name="note_timing_offset_help">판정선 오프셋을 조정합니다. FAST가 많이 발생하면 + 방향으로, SLOW가 많이 발생하면 - 방향으로 조정하십시오.</string>
     <string name="auto_timing_adjust">자동 타이밍 조정</string>
     <string name="minimum_input_duration">최소 입력 지속 시간</string>
-    <string name="input_duration_help_title">최소 입력 지속 시간</string>
-    <string name="input_duration_help">입력 디바운스 시간(ms)입니다. 고품질 컨트롤러를 사용하거나 낮은 지연 시간을 원하는 경우 1–5ms로 설정하십시오. 기본값은 16ms입니다.</string>
 
     <string-array name="note_modifier_options">
         <item>OFF</item>
@@ -56,6 +58,8 @@
         <item>HAZARD</item>
     </string-array>
     <string name="section_input_options">입력 옵션</string>
+    <string name="input_options_help_title">입력 옵션</string>
+    <string name="input_options_help">참고: 이 설정은 물리 컨트롤러나 키보드 전용이며 터치스크린 플레이에는 적용되지 않습니다. 터치로 플레이하는 경우 무시하셔도 됩니다.</string>
     <string name="jkoc_hack">JKOC 핵</string>
     <string name="analog_scratch">아날로그 스크래치</string>
     <string name="analog_scratch_threshold">아날로그 스크래치 임계값</string>
@@ -161,8 +165,8 @@
     <string name="player_help_title">플레이어 선택</string>
     <string name="player_help">\"새 플레이어\"를 클릭하여 새 플레이어를 생성할 수 있습니다. 플레이어가 하나만 있을 때는 플레이어를 삭제할 수 없습니다.\n\n점수 내보내기 및 가져오기는 모두 zip 압축 패키지를 사용합니다(플레이어 디렉토리에 score.db 외에 다른 파일도 포함되어 있기 때문입니다). 점수를 백업하려면 내보내기 기능을 사용하여 원하는 폴더에 저장하십시오. 점수를 다시 가져와야 할 때는 \"Score.zip 가져오기\"를 클릭하여 가져오십시오.</string>
 
-    <string name="bms_path_help_title">BMS 경로</string>
-    <string name="bms_path_help">앱에는 기본 BMS 경로가 생성되어 있습니다(download/beatoraja/songs에 위치하며 삭제할 수 없습니다). 추가 버튼을 클릭하여 새 BMS 경로를 추가할 수 있습니다.\n\n앱은 디렉토리에 zip 파일을 배치하는 것을 지원합니다. 노래 디렉토리를 업데이트할 때 zip이 감지되면 압축을 풉니다. 그러나 폴더를 직접 배치하는 것이 좋습니다(앱의 내장 zip 압축 해제 성능이 상대적으로 떨어집니다).\n\n필요한 디렉토리 구조는 다음과 같습니다:\n\nzip인 경우: inochi_ogg.zip → 압축 해제 → inochi_ogg 폴더 생성 → inochi_ogg 폴더 열기 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n폴더인 경우: inochi_ogg 폴더 열기 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+    <string name="bms_path_help_title">곡 경로</string>
+    <string name="bms_path_help">앱에는 기본 곡 경로가 생성되어 있습니다(download/beatoraja/songs에 위치하며 삭제할 수 없습니다). 추가 버튼을 클릭하여 새 곡 경로를 추가할 수 있습니다.\n\n앱은 디렉토리에 zip 파일을 배치하는 것을 지원합니다. 노래 디렉토리를 업데이트할 때 zip이 감지되면 압축을 풉니다. 그러나 폴더를 직접 배치하는 것이 좋습니다(앱의 내장 zip 압축 해제 성능이 상대적으로 떨어집니다).\n\n필요한 디렉토리 구조는 다음과 같습니다:\n\nzip인 경우: inochi_ogg.zip → 압축 해제 → inochi_ogg 폴더 생성 → inochi_ogg 폴더 열기 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n폴더인 경우: inochi_ogg 폴더 열기 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
 
     <string name="audio_spectrum_help_title">오디오 스펙트럼</string>
     <string name="audio_spectrum_help">오디오 스펙트럼이 음악에 맞춰 뜁니다, 멋지네요! 이식자(Star*)는 어린 시절부터 음악을 들으면서 오디오 스펙트럼을 보는 것을 좋아했습니다. 이것이 이식자가 음악 제작과 음악 게임에 관심을 갖게 된 중요한 이유라고도 할 수 있습니다. 싫어하신다면 그냥 끄시면 됩니다.</string>
