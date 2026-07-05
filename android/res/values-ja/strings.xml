@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja 設定</string>
-    <string name="audio_powered_by">Android audio powered by Oboe</string>
     <string name="section_display">ディスプレイ</string>
     <string name="stretch_fullscreen">フルスクリーンに引き伸ばし</string>
     <string name="stretch_fullscreen_help_title">フルスクリーンに引き伸ばし</string>
@@ -23,11 +22,7 @@
     <string name="section_play_options">プレイオプション</string>
     <string name="show_audio_spectrum">オーディオスペクトラムを表示</string>
     <string name="bga_display">BGA ディスプレイ設定</string>
-    <string name="bga_expand">BGA 拡大</string>
-    <string name="gauge_auto_shift">Gauge Auto Shift</string>
-    <string name="auto_save_replay">Auto Save Replay</string>
     <string name="green_number">緑数字</string>
-    <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">LANECOVERを有効にする</string>
     <string name="enable_lift">LIFTを有効にする</string>
     <string name="floating_menu_position">フロートメニューの位置</string>
@@ -35,7 +30,6 @@
     <string name="gauge_type">ゲージタイプ</string>
     <string name="note_timing_offset">判定タイミング調整</string>
     <string name="auto_timing_adjust">自動タイミング調整</string>
-    <string name="ms">ms</string>
 
     <string-array name="gauge_type_options">
         <item>ASSIST EASY</item>
@@ -48,6 +42,13 @@
     <string name="section_tables">難易度表</string>
     <string name="update_all">すべて更新</string>
     <string name="start_game">スタート</string>
+
+    <string-array name="language_options">
+        <item>English</item>
+        <item>简体中文</item>
+        <item>日本語</item>
+        <item>한국어</item>
+    </string-array>
 
     <string-array name="bga_display_options">
         <item>On</item>
@@ -86,18 +87,8 @@
         <item>Min BPM</item>
     </string-array>
 
-    <string-array name="input_polling_rate_options">
-        <item>250</item>
-        <item>500</item>
-        <item>1000 (デフォルト)</item>
-        <item>2000</item>
-        <item>4000</item>
-    </string-array>
-
-    <string name="pollingrate">ポーリングレート (Hz)</string>
-    <string name="pollingrate_help">ポーリングレート：デフォルトは1000Hz（1msごとに更新を報告します）。</string>
-
     <string name="msg_update_failed">難易度表の更新に失敗しました: %1$s</string>
+
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>
     <string name="msg_invalid_url">有効な URL を入力してください</string>

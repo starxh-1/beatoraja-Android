@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja 设置</string>
-    <string name="audio_powered_by">Android audio powered by Oboe</string>
     <string name="section_display">显示</string>
     <string name="stretch_fullscreen">拉伸至全屏</string>
     <string name="stretch_fullscreen_help_title">拉伸至全屏</string>
@@ -23,11 +22,9 @@
     <string name="section_play_options">游玩选项</string>
     <string name="show_audio_spectrum">显示音频频谱</string>
     <string name="bga_display">BGA Display</string>
-    <string name="bga_expand">BGA 扩大</string>
     <string name="gauge_auto_shift">Gauge Auto Shift</string>
     <string name="auto_save_replay">Auto Save Replay</string>
     <string name="green_number">绿数字</string>
-    <string name="hispeed_fix">HI-SPEED Fix</string>
     <string name="enable_lanecover">启用挡板 (LANECOVER)</string>
     <string name="enable_lift">启用抬高 (LIFT)</string>
     <string name="floating_menu_position">悬浮菜单位置</string>
@@ -38,7 +35,6 @@
     <string name="minimum_input_duration">最小输入持续时间</string>
     <string name="input_duration_help_title">最小输入持续时间</string>
     <string name="input_duration_help">输入消抖时间 (ms)。对于高质量手台或追求极低延迟，可设为 1-5ms。默认值为 16ms。</string>
-    <string name="ms">ms</string>
 
     <string-array name="gauge_type_options">
         <item>ASSIST EASY</item>
@@ -71,6 +67,13 @@
     <string name="section_tables">难易度表</string>
     <string name="update_all">全部更新</string>
     <string name="start_game">开始游戏</string>
+
+    <string-array name="language_options">
+        <item>English</item>
+        <item>简体中文</item>
+        <item>日本語</item>
+        <item>한국어</item>
+    </string-array>
 
     <string-array name="floating_menu_position_options">
         <item>顶部居中</item>
@@ -116,18 +119,8 @@
         <item>Min BPM</item>
     </string-array>
 
-    <string-array name="input_polling_rate_options">
-        <item>250</item>
-        <item>500</item>
-        <item>1000 (默认)</item>
-        <item>2000</item>
-        <item>4000</item>
-    </string-array>
-
-    <string name="pollingrate">轮询频率 (Hz)</string>
-    <string name="pollingrate_help">轮询频率：默认以1000Hz为频率</string>
-
     <string name="dialog_new_player">新建玩家</string>
+
     <string name="hint_player_name">玩家名称</string>
     <string name="btn_create">创建</string>
     <string name="btn_cancel">取消</string>

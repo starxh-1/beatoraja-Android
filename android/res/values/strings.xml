@@ -2,7 +2,6 @@
 <resources>
     <string name="app_name">beatoraja-Android</string>
     <string name="settings_title">beatoraja Settings</string>
-    <string name="audio_powered_by">Android audio powered by Oboe</string>
     <string name="section_display">Display</string>
     <string name="stretch_fullscreen">Stretch to Fullscreen</string>
     <string name="stretch_fullscreen_help_title">Stretch to Fullscreen</string>
@@ -23,11 +22,11 @@
     <string name="section_play_options">Play Options</string>
     <string name="show_audio_spectrum">Show Audio Spectrum</string>
     <string name="bga_display">BGA Display</string>
-    <string name="bga_expand">BGA Expand</string>
-    <string name="gauge_auto_shift">Gauge Auto Shift</string>
-    <string name="auto_save_replay">Auto Save Replay</string>
+    <string name="bga_expand" translatable="false">BGA Expand</string>
+    <string name="gauge_auto_shift" translatable="false">Gauge Auto Shift</string>
+    <string name="auto_save_replay" translatable="false">Auto Save Replay</string>
     <string name="green_number">Green Number</string>
-    <string name="hispeed_fix">HI-SPEED Fix</string>
+    <string name="hispeed_fix" translatable="false">HI-SPEED Fix</string>
     <string name="enable_lanecover">ENABLE LANECOVER</string>
     <string name="enable_lift">ENABLE LIFT</string>
     <string name="floating_menu_position">Floating Menu Position</string>
@@ -39,7 +38,7 @@
     <string name="input_duration_help_title">Minimum input duration</string>
     <string name="input_duration_help">Input debounce time (ms). For high-quality controllers or when pursuing lower latency, set this to 1-5ms. Default is 16ms.</string>
     <string name="note_modifier" translatable="false">Note Modifier</string>
-    <string name="ms">ms</string>
+    <string name="ms" translatable="false">ms</string>
 
     <string-array name="note_modifier_options">
         <item>OFF</item>
@@ -90,6 +89,7 @@
         <item>English</item>
         <item>简体中文</item>
         <item>日本語</item>
+        <item>한국어</item>
     </string-array>
 
     <string-array name="floating_menu_position_options">
@@ -136,18 +136,8 @@
         <item>Min BPM</item>
     </string-array>
 
-    <string-array name="input_polling_rate_options">
-        <item>250</item>
-        <item>500</item>
-        <item>1000 (default)</item>
-        <item>2000</item>
-        <item>4000</item>
-    </string-array>
-
-    <string name="pollingrate">Pollingrate (Hz)</string>
-    <string name="pollingrate_help">Polling Rate: The default frequency is 1000Hz (reporting updates every 1ms).</string>
-
     <string name="dialog_new_player">New Player</string>
+
     <string name="hint_player_name">Player name</string>
     <string name="btn_create">Create</string>
     <string name="btn_cancel">Cancel</string>
