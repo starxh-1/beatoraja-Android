@@ -32,7 +32,7 @@
     <string name="gauge_type">血条类型</string>
     <string name="note_timing_offset">判定线延迟调整</string>
     <string name="note_timing_offset_help_title">判定线延迟调整</string>
-    <string name="note_timing_offset_help">调整判定线偏移。当FAST偏多时，请往+调整，SLOW偏多时，则往-调整。</string>
+    <string name="note_timing_offset_help">调整判定线偏移。当FAST偏多时，请往-调整，SLOW偏多时，则往+调整。</string>
     <string name="auto_timing_adjust">自动延迟调整</string>
     <string name="minimum_input_duration">最小输入持续时间</string>
 

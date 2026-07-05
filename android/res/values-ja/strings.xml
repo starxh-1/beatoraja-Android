@@ -32,7 +32,7 @@
     <string name="gauge_type">ゲージタイプ</string>
     <string name="note_timing_offset">判定タイミング調整</string>
     <string name="note_timing_offset_help_title">判定タイミング調整</string>
-    <string name="note_timing_offset_help">判定ラインのオフセットを調整します。FASTが多い場合は+方向に、SLOWが多い場合は-方向に調整してください。</string>
+    <string name="note_timing_offset_help">判定ラインのオフセットを調整します。FASTが多い場合は-方向に、SLOWが多い場合は+方向に調整してください。</string>
     <string name="auto_timing_adjust">自動タイミング調整</string>
 
     <string-array name="gauge_type_options">

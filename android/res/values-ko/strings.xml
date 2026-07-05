@@ -32,7 +32,7 @@
     <string name="gauge_type">게이지 타입</string>
     <string name="note_timing_offset">판정 타이밍 오프셋</string>
     <string name="note_timing_offset_help_title">판정 타이밍 오프셋</string>
-    <string name="note_timing_offset_help">판정선 오프셋을 조정합니다. FAST가 많이 발생하면 + 방향으로, SLOW가 많이 발생하면 - 방향으로 조정하십시오.</string>
+    <string name="note_timing_offset_help">판정선 오프셋을 조정합니다. FAST가 많이 발생하면 - 방향으로, SLOW가 많이 발생하면 + 방향으로 조정하십시오.</string>
     <string name="auto_timing_adjust">자동 타이밍 조정</string>
     <string name="minimum_input_duration">최소 입력 지속 시간</string>
 
