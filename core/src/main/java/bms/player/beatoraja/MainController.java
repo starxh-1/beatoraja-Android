@@ -120,14 +120,10 @@ public class MainController {
     private boolean glThreadPrioritySet = false;
     /** 缓存平台类型，避免每帧调用 Gdx.app.getType() */
     private final boolean isAndroid = com.badlogic.gdx.Gdx.app != null ? com.badlogic.gdx.Gdx.app.getType() == Application.ApplicationType.Android : false;
-    /** 缓存32位ARM设备标记，避免每帧重复检测 */
-    private final boolean is32BitARM = "true".equals(System.getProperty("beatoraja.32bit"));
 
     private final Array<MainStateListener> stateListener = new Array<MainStateListener>();
 
     private int detectedRefreshRate = 120; // 记录检测到的原始刷新率
-    /** 当前实际目标帧率（会被 changeState 等处修改） */
-    private int currentTargetFPS = 120;
 
     public MainController(File f, Config config, PlayerConfig player, BMSPlayerMode auto, boolean songUpdated) {
         Config.updateConfigPath();
@@ -189,32 +185,26 @@ public class MainController {
 
         // Android 平台：根据屏幕刷新率设置帧率上限
         if (isAndroid) {
-            // 强制关闭无限帧率模式，确保绝对时间对齐帧率控制始终生效
-            config.setAndroidUnlimitedFPS(false);
+            // 已注释
+            // config.setAndroidUnlimitedFPS(false);
 
-            // 改进：遍历所有显示模式，找到硬件支持的最高刷新率，而不是当前刷新率
-            // 防止启动瞬间系统限制在 90Hz 导致检测值偏低
-            int maxRR = 60;
-            try {
-                Class<?> launcher = Class.forName("com.starxh.beatoraja.android.AndroidLauncher");
-                java.lang.reflect.Field maxRefreshRateField = launcher.getField("maxRefreshRate");
-                maxRR = (int) maxRefreshRateField.getFloat(null);
-            } catch (Exception e) {
-                maxRR = 120;
+            // 遍历所有显示模式，找到硬件支持的最高刷新率
+            int maxRR = Gdx.graphics.getDisplayMode().refreshRate;
+            for (com.badlogic.gdx.Graphics.DisplayMode mode : Gdx.graphics.getDisplayModes()) {
+                if (mode.refreshRate > maxRR) maxRR = mode.refreshRate;
             }
             this.detectedRefreshRate = maxRR;
             Gdx.app.log("beatoraja", "Hardware max refresh rate detected: " + detectedRefreshRate + "Hz");
 
-            int targetFPS = detectedRefreshRate;
-            Gdx.app.log("beatoraja", "Set max FPS to hardware max: " + targetFPS);
-
-            // 内部限帧设定为与物理刷新率一致
-            config.setMaxFramePerSecond(targetFPS);
+            // 重构：Android 默认不再执行内部限帧（设为 1000），由系统 VSync 处理。
+            // 这样可以最大程度利用高刷新率屏幕的流畅度。
+            config.setMaxFramePerSecond(1000);
+            Gdx.app.log("beatoraja", "Android: disable internal frame limiter (1000fps), handing over to VSync");
 
             // ─── 积极请求高刷新率 (Android 11+ Frame Rate API) ───
-            // 许多 Android 手机（如小米、一加）在没有触摸或进入视频播放时会自动降频到 90Hz/60Hz。
-            // 告知系统我们需要最高流畅度。
-            updateFrameRateAPI(targetFPS);
+            // 即使应用不限帧，系统也可能因无触摸而降低物理刷新率。
+            // 必须告知系统我们需要硬件支持的最高刷新率。
+            updateFrameRateAPI(detectedRefreshRate);
         }
     }
 
@@ -335,23 +325,11 @@ public class MainController {
 
         // 在切换状态时，再次积极请求高刷新率
         if (isAndroid) {
-            if (is32BitARM && state == MainStateType.MUSICSELECT) {
-                // 32位设备：MusicSelector界面限制为30FPS（降低GPU负载）
-                currentTargetFPS = 30;
-                config.setMaxFramePerSecond(30);
-            } else if (state == MainStateType.MUSICSELECT) {
-                // 64位设备：MusicSelector界面不限帧
-                currentTargetFPS = 1000;
-                config.setMaxFramePerSecond(1000);
-            } else {
-                // 其他界面：恢复检测到的硬件原始刷新率
-                currentTargetFPS = detectedRefreshRate;
-                config.setMaxFramePerSecond(detectedRefreshRate);
-            }
-            // 仅在目标帧率为合理值（< 1000）时调用 setFrameRate
-            if (currentTargetFPS < 1000) {
-                updateFrameRateAPI(currentTargetFPS);
-            }
+            // 统一设为 1000fps 以禁用内部限帧，完全依赖 VSync
+            config.setMaxFramePerSecond(1000);
+
+            // 依然积极请求物理最高刷新率，防止系统在界面切换时降频
+            updateFrameRateAPI(detectedRefreshRate);
         }
 
         MainState newState = null;
@@ -686,7 +664,7 @@ public class MainController {
     /**
      * 绝对帧时间基准（纳秒）。用于精确帧率控制：
      * 每帧等待至此时间点，然后将其增加一个帧周期，
-     * 从而避免逐帧累积误差导致的帧率漂移（例如 120fps 实际跑到 123fps）。
+     * 从而避免逐帧累积误差导致的帧率漂移。
      */
     private long nextFrameTimeNanos = 0;
 
@@ -1143,10 +1121,7 @@ public class MainController {
             Gdx.app.log("MainController", "resume(): rebuilding font textures after GL context restore");
 
             // 恢复时重新请求高刷新率
-            int maxFPS = config.getMaxFramePerSecond();
-            if (maxFPS < 1000) {
-                updateFrameRateAPI(maxFPS);
-            }
+            updateFrameRateAPI(detectedRefreshRate);
 
             // 步骤1：清除所有 SkinTextFont 的 generator 缓存
             bms.player.beatoraja.skin.SkinTextFont.invalidateGeneratorCache();
