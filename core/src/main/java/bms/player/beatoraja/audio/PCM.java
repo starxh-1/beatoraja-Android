@@ -3,6 +3,7 @@ package bms.player.beatoraja.audio;
 import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
 import com.badlogic.gdx.Gdx;
@@ -107,37 +108,37 @@ public abstract class PCM<T> {
             if (buf[0] != 'R' || buf[1] != 'I' || buf[2] != 'F' || buf[3] != 'F' ||
                 buf[8] != 'W' || buf[9] != 'A' || buf[10] != 'V' || buf[11] != 'E') return 0;
 
-            int channels = 0;
-            int sampleRate = 0;
-            int bitsPerSample = 0;
+            long avgBytesPerSec = 0;
             long dataSize = 0;
 
             while (raf.getFilePointer() < raf.length() - 8) {
-                String chunkId = "" + (char)raf.read() + (char)raf.read() + (char)raf.read() + (char)raf.read();
+                byte[] idBuf = new byte[4];
+                raf.readFully(idBuf);
+                String chunkId = new String(idBuf, StandardCharsets.US_ASCII);
                 long chunkSize = Integer.reverseBytes(raf.readInt()) & 0xFFFFFFFFL;
 
                 if (chunkId.equals("fmt ")) {
                     raf.readShort(); // format tag
-                    channels = Short.reverseBytes(raf.readShort()) & 0xFFFF;
-                    sampleRate = Integer.reverseBytes(raf.readInt());
-                    raf.readInt(); // avgBytesPerSec
+                    raf.readShort(); // channels
+                    raf.readInt();   // sampleRate
+                    avgBytesPerSec = Integer.reverseBytes(raf.readInt()) & 0xFFFFFFFFL;
                     raf.readShort(); // blockAlign
-                    bitsPerSample = Short.reverseBytes(raf.readShort()) & 0xFFFF;
+                    raf.readShort(); // bitsPerSample
                     if (chunkSize > 16) raf.seek(raf.getFilePointer() + (chunkSize - 16));
                 } else if (chunkId.equals("data")) {
                     dataSize = chunkSize;
                     long remaining = raf.length() - raf.getFilePointer();
                     if (dataSize <= 0 || dataSize > remaining) dataSize = remaining;
-                    break;
+                    if (avgBytesPerSec > 0) break;
+                    raf.seek(raf.getFilePointer() + dataSize);
                 } else {
                     raf.seek(raf.getFilePointer() + chunkSize);
                 }
                 if (chunkSize % 2 != 0) raf.seek(raf.getFilePointer() + 1);
             }
 
-            if (sampleRate <= 0 || bitsPerSample <= 0 || channels <= 0 || dataSize <= 0) return 0;
-            long totalSamples = dataSize / (bitsPerSample / 8) / channels;
-            return (int) (totalSamples * 1000L / sampleRate);
+            if (avgBytesPerSec <= 0 || dataSize <= 0) return 0;
+            return (int) (dataSize * 1000L / avgBytesPerSec);
         } catch (Exception e) {
             return 0;
         }
