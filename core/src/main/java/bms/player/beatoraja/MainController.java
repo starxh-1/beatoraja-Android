@@ -185,25 +185,28 @@ public class MainController {
 
         // Android 平台：根据屏幕刷新率设置帧率上限
         if (isAndroid) {
-            // 已注释
-            // config.setAndroidUnlimitedFPS(false);
-
-            // 遍历所有显示模式，找到硬件支持的最高刷新率
-            int maxRR = Gdx.graphics.getDisplayMode().refreshRate;
-            for (com.badlogic.gdx.Graphics.DisplayMode mode : Gdx.graphics.getDisplayModes()) {
-                if (mode.refreshRate > maxRR) maxRR = mode.refreshRate;
+            // 优先尝试从 AndroidLauncher 反射获取由 WindowManager 检测到的准确物理刷新率。
+            // libGDX 的 getDisplayModes() 在应用启动初期可能无法获取完整的硬件模式列表。
+            float launcherRR = 60f;
+            try {
+                Class<?> launcherClass = Class.forName("com.starxh.beatoraja.android.AndroidLauncher");
+                launcherRR = launcherClass.getField("maxRefreshRate").getFloat(null);
+            } catch (Exception e) {
+                int maxRR = Gdx.graphics.getDisplayMode().refreshRate;
+                for (com.badlogic.gdx.Graphics.DisplayMode mode : Gdx.graphics.getDisplayModes()) {
+                    if (mode.refreshRate > maxRR) maxRR = mode.refreshRate;
+                }
+                launcherRR = maxRR;
             }
-            this.detectedRefreshRate = maxRR;
+            this.detectedRefreshRate = Math.round(launcherRR);
             Gdx.app.log("beatoraja", "Hardware max refresh rate detected: " + detectedRefreshRate + "Hz");
 
-            // 重构：Android 默认不再执行内部限帧（设为 1000），由系统 VSync 处理。
-            // 这样可以最大程度利用高刷新率屏幕的流畅度。
-            config.setMaxFramePerSecond(1000);
-            Gdx.app.log("beatoraja", "Android: disable internal frame limiter (1000fps), handing over to VSync");
+            // 将内部帧率限制设为与物理刷新率一致。
+            // 这样既能跑满 120Hz，又能触发 render() 中的 Choreographer VSync 相位对齐逻辑。
+            config.setMaxFramePerSecond(detectedRefreshRate);
+            Gdx.app.log("beatoraja", "Android: enable VSync-aligned frame limiter at " + detectedRefreshRate + "fps");
 
             // ─── 积极请求高刷新率 (Android 11+ Frame Rate API) ───
-            // 即使应用不限帧，系统也可能因无触摸而降低物理刷新率。
-            // 必须告知系统我们需要硬件支持的最高刷新率。
             updateFrameRateAPI(detectedRefreshRate);
         }
     }
@@ -325,8 +328,8 @@ public class MainController {
 
         // 在切换状态时，再次积极请求高刷新率
         if (isAndroid) {
-            // 统一设为 1000fps 以禁用内部限帧，完全依赖 VSync
-            config.setMaxFramePerSecond(1000);
+            // 保持内部限帧与物理刷新率同步，维持 VSync 对齐稳定性。
+            config.setMaxFramePerSecond(detectedRefreshRate);
 
             // 依然积极请求物理最高刷新率，防止系统在界面切换时降频
             updateFrameRateAPI(detectedRefreshRate);
@@ -589,6 +592,18 @@ public class MainController {
         // 关键修复：循环条件改用 pollingRunning 标志，dispose() 中可正常退出。
         pollingRunning = true;
         inputPollingThread = new Thread(() -> {
+            // Android 线程优先级提升：
+            // 将输入轮询线程提升至 THREAD_PRIORITY_URGENT_DISPLAY (-8)，
+            // 确保其不受渲染负载影响，维持稳定的 1000Hz 采样。
+            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+                try {
+                    Class<?> processClass = Class.forName("android.os.Process");
+                    java.lang.reflect.Method setThreadPriority = processClass.getMethod("setThreadPriority", int.class);
+                    int THREAD_PRIORITY_URGENT_DISPLAY = -8;
+                    setThreadPriority.invoke(null, THREAD_PRIORITY_URGENT_DISPLAY);
+                } catch (Throwable ignore) {}
+            }
+
             long nextPollTime = System.nanoTime();
             final long pollIntervalNs = 1_000_000L; // 1000Hz
             while (pollingRunning) {

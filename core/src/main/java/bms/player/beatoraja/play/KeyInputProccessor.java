@@ -156,6 +156,21 @@ class KeyInputProccessor {
 
 		@Override
 		public void run() {
+			// Android 线程优先级提升：
+			// 将判定线程提升至 THREAD_PRIORITY_URGENT_DISPLAY (-8)，
+			// 确保其能抢占渲染线程，独立于 FPS 进行 1000Hz 逻辑步进。
+			if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+				try {
+					Class<?> processClass = Class.forName("android.os.Process");
+					java.lang.reflect.Method setThreadPriority = processClass.getMethod("setThreadPriority", int.class);
+					int THREAD_PRIORITY_URGENT_DISPLAY = -8;
+					setThreadPriority.invoke(null, THREAD_PRIORITY_URGENT_DISPLAY);
+					LockSupport.parkNanos(1000); // 触发一次调度
+				} catch (Throwable t) {
+					Logger.getGlobal().warning("Failed to set JudgeThread priority: " + t.getMessage());
+				}
+			}
+
 			int index = 0;
 
 			long frametime = 1;
