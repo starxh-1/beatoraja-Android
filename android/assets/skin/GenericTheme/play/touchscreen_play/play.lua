@@ -252,20 +252,20 @@ local function isScoregraph2P()
 end
 
 local filepath = {
-	{name = "Background", path = "customize/background/*.png", def = "gray"},
-	{name = "Failed", path = "customize/failed/*.png", def = "black"},
-	{name = "Notes", path = "customize/notes/*.png", def = "default"},
-	{name = "Mine", path = "customize/mine/*.png", def = "red"},
-	{name = "Glow", path = "customize/glow/*.png", def = "default"},
-	{name = "Judge", path = "customize/judge/*.png", def = "SquadaOne"},
-	{name = "Keybeam", path = "customize/keybeam/*.png", def = "default"},
-	{name = "Bomb", path = "customize/bomb/*.png", def = "explosion"},
-	{name = "LaneCover", path = "customize/lanecover/*.png", def = "default"},
-	{name = "HiddenCover", path = "customize/hiddencover/*.png", def = "default"},
-	{name = "LiftCover", path = "customize/liftcover/*.png", def = "default"},
-	{name = "Gauge", path = "customize/gauge/*.png", def = "dotgradation"},
-	{name = "LowerLaneArea Image", path = "customize/lowerlanearea/*.png"},
-	{name = "ScoreGraph Background", path = "customize/scoregraph/*.png", def = "default"},
+	{name = "Background", path = "../customize/background/*.png", def = "gray"},
+	{name = "Failed", path = "../customize/failed/*.png", def = "black"},
+	{name = "Notes", path = "../customize/notes/*.png", def = "default"},
+	{name = "Mine", path = "../customize/mine/*.png", def = "red"},
+	{name = "Glow", path = "../customize/glow/*.png", def = "default"},
+	{name = "Judge", path = "../customize/judge/*.png", def = "SquadaOne"},
+	{name = "Keybeam", path = "../customize/keybeam/*.png", def = "default"},
+	{name = "Bomb", path = "../customize/bomb/*.png", def = "explosion"},
+	{name = "LaneCover", path = "../customize/lanecover/*.png", def = "default"},
+	{name = "HiddenCover", path = "../customize/hiddencover/*.png", def = "default"},
+	{name = "LiftCover", path = "../customize/liftcover/*.png", def = "default"},
+	{name = "Gauge", path = "../customize/gauge/*.png", def = "dotgradation"},
+	{name = "LowerLaneArea Image", path = "../customize/lowerlanearea/*.png"},
+	{name = "ScoreGraph Background", path = "../customize/scoregraph/*.png", def = "default"},
 }
 
 local offset_source = {
@@ -732,49 +732,49 @@ local function main(keysNumber)
 	end
 
 	skin.source = {
-		{id = "src_background", path = "customize/background/*.png"},
-		{id = "src_failed", path = "customize/failed/*.png"},
-		{id = "src_notes", path = "customize/notes/*.png"},
-		{id = "src_notes_portrait", path = "customize/notes/*_portrait.png"},
-		{id = "src_mine", path = "customize/mine/*.png"},
-		{id = "src_gauge", path = "customize/gauge/*.png"},
-		{id = "src_glow", path = "customize/glow/*.png"},
-		{id = "src_glow_portrait", path = "customize/glow/*_portrait.png"},
-		{id = "src_judge", path = "customize/judge/*.png"},
-		{id = "src_keybeam", path = "customize/keybeam/*.png"},
-		{id = "src_keybeam_portrait", path = "customize/keybeam/*_portrait.png"},
-		{id = "src_bomb", path = "customize/bomb/*.png"},
-		{id = "src_lanecover", path = "customize/lanecover/*.png"},
-		{id = "src_lanecover_portrait", path = "customize/lanecover/*_portrait.png"},
-		{id = "src_hiddencover", path = "customize/hiddencover/*.png"},
-		{id = "src_liftcover", path = "customize/liftcover/*.png"},
-		{id = "src_lowerlanearea_customizedimage", path = "customize/lowerlanearea/*.png"},
-		{id = "src_scoregraph_background", path = "customize/scoregraph/*.png"},
+		{id = "src_background", path = "../customize/background/*.png"},
+		{id = "src_failed", path = "../customize/failed/*.png"},
+		{id = "src_notes", path = "../customize/notes/*.png"},
+		{id = "src_notes_portrait", path = "../customize/notes/*_portrait.png"},
+		{id = "src_mine", path = "../customize/mine/*.png"},
+		{id = "src_gauge", path = "../customize/gauge/*.png"},
+		{id = "src_glow", path = "../customize/glow/*.png"},
+		{id = "src_glow_portrait", path = "../customize/glow/*_portrait.png"},
+		{id = "src_judge", path = "../customize/judge/*.png"},
+		{id = "src_keybeam", path = "../customize/keybeam/*.png"},
+		{id = "src_keybeam_portrait", path = "../customize/keybeam/*_portrait.png"},
+		{id = "src_bomb", path = "../customize/bomb/*.png"},
+		{id = "src_lanecover", path = "../customize/lanecover/*.png"},
+		{id = "src_lanecover_portrait", path = "../customize/lanecover/*_portrait.png"},
+		{id = "src_hiddencover", path = "../customize/hiddencover/*.png"},
+		{id = "src_liftcover", path = "../customize/liftcover/*.png"},
+		{id = "src_lowerlanearea_customizedimage", path = "../customize/lowerlanearea/*.png"},
+		{id = "src_scoregraph_background", path = "../customize/scoregraph/*.png"},
 
-		{id = "src_number_newtown", path = "parts/number/newtown.png"},
-		{id = "src_number_kenney_future", path = "parts/number/kenney_future_custom.png"},
-		{id = "src_number_genshin_monospace_border", path = "parts/number/genshin_monospace_border.png"},
-		{id = "src_number_genshin_monospace_border_red", path = "parts/number/genshin_monospace_border_red.png"},
-		{id = "src_number_dot", path = "parts/number/dot.png"},
-		{id = "src_rank_random", path = "parts/rank_random.png"},
+		{id = "src_number_newtown", path = "../parts/number/newtown.png"},
+		{id = "src_number_kenney_future", path = "../parts/number/kenney_future_custom.png"},
+		{id = "src_number_genshin_monospace_border", path = "../parts/number/genshin_monospace_border.png"},
+		{id = "src_number_genshin_monospace_border_red", path = "../parts/number/genshin_monospace_border_red.png"},
+		{id = "src_number_dot", path = "../parts/number/dot.png"},
+		{id = "src_rank_random", path = "../parts/rank_random.png"},
 
 
-		{id = "src_fullcombo_glow", path = "parts/fullcombo/glow.png"},
-		{id = "src_fullcombo_circle", path = "parts/fullcombo/circle.png"},
-		{id = "src_fullcombo_ring", path = "parts/fullcombo/ring.png"},
-		{id = "src_fullcombo_text", path = "parts/fullcombo/text.png"},
+		{id = "src_fullcombo_glow", path = "../parts/fullcombo/glow.png"},
+		{id = "src_fullcombo_circle", path = "../parts/fullcombo/circle.png"},
+		{id = "src_fullcombo_ring", path = "../parts/fullcombo/ring.png"},
+		{id = "src_fullcombo_text", path = "../parts/fullcombo/text.png"},
 
-		{id = "src_judgeline", path = "parts/judgeline.png"},
-		{id = "src_progress", path = "parts/progress.png"},
-		{id = "src_difficulty", path = "parts/difficulty.png"},
-		{id = "src_white1dot", path = "parts/white1dot.png"},
-		{id = "src_stagetext", path = "parts/stagetext.png"},
-		{id = "src_othertexts", path = "parts/othertexts.png"},
-		{id = "src_scoregraph_text", path = "parts/scoregraph_text.png"},
-		{id = "src_scoregraph_info", path = "parts/scoregraph_info.png"},
-		{id = "src_fastslow", path = "parts/fast_slow.png"},
-		{id = "src_ready_finish", path = "parts/ready_finish.png"},
-		{id = "src_stagefile_default", path = "parts/stagefile_default.png"},
+		{id = "src_judgeline", path = "../parts/judgeline.png"},
+		{id = "src_progress", path = "../parts/progress.png"},
+		{id = "src_difficulty", path = "../parts/difficulty.png"},
+		{id = "src_white1dot", path = "../parts/white1dot.png"},
+		{id = "src_stagetext", path = "../parts/stagetext.png"},
+		{id = "src_othertexts", path = "../parts/othertexts.png"},
+		{id = "src_scoregraph_text", path = "../parts/scoregraph_text.png"},
+		{id = "src_scoregraph_info", path = "../parts/scoregraph_info.png"},
+		{id = "src_fastslow", path = "../parts/fast_slow.png"},
+		{id = "src_ready_finish", path = "../parts/ready_finish.png"},
+		{id = "src_stagefile_default", path = "../parts/stagefile_default.png"},
 	}
 
 	skin.font = {
@@ -1037,7 +1037,7 @@ local function main(keysNumber)
 		local between_space = 10
 		local judge_path = skin_config.file_path["Judge"]
 		if judge_path then
-			local path = string.match(skin_config.get_path("customize/judge/" .. judge_path), "(.+)%.png$")
+			local path = string.match(skin_config.get_path("../customize/judge/" .. judge_path), "(.+)%.png$")
 			if path then
 				local exist, setting = pcall(dofile, path .. ".lua")
 				if exist and setting then
@@ -2912,7 +2912,7 @@ local function main(keysNumber)
 		-- get bomb settings from <bomb_image_filename>.lua
 		local bomb_path = skin_config.file_path["Bomb"]
 		if bomb_path then
-			local path = string.match(skin_config.get_path("customize/bomb/" .. bomb_path), "(.+)%.png$")
+			local path = string.match(skin_config.get_path("../customize/bomb/" .. bomb_path), "(.+)%.png$")
 			if path then
 				local exist, setting = pcall(dofile, path .. ".lua")
 				if exist and setting then
