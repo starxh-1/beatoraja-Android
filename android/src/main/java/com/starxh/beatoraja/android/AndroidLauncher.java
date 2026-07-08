@@ -38,6 +38,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.HashSet;
+import java.util.Set;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.graphics.Rect;
@@ -538,8 +542,8 @@ public class AndroidLauncher extends AndroidApplication {
             return false;
         }
 
-        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
-            String prefixToStrip = findCommonZipPrefix(zip, skinName);
+        try (java.util.zip.ZipFile zip = openZipFile(zipFile)) {
+            String prefixToStrip = findCommonZipPrefix(zip);
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
@@ -608,9 +612,8 @@ public class AndroidLauncher extends AndroidApplication {
 
     private boolean extractSongZip(File zipFile, File destDir) {
         destDir.mkdirs();
-        String zipBaseName = zipFile.getName().replace(".zip", "");
-        try (java.util.zip.ZipFile zip = new java.util.zip.ZipFile(zipFile)) {
-            String prefixToStrip = findCommonZipPrefix(zip, zipBaseName);
+        try (java.util.zip.ZipFile zip = openZipFile(zipFile)) {
+            String prefixToStrip = findCommonZipPrefix(zip);
             java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 java.util.zip.ZipEntry entry = entries.nextElement();
@@ -640,35 +643,53 @@ public class AndroidLauncher extends AndroidApplication {
         }
     }
 
-    private String findCommonZipPrefix(java.util.zip.ZipFile zip, String zipBaseName) {
-        java.util.List<String> topLevelFolders = new java.util.ArrayList<>();
+    private java.util.zip.ZipFile openZipFile(File file) throws IOException {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            return new java.util.zip.ZipFile(file, getZipCharset());
+        } else {
+            return new java.util.zip.ZipFile(file);
+        }
+    }
+
+    private Charset getZipCharset() {
+        String language = Locale.getDefault().getLanguage();
+        try {
+            if ("ja".equals(language)) {
+                return Charset.forName("MS932");
+            } else if ("zh".equals(language)) {
+                return Charset.forName("GBK");
+            }
+        } catch (Exception ignored) {
+        }
+        return StandardCharsets.UTF_8;
+    }
+
+    private String findCommonZipPrefix(java.util.zip.ZipFile zip) {
+        Set<String> rootItems = new HashSet<>();
         java.util.Enumeration<? extends java.util.zip.ZipEntry> entries = zip.entries();
         while (entries.hasMoreElements()) {
             java.util.zip.ZipEntry entry = entries.nextElement();
             String name = entry.getName();
-            int slash = name.indexOf('/');
-            if (slash > 0) {
-                topLevelFolders.add(name.substring(0, slash + 1));
-            }
-        }
-        if (topLevelFolders.isEmpty()) return null;
+            if (name.isEmpty()) continue;
 
-        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
-        for (String folder : topLevelFolders) {
-            counts.put(folder, counts.getOrDefault(folder, 0) + 1);
-        }
-        String mostCommon = null;
-        int maxCount = 0;
-        for (java.util.Map.Entry<String, Integer> e : counts.entrySet()) {
-            if (e.getValue() > maxCount) {
-                maxCount = e.getValue();
-                mostCommon = e.getKey();
+            int slashIndex = name.indexOf('/');
+            if (slashIndex < 0) {
+                // File at root
+                rootItems.add(name);
+            } else {
+                // Folder at root
+                rootItems.add(name.substring(0, slashIndex + 1));
+            }
+
+            if (rootItems.size() > 1) {
+                return null;
             }
         }
-        if (mostCommon != null) {
-            String candidate = mostCommon.endsWith("/") ? mostCommon.substring(0, mostCommon.length() - 1) : mostCommon;
-            if (candidate.equalsIgnoreCase(zipBaseName)) {
-                return mostCommon;
+
+        if (rootItems.size() == 1) {
+            String item = rootItems.iterator().next();
+            if (item.endsWith("/")) {
+                return item;
             }
         }
         return null;
