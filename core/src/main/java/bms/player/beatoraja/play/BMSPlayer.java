@@ -223,10 +223,12 @@ public class BMSPlayer extends MainState {
 			Logger.getGlobal().info("譜面分岐 : " + Arrays.toString(playinfo.rand));
 		}
 		// 通常プレイの場合は最後のノーツ、オートプレイの場合はBG/BGAを含めた最後のノーツ
+		final int lastEventTime = model.getLastTime();
+		final int lastNoteTime = model.getLastNoteTime();
 		final int lastTimeMs = autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY
-				? model.getLastTime() : model.getLastNoteTime();
+				? lastEventTime : lastNoteTime;
 
-		// 计算音频尾部时长（检查所有notes的WAV时长）
+		// 计算音频尾部时长（统一以 lastNoteTime 为基准，避免模式切换导致 tail 计算偏移）
 		maxTailMs = resource.getSongdata().getTail();
 		if (maxTailMs < 0) {
 			maxTailMs = 0;
@@ -301,7 +303,7 @@ public class BMSPlayer extends MainState {
 					long fileSize = audioFile.length();
 					// 如果该音符最后出现时间 + 理论最大时长(fileSize/8) <= 当前已探测到的最晚结束时间
 					// 则此文件绝不可能贡献新的 maxTail，直接跳过。
-					if (lastTime + (fileSize / 8) <= lastTimeMs + maxTailMs) {
+					if (lastTime + (fileSize / 8) <= lastNoteTime + maxTailMs) {
 						continue;
 					}
 
@@ -310,8 +312,8 @@ public class BMSPlayer extends MainState {
 					checkCount++;
 					if (dur > 0) {
 						final int tailEnd = lastTime + dur;
-						if (tailEnd > lastTimeMs) {
-							maxTailMs = Math.max(maxTailMs, tailEnd - lastTimeMs);
+						if (tailEnd > lastNoteTime) {
+							maxTailMs = Math.max(maxTailMs, tailEnd - lastNoteTime);
 						}
 					}
 				}
@@ -325,8 +327,8 @@ public class BMSPlayer extends MainState {
 			Logger.getGlobal().info("Audio tail loaded from database: " + maxTailMs + " ms");
 		}
 		lastNoteEndTime = lastTimeMs;
-		// 恢复 5 秒缓冲确保音频尾部充分播放，防止提前结束
-		playtime = lastTimeMs + Math.max(1000, maxTailMs);
+		// 确保播放时长同时覆盖音频尾部和所有 BGA/BGM 事件
+		playtime = Math.max(lastEventTime + 1000, lastNoteTime + maxTailMs);
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {

@@ -499,7 +499,7 @@ public class BGAProcessor {
 				// 确保在绘制 LAYER 前启用 Alpha Blending
 				int layerBlend = sprite.getBlend();
 				if (layerBlend == 0) {
-					sprite.setBlend(2);
+					sprite.setBlend(0);
 				}
 
 				if (movies[playinglayerid] != null) {
@@ -634,7 +634,14 @@ public class BGAProcessor {
 			final Texture playinglayertex = getBGAData(time - layer_start_time, playinglayerid, rlayer);
 			if (playinglayertex != null) {
 				rlayer = true;
-				drawBGAFixRatioToRect(batch, tmpRect, playinglayertex, targetStretch);
+				// 如果是图片图层，使用 layer shader 处理黑色透明
+				if (movies[playinglayerid] == null) {
+					batch.setShader(bms.player.beatoraja.ShaderManager.getShader("layer"));
+					drawBGAFixRatioToRect(batch, tmpRect, playinglayertex, targetStretch);
+					batch.setShader(null);
+				} else {
+					drawBGAFixRatioToRect(batch, tmpRect, playinglayertex, targetStretch);
+				}
 			}
 		}
 		batch.end();
