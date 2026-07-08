@@ -1190,9 +1190,9 @@ local function main(keysNumber)
 				merge_all({x = x - thickness_w, y = y, w = thickness_w, h = h, a = a}, color)
 			}},
 			-- right
-			{id = -111, dst = {
+			(keysNumber ~= 5 or x ~= geo.lane.visual_x) and {id = -111, dst = {
 				merge_all({x = x + w, y = y, w = thickness_w, h = h, a = a}, color)
-			}},
+			}} or nil,
 		}
 	end
 
