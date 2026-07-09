@@ -471,8 +471,8 @@ public class LaneRenderer {
 		// Draw BGA background for transparent lane effect (GenericTheme Touchscreen only)
 		// This allows the BGA to show through the lane area when lane_darkness_a is set
 		boolean isTouchscreenSkin = main.getSkin() != null && main.getSkin().header != null &&
-			main.getSkin().header.getPath() != null &&
-			main.getSkin().header.getPath().toString().contains("Touchscreen");
+			((main.getSkin().header.getPath() != null && main.getSkin().header.getPath().toString().toLowerCase().contains("touchscreen")) ||
+			 (main.getSkin().header.getName() != null && main.getSkin().header.getName().toLowerCase().contains("touchscreen")));
         boolean actuallyPortrait = isPortrait;
         if (isTouchscreenSkin && lanes != null && lanes.length > 0 && skin != null) {
 			int skinW = (int)main.getSkin().getWidth();
