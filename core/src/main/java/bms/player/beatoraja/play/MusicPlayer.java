@@ -160,14 +160,14 @@ public class MusicPlayer extends MainState {
 		}
 		this.font.setColor(Color.WHITE);
 
-		// 总时长:仿 BMSPlayer 公式 model.getLastTime() + max(5000, songdata.getTail())
-		// model.getLastTime() 已是毫秒,等价于 autoplay 模式的 lastTimeMs
-		final int lastTimeMs = currentModel.getLastTime();
+		// 总时长:对齐 BMSPlayer 公式 Math.max(lastEventTime + 1000, lastNoteTime + tail)
+		final int lastEventTime = currentModel.getLastTime();
+		final int lastNoteTime = currentModel.getLastNoteTime();
 		int tail = currentSong.getTail();
 		if (tail <= 0) {
 			tail = 5000;
 		}
-		this.totalDurationMs = lastTimeMs + tail;
+		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
 
 		// 启动 BG 自动播放线程
 		this.playStartTimeMs = System.currentTimeMillis();
@@ -575,12 +575,13 @@ public class MusicPlayer extends MainState {
 
 		loadStagefile();
 
-		final int lastTimeMs = currentModel.getLastTime();
+		final int lastEventTime = currentModel.getLastTime();
+		final int lastNoteTime = currentModel.getLastNoteTime();
 		int tail = currentSong.getTail();
 		if (tail <= 0) {
 			tail = 5000;
 		}
-		this.totalDurationMs = lastTimeMs + tail;
+		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
 
 		this.playStartTimeMs = System.currentTimeMillis();
 		this.bgThread = new BGAutoplayThread(currentModel, main, playStartTimeMs);
@@ -940,10 +941,12 @@ public class MusicPlayer extends MainState {
 			main.getAudioProcessor().setModel(currentModel);
 			resource.setPlayMode(BMSPlayerMode.AUTOPLAY);
 
-			// 8. 计算新时长
+			// 8. 计算新时长:对齐 BMSPlayer 公式 Math.max(lastEventTime + 1000, lastNoteTime + tail)
+			final int lastEventTime = currentModel.getLastTime();
+			final int lastNoteTime = currentModel.getLastNoteTime();
 			int tail = currentSong.getTail();
 			if (tail <= 0) tail = 5000;
-			this.totalDurationMs = currentModel.getLastTime() + tail;
+			this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
 
 			// 9. 启动新线程
 			this.playStartTimeMs = System.currentTimeMillis();
