@@ -421,8 +421,6 @@ public final class MusicSelector extends MainState {
 		if (search != null) {
 			search.unfocus(this);
 		}
-		banners.disposeOld();
-		stagefiles.disposeOld();
 
 		// 进入 play 前立即清空 select 阶段的皮肤纹理 Pixmap,
 		// 避免长时间浏览选曲界面后 SkinLoader.resource 堆积大量 banner / stagefile / 皮肤图片。
