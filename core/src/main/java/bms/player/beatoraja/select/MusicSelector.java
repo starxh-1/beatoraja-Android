@@ -846,6 +846,4 @@ public final class MusicSelector extends MainState {
 		}
 
 	}
-
-	}
 }
