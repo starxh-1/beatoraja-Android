@@ -98,7 +98,7 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("Touch Key: ON",  -100, true,  true, false, false),
         new MenuItem("Show FPS",      Keys.F1, false, true, false, false),
         new MenuItem("Update Song",   Keys.F2, false, true, false, false),
-        new MenuItem("F8",   Keys.F8, false, true, false, false),
+        new MenuItem("Music Player",   -130, false, true, false, false),
         new MenuItem("Skin Select",   Keys.F12, false, true, false, false),
         new MenuItem("Key Config", Keys.NUM_6, false, true, false, false),
         new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
@@ -827,7 +827,7 @@ public class FloatingMenu implements InputProcessor {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
 
-        if (item.keycode == -100) {
+        if (item.keycode == -100 || item.keycode == -130) {
             handleToggle(item);
             return;
         }
@@ -878,6 +878,14 @@ public class FloatingMenu implements InputProcessor {
                             }
                         } catch (Exception e) {
                             Gdx.app.log("FloatingMenu", "Failed to update touchKeyMapper state: " + e.getMessage());
+                        }
+                    }
+                } else if (item.keycode == -130) {
+                    // Music Player entry
+                    MainState current = ((MainController) mainController).getCurrentState();
+                    if (current instanceof bms.player.beatoraja.select.MusicSelector) {
+                        if (((bms.player.beatoraja.select.MusicSelector) current).getBarManager().getSelected() instanceof bms.player.beatoraja.select.bar.SongBar) {
+                            ((MainController) mainController).changeState(MainState.MainStateType.MUSICPLAYER);
                         }
                     }
                 }

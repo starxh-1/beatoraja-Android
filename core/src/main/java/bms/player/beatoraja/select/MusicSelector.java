@@ -112,7 +112,6 @@ public final class MusicSelector extends MainState {
 
 	private PixmapResourcePool stagefiles;
 
-	private Texture musicPlayerButtonTex;
 
 	public MusicSelector(MainController main, boolean songUpdated) {
 		super(main);
@@ -214,10 +213,6 @@ public final class MusicSelector extends MainState {
 			manager.updateBar();
 		}
 
-		// 浮动音乐播放器入口按钮(在屏幕左下角)
-		if (musicPlayerButtonTex == null) {
-			musicPlayerButtonTex = createMusicPlayerButtonTexture();
-		}
 
 		// Android版本：改进的异步歌曲扫描
 		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
@@ -405,18 +400,11 @@ public final class MusicSelector extends MainState {
 			play = null;
 		}
 
-		drawMusicPlayerButton();
 	}
 
 	public void input() {
 		final BMSPlayerInputProcessor input = main.getInputProcessor();
 
-		if (isMusicPlayerButtonHit()) {
-			if (manager.getSelected() instanceof SongBar) {
-				main.changeState(MainStateType.MUSICPLAYER);
-			}
-			return;
-		}
 
 		if (input.getControlKeyState(ControlKeys.NUM6)) {
 			main.changeState(MainStateType.CONFIG);
@@ -674,10 +662,6 @@ public final class MusicSelector extends MainState {
 	}
 
 	public void dispose() {
-		if (musicPlayerButtonTex != null) {
-			musicPlayerButtonTex.dispose();
-			musicPlayerButtonTex = null;
-		}
 		super.dispose();
 		bar.dispose();
 		banners.dispose();
@@ -863,109 +847,5 @@ public final class MusicSelector extends MainState {
 
 	}
 
-	// 浮动音乐播放器入口按钮(96x96)
-	// 位置跟随 FloatingMenu：对角分布，如 FloatingMenu 在右上角则此按钮在左上角
-	private static final float MUSIC_BTN_SIZE = 96f;
-	private static final float MUSIC_BTN_MARGIN = 24f;
-	private static final float MUSIC_BTN_GAP = 12f; // 与 FloatingMenu 的间距
-
-	private Texture createMusicPlayerButtonTexture() {
-		final int size = 96;
-		Pixmap pm = new Pixmap(size, size, Pixmap.Format.RGBA8888);
-		// 深色圆角背景(用矩形+四角小圆模拟)
-		pm.setColor(0.12f, 0.14f, 0.20f, 0.85f);
-		pm.fillRectangle(8, 4, size - 16, size - 8);
-		pm.fillRectangle(4, 8, size - 8, size - 16);
-		pm.fillCircle(8, 8, 4);
-		pm.fillCircle(size - 9, 8, 4);
-		pm.fillCircle(8, size - 9, 4);
-		pm.fillCircle(size - 9, size - 9, 4);
-		// 描边(同样用矩形+圆角点)
-		pm.setColor(0.85f, 0.85f, 0.95f, 1.0f);
-		pm.drawRectangle(8, 4, size - 17, size - 9);
-		pm.drawRectangle(4, 8, size - 9, size - 17);
-		// 音符符杆
-		pm.setColor(0.95f, 0.90f, 0.40f, 1.0f);
-		pm.fillRectangle(36, 26, 5, 42);
-		pm.fillRectangle(58, 26, 5, 42);
-		// 音符符尾(横线)
-		pm.fillRectangle(36, 64, 27, 5);
-		// 两个音符头(实心圆)
-		pm.fillCircle(38, 64, 9);
-		pm.fillCircle(60, 64, 9);
-		Texture tex = new Texture(pm);
-		pm.dispose();
-		return tex;
-	}
-
-	private void drawMusicPlayerButton() {
-		if (musicPlayerButtonTex == null) return;
-		SpriteBatch batch = main.getSpriteBatch();
-		if (batch == null) return;
-		int skinW = main.getPlayerResource().getConfig().getResolution().width;
-		int skinH = main.getPlayerResource().getConfig().getResolution().height;
-
-		float x, y;
-		int pos = main.getConfig().getFloatingMenuPosition();
-		switch (pos) {
-			case 1: // FloatingMenu 在右上角 -> 按钮在左上角
-				x = MUSIC_BTN_MARGIN;
-				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
-				break;
-			case 2: // FloatingMenu 在底部居中 -> 按钮在顶部居中
-				x = (skinW - MUSIC_BTN_SIZE) / 2f;
-				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
-				break;
-			case 3: // FloatingMenu 在右下角 -> 按钮在左下角
-				x = MUSIC_BTN_MARGIN;
-				y = MUSIC_BTN_MARGIN;
-				break;
-			case 0: // FloatingMenu 在顶部居中 -> 按钮在底部居中
-			default:
-				x = (skinW - MUSIC_BTN_SIZE) / 2f;
-				y = MUSIC_BTN_MARGIN;
-				break;
-		}
-
-		batch.begin();
-		batch.setColor(1, 1, 1, 1);
-		batch.draw(musicPlayerButtonTex, x, y, MUSIC_BTN_SIZE, MUSIC_BTN_SIZE);
-		batch.end();
-	}
-
-	private boolean isMusicPlayerButtonHit() {
-		if (musicPlayerButtonTex == null) return false;
-		if (!Gdx.input.justTouched()) return false;
-		final BMSPlayerInputProcessor input = main.getInputProcessor();
-		int gx = input.getMouseX();
-		int gy = input.getMouseY();
-
-		int skinW = main.getPlayerResource().getConfig().getResolution().width;
-		int skinH = main.getPlayerResource().getConfig().getResolution().height;
-
-		float x, y;
-		int pos = main.getConfig().getFloatingMenuPosition();
-		switch (pos) {
-			case 1: // 左上角
-				x = MUSIC_BTN_MARGIN;
-				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
-				break;
-			case 2: // 顶部居中
-				x = (skinW - MUSIC_BTN_SIZE) / 2f;
-				y = skinH - MUSIC_BTN_SIZE - MUSIC_BTN_MARGIN;
-				break;
-			case 3: // 左下角
-				x = MUSIC_BTN_MARGIN;
-				y = MUSIC_BTN_MARGIN;
-				break;
-			case 0: // 底部居中
-			default:
-				x = (skinW - MUSIC_BTN_SIZE) / 2f;
-				y = MUSIC_BTN_MARGIN;
-				break;
-		}
-
-		return gx >= x && gx <= x + MUSIC_BTN_SIZE
-			&& gy >= y && gy <= y + MUSIC_BTN_SIZE;
 	}
 }
