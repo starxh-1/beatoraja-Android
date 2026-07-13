@@ -150,8 +150,34 @@ public abstract class PCM<T> {
      */
     private static int tryFlacDuration(File file) {
         try (FileInputStream in = new FileInputStream(file)) {
+            byte[] buf = new byte[10];
+            if (in.read(buf) < 10) return 0;
+
+            long offset = 0;
+            // 处理 ID3v2 标签头 (ID3...)
+            if (buf[0] == 'I' && buf[1] == 'D' && buf[2] == '3') {
+                int size = ((buf[6] & 0x7F) << 21) | ((buf[7] & 0x7F) << 14) | ((buf[8] & 0x7F) << 7) | (buf[9] & 0x7F);
+                offset = 10 + size;
+                in.skip(size); // 跳过 ID3 标签体
+            } else {
+                // 如果不是 ID3，重置流或重新读取（对于 FileInputStream 来说最稳妥是重新打开或记录位置）
+                // 这里我们前面只读了 10 字节，如果是 fLaC 开头，这 10 字节里已经包含了 fLaC(4)
+                if (buf[0] == 'f' && buf[1] == 'L' && buf[2] == 'a' && buf[3] == 'C') {
+                    offset = 0;
+                } else {
+                    return 0;
+                }
+            }
+
+            // 此时流应该在 fLaC 标志处（如果是 offset=0 则 buf 里已经有数据，这里需要补读或统一处理）
             byte[] header = new byte[42];
-            if (in.read(header) < 42) return 0;
+            if (offset == 0) {
+                System.arraycopy(buf, 0, header, 0, 10);
+                if (in.read(header, 10, 32) < 32) return 0;
+            } else {
+                if (in.read(header) < 42) return 0;
+            }
+
             if (header[0] != 'f' || header[1] != 'L' || header[2] != 'a' || header[3] != 'C') return 0;
             // metadata block header: bit 0=last, bits 1-7=type(0=STREAMINFO), bits 8-31=length
             if ((header[4] & 0x7F) != 0) return 0;
