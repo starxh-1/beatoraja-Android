@@ -1163,6 +1163,213 @@ public class AndroidLauncher extends AndroidApplication {
         } catch (Exception e) { Log.e(TAG, "Failed to open URL: " + url, e); }
     }
 
+    // ─── Rating WebView ───
+
+    private static android.app.AlertDialog ratingDialog = null;
+
+    /** Called via reflection from core module to show the player rating WebView */
+    public static void showRatingWebView(final String jsonData) {
+        if (instance == null) return;
+        instance.runOnUiThread(() -> {
+            if (ratingDialog != null && ratingDialog.isShowing()) {
+                ratingDialog.dismiss();
+            }
+
+            android.webkit.WebView webView = new android.webkit.WebView(instance);
+            webView.setBackgroundColor(android.graphics.Color.parseColor("#1a1a2e"));
+
+            android.webkit.WebSettings ws = webView.getSettings();
+            ws.setJavaScriptEnabled(true);
+            ws.setAllowFileAccess(true);
+            ws.setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
+
+            webView.addJavascriptInterface(new Object() {
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public void close() {
+                    if (ratingDialog != null) {
+                        instance.runOnUiThread(() -> ratingDialog.dismiss());
+                    }
+                }
+            }, "RatingBridge");
+
+            webView.setWebViewClient(new android.webkit.WebViewClient() {
+                @Override
+                public void onPageFinished(android.webkit.WebView view, String url) {
+                    if (android.os.Build.VERSION.SDK_INT >= 19) {
+                        view.evaluateJavascript(
+                            "RatingApp.showRating(" + jsonData + ")", null);
+                    } else {
+                        view.loadUrl(
+                            "javascript:RatingApp.showRating(" + jsonData + ")");
+                    }
+                }
+            });
+
+            webView.loadDataWithBaseURL(null, loadRatingHtml(), "text/html", "UTF-8", null);
+
+            android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(instance);
+            builder.setView(webView);
+            ratingDialog = builder.create();
+            ratingDialog.setCancelable(true);
+            ratingDialog.setCanceledOnTouchOutside(true);
+            ratingDialog.show();
+            // Truly fullscreen: fill entire screen including system bar area
+            ratingDialog.getWindow().setLayout(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT);
+            ratingDialog.getWindow().setFlags(
+                android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            ratingDialog.getWindow().getDecorView().setSystemUiVisibility(
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                android.view.View.SYSTEM_UI_FLAG_FULLSCREEN |
+                android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+        });
+    }
+
+    private static String loadRatingHtml() {
+        try {
+            java.io.InputStream is = instance.getAssets().open("walkure/index.html");
+            java.util.Scanner scanner = new java.util.Scanner(is, "UTF-8").useDelimiter("\\A");
+            String content = scanner.hasNext() ? scanner.next() : "";
+            scanner.close();
+            is.close();
+            return content;
+        } catch (java.io.IOException ex) {
+            android.util.Log.e(TAG, "Failed to read rating/index.html from assets", ex);
+            return fallbackRatingHtml();
+        }
+    }
+
+    private static String fallbackRatingHtml() {
+        return "<!DOCTYPE html>\n" +
+"<html lang=\"en\">\n" +
+"<head>\n" +
+"<meta charset=\"UTF-8\">\n" +
+"<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no\">\n" +
+"<title>Player Rating</title>\n" +
+"<style>\n" +
+"* { margin: 0; padding: 0; box-sizing: border-box; }\n" +
+"body {\n" +
+"  font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;\n" +
+"  background: #1a1a2e;\n" +
+"  color: #e0e0e0;\n" +
+"  padding: 16px;\n" +
+"  overflow-x: hidden;\n" +
+"}\n" +
+".container { max-width: 600px; margin: 0 auto; }\n" +
+".header { text-align: center; padding: 24px 0 16px; }\n" +
+".header h1 { font-size: 20px; color: #7ec8e3; margin-bottom: 4px; }\n" +
+".header .subtitle { font-size: 13px; color: #888; }\n" +
+".rating-card {\n" +
+"  background: linear-gradient(135deg, #16213e, #0f3460);\n" +
+"  border-radius: 16px;\n" +
+"  padding: 24px;\n" +
+"  text-align: center;\n" +
+"  margin-bottom: 16px;\n" +
+"  border: 1px solid #1a4a6e;\n" +
+"}\n" +
+".rating-card .star { font-size: 48px; font-weight: bold; color: #f0d060; }\n" +
+".rating-card .theta { font-size: 14px; color: #888; margin-top: 4px; }\n" +
+".rating-card .count { font-size: 13px; color: #aaa; margin-top: 2px; }\n" +
+".section-title {\n" +
+"  font-size: 16px; font-weight: 600; color: #7ec8e3;\n" +
+"  margin: 20px 0 10px; padding-bottom: 6px;\n" +
+"  border-bottom: 1px solid #2a2a4e;\n" +
+"}\n" +
+".chart-entry {\n" +
+"  background: #16213e; border-radius: 10px;\n" +
+"  padding: 12px 14px; margin-bottom: 8px;\n" +
+"  border-left: 4px solid #0f3460;\n" +
+"}\n" +
+".chart-entry .name { font-size: 14px; font-weight: 500; color: #e0e0e0; }\n" +
+".chart-entry .meta { font-size: 12px; color: #888; margin-top: 4px; }\n" +
+".chart-entry .prob { font-size: 13px; font-weight: 600; color: #4ecdc4; margin-top: 6px; }\n" +
+".empty-state { text-align: center; padding: 40px 16px; color: #666; }\n" +
+".empty-state .icon { font-size: 48px; margin-bottom: 12px; }\n" +
+".empty-state p { font-size: 14px; }\n" +
+".error-state { text-align: center; padding: 40px 16px; color: #e74c3c; }\n" +
+".error-state .icon { font-size: 48px; margin-bottom: 12px; }\n" +
+".close-btn {\n" +
+"  display: block; width: 100%; padding: 14px; margin-top: 20px;\n" +
+"  background: #0f3460; color: #7ec8e3;\n" +
+"  border: 1px solid #1a4a6e; border-radius: 10px;\n" +
+"  font-size: 16px; cursor: pointer; text-align: center;\n" +
+"}\n" +
+".loading { text-align: center; padding: 60px 16px; color: #888; }\n" +
+".spinner {\n" +
+"  width: 40px; height: 40px;\n" +
+"  border: 4px solid #2a2a4e; border-top-color: #7ec8e3;\n" +
+"  border-radius: 50%; animation: spin 0.8s linear infinite;\n" +
+"  margin: 0 auto 16px;\n" +
+"}\n" +
+"@keyframes spin { to { transform: rotate(360deg); } }\n" +
+"</style>\n" +
+"</head>\n" +
+"<body>\n" +
+"<div id=\"app\">\n" +
+"<div class=\"loading\"><div class=\"spinner\"></div><p>Loading...</p></div>\n" +
+"</div>\n" +
+"<script>\n" +
+"var RatingApp = {\n" +
+"  data: null,\n" +
+"  showRating: function(dataOrStr) {\n" +
+"    if (typeof dataOrStr === 'string') { try { this.data = JSON.parse(dataOrStr); } catch(e) { this.renderError(\"Invalid data\"); return; } }\n" +
+"    else { this.data = dataOrStr; }\n" +
+"    this.render();\n" +
+"  },\n" +
+"  render: function() {\n" +
+"    var d = this.data;\n" +
+"    if (!d) { this.renderLoading(); return; }\n" +
+"    if (d.error) { this.renderError(d.error); return; }\n" +
+"    var html = '<div class=\"container\">';\n" +
+"    html += '<div class=\"header\"><h1>Player Rating</h1>';\n" +
+"    if (d.playerName) html += '<div class=\"subtitle\">' + this.esc(d.playerName) + '</div>';\n" +
+"    html += '</div>';\n" +
+"    html += '<div class=\"rating-card\">';\n" +
+"    html += '<div class=\"star\">\\u2605 ' + (d.playerStarRating != null ? d.playerStarRating.toFixed(2) : '?') + '</div>';\n" +
+"    html += '<div class=\"theta\">\\u03b8 = ' + (d.theta != null ? d.theta.toFixed(4) : '?') + '</div>';\n" +
+"    html += '<div class=\"count\">Matched charts: ' + (d.observationCount || 0) + '</div>';\n" +
+"    html += '</div>';\n" +
+"    if (d.recommendation && d.recommendation.length > 0) {\n" +
+"      html += '<div class=\"section-title\">Recommendations (' + d.recommendation.length + ')</div>';\n" +
+"      for (var i = 0; i < Math.min(d.recommendation.length, 30); i++) {\n" +
+"        var rec = d.recommendation[i];\n" +
+"        html += '<div class=\"chart-entry\">';\n" +
+"        html += '<div class=\"name\">' + this.esc(rec.name || 'Unknown') + '</div>';\n" +
+"        html += '<div class=\"meta\">' + this.esc(rec.targetClearLamp || '') + '</div>';\n" +
+"        if (rec.prob != null) html += '<div class=\"prob\">' + (rec.prob * 100).toFixed(1) + '%</div>';\n" +
+"        html += '</div>';\n" +
+"      }\n" +
+"      if (d.recommendation.length > 30) {\n" +
+"        html += '<div style=\"text-align:center;color:#666;font-size:13px;padding:8px;\">... and ' + (d.recommendation.length - 30) + ' more</div>';\n" +
+"      }\n" +
+"    }\n" +
+"    html += '<button class=\"close-btn\" onclick=\"RatingApp.close()\">Close</button></div>';\n" +
+"    document.getElementById('app').innerHTML = html;\n" +
+"  },\n" +
+"  renderLoading: function() {\n" +
+"    document.getElementById('app').innerHTML = '<div class=\"loading\"><div class=\"spinner\"></div><p>Loading...</p></div>';\n" +
+"  },\n" +
+"  renderError: function(msg) {\n" +
+"    document.getElementById('app').innerHTML = '<div class=\"container\"><div class=\"error-state\"><div class=\"icon\">!</div><p>' + this.esc(msg) + '</p></div><button class=\"close-btn\" onclick=\"RatingApp.close()\">Close</button></div>';\n" +
+"  },\n" +
+"  close: function() {\n" +
+"    if (window.RatingBridge) { window.RatingBridge.close(); }\n" +
+"  },\n" +
+"  esc: function(s) {\n" +
+"    if (s == null) return '';\n" +
+"    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n" +
+"  }\n" +
+"};\n" +
+"</script>\n" +
+"</body>\n" +
+"</html>";
+    }
+
     @Override
     protected void onDestroy() {
         try {

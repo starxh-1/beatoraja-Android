@@ -10,6 +10,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Matrix4;
 
 import bms.player.beatoraja.input.KeyBoardInputProcesseor;
+import bms.player.beatoraja.rating.PlayerRatingService;
 
 /**
  * Android 用浮动快捷键菜单。
@@ -38,8 +39,8 @@ public class FloatingMenu implements InputProcessor {
     private static final float BTN_H = 80;               // 缩小 30%
     private static final float BTN_GAP = 10;             // 缩小 30%
     private static final float PANEL_PAD = 24;           // 缩小 30%
-    /** 频谱调整页开始的按钮索引（第13项，0-based） */
-    private static final int SPECTRUM_START = 13;
+    /** 频谱调整页开始的按钮索引（0-based） */
+    private static final int SPECTRUM_START = 15;
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
@@ -109,6 +110,8 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, false),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true, false),
+        // ── 玩家实力表 ──────────────────────
+        new MenuItem("Rating",       -140, false, true, false, true),
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
         new MenuItem("X: 0", -111, false, true, false, true),
@@ -791,7 +794,7 @@ public class FloatingMenu implements InputProcessor {
     private void pressButton(int index) {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
-        if (item.keycode == -100) return; // Toggle 类型在 touchUp 处理
+        if (item.keycode == -100 || item.keycode == -130 || item.keycode == -140) return; // Toggle/action 类型在 touchUp 处理
 
         // 频谱调整 +/- 按钮：启动长按定时
         if (item.keycode >= -128 && item.keycode <= -121) {
@@ -827,7 +830,7 @@ public class FloatingMenu implements InputProcessor {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
 
-        if (item.keycode == -100 || item.keycode == -130) {
+        if (item.keycode == -100 || item.keycode == -130 || item.keycode == -140) {
             handleToggle(item);
             return;
         }
@@ -888,6 +891,9 @@ public class FloatingMenu implements InputProcessor {
                             ((MainController) mainController).changeState(MainState.MainStateType.MUSICPLAYER);
                         }
                     }
+                } else if (item.keycode == -140) {
+                    // Player Rating entry - show in WebView via AndroidLauncher
+                    showPlayerRating();
                 }
             }
         }
@@ -950,8 +956,8 @@ public class FloatingMenu implements InputProcessor {
             case 3: prefix = "H:"; break;
             default: return;
         }
-        // items 排列：0-12通用 + 13-24频谱调整(X/Y/W/H各3个) + 25-26 Controller Reset
-        items[13 + field * 3].label = prefix + " " + value;
+        // items 排列：0-13通用 + 14Rating + 15-26频谱调整(X/Y/W/H各3个) + 27-29 Controller Reset
+        items[15 + field * 3].label = prefix + " " + value;
     }
 
     /** 提交调整值到 PlayerConfig 并保存 */
@@ -1009,6 +1015,33 @@ public class FloatingMenu implements InputProcessor {
                 default: prefix = "?"; break;
             }
             items[13 + i * 3].label = prefix + " " + value;
+        }
+    }
+
+    // ─────────────────── 玩家实力表 ───────────────────
+
+    private PlayerRatingService ratingService;
+
+    private void showPlayerRating() {
+        if (kbInput == null || !(kbInput.getMainController() instanceof MainController)) {
+            Gdx.app.log("FloatingMenu", "Cannot show rating: MainController not available");
+            return;
+        }
+        MainController mc = (MainController) kbInput.getMainController();
+
+        // Initialize service lazily
+        if (ratingService == null) {
+            ratingService = new PlayerRatingService();
+        }
+
+        try {
+            String json = ratingService.computeRating(mc);
+
+            Class<?> clazz = Class.forName("com.starxh.beatoraja.android.AndroidLauncher");
+            java.lang.reflect.Method method = clazz.getMethod("showRatingWebView", String.class);
+            method.invoke(null, json);
+        } catch (Exception e) {
+            Gdx.app.log("FloatingMenu", "Failed to show rating: " + e.getMessage());
         }
     }
 

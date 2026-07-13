@@ -31,7 +31,7 @@ Everything else is essentially inherited from beatoraja.
 
 ## 4. TBD Features
 
-- Walkure recommendation (permission from developer needed)
+- Walkure recommendation
 
 ## 5. Features That Can't Be Implemented (too difficult)
 

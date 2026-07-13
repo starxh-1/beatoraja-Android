@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>Walkure Rating</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:#1a1a2e;color:#e0e0e0;padding:16px;overflow-x:hidden;
+  -webkit-text-size-adjust:100%
+}
+.container{max-width:100%;margin:0 auto}
+.header{text-align:center;padding:20px 0 12px}
+.header h1{font-size:20px;color:#7ec8e3;margin-bottom:2px}
+.header .subtitle{font-size:13px;color:#888}
+.rating-card{
+  background:linear-gradient(135deg,#16213e,#0f3460);
+  border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;
+  border:1px solid #1a4a6e
+}
+.rating-card .star{font-size:42px;font-weight:bold;color:#f0d060}
+.rating-card .theta{font-size:13px;color:#888;margin-top:2px}
+.rating-card .count{font-size:12px;color:#aaa;margin-top:2px}
+.tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden}
+.tab-btn{
+  flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;
+  background:#16213e;color:#666;border:none;cursor:pointer;
+  transition:all .2s
+}
+.tab-btn.active{background:#0f3460;color:#7ec8e3}
+.tab-btn:first-child{border-radius:10px 0 0 10px}
+.tab-btn:last-child{border-radius:0 10px 10px 0}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.filters{
+  background:#16213e;border-radius:10px;padding:12px;margin-bottom:12px;
+  font-size:13px
+}
+.filters-title{font-weight:600;color:#7ec8e3;margin-bottom:8px;font-size:14px}
+.filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
+.filter-row label{color:#aaa;margin-right:4px}
+.filter-row input[type=text]{
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:6px 10px;color:#e0e0e0;font-size:13px;width:100%;max-width:300px
+}
+.star-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.star-group label{
+  display:inline-flex;align-items:center;gap:3px;
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:#aaa
+}
+.star-group label.checked{color:#f0d060;border-color:#f0d06060}
+.lamp-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.lamp-group label{
+  display:inline-flex;align-items:center;gap:3px;
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:#aaa
+}
+.lamp-group label.checked{border-color:#4ecdc460;color:#4ecdc4}
+.filter-actions{display:flex;gap:8px;margin-top:8px}
+.filter-actions button{
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:4px 12px;color:#7ec8e3;font-size:12px;cursor:pointer
+}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{background:#0f3460;color:#7ec8e3;padding:8px 6px;text-align:left;
+   position:sticky;top:0;white-space:nowrap;font-weight:600;cursor:pointer;
+   user-select:none}
+th:hover{background:#1a4a6e}
+th .sort-arrow{font-size:10px;margin-left:3px;color:#f0d060}
+td{padding:8px 6px;border-bottom:1px solid #1a4a6e;white-space:nowrap}
+tr:nth-child(even) td{background:#16213e40}
+.prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
+.chart-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lamp-noplay{color:#666}.lamp-failed{color:#e74c3c}
+.lamp-easy{color:#2ecc71}
+.lamp-normal{color:#f1c40f}
+.lamp-hard{color:#e67e22}
+.lamp-fullCombo,.lamp-fc{color:#9b59b6}
+.empty-msg{text-align:center;padding:30px 16px;color:#666;font-size:14px}
+.page-controls{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:10px 0;font-size:13px;color:#aaa;flex-wrap:wrap;gap:8px
+}
+.page-controls .page-size-group{display:flex;align-items:center;gap:6px}
+.page-controls .page-size-group button{
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:4px 10px;color:#7ec8e3;font-size:12px;cursor:pointer
+}
+.page-controls .page-size-group button.active{background:#1a4a6e;color:#f0d060;border-color:#f0d06060}
+.page-controls .page-nav{display:flex;align-items:center;gap:6px}
+.page-controls .page-nav button{
+  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  padding:4px 10px;color:#7ec8e3;font-size:12px;cursor:pointer
+}
+.page-controls .page-nav button:disabled{opacity:.3;cursor:default}
+.page-controls .page-nav span{min-width:60px;text-align:center}
+.close-btn{
+  display:block;width:100%;padding:14px;margin-top:16px;
+  background:#0f3460;color:#7ec8e3;
+  border:1px solid #1a4a6e;border-radius:10px;
+  font-size:16px;cursor:pointer;text-align:center
+}
+.loading{text-align:center;padding:60px 16px;color:#888}
+.spinner{
+  width:36px;height:36px;border:4px solid #2a2a4e;
+  border-top-color:#7ec8e3;border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 12px
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.count-badge{font-size:11px;color:#888;margin-left:6px}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+</div>
+<script>
+var RatingApp={
+  data:null,
+  recSortCol:4,
+  recSortDir:-1,
+  revSortCol:5,
+  revSortDir:1,
+  recPageSize:50,
+  revPageSize:50,
+  recPage:0,
+  revPage:0,
+  showRating:function(d){
+    if(typeof d==='string'){try{this.data=JSON.parse(d)}catch(e){this.renderError("Invalid data");return}}
+    else{this.data=d}
+    this.recPage=0;this.revPage=0
+    this.render()
+  },
+  render:function(){
+    var d=this.data
+    if(!d){this.renderLoading();return}
+    if(d.error){this.renderError(d.error);return}
+    var h='<div class="container">'
+    h+='<div class="header"><h1>\u30d7\u30ec\u30a4\u30e4\u30fc\u5b9f\u529b</h1>'
+    if(d.playerName)h+='<div class="subtitle">'+this.esc(d.playerName)+'</div>'
+    h+='</div>'
+    h+='<div class="rating-card">'
+    h+='<div class="star">\u2605 '+(d.playerStarRating!=null?d.playerStarRating.toFixed(2):'?')+'</div>'
+    h+='<div class="theta">\u03b8 = '+(d.theta!=null?d.theta.toFixed(4):'?')+'</div>'
+    h+='<div class="count">Matched charts: '+(d.observationCount||0)+'</div>'
+    h+='</div>'
+    h+='<div class="tabs">'
+    h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">\u30ea\u30b3\u30e1\u30f3\u30c9</button>'
+    h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">\u9006\u30ea\u30b3\u30e1\u30f3\u30c9</button>'
+    h+='</div>'
+    h+='<div id="tab0" class="tab-content active"></div>'
+    h+='<div id="tab1" class="tab-content"></div>'
+    h+='<button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
+    document.getElementById('app').innerHTML=h
+    this.renderRecTab()
+    this.renderRevTab()
+  },
+  switchTab:function(idx){
+    var btns=document.querySelectorAll('.tab-btn')
+    var cts=document.querySelectorAll('.tab-content')
+    for(var i=0;i<btns.length;i++){
+      btns[i].className='tab-btn'+(i===idx?' active':'')
+      cts[i].className='tab-content'+(i===idx?' active':'')
+    }
+  },
+  formatStar:function(levels){
+    if(!levels)return'\u2605?'
+    if(levels.overjoy)return'\u2605\u2605'+levels.overjoy
+    if(levels.insane){
+      if(levels.insane==='???')return'???'
+      return'\u2605'+levels.insane
+    }
+    if(levels.dan)return'\u6bb5\u4f4d'+levels.dan
+    return'\u2605?'
+  },
+  starNum:function(s){
+    if(!s||s==='?')return -1
+    if(s==='???')return 0
+    if(s.indexOf('\u2605\u2605')===0)return 100+parseInt(s.slice(2))||0
+    if(s.indexOf('\u2605')===0)return parseInt(s.slice(1))||0
+    if(s.indexOf('\u6bb5\u4f4d')===0)return 200+(parseInt(s.slice(2))||0)
+    return -1
+  },
+  lampNum:function(l){
+    var m={noplay:0,failed:1,easy:2,normal:3,hard:4,'fullCombo':5}
+    return m[l]!==void 0?m[l]:-1
+  },
+  ALL_STARS:(function(){
+    var a=[]
+    for(var i=1;i<=25;i++)a.push('\u2605'+i)
+    for(var i=0;i<=8;i++)a.push('\u2605\u2605'+i)
+    a.push('\u6bb5\u4f4d')
+    a.push('???')
+    return a
+  })(),
+  ALL_OLD_LAMPS:['noplay','failed','easy','normal','hard','fullCombo'],
+  ALL_NEW_LAMPS:['easy','normal','hard','fullCombo'],
+  renderRecTab:function(){
+    var d=this.data
+    if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">No recommendations found.</div>';return}
+    var tab=document.getElementById('tab0')
+    tab.innerHTML=''
+    var filters=document.createElement('div')
+    filters.className='filters'
+    filters.innerHTML='<div class="filters-title">\u30d5\u30a3\u30eb\u30bf</div>'+
+      '<div class="filter-row"><label>\u66f2\u540d:</label><input type="text" id="rec-title-filter" placeholder="\u66f2\u540d\u3067\u7d5e\u308a\u8fbc\u307f"></div>'+
+      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rec-star-filter"></div>'+
+      '<div class="filter-row"><label>\u73fe\u5728\u306e\u30e9\u30f3\u30d7:</label></div><div class="lamp-group" id="rec-old-lamp-filter"></div>'+
+      '<div class="filter-row"><label>\u30bf\u30fc\u30b2\u30c3\u30c8:</label></div><div class="lamp-group" id="rec-new-lamp-filter"></div>'+
+      '<div class="filter-actions"><button onclick="RatingApp.resetRecFilters()">\u30ea\u30bb\u30c3\u30c8</button></div>'
+    tab.appendChild(filters)
+    var area=document.createElement('div')
+    area.id='rec-area'
+    tab.appendChild(area)
+    this.buildCheckboxes('rec-star-filter',this.ALL_STARS,'rec-star')
+    this.buildCheckboxes('rec-old-lamp-filter',this.ALL_OLD_LAMPS,'rec-old-lamp')
+    this.buildCheckboxes('rec-new-lamp-filter',this.ALL_NEW_LAMPS,'rec-new-lamp')
+    var self=this
+    var titleInput=document.getElementById('rec-title-filter')
+    if(titleInput)titleInput.addEventListener('input',function(){self.recPage=0;self.rerenderRecTable()})
+    this.rerenderRecTable()
+  },
+  renderRevTab:function(){
+    var d=this.data
+    if(!d||!d.reverseRecommendation||!d.reverseRecommendation.length){document.getElementById('tab1').innerHTML='<div class="empty-msg">\u9006\u30ea\u30b3\u30e1\u30f3\u30c9\u306f\u3042\u308a\u307e\u305b\u3093\u3002</div>';return}
+    var tab=document.getElementById('tab1')
+    tab.innerHTML=''
+    var filters=document.createElement('div')
+    filters.className='filters'
+    filters.innerHTML='<div class="filters-title">\u30d5\u30a3\u30eb\u30bf</div>'+
+      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div>'+
+      '<div class="filter-row"><label>\u30e9\u30f3\u30d7:</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
+      '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">\u30ea\u30bb\u30c3\u30c8</button></div>'
+    tab.appendChild(filters)
+    var area=document.createElement('div')
+    area.id='rev-area'
+    tab.appendChild(area)
+    this.buildCheckboxes('rev-star-filter',this.ALL_STARS,'rev-star')
+    this.buildCheckboxes('rev-lamp-filter',['easy','normal','hard','fullCombo'],'rev-lamp')
+    this.rerenderRevTable()
+  },
+  rerenderRecTable:function(){
+    var area=document.getElementById('rec-area')
+    if(!area)return
+    var result=this.getRecData()
+    area.innerHTML=this.buildRecTable(result)+this.buildRecPageInfo(result)
+  },
+  rerenderRevTable:function(){
+    var area=document.getElementById('rev-area')
+    if(!area)return
+    var result=this.getRevData()
+    area.innerHTML=this.buildRevTable(result)+this.buildRevPageInfo(result)
+  },
+  getFilteredRec:function(){
+    var arr=this.data.recommendation.slice()
+    var titleEl=document.getElementById('rec-title-filter')
+    var titleVal=titleEl?titleEl.value.toLowerCase():''
+    var stars=this.getCheckedSet('rec-star-filter')
+    var oldLamps=this.getCheckedSet('rec-old-lamp-filter')
+    var newLamps=this.getCheckedSet('rec-new-lamp-filter')
+    return arr.filter(function(r){
+      if(titleVal&&r.name.toLowerCase().indexOf(titleVal)===-1)return false
+      if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
+      if(oldLamps.size&&!oldLamps.has(r.currentClearLamp))return false
+      if(newLamps.size&&!newLamps.has(r.targetClearLamp))return false
+      return true
+    })
+  },
+  getFilteredRev:function(){
+    var arr=this.data.reverseRecommendation.slice()
+    var stars=this.getCheckedSet('rev-star-filter')
+    var lamps=this.getCheckedSet('rev-lamp-filter')
+    return arr.filter(function(r){
+      if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
+      if(lamps.size&&!lamps.has(r.clearLamp))return false
+      return true
+    })
+  },
+  matchStarFilter:function(levels,checkedSet){
+    if(!checkedSet||!checkedSet.size)return true
+    var s=RatingApp.formatStar(levels)
+    if(checkedSet.has(s))return true
+    // prefix match for dan: "段位" checkbox matches "段位12"
+    if(checkedSet.has('\u6bb5\u4f4d')&&s.indexOf('\u6bb5\u4f4d')===0)return true
+    return false
+  },
+  getRecData:function(){
+    var arr=this.getFilteredRec()
+    if(this.recSortCol>=0){
+      var col=this.recSortCol,dir=this.recSortDir
+      arr.sort(function(a,b){
+        var va,vb
+        switch(col){
+          case 0:va=RatingApp.starNum(RatingApp.formatStar(a.difficultyTableLevels));vb=RatingApp.starNum(RatingApp.formatStar(b.difficultyTableLevels));break
+          case 1:va=a.name.toLowerCase();vb=b.name.toLowerCase();break
+          case 2:va=RatingApp.lampNum(a.currentClearLamp);vb=RatingApp.lampNum(b.currentClearLamp);break
+          case 3:va=RatingApp.lampNum(a.targetClearLamp);vb=RatingApp.lampNum(b.targetClearLamp);break
+          case 4:va=a.prob;vb=b.prob;break
+          default:return 0
+        }
+        if(va<vb)return -dir
+        if(va>vb)return dir
+        return 0
+      })
+    }
+    var total=arr.length
+    var limit=this.recPageSize
+    var page=this.recPage
+    if(limit===0)return{rows:arr,total:total,page:0,npages:1}
+    var npages=Math.ceil(total/limit)||1
+    if(page>=npages)page=npages-1
+    if(page<0)page=0
+    this.recPage=page
+    var start=page*limit
+    var rows=arr.slice(start,start+limit)
+    return{rows:rows,total:total,page:page,npages:npages}
+  },
+  getRevData:function(){
+    var arr=this.getFilteredRev()
+    if(this.revSortCol>=0){
+      var col=this.revSortCol,dir=this.revSortDir
+      arr.sort(function(a,b){
+        var va,vb
+        switch(col){
+          case 0:va=RatingApp.starNum(RatingApp.formatStar(a.difficultyTableLevels));vb=RatingApp.starNum(RatingApp.formatStar(b.difficultyTableLevels));break
+          case 1:va=a.name.toLowerCase();vb=b.name.toLowerCase();break
+          case 2:va=RatingApp.lampNum(a.clearLamp);vb=RatingApp.lampNum(b.clearLamp);break
+          case 3:va=a.clearDifficultyStarRating!=null?a.clearDifficultyStarRating:0;vb=b.clearDifficultyStarRating!=null?b.clearDifficultyStarRating:0;break
+          case 4:va=a.chartDiscrimination||0;vb=b.chartDiscrimination||0;break
+          case 5:va=a.prob;vb=b.prob;break
+          default:return 0
+        }
+        if(va<vb)return -dir
+        if(va>vb)return dir
+        return 0
+      })
+    }
+    var total=arr.length
+    var limit=this.revPageSize
+    var page=this.revPage
+    if(limit===0)return{rows:arr,total:total,page:0,npages:1}
+    var npages=Math.ceil(total/limit)||1
+    if(page>=npages)page=npages-1
+    if(page<0)page=0
+    this.revPage=page
+    var start=page*limit
+    var rows=arr.slice(start,start+limit)
+    return{rows:rows,total:total,page:page,npages:npages}
+  },
+  buildRecTable:function(result){
+    var rows=result.rows
+    if(!rows.length)return'<div class="empty-msg">\u30d5\u30a3\u30eb\u30bf\u306b\u4e00\u81f4\u3059\u308b\u304c\u3042\u308a\u307e\u305b\u3093\u3002</div>'
+    var h='<div class="table-wrap"><table id="rec-table"><thead><tr>'
+    h+='<th onclick="RatingApp.sortRec(0)">\u2605<span class="sort-arrow">'+this.sortArrow(0,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRec(1)">Title<span class="sort-arrow">'+this.sortArrow(1,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRec(2)">Current<span class="sort-arrow">'+this.sortArrow(2,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRec(3)">Target<span class="sort-arrow">'+this.sortArrow(3,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRec(4)">\u30ea\u30b3\u30e1\u30f3\u5ea6<span class="sort-arrow">'+this.sortArrow(4,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='</tr></thead><tbody>'
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i]
+      var star=this.formatStar(r.difficultyTableLevels)
+      var curCls=r.currentClearLamp?'lamp-'+r.currentClearLamp:''
+      var tgtCls=r.targetClearLamp?'lamp-'+r.targetClearLamp:''
+      h+='<tr>'
+      h+='<td>'+star+'</td>'
+      h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
+      h+='<td class="'+curCls+'">'+r.currentClearLamp+'</td>'
+      h+='<td class="'+tgtCls+'">'+r.targetClearLamp+'</td>'
+      h+='<td>'+this.probCell(r.prob)+'</td>'
+      h+='</tr>'
+    }
+    h+='</tbody></table></div>'
+    return h
+  },
+  buildRevTable:function(result){
+    var rows=result.rows
+    if(!rows.length)return'<div class="empty-msg">\u30d5\u30a3\u30eb\u30bf\u306b\u4e00\u81f4\u3059\u308b\u304c\u3042\u308a\u307e\u305b\u3093\u3002</div>'
+    var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
+    h+='<th onclick="RatingApp.sortRev(0)">\u2605<span class="sort-arrow">'+this.sortArrow(0,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(1)">Title<span class="sort-arrow">'+this.sortArrow(1,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(2)">Lamp<span class="sort-arrow">'+this.sortArrow(2,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(3)">\u96e3\u5ea6<span class="sort-arrow">'+this.sortArrow(3,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(4)">\u5730\u529b\u8b5c\u9762\u5ea6<span class="sort-arrow">'+this.sortArrow(4,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(5)">\u30ea\u30b3\u30e1\u30f3\u5ea6<span class="sort-arrow">'+this.sortArrow(5,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='</tr></thead><tbody>'
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i]
+      var star=this.formatStar(r.difficultyTableLevels)
+      var lampCls=r.clearLamp?'lamp-'+r.clearLamp:''
+      var diffStar=r.clearDifficultyStarRating!=null?'\u2605'+r.clearDifficultyStarRating.toFixed(2):'-'
+      h+='<tr>'
+      h+='<td>'+star+'</td>'
+      h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
+      h+='<td class="'+lampCls+'">'+r.clearLamp+'</td>'
+      h+='<td>'+diffStar+'</td>'
+      h+='<td>'+r.chartDiscrimination.toFixed(3)+'</td>'
+      h+='<td>'+this.probCell(r.prob)+'</td>'
+      h+='</tr>'
+    }
+    h+='</tbody></table></div>'
+    return h
+  },
+  buildRecPageInfo:function(result){
+    return this.buildPageInfo(result,'rec')
+  },
+  buildRevPageInfo:function(result){
+    return this.buildPageInfo(result,'rev')
+  },
+  buildPageInfo:function(result,prefix){
+    var h='<div class="page-controls">'
+    h+='<div class="page-size-group">\u8868\u793a\u4ef6\u6570: '
+    h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',50)"'+(prefix==='rec'?this.recPageSize===50?' class="active"':'':this.revPageSize===50?' class="active"':'')+'>50</button>'
+    h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',0)"'+(prefix==='rec'?this.recPageSize===0?' class="active"':'':this.revPageSize===0?' class="active"':'')+'>Full</button>'
+    h+='</div>'
+    h+='<div class="page-nav">'
+    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',-1)"'+(result.page<=0?' disabled':'')+'>\u524d\u3078</button>'
+    h+='<span>'+(result.npages>0?(result.page+1)+'/'+result.npages:'0/0')+'</span>'
+    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',1)"'+(result.page>=result.npages-1?' disabled':'')+'>\u6b21\u3078</button>'
+    h+='</div>'
+    h+='<span>'+result.total+'\u4ef6</span>'
+    h+='</div>'
+    return h
+  },
+  sortArrow:function(col,sortCol,sortDir){
+    if(col!==sortCol)return''
+    return sortDir>0?'\u25b2':'\u25bc'
+  },
+  sortRec:function(col){
+    if(this.recSortCol===col){this.recSortDir=-this.recSortDir}else{this.recSortCol=col;this.recSortDir=1}
+    this.recPage=0
+    this.rerenderRecTable()
+  },
+  sortRev:function(col){
+    if(this.revSortCol===col){this.revSortDir=-this.revSortDir}else{this.revSortCol=col;this.revSortDir=1}
+    this.revPage=0
+    this.rerenderRevTable()
+  },
+  setPageSize:function(prefix,size){
+    if(prefix==='rec'){this.recPageSize=size;this.recPage=0;this.rerenderRecTable()}else{this.revPageSize=size;this.revPage=0;this.rerenderRevTable()}
+  },
+  pageNav:function(prefix,delta){
+    if(prefix==='rec'){this.recPage=Math.max(0,Math.min(this.recPage+delta,Math.ceil(this.getFilteredRec().length/this.recPageSize)-1));this.rerenderRecTable()}
+    else{this.revPage=Math.max(0,Math.min(this.revPage+delta,Math.ceil(this.getFilteredRev().length/this.revPageSize)-1));this.rerenderRevTable()}
+  },
+  getCheckedSet:function(id){
+    var c=document.getElementById(id)
+    if(!c)return new Set()
+    var s=new Set()
+    var cbs=c.querySelectorAll('input[type=checkbox]:checked')
+    for(var i=0;i<cbs.length;i++)s.add(cbs[i].value)
+    return s
+  },
+  buildCheckboxes:function(containerId,items,group){
+    var c=document.getElementById(containerId)
+    if(!c)return
+    c.innerHTML=''
+    var self=this
+    for(var i=0;i<items.length;i++){
+      var lbl=document.createElement('label')
+      var cb=document.createElement('input')
+      cb.type='checkbox'
+      cb.value=items[i]
+      cb.checked=true
+      cb.dataset.group=group
+      cb.addEventListener('change',function(){
+        this.parentNode.className=this.checked?'checked':''
+        self.onFilterChange(this.dataset.group)
+      })
+      lbl.appendChild(cb)
+      lbl.appendChild(document.createTextNode(' '+items[i]))
+      lbl.className='checked'
+      c.appendChild(lbl)
+    }
+  },
+  onFilterChange:function(group){
+    if(group==='rec-star'||group==='rec-old-lamp'||group==='rec-new-lamp'){this.recPage=0;this.rerenderRecTable()}
+    else if(group==='rev-star'||group==='rev-lamp'){this.revPage=0;this.rerenderRevTable()}
+  },
+  resetRecFilters:function(){
+    var titleEl=document.getElementById('rec-title-filter')
+    if(titleEl)titleEl.value=''
+    var containers=['rec-star-filter','rec-old-lamp-filter','rec-new-lamp-filter']
+    for(var i=0;i<containers.length;i++){
+      var el=document.getElementById(containers[i])
+      if(!el)continue
+      var cbs=el.querySelectorAll('input[type=checkbox]')
+      for(var j=0;j<cbs.length;j++){cbs[j].checked=true;cbs[j].parentNode.className='checked'}
+    }
+    this.recPage=0
+    this.rerenderRecTable()
+  },
+  resetRevFilters:function(){
+    var containers=['rev-star-filter','rev-lamp-filter']
+    for(var i=0;i<containers.length;i++){
+      var el=document.getElementById(containers[i])
+      if(!el)continue
+      var cbs=el.querySelectorAll('input[type=checkbox]')
+      for(var j=0;j<cbs.length;j++){cbs[j].checked=true;cbs[j].parentNode.className='checked'}
+    }
+    this.revPage=0
+    this.rerenderRevTable()
+  },
+  probCell:function(p){
+    var pc=(p*100).toFixed(1)
+    var hue=Math.round(120*p)
+    var bg='hsl('+hue+',70%,35%)'
+    return'<div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div> '+pc+'%'
+  },
+  renderLoading:function(){
+    document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading...</p></div>'
+  },
+  renderError:function(msg){
+    document.getElementById('app').innerHTML='<div class="container"><div style="text-align:center;padding:40px 16px;color:#e74c3c"><div style="font-size:48px;margin-bottom:12px">!</div><p>'+this.esc(msg)+'</p></div><button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
+  },
+  close:function(){
+    if(window.RatingBridge){window.RatingBridge.close()}
+  },
+  esc:function(s){
+    if(s==null)return''
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+  }
+}
+</script>
+</body>
+</html>
