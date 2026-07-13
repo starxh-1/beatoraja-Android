@@ -13,6 +13,9 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.utils.Array;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import bms.model.BMSModel;
 import bms.model.Note;
 import bms.model.TimeLine;
@@ -165,10 +168,13 @@ public class MusicPlayer extends MainState {
 		final int lastNoteTime = currentModel.getLastNoteTime();
 		int tail = currentSong.getTail();
 		if (tail <= 0) {
-			tail = 5000;
+			// 数据库无记录或为0，执行扫描逻辑以修复
+			tail = calculateMaxTailMs(currentModel, lastNoteTime);
+			currentSong.setTail(tail);
+			main.getSongDatabase().updateSongTail(currentModel.getSHA256(), tail);
 		}
 		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
-		Gdx.app.log("MusicPlayer", "Loaded totalDurationMs: " + totalDurationMs + " ms, tail from DB: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
+		Gdx.app.log("MusicPlayer", "Loaded totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 		// 启动 BG 自动播放线程
 		this.playStartTimeMs = System.currentTimeMillis();
@@ -580,7 +586,9 @@ public class MusicPlayer extends MainState {
 		final int lastNoteTime = currentModel.getLastNoteTime();
 		int tail = currentSong.getTail();
 		if (tail <= 0) {
-			tail = 5000;
+			tail = calculateMaxTailMs(currentModel, lastNoteTime);
+			currentSong.setTail(tail);
+			main.getSongDatabase().updateSongTail(currentModel.getSHA256(), tail);
 		}
 		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
 		Gdx.app.log("MusicPlayer", "loadAndPlaySelected totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
@@ -770,6 +778,82 @@ public class MusicPlayer extends MainState {
 	}
 
 	/**
+	 * 扫描所有音频文件以计算真正的音频尾部时长(tail)。
+	 * 逻辑移植自 BMSPlayer.java 以确保 MusicPlayer 在数据库记录缺失时也能获得正确时长。
+	 */
+	private int calculateMaxTailMs(BMSModel model, int lastNoteTime) {
+		int maxTailMs = 0;
+		final String[] wavlist = model.getWavList();
+		final File bmsDir = new File(model.getPath()).getParentFile();
+		final int[] lastOccurrenceArray = new int[wavlist.length];
+		java.util.Arrays.fill(lastOccurrenceArray, -1);
+
+		for (TimeLine tl : model.getAllTimeLines()) {
+			final int time = tl.getTime();
+			for (int lane = 0; lane < model.getMode().key; lane++) {
+				Note n = tl.getNote(lane);
+				if (n == null) n = tl.getHiddenNote(lane);
+				if (n != null && n.getWav() >= 0 && n.getWav() < lastOccurrenceArray.length) {
+					lastOccurrenceArray[n.getWav()] = time;
+				}
+			}
+			for (Note n : tl.getBackGroundNotes()) {
+				if (n != null && n.getWav() >= 0 && n.getWav() < lastOccurrenceArray.length) {
+					lastOccurrenceArray[n.getWav()] = time;
+				}
+			}
+		}
+
+		final File[] dirFiles = bmsDir.listFiles();
+		final java.util.Map<String, File> fileCacheMap = new java.util.HashMap<>();
+		if (dirFiles != null) {
+			for (File f : dirFiles) {
+				fileCacheMap.put(f.getName().toLowerCase(), f);
+			}
+		}
+
+		final List<int[]> sortedWavs = new ArrayList<>();
+		for (int wavid = 0; wavid < lastOccurrenceArray.length; wavid++) {
+			if (lastOccurrenceArray[wavid] != -1 && wavlist[wavid] != null) {
+				sortedWavs.add(new int[]{wavid, lastOccurrenceArray[wavid]});
+			}
+		}
+		sortedWavs.sort((a, b) -> Integer.compare(b[1], a[1]));
+
+		for (int[] entry : sortedWavs) {
+			final int wavid = entry[0];
+			final int lastTime = entry[1];
+
+			String fileName = wavlist[wavid];
+			String lowerName = fileName.toLowerCase();
+			File audioFile = fileCacheMap.get(lowerName);
+			if (audioFile == null) {
+				int dotIdx = lowerName.lastIndexOf('.');
+				String baseName = dotIdx > 0 ? lowerName.substring(0, dotIdx) : lowerName;
+				for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
+					audioFile = fileCacheMap.get(baseName + ext);
+					if (audioFile != null) break;
+				}
+			}
+
+			if (audioFile != null) {
+				long fileSize = audioFile.length();
+				if (lastTime + (fileSize / 8) <= lastNoteTime + maxTailMs) {
+					continue;
+				}
+				int dur = bms.player.beatoraja.audio.PCM.getWavDurationMs(audioFile.getPath());
+				if (dur > 0) {
+					final int tailEnd = lastTime + dur;
+					if (tailEnd > lastNoteTime) {
+						maxTailMs = Math.max(maxTailMs, tailEnd - lastNoteTime);
+					}
+				}
+			}
+		}
+		return maxTailMs;
+	}
+
+	/**
 	 * BG 音轨自动播放线程 —— 仿 {@link KeySoundProcessor.AutoplayThread},但持有自己的时钟(基于 wall time)。
 	 * 播完所有 timeline 后自然退出,不触发任何回调 —— 切歌完全由 AutoAdvanceThread 在 totalDurationMs 触发,
 	 * 中间 tail 静音期留给最后一条 note 自然播完,避免 audio.stop() 掐音效。
@@ -947,9 +1031,12 @@ public class MusicPlayer extends MainState {
 			final int lastEventTime = currentModel.getLastTime();
 			final int lastNoteTime = currentModel.getLastNoteTime();
 			int tail = currentSong.getTail();
-			if (tail <= 0) tail = 5000;
+			if (tail <= 0) {
+				tail = calculateMaxTailMs(currentModel, lastNoteTime);
+				currentSong.setTail(tail);
+				main.getSongDatabase().updateSongTail(currentModel.getSHA256(), tail);
+			}
 			this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
-			Gdx.app.log("MusicPlayer", "transitionToNext totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 			Gdx.app.log("MusicPlayer", "transitionToNext totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 			// 9. 启动新线程
