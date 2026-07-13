@@ -168,6 +168,7 @@ public class MusicPlayer extends MainState {
 			tail = 5000;
 		}
 		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
+		Gdx.app.log("MusicPlayer", "Loaded totalDurationMs: " + totalDurationMs + " ms, tail from DB: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 		// 启动 BG 自动播放线程
 		this.playStartTimeMs = System.currentTimeMillis();
@@ -582,6 +583,7 @@ public class MusicPlayer extends MainState {
 			tail = 5000;
 		}
 		this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
+		Gdx.app.log("MusicPlayer", "loadAndPlaySelected totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 		this.playStartTimeMs = System.currentTimeMillis();
 		this.bgThread = new BGAutoplayThread(currentModel, main, playStartTimeMs);
@@ -947,6 +949,8 @@ public class MusicPlayer extends MainState {
 			int tail = currentSong.getTail();
 			if (tail <= 0) tail = 5000;
 			this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
+			Gdx.app.log("MusicPlayer", "transitionToNext totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
+			Gdx.app.log("MusicPlayer", "transitionToNext totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 			// 9. 启动新线程
 			this.playStartTimeMs = System.currentTimeMillis();

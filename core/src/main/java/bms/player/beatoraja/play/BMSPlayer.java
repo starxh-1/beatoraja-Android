@@ -230,7 +230,7 @@ public class BMSPlayer extends MainState {
 
 		// 计算音频尾部时长（统一以 lastNoteTime 为基准，避免模式切换导致 tail 计算偏移）
 		maxTailMs = resource.getSongdata().getTail();
-		if (maxTailMs < 0) {
+		if (maxTailMs <= 0) {
 			maxTailMs = 0;
 			long startTime = System.currentTimeMillis();
 			final String[] wavlist = model.getWavList();
@@ -329,6 +329,7 @@ public class BMSPlayer extends MainState {
 		lastNoteEndTime = lastTimeMs;
 		// 确保播放时长同时覆盖音频尾部和所有 BGA/BGM 事件
 		playtime = Math.max(lastEventTime + 1000, lastNoteTime + maxTailMs);
+		Logger.getGlobal().info("[BMSPlayer] Calculated playtime: " + playtime + " ms, maxTailMs: " + maxTailMs + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
 		if (autoplay.mode == BMSPlayerMode.Mode.PLAY || autoplay.mode == BMSPlayerMode.Mode.AUTOPLAY) {
 			if (config.isBpmguide() && (model.getMinBPM() < model.getMaxBPM())) {
