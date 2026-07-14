@@ -11,7 +11,7 @@ body{
   background:#0f1923;color:#d0dce8;padding:16px;overflow-x:hidden;
   -webkit-text-size-adjust:100%
 }
-.container{max-width:100%;margin:0 auto}
+.container{max-width:540px;margin:0 auto}
 .header{text-align:center;padding:20px 0 12px}
 .header h1{font-size:20px;color:#4fc3f7;margin-bottom:2px}
 .header .subtitle{font-size:13px;color:#788a9c}
@@ -50,6 +50,11 @@ body{
   padding:6px 10px;color:#d0dce8;font-size:13px;width:100%;max-width:300px
 }
 .star-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.star-actions{display:flex;gap:4px;margin-bottom:6px}
+.star-actions button{
+  background:transparent;border:1px solid rgba(79,195,247,0.2);border-radius:4px;
+  color:#4fc3f7;font-size:10px;padding:2px 8px;cursor:pointer
+}
 .star-group label{
   display:inline-flex;align-items:center;gap:3px;
   background:#142838;border:1px solid #1e3a5a;border-radius:6px;
@@ -330,7 +335,7 @@ var RatingApp={
     return a
   })(),
   ALL_OLD_LAMPS:['noplay','failed','easy','normal','hard','fullCombo'],
-  ALL_NEW_LAMPS:['easy','normal','hard','fullCombo'],
+  ALL_NEW_LAMPS:['normal','hard','fullCombo'],
   renderRecTab:function(){
     var d=this.data
     if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">'+_t('noRec')+'</div>';return}
@@ -340,7 +345,7 @@ var RatingApp={
     filters.className='filters'
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
       '<div class="filter-row"><label>'+_t('songName')+':</label><input type="text" id="rec-title-filter" placeholder="'+_t('filterBySong')+'"></div>'+
-      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rec-star-filter"></div>'+
+      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rec-star-filter"></div><div class="star-actions"><button onclick="RatingApp.toggleStarGroup(\'rec-star-filter\',true)">All</button><button onclick="RatingApp.toggleStarGroup(\'rec-star-filter\',false)">None</button></div>'+
       '<div class="filter-row"><label>'+_t('currentLamp')+':</label></div><div class="lamp-group" id="rec-old-lamp-filter"></div>'+
       '<div class="filter-row"><label>'+_t('target')+':</label></div><div class="lamp-group" id="rec-new-lamp-filter"></div>'+
       '<div class="filter-actions"><button onclick="RatingApp.resetRecFilters()">'+_t('reset')+'</button></div>'
@@ -364,7 +369,7 @@ var RatingApp={
     var filters=document.createElement('div')
     filters.className='filters'
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
-      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div>'+
+      '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div><div class="star-actions"><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',true)">All</button><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',false)">None</button></div>'+
       '<div class="filter-row"><label>'+_t('lamp')+':</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
       '<div class="filter-row"><label>'+_t('ground')+':</label><input type="text" id="rev-ground-filter" placeholder="min" style="background:#142838;border:1px solid #1e3a5a;border-radius:6px;padding:4px 8px;color:#d0dce8;font-size:12px;width:80px"></div>'+
       '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">'+_t('reset')+'</button></div>'
@@ -653,6 +658,12 @@ var RatingApp={
     if(groundEl)groundEl.value=''
     this.revPage=0
     this.rerenderRevTable()
+  },
+  toggleStarGroup:function(id,check){
+    var el=document.getElementById(id)
+    if(!el)return
+    var cbs=el.querySelectorAll('input[type=checkbox]')
+    for(var j=0;j<cbs.length;j++){cbs[j].checked=check;cbs[j].parentNode.className=check?'checked':''}
   },
   probCell:function(p){
     var pc=(p*100).toFixed(1)
