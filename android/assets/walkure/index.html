@@ -116,6 +116,12 @@ tr:nth-child(even) td{background:rgba(20,40,56,0.4)}
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 .count-badge{font-size:11px;color:#788a9c;margin-left:6px}
+.lang-btns{display:flex;gap:2px;flex-shrink:0}
+.lang-btn{
+  background:transparent;border:1px solid rgba(79,195,247,0.25);border-radius:4px;
+  color:#788a9c;font-size:10px;padding:2px 5px;cursor:pointer;transition:all .15s
+}
+.lang-btn.active{border-color:#4fc3f7;color:#4fc3f7;background:rgba(79,195,247,0.1)}
 </style>
 </head>
 <body>
@@ -123,6 +129,106 @@ tr:nth-child(even) td{background:rgba(20,40,56,0.4)}
 <div class="loading"><div class="spinner"></div><p>Loading...</p></div>
 </div>
 <script>
+var _lang='ja'
+function _t(k){var l=LANG[_lang]||LANG.ja;return l[k]||k}
+var LANG={
+  ja:{
+    title:'\u30d7\u30ec\u30a4\u30e4\u30fc\u5b9f\u529b',
+    recommend:'\u30ea\u30b3\u30e1\u30f3\u30c9',
+    revRecommend:'\u9006\u30ea\u30b3\u30e1\u30f3\u30c9',
+    filter:'\u30d5\u30a3\u30eb\u30bf',
+    songName:'\u66f2\u540d',
+    filterBySong:'\u66f2\u540d\u3067\u7d5e\u308a\u8fbc\u307f',
+    currentLamp:'\u73fe\u5728\u306e\u30e9\u30f3\u30d7',
+    target:'\u30bf\u30fc\u30b2\u30c3\u30c8',
+    reset:'\u30ea\u30bb\u30c3\u30c8',
+    perPage:'\u8868\u793a\u4ef6\u6570',
+    prev:'\u524d\u3078',
+    next:'\u6b21\u3078',
+    items:'\u4ef6',
+    close:'Close',
+    loading:'Loading...',
+    noReverse:'\u9006\u30ea\u30b3\u30e1\u30f3\u30c9\u306f\u3042\u308a\u307e\u305b\u3093\u3002',
+    noMatch:'\u30d5\u30a3\u30eb\u30bf\u306b\u4e00\u81f4\u3059\u308b\u304c\u3042\u308a\u307e\u305b\u3093\u3002',
+    noRec:'No recommendations found.',
+    lamp:'\u30e9\u30f3\u30d7',
+    diff:'\u96e3\u5ea6',
+    ground:'\u5730\u529b\u8b5c\u9762\u5ea6',
+    recDeg:'\u30ea\u30b3\u30e1\u30f3\u5ea6'
+  },
+  en:{
+    title:'Player Rating',
+    recommend:'Recommend',
+    revRecommend:'Reverse Recommend',
+    filter:'Filters',
+    songName:'Title',
+    filterBySong:'Filter by title',
+    currentLamp:'Current Lamp',
+    target:'Target',
+    reset:'Reset',
+    perPage:'Per page',
+    prev:'Prev',
+    next:'Next',
+    items:'items',
+    close:'Close',
+    loading:'Loading...',
+    noReverse:'No reverse recommendations.',
+    noMatch:'No charts match the filters.',
+    noRec:'No recommendations found.',
+    lamp:'Lamp',
+    diff:'Difficulty',
+    ground:'Chart Difficulty',
+    recDeg:'Recommendation'
+  },
+  zh:{
+    title:'\u73a9\u5bb6\u5b9e\u529b',
+    recommend:'\u63a8\u8350',
+    revRecommend:'\u9006\u63a8\u8350',
+    filter:'\u7b5b\u9009',
+    songName:'\u66f2\u540d',
+    filterBySong:'\u6309\u66f2\u540d\u7b5b\u9009',
+    currentLamp:'\u5f53\u524d\u706f',
+    target:'\u76ee\u6807',
+    reset:'\u91cd\u7f6e',
+    perPage:'\u6bcf\u9875\u663e\u793a',
+    prev:'\u4e0a\u4e00\u9875',
+    next:'\u4e0b\u4e00\u9875',
+    items:'\u6761',
+    close:'\u5173\u95ed',
+    loading:'\u52a0\u8f7d\u4e2d...',
+    noReverse:'\u6ca1\u6709\u9006\u63a8\u8350\u3002',
+    noMatch:'\u6ca1\u6709\u7b26\u5408\u6761\u4ef6\u7684\u8c31\u9762\u3002',
+    noRec:'\u6ca1\u6709\u63a8\u8350\u3002',
+    lamp:'\u706f',
+    diff:'\u96be\u5ea6',
+    ground:'\u5730\u529b\u8c31\u9762\u5ea6',
+    recDeg:'\u63a8\u8350\u5ea6'
+  },
+  ko:{
+    title:'\ud50c\ub808\uc774\uc5b4 \uc2e4\ub825',
+    recommend:'\ucd94\ucc9c',
+    revRecommend:'\uc5ed\ucd94\ucc9c',
+    filter:'\ud544\ud130',
+    songName:'\uace1\uba85',
+    filterBySong:'\uace1\uba85\uc73c\ub85c \uac80\uc0c9',
+    currentLamp:'\ud604\uc7ac \ub7a8\ud504',
+    target:'\ubaa9\ud45c',
+    reset:'\ucd08\uae30\ud654',
+    perPage:'\ud45c\uc2dc \uac74\uc218',
+    prev:'\uc774\uc804',
+    next:'\ub2e4\uc74c',
+    items:'\uac74',
+    close:'\ub2eb\uae30',
+    loading:'\ub85c\ub529 \uc911...',
+    noReverse:'\uc5ed\ucd94\ucc9c\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.',
+    noMatch:'\ud544\ud130\uc5d0 \uc77c\uce58\ud558\ub294 \uace1\uc774 \uc5c6\uc2b5\ub2c8\ub2e4.',
+    noRec:'\ucd94\ucc9c \uacb0\uacfc\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.',
+    lamp:'\ub7a8\ud504',
+    diff:'\ub09c\uc774\ub3c4',
+    ground:'\ucc28\ud2b8 \ub09c\uc774\ub3c4',
+    recDeg:'\ucd94\ucc9c\ub3c4'
+  }
+}
 var RatingApp={
   data:null,
   recSortCol:4,
@@ -144,16 +250,22 @@ var RatingApp={
     if(!d){this.renderLoading();return}
     if(d.error){this.renderError(d.error);return}
     var h='<div class="container">'
-    h+='<div class="header"><h1>\u30d7\u30ec\u30a4\u30e4\u30fc\u5b9f\u529b</h1>'
+    h+='<div class="header" style="display:flex;align-items:flex-start;justify-content:space-between">'
+    h+='<div><h1>'+_t('title')+'</h1>'
     if(d.playerName)h+='<div class="subtitle">'+this.esc(d.playerName)+'</div>'
+    h+='</div>'
+    h+='<div class="lang-btns">'
+    var l=['ja','en','zh','ko'],ln=['\u65e5\u672c\u8a9e','English','\u4e2d\u6587','\ud55c\uad6d\uc5b4']
+    for(var i=0;i<l.length;i++)h+='<button onclick="RatingApp.switchLang(\''+l[i]+'\')" class="lang-btn'+(l[i]===_lang?' active':'')+'">'+ln[i]+'</button>'
+    h+='</div>'
     h+='</div>'
     h+='<div class="rating-card">'
     h+='<div class="star">\u2605 <span id="star-slot"></span></div>'
 
     h+='</div>'
     h+='<div class="tabs">'
-    h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">\u30ea\u30b3\u30e1\u30f3\u30c9</button>'
-    h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">\u9006\u30ea\u30b3\u30e1\u30f3\u30c9</button>'
+    h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">'+_t('recommend')+'</button>'
+    h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">'+_t('revRecommend')+'</button>'
     h+='</div>'
     h+='<div id="tab0" class="tab-content active"></div>'
     h+='<div id="tab1" class="tab-content"></div>'
@@ -162,6 +274,10 @@ var RatingApp={
     this.updateStarSlot(d.playerStarRating)
     this.renderRecTab()
     this.renderRevTab()
+  },
+  switchLang:function(l){
+    _lang=l
+    this.render()
   },
   switchTab:function(idx){
     var btns=document.querySelectorAll('.tab-btn')
@@ -205,17 +321,17 @@ var RatingApp={
   ALL_NEW_LAMPS:['easy','normal','hard','fullCombo'],
   renderRecTab:function(){
     var d=this.data
-    if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">No recommendations found.</div>';return}
+    if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">'+_t('noRec')+'</div>';return}
     var tab=document.getElementById('tab0')
     tab.innerHTML=''
     var filters=document.createElement('div')
     filters.className='filters'
-    filters.innerHTML='<div class="filters-title">\u30d5\u30a3\u30eb\u30bf</div>'+
-      '<div class="filter-row"><label>\u66f2\u540d:</label><input type="text" id="rec-title-filter" placeholder="\u66f2\u540d\u3067\u7d5e\u308a\u8fbc\u307f"></div>'+
+    filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
+      '<div class="filter-row"><label>'+_t('songName')+':</label><input type="text" id="rec-title-filter" placeholder="'+_t('filterBySong')+'"></div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rec-star-filter"></div>'+
-      '<div class="filter-row"><label>\u73fe\u5728\u306e\u30e9\u30f3\u30d7:</label></div><div class="lamp-group" id="rec-old-lamp-filter"></div>'+
-      '<div class="filter-row"><label>\u30bf\u30fc\u30b2\u30c3\u30c8:</label></div><div class="lamp-group" id="rec-new-lamp-filter"></div>'+
-      '<div class="filter-actions"><button onclick="RatingApp.resetRecFilters()">\u30ea\u30bb\u30c3\u30c8</button></div>'
+      '<div class="filter-row"><label>'+_t('currentLamp')+':</label></div><div class="lamp-group" id="rec-old-lamp-filter"></div>'+
+      '<div class="filter-row"><label>'+_t('target')+':</label></div><div class="lamp-group" id="rec-new-lamp-filter"></div>'+
+      '<div class="filter-actions"><button onclick="RatingApp.resetRecFilters()">'+_t('reset')+'</button></div>'
     tab.appendChild(filters)
     var area=document.createElement('div')
     area.id='rec-area'
@@ -230,15 +346,15 @@ var RatingApp={
   },
   renderRevTab:function(){
     var d=this.data
-    if(!d||!d.reverseRecommendation||!d.reverseRecommendation.length){document.getElementById('tab1').innerHTML='<div class="empty-msg">\u9006\u30ea\u30b3\u30e1\u30f3\u30c9\u306f\u3042\u308a\u307e\u305b\u3093\u3002</div>';return}
+    if(!d||!d.reverseRecommendation||!d.reverseRecommendation.length){document.getElementById('tab1').innerHTML='<div class="empty-msg">'+_t('noReverse')+'</div>';return}
     var tab=document.getElementById('tab1')
     tab.innerHTML=''
     var filters=document.createElement('div')
     filters.className='filters'
-    filters.innerHTML='<div class="filters-title">\u30d5\u30a3\u30eb\u30bf</div>'+
+    filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div>'+
-      '<div class="filter-row"><label>\u30e9\u30f3\u30d7:</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
-      '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">\u30ea\u30bb\u30c3\u30c8</button></div>'
+      '<div class="filter-row"><label>'+_t('lamp')+':</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
+      '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">'+_t('reset')+'</button></div>'
     tab.appendChild(filters)
     var area=document.createElement('div')
     area.id='rev-area'
@@ -357,24 +473,26 @@ var RatingApp={
   },
   buildRecTable:function(result){
     var rows=result.rows
-    if(!rows.length)return'<div class="empty-msg">\u30d5\u30a3\u30eb\u30bf\u306b\u4e00\u81f4\u3059\u308b\u304c\u3042\u308a\u307e\u305b\u3093\u3002</div>'
+    if(!rows.length)return'<div class="empty-msg">'+_t('noMatch')+'</div>'
     var h='<div class="table-wrap"><table id="rec-table"><thead><tr>'
     h+='<th onclick="RatingApp.sortRec(0)">\u2605<span class="sort-arrow">'+this.sortArrow(0,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='<th onclick="RatingApp.sortRec(1)">Title<span class="sort-arrow">'+this.sortArrow(1,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='<th onclick="RatingApp.sortRec(2)">Current<span class="sort-arrow">'+this.sortArrow(2,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='<th onclick="RatingApp.sortRec(3)">Target<span class="sort-arrow">'+this.sortArrow(3,this.recSortCol,this.recSortDir)+'</span></th>'
-    h+='<th onclick="RatingApp.sortRec(4)">\u30ea\u30b3\u30e1\u30f3\u5ea6<span class="sort-arrow">'+this.sortArrow(4,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRec(4)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(4,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='</tr></thead><tbody>'
     for(var i=0;i<rows.length;i++){
       var r=rows[i]
       var star=this.formatStar(r.difficultyTableLevels)
+      var curLamp=r.currentClearLamp?r.currentClearLamp.toUpperCase():''
+      var tgtLamp=r.targetClearLamp?r.targetClearLamp.toUpperCase():''
       var curCls=r.currentClearLamp?'lamp-'+r.currentClearLamp:''
       var tgtCls=r.targetClearLamp?'lamp-'+r.targetClearLamp:''
       h+='<tr>'
       h+='<td>'+star+'</td>'
       h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
-      h+='<td class="'+curCls+'">'+r.currentClearLamp+'</td>'
-      h+='<td class="'+tgtCls+'">'+r.targetClearLamp+'</td>'
+      h+='<td class="'+curCls+'">'+curLamp+'</td>'
+      h+='<td class="'+tgtCls+'">'+tgtLamp+'</td>'
       h+='<td>'+this.probCell(r.prob)+'</td>'
       h+='</tr>'
     }
@@ -383,24 +501,25 @@ var RatingApp={
   },
   buildRevTable:function(result){
     var rows=result.rows
-    if(!rows.length)return'<div class="empty-msg">\u30d5\u30a3\u30eb\u30bf\u306b\u4e00\u81f4\u3059\u308b\u304c\u3042\u308a\u307e\u305b\u3093\u3002</div>'
+    if(!rows.length)return'<div class="empty-msg">'+_t('noMatch')+'</div>'
     var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     h+='<th onclick="RatingApp.sortRev(0)">\u2605<span class="sort-arrow">'+this.sortArrow(0,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='<th onclick="RatingApp.sortRev(1)">Title<span class="sort-arrow">'+this.sortArrow(1,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='<th onclick="RatingApp.sortRev(2)">Lamp<span class="sort-arrow">'+this.sortArrow(2,this.revSortCol,this.revSortDir)+'</span></th>'
-    h+='<th onclick="RatingApp.sortRev(3)">\u96e3\u5ea6<span class="sort-arrow">'+this.sortArrow(3,this.revSortCol,this.revSortDir)+'</span></th>'
-    h+='<th onclick="RatingApp.sortRev(4)">\u5730\u529b\u8b5c\u9762\u5ea6<span class="sort-arrow">'+this.sortArrow(4,this.revSortCol,this.revSortDir)+'</span></th>'
-    h+='<th onclick="RatingApp.sortRev(5)">\u30ea\u30b3\u30e1\u30f3\u5ea6<span class="sort-arrow">'+this.sortArrow(5,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(3)">'+_t('diff')+'<span class="sort-arrow">'+this.sortArrow(3,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(4)">'+_t('ground')+'<span class="sort-arrow">'+this.sortArrow(4,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th onclick="RatingApp.sortRev(5)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(5,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='</tr></thead><tbody>'
     for(var i=0;i<rows.length;i++){
       var r=rows[i]
       var star=this.formatStar(r.difficultyTableLevels)
+      var lampVal=r.clearLamp?r.clearLamp.toUpperCase():''
       var lampCls=r.clearLamp?'lamp-'+r.clearLamp:''
       var diffStar=r.clearDifficultyStarRating!=null?'\u2605'+r.clearDifficultyStarRating.toFixed(2):'-'
       h+='<tr>'
       h+='<td>'+star+'</td>'
       h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
-      h+='<td class="'+lampCls+'">'+r.clearLamp+'</td>'
+      h+='<td class="'+lampCls+'">'+lampVal+'</td>'
       h+='<td>'+diffStar+'</td>'
       h+='<td>'+r.chartDiscrimination.toFixed(3)+'</td>'
       h+='<td>'+this.probCell(r.prob)+'</td>'
@@ -417,16 +536,16 @@ var RatingApp={
   },
   buildPageInfo:function(result,prefix){
     var h='<div class="page-controls">'
-    h+='<div class="page-size-group">\u8868\u793a\u4ef6\u6570: '
+    h+='<div class="page-size-group">'+_t('perPage')+': '
     h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',50)"'+(prefix==='rec'?this.recPageSize===50?' class="active"':'':this.revPageSize===50?' class="active"':'')+'>50</button>'
     h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',0)"'+(prefix==='rec'?this.recPageSize===0?' class="active"':'':this.revPageSize===0?' class="active"':'')+'>Full</button>'
     h+='</div>'
     h+='<div class="page-nav">'
-    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',-1)"'+(result.page<=0?' disabled':'')+'>\u524d\u3078</button>'
+    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',-1)"'+(result.page<=0?' disabled':'')+'>'+_t('prev')+'</button>'
     h+='<span>'+(result.npages>0?(result.page+1)+'/'+result.npages:'0/0')+'</span>'
-    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',1)"'+(result.page>=result.npages-1?' disabled':'')+'>\u6b21\u3078</button>'
+    h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',1)"'+(result.page>=result.npages-1?' disabled':'')+'>'+_t('next')+'</button>'
     h+='</div>'
-    h+='<span>'+result.total+'\u4ef6</span>'
+    h+='<span>'+result.total+_t('items')+'</span>'
     h+='</div>'
     return h
   },
@@ -464,6 +583,7 @@ var RatingApp={
     if(!c)return
     c.innerHTML=''
     var self=this
+    var isLamp=group.indexOf('lamp')>=0
     for(var i=0;i<items.length;i++){
       var lbl=document.createElement('label')
       var cb=document.createElement('input')
@@ -476,7 +596,7 @@ var RatingApp={
         self.onFilterChange(this.dataset.group)
       })
       lbl.appendChild(cb)
-      lbl.appendChild(document.createTextNode(' '+items[i]))
+      lbl.appendChild(document.createTextNode(' '+(isLamp?items[i].toUpperCase():items[i])))
       lbl.className='checked'
       c.appendChild(lbl)
     }
