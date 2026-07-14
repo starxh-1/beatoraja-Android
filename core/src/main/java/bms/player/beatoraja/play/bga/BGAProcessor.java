@@ -272,6 +272,7 @@ public class BGAProcessor {
 	public void prepare(BMSPlayer player) {
 		pos = 0;
 		resetCurrentlyPlayingBGA();
+		bgaFramebufferDirty = true;
 		if(cache != null) {
 			cache.prepare(timelines);
 		}
@@ -318,7 +319,6 @@ public class BGAProcessor {
 	}
 
 	public void prepareBGA(long time) {
-		bgaFramebufferDirty = true;
 		if (time < 0 || timelines == null) {
 			this.time = -1;
 			this.pos = 0;
@@ -330,6 +330,7 @@ public class BGAProcessor {
 		if (time < this.time) {
 			this.pos = 0;
 			resetCurrentlyPlayingBGA();
+			bgaFramebufferDirty = true;
 		}
 
 		// Avoid redundant processing if called multiple times in the same frame with same timestamp
@@ -347,15 +348,14 @@ public class BGAProcessor {
 			if (tl.getTime() > this.time) {
 				final int bga = tl.getBGA();
 				if (bga == -2) {
-					// if (playingbgaid != -1) Gdx.app.log("BGAProcessor", "BGA ID changed to: -1 (None)");
+					bgaFramebufferDirty = true;
 					playingbgaid = -1;
 					rbga = false;
 					bga_start_time = 0;
 				} else if (bga >= 0) {
 					if (playingbgaid != bga) {
-						// Gdx.app.log("BGAProcessor", "BGA ID changed to: " + bga + " at time: " + time);
+						bgaFramebufferDirty = true;
 						if (bga < movies.length && movies[bga] != null) {
-							// Gdx.app.log("BGAProcessor", "Triggering play() for movie ID " + bga);
 							movies[bga].play(tl.getMilliTime(), false);
 						}
 					}
@@ -366,15 +366,14 @@ public class BGAProcessor {
 
 				final int layer = tl.getLayer();
 				if (layer == -2) {
-					// if (playinglayerid != -1) Gdx.app.log("BGAProcessor", "Layer ID changed to: -1 (None)");
+					bgaFramebufferDirty = true;
 					playinglayerid = -1;
 					rlayer = false;
 					layer_start_time = 0;
 				} else if (layer >= 0) {
 					if (playinglayerid != layer) {
-						// Gdx.app.log("BGAProcessor", "Layer ID changed to: " + layer + " at time: " + time);
+						bgaFramebufferDirty = true;
 						if (layer < movies.length && movies[layer] != null) {
-							// Gdx.app.log("BGAProcessor", "Triggering play() for layer movie ID " + layer);
 							movies[layer].play(tl.getMilliTime(), false);
 						}
 					}
@@ -385,11 +384,13 @@ public class BGAProcessor {
 
 				final int missbga = tl.getMissBGA();
 				if (missbga == -2) {
+					bgaFramebufferDirty = true;
 					playingmissbgaid = -1;
 					rmissbga = false;
 					missbga_start_time = 0;
 				} else if (missbga >= 0) {
 					if (playingmissbgaid != missbga) {
+						bgaFramebufferDirty = true;
 						if (missbga < movies.length && movies[missbga] != null) {
 							movies[missbga].play(tl.getMilliTime(), false);
 						}
@@ -407,12 +408,15 @@ public class BGAProcessor {
 		// 在逻辑更新阶段驱动视频解码，传入绝对游戏时间
 		if (playingbgaid >= 0 && movies[playingbgaid] != null) {
 			movies[playingbgaid].update(time);
+			bgaFramebufferDirty = true;
 		}
 		if (playinglayerid >= 0 && movies[playinglayerid] != null && playinglayerid != playingbgaid) {
 			movies[playinglayerid].update(time);
+			bgaFramebufferDirty = true;
 		}
 		if (playingmissbgaid >= 0 && movies[playingmissbgaid] != null && playingmissbgaid != playingbgaid && playingmissbgaid != playinglayerid) {
 			movies[playingmissbgaid].update(time);
+			bgaFramebufferDirty = true;
 		}
 	}
 
@@ -449,9 +453,6 @@ public class BGAProcessor {
 			sprite.draw(blanktex, r.x, r.y, r.width, r.height);
 			return;
 		}
-
-		// Mark framebuffer as dirty so lane background can use BGA texture
-		bgaFramebufferDirty = true;
 
 		// poor/miss layer active state - poor 触发后必须完全覆盖 #BGA 和 #LAYER
 		final boolean poorlayerActive = misslayertime != 0 && time >= misslayertime

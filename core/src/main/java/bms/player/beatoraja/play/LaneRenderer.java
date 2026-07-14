@@ -517,7 +517,14 @@ public class LaneRenderer {
 					}
 				}
 
-				sprite.setColor(1f, 1f, 1f, 0.15f);
+				float bgaAlpha = 0.15f;
+				if (main.getSkin() != null) {
+					SkinConfig.Offset off = main.getSkin().getOffset().get(56);
+					if (off != null && off.a > 0 && off.a <= 100) {
+						bgaAlpha = off.a / 100.0f * 0.50f;
+					}
+				}
+				sprite.setColor(1f, 1f, 1f, bgaAlpha);
 				sprite.setBlend(0); // Use alpha blending for a more natural darkened BGA look
 
 				// Perfect alignment: Sample the sub-region of the combined BGA that matches lane position.

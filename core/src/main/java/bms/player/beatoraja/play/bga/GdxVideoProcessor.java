@@ -184,8 +184,14 @@ public class GdxVideoProcessor implements MovieProcessor {
         long targetVideoTime = gameTime - gameStartTime;
         if (targetVideoTime < 0) return;
 
-        if (loop && videoDuration > 0 && targetVideoTime > videoDuration) {
-            targetVideoTime = targetVideoTime % videoDuration;
+        if (videoDuration > 0 && targetVideoTime > videoDuration) {
+            if (loop) {
+                targetVideoTime = targetVideoTime % videoDuration;
+            } else {
+                // 非循环视频：游戏时间已超过视频时长，视频自然结束。
+                // 停止 seek 以避免 MediaPlayer "Attempt to seek to past end of file" 和异常帧闪现。
+                return;
+            }
         }
 
         // 用 VideoPlayer 真实时间戳（来自 MediaPlayer.getCurrentPosition()），

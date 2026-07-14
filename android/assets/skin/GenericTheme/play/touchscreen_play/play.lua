@@ -272,6 +272,7 @@ local offset_source = {
 	{key = "lane_width", name = "Lane offset(%)", id = 40, w = true},
 	{key = "lane", name = "Lane offset", id = 55, x = true, a = true},
 	{key = "lane_darkness", name = "Lane darkness(0~255)", id = 41, a = true},
+	{key = "lane_bga_darkness", name = "Lane BGA darkness(0~100)", id = 56, a = true},
 	{key = "keybeam", name = "Keybeam offset", id = 42, h = true, a = true},
 	{key = "judge", name = "Judge size offset", id = 43, w = true},
 	{key = "bomb", name = "Bomb size offset", id = 44, w = true},
