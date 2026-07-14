@@ -277,7 +277,9 @@ var RatingApp={
   },
   switchLang:function(l){
     _lang=l
+    var saved;var el=document.getElementById('star-slot');if(el)saved=el.innerHTML
     this.render()
+    if(saved){var el2=document.getElementById('star-slot');if(el2)el2.innerHTML=saved}
   },
   switchTab:function(idx){
     var btns=document.querySelectorAll('.tab-btn')
