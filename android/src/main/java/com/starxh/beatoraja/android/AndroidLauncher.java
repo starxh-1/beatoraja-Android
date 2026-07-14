@@ -1178,8 +1178,6 @@ public class AndroidLauncher extends AndroidApplication {
 
             android.webkit.WebView webView = new android.webkit.WebView(instance);
             webView.setBackgroundColor(android.graphics.Color.parseColor("#1a1a2e"));
-            webView.setFocusable(true);
-            webView.setFocusableInTouchMode(true);
 
             android.webkit.WebSettings ws = webView.getSettings();
             ws.setJavaScriptEnabled(true);
@@ -1229,10 +1227,7 @@ public class AndroidLauncher extends AndroidApplication {
             ratingDialog.setCanceledOnTouchOutside(true);
             ratingDialog.getWindow().setBackgroundDrawable(
                 new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
-            ratingDialog.getWindow().setSoftInputMode(
-                android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
             ratingDialog.show();
-            webView.requestFocus();
             // Truly fullscreen: fill entire screen including system bar area
             ratingDialog.getWindow().setLayout(
                 android.view.ViewGroup.LayoutParams.MATCH_PARENT,
