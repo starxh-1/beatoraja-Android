@@ -521,7 +521,7 @@ var RatingApp={
   _SLOT_SPINS:2,
   updateStarSlot:function(v){
     if(v==null){var e=document.getElementById('star-slot');if(e)e.textContent='?';return}
-    var stored=localStorage.getItem('wr_prev_star')
+    var stored;try{stored=localStorage.getItem('wr_prev_star')}catch(e){}
     var p=stored!=null?parseFloat(stored):0
     var e=document.getElementById('star-slot');if(!e)return
     var refStr=v.toFixed(2),html='<span class="slot-row">'
@@ -538,7 +538,7 @@ var RatingApp={
     this._setSlotPos(e,this._formatMatch(p,refStr),false)
     var self=this
     requestAnimationFrame(function(){requestAnimationFrame(function(){self._setSlotPos(e,refStr,true)})})
-    localStorage.setItem('wr_prev_star',v)
+    try{localStorage.setItem('wr_prev_star',v)}catch(e){}
   },
   _formatMatch:function(val,refStr){
     var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')

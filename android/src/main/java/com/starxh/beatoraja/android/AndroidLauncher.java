@@ -1180,6 +1180,7 @@ public class AndroidLauncher extends AndroidApplication {
 
             android.webkit.WebSettings ws = webView.getSettings();
             ws.setJavaScriptEnabled(true);
+            ws.setDomStorageEnabled(true);
             ws.setAllowFileAccess(true);
             ws.setCacheMode(android.webkit.WebSettings.LOAD_NO_CACHE);
 
@@ -1206,7 +1207,7 @@ public class AndroidLauncher extends AndroidApplication {
                 }
             });
 
-            webView.loadDataWithBaseURL(null, loadRatingHtml(), "text/html", "UTF-8", null);
+            webView.loadDataWithBaseURL("https://walkure.local/", loadRatingHtml(), "text/html", "UTF-8", null);
 
             android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(instance);
             builder.setView(webView);
