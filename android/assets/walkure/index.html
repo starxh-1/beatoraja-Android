@@ -708,20 +708,29 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       }
       var stopScramble=function(){
         if(row._pressTimer){clearTimeout(row._pressTimer);row._pressTimer=null}
+        // read animated position BEFORE removing the animation class
+        var positions=[]
+        for(var i=0;i<cols.length;i++){
+          var strip=cols[i].querySelector('.strip')
+          var matrix=getComputedStyle(strip).transform
+          var ty=0
+          if(matrix&&matrix!=='none'){
+            var m2d=matrix.match(/matrix\(([^)]+)\)/)
+            if(m2d){var p=m2d[1].split(',');ty=parseFloat(p[5])||0}
+            else{
+              var m3d=matrix.match(/matrix3d\(([^)]+)\)/)
+              if(m3d){var p3=m3d[1].split(',');ty=parseFloat(p3[13])||0}
+            }
+          }
+          positions.push(ty)
+        }
         // freeze each strip at its current visual position
         for(var i=0;i<cols.length;i++){
           var strip=cols[i].querySelector('.strip')
-          var cs=getComputedStyle(strip)
-          var matrix=cs.transform
           cols[i].classList.remove('scrambling')
           strip.style.animation='none'
-          var ty=0
-          if(matrix&&matrix!=='none'){
-            var vals=matrix.match(/matrix.*\((.+)\)/)
-            if(vals){var parts=vals[1].split(',');ty=parseFloat(parts[1])||0}
-          }
           strip.style.transition='none'
-          strip.style.transform='translateY('+ty+'px)'
+          strip.style.transform='translateY('+positions[i]+'px)'
         }
         // force reflow then slide back after 0.5s
         row.offsetHeight
