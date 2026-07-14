@@ -11,7 +11,7 @@ body{
   background:#0f1923;color:#d0dce8;padding:16px;overflow-x:hidden;
   -webkit-text-size-adjust:100%
 }
-.container{max-width:540px;margin:0 auto}
+.container{max-width:100%;margin:0 auto}
 .header{text-align:center;padding:20px 0 12px}
 .header h1{font-size:20px;color:#4fc3f7;margin-bottom:2px}
 .header .subtitle{font-size:13px;color:#788a9c}
@@ -27,9 +27,9 @@ body{
 .slot-col .strip span{display:block;height:1em;text-align:center}
 .slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
 
-.tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #1e3a5a}
+.tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #1e3a5a}
 .tab-btn{
-  flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;
+  flex:0 0 auto;padding:8px 18px;text-align:center;font-size:14px;font-weight:600;
   background:#1a2a3a;color:#788a9c;border:none;cursor:pointer;
   transition:all .2s
 }
@@ -335,7 +335,7 @@ var RatingApp={
     return a
   })(),
   ALL_OLD_LAMPS:['noplay','failed','easy','normal','hard','fullCombo'],
-  ALL_NEW_LAMPS:['normal','hard','fullCombo'],
+  ALL_NEW_LAMPS:['easy','normal','hard','fullCombo'],
   renderRecTab:function(){
     var d=this.data
     if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">'+_t('noRec')+'</div>';return}
@@ -344,7 +344,6 @@ var RatingApp={
     var filters=document.createElement('div')
     filters.className='filters'
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
-      '<div class="filter-row"><label>'+_t('songName')+':</label><input type="text" id="rec-title-filter" placeholder="'+_t('filterBySong')+'"></div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rec-star-filter"></div><div class="star-actions"><button onclick="RatingApp.toggleStarGroup(\'rec-star-filter\',true)">All</button><button onclick="RatingApp.toggleStarGroup(\'rec-star-filter\',false)">None</button></div>'+
       '<div class="filter-row"><label>'+_t('currentLamp')+':</label></div><div class="lamp-group" id="rec-old-lamp-filter"></div>'+
       '<div class="filter-row"><label>'+_t('target')+':</label></div><div class="lamp-group" id="rec-new-lamp-filter"></div>'+
@@ -356,9 +355,6 @@ var RatingApp={
     this.buildCheckboxes('rec-star-filter',this.ALL_STARS,'rec-star')
     this.buildCheckboxes('rec-old-lamp-filter',this.ALL_OLD_LAMPS,'rec-old-lamp')
     this.buildCheckboxes('rec-new-lamp-filter',this.ALL_NEW_LAMPS,'rec-new-lamp')
-    var self=this
-    var titleInput=document.getElementById('rec-title-filter')
-    if(titleInput)titleInput.addEventListener('input',function(){self.recPage=0;self.rerenderRecTable()})
     this.rerenderRecTable()
   },
   renderRevTab:function(){
@@ -398,13 +394,10 @@ var RatingApp={
   },
   getFilteredRec:function(){
     var arr=this.data.recommendation.slice()
-    var titleEl=document.getElementById('rec-title-filter')
-    var titleVal=titleEl?titleEl.value.toLowerCase():''
     var stars=this.getCheckedSet('rec-star-filter')
     var oldLamps=this.getCheckedSet('rec-old-lamp-filter')
     var newLamps=this.getCheckedSet('rec-new-lamp-filter')
     return arr.filter(function(r){
-      if(titleVal&&r.name.toLowerCase().indexOf(titleVal)===-1)return false
       if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
       if(oldLamps.size&&!oldLamps.has(r.currentClearLamp))return false
       if(newLamps.size&&!newLamps.has(r.targetClearLamp))return false
@@ -634,8 +627,6 @@ var RatingApp={
     else if(group==='rev-star'||group==='rev-lamp'){this.revPage=0;this.rerenderRevTable()}
   },
   resetRecFilters:function(){
-    var titleEl=document.getElementById('rec-title-filter')
-    if(titleEl)titleEl.value=''
     var containers=['rec-star-filter','rec-old-lamp-filter','rec-new-lamp-filter']
     for(var i=0;i<containers.length;i++){
       var el=document.getElementById(containers[i])
