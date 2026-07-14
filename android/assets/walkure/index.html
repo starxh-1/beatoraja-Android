@@ -235,8 +235,8 @@ var RatingApp={
   recSortDir:-1,
   revSortCol:5,
   revSortDir:1,
-  recPageSize:50,
-  revPageSize:50,
+  recPageSize:25,
+  revPageSize:25,
   recPage:0,
   revPage:0,
   showRating:function(d){
@@ -537,6 +537,7 @@ var RatingApp={
   buildPageInfo:function(result,prefix){
     var h='<div class="page-controls">'
     h+='<div class="page-size-group">'+_t('perPage')+': '
+    h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',25)"'+(prefix==='rec'?this.recPageSize===25?' class="active"':'':this.revPageSize===25?' class="active"':'')+'>25</button>'
     h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',50)"'+(prefix==='rec'?this.recPageSize===50?' class="active"':'':this.revPageSize===50?' class="active"':'')+'>50</button>'
     h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',0)"'+(prefix==='rec'?this.recPageSize===0?' class="active"':'':this.revPageSize===0?' class="active"':'')+'>Full</button>'
     h+='</div>'
