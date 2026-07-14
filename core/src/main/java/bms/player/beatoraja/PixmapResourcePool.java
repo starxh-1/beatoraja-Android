@@ -197,7 +197,11 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 		Pixmap tex = null;
 		try {
 			if (actualPath.endsWith(".cim")) {
-				tex = PixmapIO.readCIM(Gdx.files.internal(actualPath));
+				if (Gdx.app.getType() == ApplicationType.Android && actualPath.startsWith("/")) {
+					tex = PixmapIO.readCIM(Gdx.files.absolute(actualPath));
+				} else {
+					tex = PixmapIO.readCIM(Gdx.files.internal(actualPath));
+				}
 			} else {
 				if (Gdx.app.getType() == ApplicationType.Android && actualPath.startsWith("/")) {
 					tex = new Pixmap(Gdx.files.absolute(actualPath));
