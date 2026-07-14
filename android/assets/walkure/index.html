@@ -356,6 +356,7 @@ var RatingApp={
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div>'+
       '<div class="filter-row"><label>'+_t('lamp')+':</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
+      '<div class="filter-row"><label>'+_t('ground')+':</label><input type="text" id="rev-ground-filter" placeholder="min" style="background:#142838;border:1px solid #1e3a5a;border-radius:6px;padding:4px 8px;color:#d0dce8;font-size:12px;width:80px"></div>'+
       '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">'+_t('reset')+'</button></div>'
     tab.appendChild(filters)
     var area=document.createElement('div')
@@ -363,6 +364,9 @@ var RatingApp={
     tab.appendChild(area)
     this.buildCheckboxes('rev-star-filter',this.ALL_STARS,'rev-star')
     this.buildCheckboxes('rev-lamp-filter',['easy','normal','hard','fullCombo'],'rev-lamp')
+    var self=this
+    var groundEl=document.getElementById('rev-ground-filter')
+    if(groundEl)groundEl.addEventListener('input',function(){self.revPage=0;self.rerenderRevTable()})
     this.rerenderRevTable()
   },
   rerenderRecTable:function(){
@@ -396,9 +400,12 @@ var RatingApp={
     var arr=this.data.reverseRecommendation.slice()
     var stars=this.getCheckedSet('rev-star-filter')
     var lamps=this.getCheckedSet('rev-lamp-filter')
+    var groundEl=document.getElementById('rev-ground-filter')
+    var groundMin=groundEl&&groundEl.value?parseFloat(groundEl.value):NaN
     return arr.filter(function(r){
       if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
       if(lamps.size&&!lamps.has(r.clearLamp))return false
+      if(!isNaN(groundMin)&&(r.chartDiscrimination==null||r.chartDiscrimination<groundMin))return false
       return true
     })
   },
@@ -629,6 +636,8 @@ var RatingApp={
       var cbs=el.querySelectorAll('input[type=checkbox]')
       for(var j=0;j<cbs.length;j++){cbs[j].checked=true;cbs[j].parentNode.className='checked'}
     }
+    var groundEl=document.getElementById('rev-ground-filter')
+    if(groundEl)groundEl.value=''
     this.revPage=0
     this.rerenderRevTable()
   },
