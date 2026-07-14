@@ -18,7 +18,7 @@ body{
 .header .subtitle{font-size:13px;color:#788a9c}
 /* .rating-card removed - now inline styles in render() */
 .slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible}
-.slot-col{display:inline-block;width:0.55em;height:1em;overflow:hidden;position:relative;vertical-align:top}
+.slot-col{display:inline-block;width:0.7em;height:1em;overflow:hidden;position:relative;vertical-align:top}
 .slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
 .slot-col .strip span{display:block;height:1em;text-align:center;font-variant-numeric:tabular-nums}
 .slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
@@ -500,7 +500,7 @@ var h='<div class="table-wrap"><table id="rec-table"><thead><tr>'
     h+='<th onclick="RatingApp.sortRec(1)">Title<span class="sort-arrow">'+this.sortArrow(1,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='<th style="width:90px" onclick="RatingApp.sortRec(2)">Current<span class="sort-arrow">'+this.sortArrow(2,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='<th style="width:90px" onclick="RatingApp.sortRec(3)">Target<span class="sort-arrow">'+this.sortArrow(3,this.recSortCol,this.recSortDir)+'</span></th>'
-    h+='<th style="width:100px" onclick="RatingApp.sortRec(4)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(4,this.recSortCol,this.recSortDir)+'</span></th>'
+    h+='<th style="width:150px" onclick="RatingApp.sortRec(4)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(4,this.recSortCol,this.recSortDir)+'</span></th>'
     h+='</tr></thead><tbody>'
     for(var i=0;i<rows.length;i++){
       var r=rows[i]
@@ -529,7 +529,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     h+='<th style="width:90px" onclick="RatingApp.sortRev(2)">Lamp<span class="sort-arrow">'+this.sortArrow(2,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='<th style="width:80px" onclick="RatingApp.sortRev(3)">'+_t('diff')+'<span class="sort-arrow">'+this.sortArrow(3,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='<th style="width:80px" onclick="RatingApp.sortRev(4)">'+_t('ground')+'<span class="sort-arrow">'+this.sortArrow(4,this.revSortCol,this.revSortDir)+'</span></th>'
-    h+='<th style="width:100px" onclick="RatingApp.sortRev(5)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(5,this.revSortCol,this.revSortDir)+'</span></th>'
+    h+='<th style="width:150px" onclick="RatingApp.sortRev(5)">'+_t('recDeg')+'<span class="sort-arrow">'+this.sortArrow(5,this.revSortCol,this.revSortDir)+'</span></th>'
     h+='</tr></thead><tbody>'
     for(var i=0;i<rows.length;i++){
       var r=rows[i]
