@@ -702,8 +702,12 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       var speeds=[0.4,0.5,0.6]
       var startScramble=function(){
         for(var i=0;i<cols.length;i++){
+          var strip=cols[i].querySelector('.strip')
+          strip.style.animation=''
+          strip.style.transition=''
+          strip.style.transform=''
           cols[i].classList.add('scrambling')
-          cols[i].querySelector('.strip').style.animationDuration=speeds[i%speeds.length]+'s'
+          strip.style.animationDuration=speeds[i%speeds.length]+'s'
         }
       }
       var stopScramble=function(){
@@ -722,6 +726,9 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
               if(m3d){var p3=m3d[1].split(',');ty=parseFloat(p3[13])||0}
             }
           }
+          // snap to nearest digit boundary (each digit = 1em = fontSize px)
+          var fs=parseFloat(getComputedStyle(strip).fontSize)||34
+          ty=Math.round(ty/fs)*fs
           positions.push(ty)
         }
         // freeze each strip at its current visual position
