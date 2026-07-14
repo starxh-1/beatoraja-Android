@@ -37,7 +37,6 @@ Everything else is essentially inherited from beatoraja.
 
 - Software decoding of non-mp4 (H.264, HEVC) video formats (too hard, hoping someone comes up with a new approach)
 - Internet Ranking
-- CimFS reading and parsing
 
 ## 6. Known Bugs
 
@@ -50,6 +49,8 @@ Everything else is essentially inherited from beatoraja.
 - libgdx-oboe by barsoosayque (https://github.com/barsoosayque/libgdx-oboe)
 - GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
 - KissFFT by Mark Borgerding (https://github.com/mborgerding/kissfft)
+
+- Walkure by naktazdim (https://github.com/naktazdim/walkure-offline)
 
 - MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
   and some AIs whatever free or paid which I can't remember anymore

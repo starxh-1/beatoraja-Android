@@ -1166,6 +1166,7 @@ public class AndroidLauncher extends AndroidApplication {
     // ─── Rating WebView ───
 
     private static android.app.AlertDialog ratingDialog = null;
+    private static double prevStarRating = 0.0;
 
     /** Called via reflection from core module to show the player rating WebView */
     public static void showRatingWebView(final String jsonData) {
@@ -1192,6 +1193,16 @@ public class AndroidLauncher extends AndroidApplication {
                         instance.runOnUiThread(() -> ratingDialog.dismiss());
                     }
                 }
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public double getPrevStarRating() {
+                    return prevStarRating;
+                }
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public void saveStarRating(double val) {
+                    prevStarRating = val;
+                }
             }, "RatingBridge");
 
             webView.setWebViewClient(new android.webkit.WebViewClient() {
@@ -1214,6 +1225,8 @@ public class AndroidLauncher extends AndroidApplication {
             ratingDialog = builder.create();
             ratingDialog.setCancelable(true);
             ratingDialog.setCanceledOnTouchOutside(true);
+            ratingDialog.getWindow().setBackgroundDrawable(
+                new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));
             ratingDialog.show();
             // Truly fullscreen: fill entire screen including system bar area
             ratingDialog.getWindow().setLayout(

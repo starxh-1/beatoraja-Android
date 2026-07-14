@@ -50,6 +50,8 @@ beatoraja 本身几乎是纯 Java 写的，代码结构对移植比较友好，�
 - GenericTheme Skin by Shimi9999 (https://github.com/Shimi9999/GenericTheme)
 - KissFFT by Mark Borgerding (https://github.com/mborgerding/kissfft)
 
+- Walkure by naktazdim (https://github.com/naktazdim/walkure-offline)
+
 - MiniMax-M2.7, Volcano Coding Plan Lite, Free Google Gemini, Not Free OpenAI Codex, Expensive Qoder Plan,
   and some AIs whatever free or paid which I can't remember anymore
 
