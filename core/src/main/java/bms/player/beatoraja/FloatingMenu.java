@@ -105,13 +105,12 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
         new MenuItem("Backspace",        Keys.BACKSPACE, false, false, false, false),
         new MenuItem("ESC",   Keys.ESCAPE, false, false, true, false),
-        new MenuItem("Enter",            Keys.ENTER, false, true, true, false),
+        new MenuItem("Enter",            Keys.ENTER, false, false, true, false),
+        new MenuItem("Walkure",       -140, false, true, false, false),
         new MenuItem("^ UP",        Keys.UP, false, true, true, false),
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, false),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true, false),
-        // ── 玩家实力表 ──────────────────────
-        new MenuItem("Rating",       -140, false, true, false, true),
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
         new MenuItem("X: 0", -111, false, true, false, true),
