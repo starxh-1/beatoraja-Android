@@ -21,6 +21,11 @@ body{
   border:1px solid #1a4a6e
 }
 .rating-card .star{font-size:42px;font-weight:bold;color:#f1ee28}
+.slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible}
+.slot-col{display:inline-block;width:0.55em;height:1em;overflow:hidden;position:relative;vertical-align:top}
+.slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
+.slot-col .strip span{display:block;height:1em;text-align:center}
+.slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
 
 .tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden}
 .tab-btn{
@@ -77,8 +82,8 @@ tr:nth-child(even) td{background:#16213e40}
 .lamp-noplay{color:#666}.lamp-failed{color:#e74c3c}
 .lamp-easy{color:#1ff00c}
 .lamp-normal{color:#ebfc05}
-.lamp-hard{color:#fa3807}
-.lamp-fullCombo,.lamp-fc{color:#ee10ee}
+.lamp-hard{color:#f7f3f2}
+.lamp-fullCombo,.lamp-fc{color:#1bdbf5}
 .empty-msg{text-align:center;padding:30px 16px;color:#666;font-size:14px}
 .page-controls{
   display:flex;align-items:center;justify-content:space-between;
@@ -86,7 +91,7 @@ tr:nth-child(even) td{background:#16213e40}
 }
 .page-controls .page-size-group{display:flex;align-items:center;gap:6px}
 .page-controls .page-size-group button{
-  background:#0f3460;border:1px solid #1a4a6e;border-radius:6px;
+  background:#92b1d6;border:1px solid #1a4a6e;border-radius:6px;
   padding:4px 10px;color:#7ec8e3;font-size:12px;cursor:pointer
 }
 .page-controls .page-size-group button.active{background:#1a4a6e;color:#f0d060;border-color:#f0d06060}
@@ -143,7 +148,7 @@ var RatingApp={
     if(d.playerName)h+='<div class="subtitle">'+this.esc(d.playerName)+'</div>'
     h+='</div>'
     h+='<div class="rating-card">'
-    h+='<div class="star">\u2605 '+(d.playerStarRating!=null?d.playerStarRating.toFixed(2):'?')+'</div>'
+    h+='<div class="star">\u2605 <span id="star-slot"></span></div>'
 
     h+='</div>'
     h+='<div class="tabs">'
@@ -154,6 +159,7 @@ var RatingApp={
     h+='<div id="tab1" class="tab-content"></div>'
     h+='<button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
     document.getElementById('app').innerHTML=h
+    this.updateStarSlot(d.playerStarRating)
     this.renderRecTab()
     this.renderRevTab()
   },
@@ -508,6 +514,53 @@ var RatingApp={
     var hue=Math.round(120*p)
     var bg='hsl('+hue+',70%,35%)'
     return'<div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div> '+pc+'%'
+  },
+  // ── Slot machine star rating ──
+  _prevStarVal: null,
+  _SLOT_COPIES:5,
+  _SLOT_START:2,
+  _SLOT_SPINS:2,
+  updateStarSlot:function(v){
+    if(v==null){var e=document.getElementById('star-slot');if(e)e.textContent='?';return}
+    var p=this._prevStarVal!=null?this._prevStarVal:0
+    var e=document.getElementById('star-slot');if(!e)return
+    var refStr=v.toFixed(2),html='<span class="slot-row">'
+    for(var i=0;i<refStr.length;i++){
+      var c=refStr[i]
+      if(c=='.'){html+='<span class="slot-dot">.</span>'}else{
+        html+='<span class="slot-col"><span class="strip">'
+        for(var r=0;r<this._SLOT_COPIES;r++){for(var d=0;d<=9;d++)html+='<span>'+d+'</span>'}
+        html+='</span></span>'
+      }
+    }
+    html+='</span>'
+    e.innerHTML=html
+    this._setSlotPos(e,this._formatMatch(p,refStr),false)
+    var self=this
+    requestAnimationFrame(function(){requestAnimationFrame(function(){self._setSlotPos(e,refStr,true)})})
+    this._prevStarVal=v
+  },
+  _formatMatch:function(val,refStr){
+    var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')
+    while(vp[0].length<rp[0].length)vp[0]='0'+vp[0]
+    if(vp[0].length>rp[0].length)vp[0]=vp[0].slice(-rp[0].length)
+    return vp[0]+'.'+vp[1]
+  },
+  _setSlotPos:function(el,str,anim){
+    var cols=el.querySelectorAll('.slot-col'),idx=0
+    for(var i=0;i<str.length;i++){
+      if(str[i]=='.')continue
+      var t=parseInt(str[i]),col=cols[idx];if(!col)break
+      var st=col.querySelector('.strip')
+      if(anim){
+        st.style.transition='transform 0.5s cubic-bezier(0.15,0.85,0.35,1) '+(idx*0.07+0.1)+'s'
+        st.style.transform='translateY(-'+((this._SLOT_START*10+t)+this._SLOT_SPINS*10)+'em)'
+      }else{
+        st.style.transition='none'
+        st.style.transform='translateY(-'+(this._SLOT_START*10+t)+'em)'
+      }
+      idx++
+    }
   },
   renderLoading:function(){
     document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading...</p></div>'
