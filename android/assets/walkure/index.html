@@ -516,13 +516,13 @@ var RatingApp={
     return'<div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div> '+pc+'%'
   },
   // ── Slot machine star rating ──
-  _prevStarVal: null,
   _SLOT_COPIES:5,
   _SLOT_START:2,
   _SLOT_SPINS:2,
   updateStarSlot:function(v){
     if(v==null){var e=document.getElementById('star-slot');if(e)e.textContent='?';return}
-    var p=this._prevStarVal!=null?this._prevStarVal:0
+    var stored=localStorage.getItem('wr_prev_star')
+    var p=stored!=null?parseFloat(stored):0
     var e=document.getElementById('star-slot');if(!e)return
     var refStr=v.toFixed(2),html='<span class="slot-row">'
     for(var i=0;i<refStr.length;i++){
@@ -538,7 +538,7 @@ var RatingApp={
     this._setSlotPos(e,this._formatMatch(p,refStr),false)
     var self=this
     requestAnimationFrame(function(){requestAnimationFrame(function(){self._setSlotPos(e,refStr,true)})})
-    this._prevStarVal=v
+    localStorage.setItem('wr_prev_star',v)
   },
   _formatMatch:function(val,refStr){
     var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')
