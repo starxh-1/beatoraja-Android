@@ -394,6 +394,11 @@ var RatingApp={
   },
   getFilteredRec:function(){
     var arr=this.data.recommendation.slice()
+    // dan charts have no easy clear — skip entries with target="easy"
+    arr=arr.filter(function(r){
+      if(r.difficultyTableLevels&&r.difficultyTableLevels.dan&&r.targetClearLamp==='easy')return false
+      return true
+    })
     var stars=this.getCheckedSet('rec-star-filter')
     var oldLamps=this.getCheckedSet('rec-old-lamp-filter')
     var newLamps=this.getCheckedSet('rec-new-lamp-filter')
