@@ -17,8 +17,8 @@ body{
 .header h1{font-size:20px;color:#4fc3f7;margin-bottom:2px}
 .header .subtitle{font-size:13px;color:#788a9c}
 /* .rating-card removed - now inline styles in render() */
-.slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible}
-.slot-col{display:inline-block;width:0.7em;height:1em;overflow:hidden;position:relative;vertical-align:top}
+.slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible;user-select:none;-webkit-user-select:none;touch-action:none}
+.slot-col{display:inline-block;width:0.7em;height:1em;overflow:hidden;position:relative;vertical-align:top;user-select:none;-webkit-user-select:none}
 .slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
 .slot-col .strip span{display:block;height:1em;text-align:center;font-variant-numeric:tabular-nums}
 .slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
@@ -687,6 +687,37 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var self=this
     requestAnimationFrame(function(){requestAnimationFrame(function(){self._setSlotPos(e,refStr,true)})})
     if(window.RatingBridge&&window.RatingBridge.saveStarRating)window.RatingBridge.saveStarRating(v)
+    // long-press scramble
+    var row=e.querySelector('.slot-row')
+    if(row){
+      row._scrambleActive=false
+      var scramble=function(){
+        if(!row._scrambleActive)return
+        var cols=row.querySelectorAll('.slot-col')
+        for(var i=0;i<cols.length;i++){
+          var strip=cols[i].querySelector('.strip')
+          if(strip){
+            strip.style.transition='none'
+            var rnd=Math.floor(Math.random()*10)
+            strip.style.transform='translateY(-'+(self._SLOT_START*10+rnd)+'em)'
+          }
+        }
+        requestAnimationFrame(scramble)
+      }
+      var start=function(){
+        row._scrambleActive=true
+        scramble()
+      }
+      var stop=function(){
+        row._scrambleActive=false
+      }
+      row.addEventListener('touchstart',start,{passive:true})
+      row.addEventListener('touchend',stop)
+      row.addEventListener('touchcancel',stop)
+      row.addEventListener('mousedown',start)
+      row.addEventListener('mouseup',stop)
+      row.addEventListener('mouseleave',stop)
+    }
   },
   _formatMatch:function(val,refStr){
     var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')
