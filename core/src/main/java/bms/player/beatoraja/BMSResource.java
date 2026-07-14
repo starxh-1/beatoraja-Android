@@ -5,7 +5,6 @@ import java.util.ArrayDeque;
 import java.util.logging.Logger;
 
 import bms.model.BMSModel;
-import bms.player.beatoraja.FileCache;
 import bms.player.beatoraja.audio.AudioDriver;
 import bms.player.beatoraja.play.bga.BGAProcessor;
 import com.badlogic.gdx.graphics.Pixmap;
@@ -70,12 +69,15 @@ public class BMSResource {
 			stagefile = null;
 		}
 		try {
-			FileHandle stageFileHandle = f.parent().child(model.getStagefile());
-			if (FileCache.exists(stageFileHandle)) {
-				Pixmap pix = PixmapResourcePool.loadPicture(stageFileHandle.path());
-				if(pix != null) {
-					stagefile = new TextureRegion(new Texture(pix));
-					pix.dispose();
+			String sf = model.getStagefile();
+			if (sf != null && !sf.isEmpty()) {
+				String resolved = PixmapResourcePool.findImagePath(f.parent().child(sf).path());
+				if (resolved != null) {
+					Pixmap pix = PixmapResourcePool.loadPicture(resolved);
+					if(pix != null) {
+						stagefile = new TextureRegion(new Texture(pix));
+						pix.dispose();
+					}
 				}
 			}
 		} catch(Throwable e) {
@@ -87,12 +89,15 @@ public class BMSResource {
 			backbmp = null;
 		}
 		try {
-			FileHandle backBmpHandle = f.parent().child(model.getBackbmp());
-			if (FileCache.exists(backBmpHandle)) {
-				Pixmap pix = PixmapResourcePool.loadPicture(backBmpHandle.path());
-				if(pix != null) {
-					backbmp = new TextureRegion(new Texture(pix));
-					pix.dispose();
+			String bb = model.getBackbmp();
+			if (bb != null && !bb.isEmpty()) {
+				String resolved = PixmapResourcePool.findImagePath(f.parent().child(bb).path());
+				if (resolved != null) {
+					Pixmap pix = PixmapResourcePool.loadPicture(resolved);
+					if(pix != null) {
+						backbmp = new TextureRegion(new Texture(pix));
+						pix.dispose();
+					}
 				}
 			}
 		} catch(Throwable e) {

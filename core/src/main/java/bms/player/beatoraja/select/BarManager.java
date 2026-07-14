@@ -813,19 +813,25 @@ public final class BarManager {
 				if (bar instanceof SongBar songbar && songbar.existsSong()) {
 					SongData song = songbar.getSongData();
 					try {
-						File bannerfile = new File(new File(song.getPath()).getParentFile(), song.getBanner());
-						// System.out.println(bannerfile.getPath());
-						if (song.getBanner().length() > 0 && bannerfile.exists()) {
-							songbar.setBanner(select.getBannerResource().get(bannerfile.getPath()));
+						String banner = song.getBanner();
+						if (banner != null && !banner.isEmpty()) {
+							File bannerfile = new File(new File(song.getPath()).getParentFile(), banner);
+							String resolved = PixmapResourcePool.findImagePath(bannerfile.getPath());
+							if (resolved != null) {
+								songbar.setBanner(select.getBannerResource().get(resolved));
+							}
 						}
 					} catch (Exception e) {
 						Logger.getGlobal().warning("banner読み込み失敗 : " + song.getBanner());
 					}
 					try {
-						File stagefilefile = new File(new File(song.getPath()).getParentFile(), song.getStagefile());
-						// System.out.println(stagefilefile.getPath());
-						if (song.getStagefile().length() > 0 && stagefilefile.exists()) {
-							songbar.setStagefile(select.getStagefileResource().get(stagefilefile.getPath()));
+						String stagefile = song.getStagefile();
+						if (stagefile != null && !stagefile.isEmpty()) {
+							File stagefilefile = new File(new File(song.getPath()).getParentFile(), stagefile);
+							String resolved = PixmapResourcePool.findImagePath(stagefilefile.getPath());
+							if (resolved != null) {
+								songbar.setStagefile(select.getStagefileResource().get(resolved));
+							}
 						}
 					} catch (Exception e) {
 						Logger.getGlobal().warning("stagefile読み込み失敗 : " + song.getStagefile());

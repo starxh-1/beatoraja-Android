@@ -370,6 +370,9 @@ local function main(keysNumber)
 		header.type = 1
 		header.name = header.name.." 5keys"
 		table.insert(header.filepath, {name = "5keysCover", path = "customize/5keyscover/*.png", def = "gradation"})
+	elseif keysNumber == 9 then
+		header.type = 4
+		header.name = header.name.." 9keys"
 	end
 
 	-- for header loading
@@ -422,8 +425,14 @@ local function main(keysNumber)
 	geo.lane.judgeline_h = 10
 
 	geo.lane.w = geo.note.scratch_w + geo.note.white_w * 4 + geo.note.black_w * 3 + geo.lane.separateline_w * 7
+	if keysNumber == 9 then
+		geo.lane.w = geo.note.scratch_w * 2 + geo.note.white_w * 4 + geo.note.black_w * 3 + geo.lane.separateline_w * 8
+	end
 	geo.lanearea.w = geo.lane.w + geo.lanearea.padding_left + geo.lanearea.padding_right
 	geo.lane.original_w = geo.note.original_scratch_w + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + geo.lane.separateline_w * 7
+	if keysNumber == 9 then
+		geo.lane.original_w = geo.note.original_scratch_w * 2 + geo.note.original_white_w * 4 + geo.note.original_black_w * 3 + geo.lane.separateline_w * 8
+	end
 	geo.lanearea.original_w = geo.lane.original_w + geo.lanearea.padding_left + geo.lanearea.padding_right
 
 	if isLaneCentering() then
@@ -450,8 +459,10 @@ local function main(keysNumber)
 	geo.lane.order = {8, 1, 2, 3, 4, 5, 6, 7}
 	if keysNumber == 5 then
 		geo.lane.order = {6, 1, 2, 3, 4, 5}
+	elseif keysNumber == 9 then
+		geo.lane.order = {1, 2, 3, 4, 5, 6, 7, 8, 9}
 	end
-	if isRightScratch() then
+	if isRightScratch() and keysNumber ~= 9 then
 		geo.lane.order = {1, 2, 3, 4, 5, 6, 7, 8}
 		if keysNumber == 5 then
 			geo.lane.order = {1, 2, 3, 4, 5, 6}
@@ -461,6 +472,8 @@ local function main(keysNumber)
 	geo.lane.each_w = {geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.scratch_w}
 	if keysNumber == 5 then
 		geo.lane.each_w = {geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.scratch_w}
+	elseif keysNumber == 9 then
+		geo.lane.each_w = {geo.note.scratch_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.black_w, geo.note.white_w, geo.note.scratch_w}
 	end
 
 	geo.lane.each_x = {}
@@ -823,6 +836,31 @@ local function main(keysNumber)
 				{x = geo.lane.each_x[4], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
 				{x = geo.lane.each_x[5], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
 				{x = geo.lane.each_x[6], y = geo.lane.y - 12, w = geo.note.scratch_w, h = geo.lane.h},
+			}
+		elseif keysNumber == 9 then
+			skin.note.note = {"note_s", "note_w", "note_b", "note_w", "note_b", "note_w", "note_b", "note_w", "note_s"}
+			skin.note.lnend = {"lne_s", "lne_w", "lne_b", "lne_w", "lne_b", "lne_w", "lne_b", "lne_w", "lne_s"}
+			skin.note.lnstart = {"lns_s", "lns_w", "lns_b", "lns_w", "lns_b", "lns_w", "lns_b", "lns_w", "lns_s"}
+			skin.note.lnbody = {"lnb_s", "lnb_w", "lnb_b", "lnb_w", "lnb_b", "lnb_w", "lnb_b", "lnb_w", "lnb_s"}
+			skin.note.lnbodyActive = {"lna_s", "lna_w", "lna_b", "lna_w", "lna_b", "lna_w", "lna_b", "lna_w", "lna_s"}
+			skin.note.hcnend = {"hcne_s", "hcne_w", "hcne_b", "hcne_w", "hcne_b", "hcne_w", "hcne_b", "hcne_w", "hcne_s"}
+			skin.note.hcnstart = {"hcns_s", "hcns_w", "hcns_b", "hcns_w", "hcns_b", "hcns_w", "hcns_b", "hcns_w", "hcns_s"}
+			skin.note.hcnbody = {"hcnb_s", "hcnb_w", "hcnb_b", "hcnb_w", "hcnb_b", "hcnb_w", "hcnb_b", "hcnb_w", "hcnb_s"}
+			skin.note.hcnbodyActive = {"hcna_s", "hcna_w", "hcna_b", "hcna_w", "hcna_b", "hcna_w", "hcna_b", "hcna_w", "hcna_s"}
+			skin.note.hcnbodyMiss = {"hcnd_s", "hcnd_w", "hcnd_b", "hcnd_w", "hcnd_b", "hcnd_w", "hcnd_b", "hcnd_w", "hcnd_s"}
+			skin.note.hcnbodyReactive = {"hcnr_s", "hcnr_w", "hcnr_b", "hcnr_w", "hcnr_b", "hcnr_w", "hcnr_b", "hcnr_w", "hcnr_s"}
+			skin.note.mine = {"mine_s", "mine_w", "mine_b", "mine_w", "mine_b", "mine_w", "mine_b", "mine_w", "mine_s"}
+
+			skin.note.dst = {
+				{x = geo.lane.each_x[1], y = geo.lane.y - 12, w = geo.note.scratch_w, h = geo.lane.h},
+				{x = geo.lane.each_x[2], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[3], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[4], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[5], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[6], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[7], y = geo.lane.y - 12, w = geo.note.black_w, h = geo.lane.h},
+				{x = geo.lane.each_x[8], y = geo.lane.y - 12, w = geo.note.white_w, h = geo.lane.h},
+				{x = geo.lane.each_x[9], y = geo.lane.y - 12, w = geo.note.scratch_w, h = geo.lane.h},
 			}
 		end
 	end
@@ -2074,7 +2112,7 @@ local function main(keysNumber)
 	do
 		local black = {r = 0, g = 0, b = 0}
 		local white = {r = 5, g = 5, b = 5}
-		for i = 1, keysNumber + 1 do
+		for i = 1, #geo.lane.each_w do
 			local color = black
 			if i % 2 == 1 then
 				color = white
@@ -2146,6 +2184,9 @@ local function main(keysNumber)
 		if keysNumber == 5 then
 			kind = {"w", "b", "w", "b", "w", "s"}
 			timer = {101, 102, 103, 104, 105, 100}
+		elseif keysNumber == 9 then
+			kind = {"s", "w", "b", "w", "b", "w", "b", "w", "s"}
+			timer = {101, 102, 103, 104, 105, 106, 107, 108, 109}
 		end
 		local h = geo.lane.h / 2 + offset.keybeam.h
 		local a = 255 + offset.keybeam.a
@@ -2159,22 +2200,24 @@ local function main(keysNumber)
 				})
 			end
 			-- スクラッチのキービームのみ伸びるアニメーションをする(オートプレイではオフ)
-			local scratch_ontime = 40
-			table.insert(skin.destination, {
-				id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
-					{time = 0, x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = 0, a = a},
-					{time = scratch_ontime, h = h}
-				}
-			})
-			table.insert(skin.destination, {
-				id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
-					{x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = h, a = a}
-				}
-			})
+			if keysNumber ~= 9 then
+				local scratch_ontime = 40
+				table.insert(skin.destination, {
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {32}, brend = 1, loop = scratch_ontime, dst = {
+						{time = 0, x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = 0, a = a},
+						{time = scratch_ontime, h = h}
+					}
+				})
+				table.insert(skin.destination, {
+					id = "keybeam_s", offset = 3, timer = timer[keysNumber + 1], op = {33}, brend = 1, dst = {
+						{x = geo.lane.each_x[keysNumber + 1], y = geo.lane.y, w = geo.lane.each_w[keysNumber + 1], h = h, a = a}
+					}
+				})
+			end
 		end
 		-- away
 		local key_offtime = 100
-		for i = 1, keysNumber + 1 do
+		for i = 1, #timer do
 			table.insert(skin.destination, {
 				id = "keybeam_"..kind[i], offset = 3, timer = timer[i] + 20, brend = 1, loop = key_offtime, acc = 2, dst = {
 					{time = 0, x = geo.lane.each_x[i], y = geo.lane.y, w = geo.lane.each_w[i], h = h, a = a},
@@ -2826,13 +2869,14 @@ local function main(keysNumber)
 		end
 		local isFastSlowBomb = divx == 16 and divy >= 3 and w and h
 
-		local function bombTimer(i) return 50 + i % (keysNumber + 1) end
-		local function lnBombTimer(i) return 70 + i % (keysNumber + 1) end
+		local numLanes = #geo.lane.each_w
+		local function bombTimer(i) return 50 + (keysNumber == 9 and i or i % numLanes) end
+		local function lnBombTimer(i) return 70 + (keysNumber == 9 and i or i % numLanes) end
 
 		local normal_cycle = 250 local ln_cycle = 160
 		if isFastSlowBomb then
 			local function lnpos_y(i)
-				if i == keysNumber + 1 then
+				if i == numLanes then
 					return h * 3
 				elseif i % 2 == 1 then
 					return h
@@ -2840,7 +2884,7 @@ local function main(keysNumber)
 					return h * 2
 				end
 			end
-			for i = 1, keysNumber + 1 do
+			for i = 1, numLanes do
 				append_all(skin.image, {
 					{id = "bomb_"..i, src = "src_bomb", x = 0, y = 0, w = -1, h = h, divx = 16, timer = bombTimer(i), cycle = normal_cycle},
 					--{id = "lnbomb_"..i, src = "src_bomb", x = 0, y = lnpos_y(i), w = w * 8, h = h, divx = 8, timer = lnBombTimer(i), cycle = ln_cycle},
@@ -2850,7 +2894,7 @@ local function main(keysNumber)
 				})
 			end
 		else
-			for i = 1, keysNumber + 1 do
+			for i = 1, numLanes do
 				if w and h then
 					table.insert(skin.image, {
 						id = "bomb_"..i, src = "src_bomb", x = 0, y = 0, w = w * divx, h = h * divy, divx = divx, divy = divy, timer = bombTimer(i), cycle = normal_cycle
@@ -2875,7 +2919,7 @@ local function main(keysNumber)
 		end
 
 		-- TODO fast/slowボムのON/OFF作る？
-		local size_w = geo.lane.each_w[keysNumber + 1] * 2 + offset.bomb.w
+		local size_w = geo.lane.each_w[numLanes] * 2 + offset.bomb.w
 		local size_h = size_w
 		if w and h then
 			if w < h then
@@ -2885,7 +2929,7 @@ local function main(keysNumber)
 			end
 		end
 		local y = geo.lane.y - size_h / 2 + geo.lane.judgeline_h / 2
-		for i = 1, keysNumber + 1 do
+		for i = 1, numLanes do
 			local x = geo.lane.each_x[i] + geo.lane.each_w[i] / 2 - size_w / 2
 			if isFastSlowBomb then
 				append_all(skin.destination, {

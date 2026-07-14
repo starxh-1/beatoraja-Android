@@ -204,14 +204,14 @@ public class MusicPlayer extends MainState {
 	private void loadStagefile() {
 		String path = currentSong.getStagefile();
 		if (path == null || path.isEmpty()) {
-			// 没舞台图时退化到 banner
 			path = currentSong.getBanner();
 		}
 		if (path == null || path.isEmpty()) return;
 		File bmsFile = new File(currentSong.getPath());
 		File coverFile = new File(bmsFile.getParentFile(), path);
-		if (!coverFile.exists()) return;
-		this.stagefilePixmap = PixmapResourcePool.loadPicture(coverFile.getAbsolutePath());
+		String resolved = PixmapResourcePool.findImagePath(coverFile.getAbsolutePath());
+		if (resolved == null) return;
+		this.stagefilePixmap = PixmapResourcePool.loadPicture(resolved);
 		if (this.stagefilePixmap != null) {
 			this.stagefile = new Texture(stagefilePixmap);
 		}
