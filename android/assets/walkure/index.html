@@ -27,7 +27,7 @@ body{
 .slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
 .slot-col .strip span{display:block;height:1em;text-align:center;font-variant-numeric:tabular-nums}
 .slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
-.slot-col.scrambling .strip{animation:slotScroll 0.2s linear infinite}
+.slot-col.scrambling .strip{animation-name:slotScroll;animation-timing-function:linear;animation-iteration-count:infinite}
 
 .tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #1e3a5a}
 .tab-btn{
@@ -699,18 +699,33 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       row._pressTimer=null
       row._targetVal=refStr
       var cols=row.querySelectorAll('.slot-col')
+      var speeds=[0.4,0.5,0.6]
       var startScramble=function(){
-        for(var i=0;i<cols.length;i++){cols[i].classList.add('scrambling')}
+        for(var i=0;i<cols.length;i++){
+          cols[i].classList.add('scrambling')
+          cols[i].querySelector('.strip').style.animationDuration=speeds[i%speeds.length]+'s'
+        }
       }
       var stopScramble=function(){
         if(row._pressTimer){clearTimeout(row._pressTimer);row._pressTimer=null}
-        for(var i=0;i<cols.length;i++){cols[i].classList.remove('scrambling')}
-        // clear inline transform so transition can take over
+        // freeze each strip at its current visual position
         for(var i=0;i<cols.length;i++){
           var strip=cols[i].querySelector('.strip')
-          if(strip){strip.style.transform='';strip.offsetHeight} // force reflow
+          var cs=getComputedStyle(strip)
+          var matrix=cs.transform
+          cols[i].classList.remove('scrambling')
+          strip.style.animation='none'
+          var ty=0
+          if(matrix&&matrix!=='none'){
+            var vals=matrix.match(/matrix.*\((.+)\)/)
+            if(vals){var parts=vals[1].split(',');ty=parseFloat(parts[1])||0}
+          }
+          strip.style.transition='none'
+          strip.style.transform='translateY('+ty+'px)'
         }
-        self._setSlotPos(e,row._targetVal,true)
+        // force reflow then slide back after 0.5s
+        row.offsetHeight
+        setTimeout(function(){self._setSlotPos(e,row._targetVal,true)},500)
       }
       row.addEventListener('touchstart',function(){
         row._pressTimer=setTimeout(startScramble,500)
