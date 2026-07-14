@@ -8,75 +8,75 @@
 *{margin:0;padding:0;box-sizing:border-box}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  background:#0b0b1a;color:#eeeeff;padding:16px;overflow-x:hidden;
+  background:#1e1a17;color:#d4c9b8;padding:16px;overflow-x:hidden;
   -webkit-text-size-adjust:100%
 }
 .container{max-width:100%;margin:0 auto}
 .header{text-align:center;padding:20px 0 12px}
-.header h1{font-size:20px;color:#a855f7;margin-bottom:2px}
-.header .subtitle{font-size:13px;color:#888}
+.header h1{font-size:20px;color:#e8a87c;margin-bottom:2px}
+.header .subtitle{font-size:13px;color:#8a7e72}
 .rating-card{
-  background:linear-gradient(135deg,rgba(30,30,60,0.9),rgba(50,20,80,0.7));
+  background:linear-gradient(135deg,#2a241e,#362c24);
   border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;
-  border:1px solid rgba(100,100,180,0.3)
+  border:1px solid #3d342c
 }
-.rating-card .star{font-size:42px;font-weight:bold;color:#facc15}
+.rating-card .star{font-size:42px;font-weight:bold;color:#f0c040}
 .slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible}
 .slot-col{display:inline-block;width:0.55em;height:1em;overflow:hidden;position:relative;vertical-align:top}
 .slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
 .slot-col .strip span{display:block;height:1em;text-align:center}
 .slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
 
-.tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid rgba(100,100,180,0.2)}
+.tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #3d342c}
 .tab-btn{
   flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;
-  background:rgba(30,30,60,0.85);color:#888;border:none;cursor:pointer;
+  background:#2a241e;color:#8a7e72;border:none;cursor:pointer;
   transition:all .2s
 }
-.tab-btn.active{background:rgba(168,85,247,0.2);color:#a855f7}
+.tab-btn.active{background:#3d342c;color:#e8a87c}
 .tab-btn:first-child{border-radius:10px 0 0 10px}
 .tab-btn:last-child{border-radius:0 10px 10px 0}
 .tab-content{display:none}
 .tab-content.active{display:block}
 .filters{
-  background:rgba(30,30,60,0.85);border-radius:10px;padding:12px;margin-bottom:12px;
-  font-size:13px;border:1px solid rgba(100,100,180,0.15)
+  background:#2a241e;border-radius:10px;padding:12px;margin-bottom:12px;
+  font-size:13px;border:1px solid #3d342c
 }
-.filters-title{font-weight:600;color:#a855f7;margin-bottom:8px;font-size:14px}
+.filters-title{font-weight:600;color:#e8a87c;margin-bottom:8px;font-size:14px}
 .filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
-.filter-row label{color:#999;margin-right:4px}
+.filter-row label{color:#8a7e72;margin-right:4px}
 .filter-row input[type=text]{
-  background:rgba(168,85,247,0.08);border:1px solid rgba(100,100,180,0.3);border-radius:6px;
-  padding:6px 10px;color:#eeeeff;font-size:13px;width:100%;max-width:300px
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:6px 10px;color:#d4c9b8;font-size:13px;width:100%;max-width:300px
 }
 .star-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .star-group label{
   display:inline-flex;align-items:center;gap:3px;
-  background:rgba(30,30,60,0.5);border:1px solid rgba(100,100,180,0.2);border-radius:6px;
-  padding:4px 8px;font-size:12px;cursor:pointer;color:#999
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:#8a7e72
 }
-.star-group label.checked{color:#facc15;border-color:rgba(250,204,21,0.4)}
+.star-group label.checked{color:#f0c040;border-color:rgba(240,192,64,0.4)}
 .lamp-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .lamp-group label{
   display:inline-flex;align-items:center;gap:3px;
-  background:rgba(30,30,60,0.5);border:1px solid rgba(100,100,180,0.2);border-radius:6px;
-  padding:4px 8px;font-size:12px;cursor:pointer;color:#999
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:#8a7e72
 }
-.lamp-group label.checked{border-color:rgba(168,85,247,0.4);color:#a855f7}
+.lamp-group label.checked{border-color:rgba(232,168,124,0.4);color:#e8a87c}
 .filter-actions{display:flex;gap:8px;margin-top:8px}
 .filter-actions button{
-  background:rgba(168,85,247,0.12);border:1px solid rgba(100,100,180,0.3);border-radius:6px;
-  padding:4px 12px;color:#a855f7;font-size:12px;cursor:pointer
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:4px 12px;color:#e8a87c;font-size:12px;cursor:pointer
 }
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{background:rgba(168,85,247,0.15);color:#a855f7;padding:8px 6px;text-align:left;
+th{background:#362c24;color:#e8a87c;padding:8px 6px;text-align:left;
    position:sticky;top:0;white-space:nowrap;font-weight:600;cursor:pointer;
    user-select:none}
-th:hover{background:rgba(168,85,247,0.25)}
-th .sort-arrow{font-size:10px;margin-left:3px;color:#facc15}
-td{padding:8px 6px;border-bottom:1px solid rgba(100,100,180,0.15);white-space:nowrap}
-tr:nth-child(even) td{background:rgba(30,30,60,0.3)}
+th:hover{background:#3d342c}
+th .sort-arrow{font-size:10px;margin-left:3px;color:#f0c040}
+td{padding:8px 6px;border-bottom:1px solid #3d342c;white-space:nowrap}
+tr:nth-child(even) td{background:rgba(42,36,30,0.5)}
 .prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
 .chart-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lamp-noplay{color:#666}.lamp-failed{color:#e74c3c}
@@ -84,38 +84,38 @@ tr:nth-child(even) td{background:rgba(30,30,60,0.3)}
 .lamp-normal{color:#ebfc05}
 .lamp-hard{color:#f7f3f2}
 .lamp-fullCombo,.lamp-fc{color:#1bdbf5}
-.empty-msg{text-align:center;padding:30px 16px;color:#666;font-size:14px}
+.empty-msg{text-align:center;padding:30px 16px;color:#8a7e72;font-size:14px}
 .page-controls{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 0;font-size:13px;color:#999;flex-wrap:wrap;gap:8px
+  padding:10px 0;font-size:13px;color:#8a7e72;flex-wrap:wrap;gap:8px
 }
 .page-controls .page-size-group{display:flex;align-items:center;gap:6px}
 .page-controls .page-size-group button{
-  background:rgba(168,85,247,0.1);border:1px solid rgba(100,100,180,0.3);border-radius:6px;
-  padding:4px 10px;color:#a855f7;font-size:12px;cursor:pointer
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:4px 10px;color:#e8a87c;font-size:12px;cursor:pointer
 }
-.page-controls .page-size-group button.active{background:rgba(168,85,247,0.3);color:#facc15;border-color:rgba(250,204,21,0.4)}
+.page-controls .page-size-group button.active{background:#3d342c;color:#f0c040;border-color:rgba(240,192,64,0.4)}
 .page-controls .page-nav{display:flex;align-items:center;gap:6px}
 .page-controls .page-nav button{
-  background:rgba(168,85,247,0.1);border:1px solid rgba(100,100,180,0.3);border-radius:6px;
-  padding:4px 10px;color:#a855f7;font-size:12px;cursor:pointer
+  background:#362c24;border:1px solid #3d342c;border-radius:6px;
+  padding:4px 10px;color:#e8a87c;font-size:12px;cursor:pointer
 }
 .page-controls .page-nav button:disabled{opacity:.3;cursor:default}
 .page-controls .page-nav span{min-width:60px;text-align:center}
 .close-btn{
   display:block;width:100%;padding:14px;margin-top:16px;
-  background:rgba(168,85,247,0.12);color:#a855f7;
-  border:1px solid rgba(100,100,180,0.3);border-radius:10px;
+  background:#362c24;color:#e8a87c;
+  border:1px solid #3d342c;border-radius:10px;
   font-size:16px;cursor:pointer;text-align:center
 }
-.loading{text-align:center;padding:60px 16px;color:#888}
+.loading{text-align:center;padding:60px 16px;color:#8a7e72}
 .spinner{
-  width:36px;height:36px;border:4px solid rgba(100,100,180,0.2);
-  border-top-color:#a855f7;border-radius:50%;
+  width:36px;height:36px;border:4px solid #3d342c;
+  border-top-color:#e8a87c;border-radius:50%;
   animation:spin .8s linear infinite;margin:0 auto 12px
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.count-badge{font-size:11px;color:#888;margin-left:6px}
+.count-badge{font-size:11px;color:#8a7e72;margin-left:6px}
 </style>
 </head>
 <body>
