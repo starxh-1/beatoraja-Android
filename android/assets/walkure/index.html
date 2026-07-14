@@ -261,8 +261,8 @@ var RatingApp={
     h+='</div>'
     h+='</div>'
     h+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0">'
-    h+='<span style="font-size:28px;color:#ffe082">\u2605</span>'
-    h+='<span id="star-slot" style="font-size:28px;font-weight:bold;color:#ffe082;font-variant-numeric:tabular-nums"></span>'
+    h+='<span style="font-size:34px;color:#ffe082">\u2605</span>'
+    h+='<span id="star-slot" style="font-size:34px;font-weight:bold;color:#ffe082;font-variant-numeric:tabular-nums"></span>'
     h+='</div>'
     h+='<div class="tabs">'
     h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">'+_t('recommend')+'</button>'
@@ -690,33 +690,43 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     // long-press scramble
     var row=e.querySelector('.slot-row')
     if(row){
+      row._scrambleTimer=null
       row._scrambleActive=false
-      var scramble=function(){
-        if(!row._scrambleActive)return
-        var cols=row.querySelectorAll('.slot-col')
-        for(var i=0;i<cols.length;i++){
-          var strip=cols[i].querySelector('.strip')
-          if(strip){
-            strip.style.transition='none'
-            var rnd=Math.floor(Math.random()*10)
-            strip.style.transform='translateY(-'+(self._SLOT_START*10+rnd)+'em)'
-          }
-        }
-        requestAnimationFrame(scramble)
-      }
-      var start=function(){
+      row._targetVal=refStr
+      var startScramble=function(){
         row._scrambleActive=true
-        scramble()
+        var cols=row.querySelectorAll('.slot-col')
+        var tick=function(){
+          if(!row._scrambleActive)return
+          for(var i=0;i<cols.length;i++){
+            var strip=cols[i].querySelector('.strip')
+            if(strip){
+              strip.style.transition='none'
+              var rnd=Math.floor(Math.random()*10)
+              strip.style.transform='translateY(-'+(self._SLOT_START*10+rnd)+'em)'
+            }
+          }
+          requestAnimationFrame(tick)
+        }
+        tick()
       }
-      var stop=function(){
+      var stopScramble=function(){
+        if(row._scrambleTimer){clearTimeout(row._scrambleTimer);row._scrambleTimer=null}
+        if(!row._scrambleActive)return
         row._scrambleActive=false
+        // animate back to target value
+        self._setSlotPos(e,row._targetVal,true)
       }
-      row.addEventListener('touchstart',start,{passive:true})
-      row.addEventListener('touchend',stop)
-      row.addEventListener('touchcancel',stop)
-      row.addEventListener('mousedown',start)
-      row.addEventListener('mouseup',stop)
-      row.addEventListener('mouseleave',stop)
+      row.addEventListener('touchstart',function(){
+        row._scrambleTimer=setTimeout(startScramble,500)
+      },{passive:true})
+      row.addEventListener('touchend',stopScramble)
+      row.addEventListener('touchcancel',stopScramble)
+      row.addEventListener('mousedown',function(){
+        row._scrambleTimer=setTimeout(startScramble,500)
+      })
+      row.addEventListener('mouseup',stopScramble)
+      row.addEventListener('mouseleave',stopScramble)
     }
   },
   _formatMatch:function(val,refStr){
