@@ -291,21 +291,31 @@ var RatingApp={
   },
   formatStar:function(levels){
     if(!levels)return'\u2605?'
-    if(levels.overjoy)return'\u2605\u2605'+levels.overjoy
+    var parts=[]
     if(levels.insane){
-      if(levels.insane==='???')return'???'
-      return'\u2605'+levels.insane
+      if(levels.insane==='???')parts.push('???')
+      else parts.push('\u2605'+levels.insane)
     }
-    if(levels.dan)return'\u6bb5\u4f4d'+levels.dan
+    if(levels.overjoy)parts.push('\u2605\u2605'+levels.overjoy)
+    if(levels.dan)parts.push('\u6bb5\u4f4d'+levels.dan)
+    if(parts.length)return parts.join(', ')
     return'\u2605?'
   },
   starNum:function(s){
     if(!s||s==='?')return -1
     if(s==='???')return 0
-    if(s.indexOf('\u2605\u2605')===0)return 100+parseInt(s.slice(2))||0
-    if(s.indexOf('\u2605')===0)return parseInt(s.slice(1))||0
-    if(s.indexOf('\u6bb5\u4f4d')===0)return 200+(parseInt(s.slice(2))||0)
-    return -1
+    var parts=s.split(',').map(function(x){return x.trim()})
+    var max=-1
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i]
+      var n
+      if(p.indexOf('\u2605\u2605')===0)n=100+(parseInt(p.slice(2))||0)
+      else if(p.indexOf('\u2605')===0)n=parseInt(p.slice(1))||0
+      else if(p.indexOf('\u6bb5\u4f4d')===0)n=200+(parseInt(p.slice(2))||0)
+      else continue
+      if(n>max)max=n
+    }
+    return max
   },
   lampNum:function(l){
     var m={noplay:0,failed:1,easy:2,normal:3,hard:4,'fullCombo':5}
@@ -413,8 +423,11 @@ var RatingApp={
     if(!checkedSet||!checkedSet.size)return true
     var s=RatingApp.formatStar(levels)
     if(checkedSet.has(s))return true
-    // prefix match for dan: "段位" checkbox matches "段位12"
-    if(checkedSet.has('\u6bb5\u4f4d')&&s.indexOf('\u6bb5\u4f4d')===0)return true
+    var parts=s.split(',').map(function(x){return x.trim()})
+    for(var i=0;i<parts.length;i++){
+      if(checkedSet.has(parts[i]))return true
+      if(checkedSet.has('\u6bb5\u4f4d')&&parts[i].indexOf('\u6bb5\u4f4d')===0)return true
+    }
     return false
   },
   getRecData:function(){
