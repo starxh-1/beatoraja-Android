@@ -699,7 +699,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       row._pressTimer=null
       row._targetVal=refStr
       var cols=row.querySelectorAll('.slot-col')
-      var speeds=[0.4,0.5,0.6]
+      var speeds=[0.3,0.55,0.85]
       var startScramble=function(){
         for(var i=0;i<cols.length;i++){
           var strip=cols[i].querySelector('.strip')
@@ -741,7 +741,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
         }
         // force reflow then slide back after 0.5s
         row.offsetHeight
-        setTimeout(function(){self._setSlotPos(e,row._targetVal,true)},500)
+        setTimeout(function(){self._setSlotPos(e,row._targetVal,true,positions)},500)
       }
       row.addEventListener('touchstart',function(){
         row._pressTimer=setTimeout(startScramble,500)
@@ -761,15 +761,36 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     if(vp[0].length>rp[0].length)vp[0]=vp[0].slice(-rp[0].length)
     return vp[0]+'.'+vp[1]
   },
-  _setSlotPos:function(el,str,anim){
+  _setSlotPos:function(el,str,anim,fromPos){
     var cols=el.querySelectorAll('.slot-col'),idx=0
     for(var i=0;i<str.length;i++){
       if(str[i]=='.')continue
       var t=parseInt(str[i]),col=cols[idx];if(!col)break
       var st=col.querySelector('.strip')
       if(anim){
+        var targetEm=-(this._SLOT_START*10+t+this._SLOT_SPINS*10)
+        if(fromPos&&fromPos[idx]!==undefined){
+          var fs=parseFloat(getComputedStyle(st).fontSize)||34
+          var curEm=-fromPos[idx]/fs
+          var curDigit=((Math.round(curEm)%10)+10)%10
+          var target=null
+          if(curDigit>t){
+            // current > target: slide DOWN (toward 0), nearest digit-t above current
+            for(var c=0;c<this._SLOT_COPIES;c++){
+              var p=-(c*10+t)
+              if(p>curEm&&(target===null||p<target))target=p
+            }
+          }else if(curDigit<t){
+            // current < target: slide UP (away from 0), nearest digit-t below current
+            for(var c=0;c<this._SLOT_COPIES;c++){
+              var p2=-(c*10+t)
+              if(p2<curEm&&(target===null||p2>target))target=p2
+            }
+          }
+          if(target!==null)targetEm=target
+        }
         st.style.transition='transform 0.5s cubic-bezier(0.15,0.85,0.35,1) '+(idx*0.07+0.1)+'s'
-        st.style.transform='translateY(-'+((this._SLOT_START*10+t)+this._SLOT_SPINS*10)+'em)'
+        st.style.transform='translateY('+targetEm+'em)'
       }else{
         st.style.transition='none'
         st.style.transform='translateY(-'+(this._SLOT_START*10+t)+'em)'
