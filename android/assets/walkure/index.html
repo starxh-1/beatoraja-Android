@@ -20,9 +20,8 @@ body{
   border-radius:14px;padding:20px;text-align:center;margin-bottom:14px;
   border:1px solid #1a4a6e
 }
-.rating-card .star{font-size:42px;font-weight:bold;color:#f0d060}
-.rating-card .theta{font-size:13px;color:#888;margin-top:2px}
-.rating-card .count{font-size:12px;color:#aaa;margin-top:2px}
+.rating-card .star{font-size:42px;font-weight:bold;color:#f1ee28}
+
 .tabs{display:flex;margin-bottom:12px;border-radius:10px;overflow:hidden}
 .tab-btn{
   flex:1;padding:10px;text-align:center;font-size:14px;font-weight:600;
@@ -76,10 +75,10 @@ tr:nth-child(even) td{background:#16213e40}
 .prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
 .chart-name{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lamp-noplay{color:#666}.lamp-failed{color:#e74c3c}
-.lamp-easy{color:#2ecc71}
-.lamp-normal{color:#f1c40f}
-.lamp-hard{color:#e67e22}
-.lamp-fullCombo,.lamp-fc{color:#9b59b6}
+.lamp-easy{color:#1ff00c}
+.lamp-normal{color:#ebfc05}
+.lamp-hard{color:#fa3807}
+.lamp-fullCombo,.lamp-fc{color:#ee10ee}
 .empty-msg{text-align:center;padding:30px 16px;color:#666;font-size:14px}
 .page-controls{
   display:flex;align-items:center;justify-content:space-between;
@@ -145,8 +144,7 @@ var RatingApp={
     h+='</div>'
     h+='<div class="rating-card">'
     h+='<div class="star">\u2605 '+(d.playerStarRating!=null?d.playerStarRating.toFixed(2):'?')+'</div>'
-    h+='<div class="theta">\u03b8 = '+(d.theta!=null?d.theta.toFixed(4):'?')+'</div>'
-    h+='<div class="count">Matched charts: '+(d.observationCount||0)+'</div>'
+
     h+='</div>'
     h+='<div class="tabs">'
     h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">\u30ea\u30b3\u30e1\u30f3\u30c9</button>'
