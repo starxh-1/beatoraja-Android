@@ -31,8 +31,16 @@ public class IrtMath {
     }
 
     public static double interpolatePiecewiseLinear(double x, double[] xPoints, double[] yPoints) {
-        if (x <= xPoints[0]) return yPoints[0];
-        if (x >= xPoints[xPoints.length - 1]) return yPoints[yPoints.length - 1];
+        // 边界外推（线性），而不是 clamp。Walkure 的 star rating 允许低于 1.0 或高于 25.0。
+        if (x <= xPoints[0]) {
+            double slope = (yPoints[1] - yPoints[0]) / (xPoints[1] - xPoints[0]);
+            return yPoints[0] + slope * (x - xPoints[0]);
+        }
+        if (x >= xPoints[xPoints.length - 1]) {
+            int last = xPoints.length - 1;
+            double slope = (yPoints[last] - yPoints[last - 1]) / (xPoints[last] - xPoints[last - 1]);
+            return yPoints[last] + slope * (x - xPoints[last]);
+        }
 
         for (int i = 0; i < xPoints.length - 1; i++) {
             if (x >= xPoints[i] && x < xPoints[i + 1]) {
