@@ -116,8 +116,6 @@ public class MainController {
     private boolean wasTouching = false;
     private FloatingMenu floatingMenu;
 
-    /** GL 线程优先级是否已设置（仅设置一次） */
-    private boolean glThreadPrioritySet = false;
     /** 缓存平台类型，避免每帧调用 Gdx.app.getType() */
     private final boolean isAndroid = com.badlogic.gdx.Gdx.app != null ? com.badlogic.gdx.Gdx.app.getType() == Application.ApplicationType.Android : false;
 
@@ -592,18 +590,6 @@ public class MainController {
         // 关键修复：循环条件改用 pollingRunning 标志，dispose() 中可正常退出。
         pollingRunning = true;
         inputPollingThread = new Thread(() -> {
-            // Android 线程优先级提升：
-            // 将输入轮询线程提升至 THREAD_PRIORITY_URGENT_DISPLAY (-8)，
-            // 确保其不受渲染负载影响，维持稳定的 1000Hz 采样。
-            if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-                try {
-                    Class<?> processClass = Class.forName("android.os.Process");
-                    java.lang.reflect.Method setThreadPriority = processClass.getMethod("setThreadPriority", int.class);
-                    int THREAD_PRIORITY_URGENT_DISPLAY = -8;
-                    setThreadPriority.invoke(null, THREAD_PRIORITY_URGENT_DISPLAY);
-                } catch (Throwable ignore) {}
-            }
-
             long nextPollTime = System.nanoTime();
             final long pollIntervalNs = 1_000_000L; // 1000Hz
             while (pollingRunning) {
@@ -619,7 +605,6 @@ public class MainController {
                 }
             }
         }, "InputPollingThread");
-        inputPollingThread.setPriority(Thread.MAX_PRIORITY - 1);
         inputPollingThread.setDaemon(true); // 守护线程:JVM 退出时强制结束
         inputPollingThread.start();
 
@@ -727,25 +712,6 @@ public class MainController {
     public void render() {
         // dispose 过程中跳过渲染，防止访问已释放的资源导致 NPE
         if (disposing) return;
-        // ── Android 渲染线程优先级提升（仅首次）──
-        // 将 GL 线程优先级设为 THREAD_PRIORITY_DISPLAY (-4)，
-        // 确保渲染线程在无触控时不会被系统调度器降低优先级。
-        // 因为 core 模块无 Android SDK 依赖，使用反射调用 android.os.Process。
-        if (!glThreadPrioritySet && isAndroid) {
-            try {
-                Class<?> processClass = Class.forName("android.os.Process");
-                java.lang.reflect.Method setThreadPriority = processClass.getMethod("setThreadPriority", int.class);
-                java.lang.reflect.Method myTid = processClass.getMethod("myTid");
-                int THREAD_PRIORITY_DISPLAY = -4;
-                setThreadPriority.invoke(null, THREAD_PRIORITY_DISPLAY);
-                int tid = (Integer) myTid.invoke(null);
-                Gdx.app.log("beatoraja", "GL thread priority set to THREAD_PRIORITY_DISPLAY (" +
-                        THREAD_PRIORITY_DISPLAY + ") for tid=" + tid);
-            } catch (Throwable t) {
-                Gdx.app.error("beatoraja", "Failed to set GL thread priority", t);
-            }
-            glThreadPrioritySet = true;
-        }
 
         // 记录帧开始时间（用于帧率限制）
         final long frameStart = System.nanoTime();
