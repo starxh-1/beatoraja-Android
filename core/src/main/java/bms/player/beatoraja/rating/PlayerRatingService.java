@@ -96,13 +96,13 @@ public class PlayerRatingService {
             if (matchedScores.isEmpty()) {
                 // No data to estimate from — fallback theta
                 theta = -2.0;
-                playerStarRating = 1.0;
+                playerStarRating = 0.0;
                 observationCount = 0;
             } else {
                 PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
                 if (result == null) {
                     theta = -2.0;
-                    playerStarRating = 1.0;
+                    playerStarRating = 0.0;
                     observationCount = matchedScores.size();
                 } else {
                     theta = result.theta;
@@ -221,7 +221,45 @@ public class PlayerRatingService {
             }
             revJson.append("]");
 
-            // 8. Build final JSON
+            // 8. Build chart entries JSON (for chart list tab)
+            StringBuilder chartJson = new StringBuilder();
+            chartJson.append("[");
+            boolean chartFirst = true;
+            for (RecommendationModelData.ChartEntry ce : model.entriesByMd5.values()) {
+                if (!chartFirst) chartJson.append(",");
+                chartFirst = false;
+                chartJson.append("{");
+                chartJson.append("\"entryType\":\"").append(escapeJson(ce.entryType)).append("\",");
+                chartJson.append("\"name\":\"").append(escapeJson(ce.name)).append("\",");
+                chartJson.append("\"md5\":\"").append(escapeJson(ce.md5)).append("\",");
+                chartJson.append("\"chartDiscrimination\":").append(ce.chartDiscrimination);
+                if (ce.difficultyTableLevels != null && !ce.difficultyTableLevels.isEmpty()) {
+                    chartJson.append(",\"difficultyTableLevels\":{");
+                    boolean lvlFirst = true;
+                    for (Map.Entry<String, String> le : ce.difficultyTableLevels.entrySet()) {
+                        if (!lvlFirst) chartJson.append(",");
+                        lvlFirst = false;
+                        chartJson.append("\"").append(escapeJson(le.getKey())).append("\":\"").append(escapeJson(le.getValue())).append("\"");
+                    }
+                    chartJson.append("}");
+                }
+                if (ce.clearDifficultyStarRatings != null && !ce.clearDifficultyStarRatings.isEmpty()) {
+                    chartJson.append(",\"clearDifficultyStarRatings\":{");
+                    boolean srFirst = true;
+                    for (Map.Entry<String, Double> sr : ce.clearDifficultyStarRatings.entrySet()) {
+                        if (!srFirst) chartJson.append(",");
+                        srFirst = false;
+                        chartJson.append("\"").append(escapeJson(sr.getKey())).append("\":");
+                        if (sr.getValue() == null) chartJson.append("null");
+                        else chartJson.append(sr.getValue());
+                    }
+                    chartJson.append("}");
+                }
+                chartJson.append("}");
+            }
+            chartJson.append("]");
+
+            // 9. Build final JSON
             StringBuilder json = new StringBuilder();
             json.append("{");
             json.append("\"playerName\":\"").append(escapeJson(playerName)).append("\",");
@@ -229,7 +267,8 @@ public class PlayerRatingService {
             json.append("\"theta\":").append(theta).append(",");
             json.append("\"observationCount\":").append(observationCount).append(",");
             json.append("\"recommendation\":").append(recJson.toString()).append(",");
-            json.append("\"reverseRecommendation\":").append(revJson.toString());
+            json.append("\"reverseRecommendation\":").append(revJson.toString()).append(",");
+            json.append("\"chartEntries\":").append(chartJson.toString());
             json.append("}");
 
             return json.toString();

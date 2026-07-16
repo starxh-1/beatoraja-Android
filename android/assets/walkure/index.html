@@ -52,6 +52,18 @@ body{
   padding:6px 10px;color:#d0dce8;font-size:13px;width:100%;max-width:300px
 }
 .star-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
+.star-category{margin-bottom:6px}
+.star-category-header{
+  display:flex;align-items:center;gap:6px;padding:4px 8px;
+  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
+  cursor:pointer;font-size:12px;color:#4fc3f7;font-weight:600;
+  user-select:none;-webkit-user-select:none
+}
+.star-category-header:hover{background:#1e3a5a}
+.star-category-header .arrow{font-size:10px;transition:transform .2s}
+.star-category-header.open .arrow{transform:rotate(90deg)}
+.star-category-items{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding-left:8px}
+.star-category-items.collapsed{display:none}
 .star-actions{display:flex;gap:4px;margin-bottom:6px}
 .star-actions button{
   background:transparent;border:1px solid rgba(79,195,247,0.2);border-radius:4px;
@@ -86,6 +98,11 @@ td{padding:8px 6px;border-bottom:1px solid #1a3048;white-space:nowrap}
 tr:nth-child(even) td{background:rgba(20,40,56,0.4)}
 .prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
 .chart-name{max-width:180px;overflow-wrap:break-word;white-space:normal}
+.chart-table select,.chart-table input[type=text]{
+  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
+  padding:6px 10px;color:#d0dce8;font-size:13px
+}
+.chart-table input[type=text]{width:200px}
 .lamp-noplay{color:#555}.lamp-failed{color:#e74c3c}
 .lamp-easy{color:#1ff00c}
 .lamp-normal{color:#ebfc05}
@@ -238,6 +255,7 @@ var LANG={
 }
 var RatingApp={
   data:null,
+  chartData:null,
   recSortCol:4,
   recSortDir:-1,
   revSortCol:5,
@@ -246,10 +264,24 @@ var RatingApp={
   revPageSize:25,
   recPage:0,
   revPage:0,
+  chartActiveTab:'insane',
+  chartFilters:{insane:{star:'all',title:''},insane2nd:{star:'all',title:''},satellite:{star:'all',title:''},stella:{star:'all',title:''},overjoy:{star:'all',title:''},dan:{star:'all',title:''}},
+  chartSort:{insane:{col:0,dir:1},insane2nd:{col:0,dir:1},satellite:{col:0,dir:1},stella:{col:0,dir:1},overjoy:{col:0,dir:1},dan:{col:0,dir:1}},
+  chartPage:{insane:0,insane2nd:0,satellite:0,stella:0,overjoy:0,dan:0},
+  chartPageSize:{insane:50,insane2nd:50,satellite:50,stella:50,overjoy:50,dan:50},
+  CHART_TABLES:[
+    {key:'insane',label:'Insane',levelKey:'insane',levelPrefix:'\u2605'},
+    {key:'insane2nd',label:'Insane2nd',levelKey:'insane2nd',levelPrefix:'\u25bc'},
+    {key:'satellite',label:'Satellite',levelKey:'satellite',levelPrefix:'sl'},
+    {key:'stella',label:'Stella',levelKey:'stella',levelPrefix:'st'},
+    {key:'overjoy',label:'Overjoy',levelKey:'overjoy',levelPrefix:'\u2605\u2605'},
+    {key:'dan',label:'\u6bb5\u4f4d\u8a8d\u5b9a',levelKey:'dan',levelPrefix:'\u6bb5\u4f4d'}
+  ],
   showRating:function(d){
     if(typeof d==='string'){try{this.data=JSON.parse(d)}catch(e){this.renderError("Invalid data");return}}
     else{this.data=d}
     this.recPage=0;this.revPage=0
+    if(d.chartEntries)this.chartData=d.chartEntries
     this.render()
   },
   render:function(){
@@ -273,9 +305,11 @@ var RatingApp={
     h+='<div class="tabs">'
     h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">'+_t('recommend')+'</button>'
     h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">'+_t('revRecommend')+'</button>'
+    h+='<button class="tab-btn" onclick="RatingApp.switchTab(2)">\u96e3\u5ea6\u63a8\u5b9a\u8868</button>'
     h+='</div>'
     h+='<div id="tab0" class="tab-content active"></div>'
     h+='<div id="tab1" class="tab-content"></div>'
+    h+='<div id="tab2" class="tab-content"></div>'
     h+='<button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
     document.getElementById('app').innerHTML=h
     this.updateStarSlot(d.playerStarRating)
@@ -295,28 +329,35 @@ var RatingApp={
       btns[i].className='tab-btn'+(i===idx?' active':'')
       cts[i].className='tab-content'+(i===idx?' active':'')
     }
+    if(idx===2)this.renderChartTab()
   },
   formatStar:function(levels){
     if(!levels)return'\u2605?'
     var parts=[]
-    if(levels.insane){
+    if(levels.satellite!==undefined)parts.push('sl'+levels.satellite)
+    if(levels.stella!==undefined)parts.push('st'+levels.stella)
+    if(levels.insane2nd!==undefined)parts.push('\u25bc'+levels.insane2nd)
+    if(levels.insane!==undefined){
       if(levels.insane==='???')parts.push('???')
       else parts.push('\u2605'+levels.insane)
     }
     if(levels.overjoy)parts.push('\u2605\u2605'+levels.overjoy)
     if(levels.dan)parts.push('\u6bb5\u4f4d')
-    if(parts.length)return parts.join(', ')
+    if(parts.length)return parts.join('<br>')
     return'\u2605?'
   },
   starNum:function(s){
     if(!s||s==='?')return -1
     if(s==='???')return 0
-    var parts=s.split(',').map(function(x){return x.trim()})
+    var parts=s.split('<br>').map(function(x){return x.trim()})
     var max=-1
     for(var i=0;i<parts.length;i++){
       var p=parts[i]
       var n
-      if(p.indexOf('\u2605\u2605')===0)n=100+(parseInt(p.slice(2))||0)
+      if(p.indexOf('sl')===0)n=300+(parseInt(p.slice(2))||0)
+      else if(p.indexOf('st')===0)n=400+(parseInt(p.slice(2))||0)
+      else if(p.indexOf('\u25bc')===0)n=500+(parseInt(p.slice(1))||0)
+      else if(p.indexOf('\u2605\u2605')===0)n=100+(parseInt(p.slice(2))||0)
       else if(p.indexOf('\u2605')===0)n=parseInt(p.slice(1))||0
       else if(p.indexOf('\u6bb5\u4f4d')===0)n=200+(parseInt(p.slice(2))||0)
       else continue
@@ -328,8 +369,19 @@ var RatingApp={
     var m={noplay:0,failed:1,easy:2,normal:3,hard:4,'fullCombo':5}
     return m[l]!==void 0?m[l]:-1
   },
+  ALL_STARS_CATEGORIES:[
+    {name:'Satellite',items:(function(){var a=[];for(var i=0;i<=12;i++)a.push('sl'+i);return a})()},
+    {name:'Stella',items:(function(){var a=[];for(var i=0;i<=11;i++)a.push('st'+i);return a})()},
+    {name:'Insane2nd',items:(function(){var a=[];for(var i=0;i<=24;i++)a.push('\u25bc'+i);return a})()},
+    {name:'Insane',items:(function(){var a=[];for(var i=1;i<=25;i++)a.push('\u2605'+i);return a})()},
+    {name:'Overjoy',items:(function(){var a=[];for(var i=0;i<=8;i++)a.push('\u2605\u2605'+i);return a})()},
+    {name:'Other',items:['\u6bb5\u4f4d','???']}
+  ],
   ALL_STARS:(function(){
     var a=[]
+    for(var i=0;i<=12;i++)a.push('sl'+i)
+    for(var i=0;i<=11;i++)a.push('st'+i)
+    for(var i=0;i<=24;i++)a.push('\u25bc'+i)
     for(var i=1;i<=25;i++)a.push('\u2605'+i)
     for(var i=0;i<=8;i++)a.push('\u2605\u2605'+i)
     a.push('\u6bb5\u4f4d')
@@ -354,7 +406,7 @@ var RatingApp={
     var area=document.createElement('div')
     area.id='rec-area'
     tab.appendChild(area)
-    this.buildCheckboxes('rec-star-filter',this.ALL_STARS,'rec-star')
+    this.buildCheckboxes('rec-star-filter',this.ALL_STARS,'rec-star',true)
     this.buildCheckboxes('rec-old-lamp-filter',this.ALL_OLD_LAMPS,'rec-old-lamp')
     this.buildCheckboxes('rec-new-lamp-filter',this.ALL_NEW_LAMPS,'rec-new-lamp')
     this.rerenderRecTable()
@@ -375,7 +427,7 @@ var RatingApp={
     var area=document.createElement('div')
     area.id='rev-area'
     tab.appendChild(area)
-    this.buildCheckboxes('rev-star-filter',this.ALL_STARS,'rev-star')
+    this.buildCheckboxes('rev-star-filter',this.ALL_STARS,'rev-star',true)
     this.buildCheckboxes('rev-lamp-filter',['easy','normal','hard','fullCombo'],'rev-lamp')
     var self=this
     var groundEl=document.getElementById('rev-ground-filter')
@@ -418,6 +470,7 @@ var RatingApp={
     var groundEl=document.getElementById('rev-ground-filter')
     var groundMin=groundEl&&groundEl.value?parseFloat(groundEl.value):NaN
     return arr.filter(function(r){
+      if(r.clearDifficultyStarRating==null)return false
       if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
       if(lamps.size&&!lamps.has(r.clearLamp))return false
       if(!isNaN(groundMin)&&(r.chartDiscrimination==null||r.chartDiscrimination<groundMin))return false
@@ -428,7 +481,7 @@ var RatingApp={
     if(!checkedSet||!checkedSet.size)return true
     var s=RatingApp.formatStar(levels)
     if(checkedSet.has(s))return true
-    var parts=s.split(',').map(function(x){return x.trim()})
+    var parts=s.split('<br>').map(function(x){return x.trim()})
     for(var i=0;i<parts.length;i++){
       if(checkedSet.has(parts[i]))return true
       if(checkedSet.has('\u6bb5\u4f4d')&&parts[i].indexOf('\u6bb5\u4f4d')===0)return true
@@ -516,7 +569,7 @@ var h='<div class="table-wrap"><table id="rec-table"><thead><tr>'
       var curCls=r.currentClearLamp?'lamp-'+r.currentClearLamp:''
       var tgtCls=r.targetClearLamp?'lamp-'+r.targetClearLamp:''
       h+='<tr>'
-      h+='<td>'+star+'</td>'
+      h+='<td style="white-space:normal">'+star+'</td>'
       h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
       h+='<td class="'+curCls+'">'+curLamp+'</td>'
       h+='<td class="'+tgtCls+'">'+tgtLamp+'</td>'
@@ -544,7 +597,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       var lampCls=r.clearLamp?'lamp-'+r.clearLamp:''
       var diffStar=r.clearDifficultyStarRating!=null?'\u2605'+r.clearDifficultyStarRating.toFixed(2):'-'
       h+='<tr>'
-      h+='<td>'+star+'</td>'
+      h+='<td style="white-space:normal">'+star+'</td>'
       h+='<td class="chart-name" title="'+this.esc(r.name)+'">'+this.esc(r.name)+'</td>'
       h+='<td class="'+lampCls+'">'+lampVal+'</td>'
       h+='<td>'+diffStar+'</td>'
@@ -569,9 +622,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     h+='<button onclick="RatingApp.setPageSize(\''+prefix+'\',0)"'+(prefix==='rec'?this.recPageSize===0?' class="active"':'':this.revPageSize===0?' class="active"':'')+'>Full</button>'
     h+='</div>'
     h+='<div class="page-nav">'
+    h+='<button onclick="RatingApp.pageNavTo(\''+prefix+'\',0)"'+(result.page<=0?' disabled':'')+'>&laquo;</button>'
     h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',-1)"'+(result.page<=0?' disabled':'')+'>'+_t('prev')+'</button>'
     h+='<span>'+(result.npages>0?(result.page+1)+'/'+result.npages:'0/0')+'</span>'
     h+='<button onclick="RatingApp.pageNav(\''+prefix+'\',1)"'+(result.page>=result.npages-1?' disabled':'')+'>'+_t('next')+'</button>'
+    h+='<button onclick="RatingApp.pageNavTo(\''+prefix+'\',-1)"'+(result.page>=result.npages-1?' disabled':'')+'>&raquo;</button>'
     h+='</div>'
     h+='<span>'+result.total+_t('items')+'</span>'
     h+='</div>'
@@ -598,6 +653,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     if(prefix==='rec'){this.recPage=Math.max(0,Math.min(this.recPage+delta,Math.ceil(this.getFilteredRec().length/this.recPageSize)-1));this.rerenderRecTable()}
     else{this.revPage=Math.max(0,Math.min(this.revPage+delta,Math.ceil(this.getFilteredRev().length/this.revPageSize)-1));this.rerenderRevTable()}
   },
+  pageNavTo:function(prefix,target){
+    var npages
+    if(prefix==='rec'){npages=Math.ceil(this.getFilteredRec().length/this.recPageSize)||1;this.recPage=target<0?npages-1:Math.max(0,target);this.rerenderRecTable()}
+    else{npages=Math.ceil(this.getFilteredRev().length/this.revPageSize)||1;this.revPage=target<0?npages-1:Math.max(0,target);this.rerenderRevTable()}
+  },
   getCheckedSet:function(id){
     var c=document.getElementById(id)
     if(!c)return new Set()
@@ -606,27 +666,72 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     for(var i=0;i<cbs.length;i++)s.add(cbs[i].value)
     return s
   },
-  buildCheckboxes:function(containerId,items,group){
+  buildCheckboxes:function(containerId,items,group,useCategories){
     var c=document.getElementById(containerId)
     if(!c)return
     c.innerHTML=''
     var self=this
     var isLamp=group.indexOf('lamp')>=0
-    for(var i=0;i<items.length;i++){
-      var lbl=document.createElement('label')
-      var cb=document.createElement('input')
-      cb.type='checkbox'
-      cb.value=items[i]
-      cb.checked=true
-      cb.dataset.group=group
-      cb.addEventListener('change',function(){
-        this.parentNode.className=this.checked?'checked':''
-        self.onFilterChange(this.dataset.group)
-      })
-      lbl.appendChild(cb)
-      lbl.appendChild(document.createTextNode(' '+(isLamp?items[i].toUpperCase():items[i])))
-      lbl.className='checked'
-      c.appendChild(lbl)
+    if(useCategories&&this.ALL_STARS_CATEGORIES){
+      for(var ci=0;ci<this.ALL_STARS_CATEGORIES.length;ci++){
+        var cat=this.ALL_STARS_CATEGORIES[ci]
+        var catDiv=document.createElement('div')
+        catDiv.className='star-category'
+        var header=document.createElement('div')
+        header.className='star-category-header'
+        header.innerHTML='<span class="arrow">\u25b6</span> '+cat.name+' ('+cat.items.length+')'
+        header.onclick=(function(div){
+          return function(){
+            var hdr=this
+            var items=div.querySelector('.star-category-items')
+            if(items.classList.contains('collapsed')){
+              items.classList.remove('collapsed')
+              hdr.classList.add('open')
+            }else{
+              items.classList.add('collapsed')
+              hdr.classList.remove('open')
+            }
+          }
+        })(catDiv)
+        catDiv.appendChild(header)
+        var itemsDiv=document.createElement('div')
+        itemsDiv.className='star-category-items collapsed'
+        for(var i=0;i<cat.items.length;i++){
+          var lbl=document.createElement('label')
+          var cb=document.createElement('input')
+          cb.type='checkbox'
+          cb.value=cat.items[i]
+          cb.checked=true
+          cb.dataset.group=group
+          cb.addEventListener('change',function(){
+            this.parentNode.className=this.checked?'checked':''
+            self.onFilterChange(this.dataset.group)
+          })
+          lbl.appendChild(cb)
+          lbl.appendChild(document.createTextNode(' '+cat.items[i]))
+          lbl.className='checked'
+          itemsDiv.appendChild(lbl)
+        }
+        catDiv.appendChild(itemsDiv)
+        c.appendChild(catDiv)
+      }
+    }else{
+      for(var i=0;i<items.length;i++){
+        var lbl=document.createElement('label')
+        var cb=document.createElement('input')
+        cb.type='checkbox'
+        cb.value=items[i]
+        cb.checked=true
+        cb.dataset.group=group
+        cb.addEventListener('change',function(){
+          this.parentNode.className=this.checked?'checked':''
+          self.onFilterChange(this.dataset.group)
+        })
+        lbl.appendChild(cb)
+        lbl.appendChild(document.createTextNode(' '+(isLamp?items[i].toUpperCase():items[i])))
+        lbl.className='checked'
+        c.appendChild(lbl)
+      }
     }
   },
   onFilterChange:function(group){
@@ -806,6 +911,167 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
   },
   close:function(){
     if(window.RatingBridge){window.RatingBridge.close()}
+  },
+  switchChartTab:function(key){
+    this.chartActiveTab=key
+    this.renderChartTab()
+  },
+  getChartEntries:function(tableKey){
+    if(!this.chartData)return[]
+    var self=this
+    return this.chartData.filter(function(e){
+      return e.difficultyTableLevels&&e.difficultyTableLevels[tableKey]!==undefined
+    })
+  },
+  getChartFiltered:function(tableKey){
+    var entries=this.getChartEntries(tableKey)
+    var f=this.chartFilters[tableKey]
+    if(f.star&&f.star!=='all'){
+      entries=entries.filter(function(e){return e.difficultyTableLevels[tableKey]===f.star})
+    }
+    if(f.title){
+      var q=f.title.toLowerCase()
+      entries=entries.filter(function(e){return e.name.toLowerCase().indexOf(q)>=0})
+    }
+    return entries
+  },
+  getChartSorted:function(tableKey){
+    var entries=this.getChartFiltered(tableKey)
+    var s=this.chartSort[tableKey]
+    if(s.col>=0){
+      entries.sort(function(a,b){
+        var va,vb
+        switch(s.col){
+          case 0:va=parseFloat(a.difficultyTableLevels[tableKey])||0;vb=parseFloat(b.difficultyTableLevels[tableKey])||0;break
+          case 1:va=a.name.toLowerCase();vb=b.name.toLowerCase();break
+          case 2:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.easy)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.easy)||0;break
+          case 3:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.normal)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.normal)||0;break
+          case 4:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.hard)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.hard)||0;break
+          case 5:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.fullCombo)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.fullCombo)||0;break
+          case 6:va=a.chartDiscrimination||0;vb=b.chartDiscrimination||0;break
+          default:return 0
+        }
+        if(va<vb)return -s.dir
+        if(va>vb)return s.dir
+        return 0
+      })
+    }
+    return entries
+  },
+  getChartStarLevels:function(tableKey){
+    var entries=this.getChartEntries(tableKey)
+    var levels={}
+    entries.forEach(function(e){var l=e.difficultyTableLevels[tableKey];if(l)levels[l]=true})
+    return Object.keys(levels).sort(function(a,b){return(parseFloat(a)||0)-(parseFloat(b)||0)})
+  },
+  renderChartTab:function(){
+    var tab=document.getElementById('tab2')
+    if(!tab)return
+    var self=this
+    var tc=this.CHART_TABLES
+    var h='<div style="margin-bottom:8px">'
+    h+='<div class="tabs" style="margin-bottom:8px">'
+    tc.forEach(function(t){
+      h+='<button class="tab-btn'+(self.chartActiveTab===t.key?' active':'')+'" onclick="RatingApp.switchChartTab(\''+t.key+'\')">'+t.label+'</button>'
+    })
+    h+='</div></div>'
+    h+='<div id="chart-table-area"></div>'
+    tab.innerHTML=h
+    this.renderChartTable()
+  },
+  renderChartTable:function(){
+    var self=this
+    var area=document.getElementById('chart-table-area')
+    if(!area)return
+    var tableKey=this.chartActiveTab
+    var tc=this.CHART_TABLES.find(function(t){return t.key===tableKey})
+    var f=this.chartFilters[tableKey]
+    var starLevels=this.getChartStarLevels(tableKey)
+    var h=''
+    h+='<div class="filters" style="margin-bottom:8px"><div class="filter-row">'
+    h+='<label>\u2605:</label><select id="chart-star-'+tableKey+'" onchange="RatingApp.onChartStarFilter(\''+tableKey+'\',this.value)">'
+    h+='<option value="all"'+(f.star==='all'?' selected':'')+'>All</option>'
+    starLevels.forEach(function(lvl){h+='<option value="'+RatingApp.esc(lvl)+'"'+(f.star===lvl?' selected':'')+'>'+tc.levelPrefix+RatingApp.esc(lvl)+'</option>'})
+    h+='</select>'
+    h+='<label>\u30bf\u30a4\u30c8\u30eb:</label><input type="text" id="chart-title-'+tableKey+'" value="'+this.esc(f.title)+'" oninput="RatingApp.onChartTitleFilter(\''+tableKey+'\',this.value)" placeholder="\u691c\u7d22...">'
+    h+='</div></div>'
+    var result=this.getChartPaged(tableKey)
+    if(!result.rows.length){h+='<div class="empty-msg">\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093</div>';area.innerHTML=h;return}
+    h+='<div class="table-wrap"><table><thead><tr>'
+    h+='<th style="width:50px" onclick="RatingApp.onChartSort(\''+tableKey+'\',0)">\u2605<span class="sort-arrow">'+this.sortArrow(0,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th onclick="RatingApp.onChartSort(\''+tableKey+'\',1)">\u30bf\u30a4\u30c8\u30eb<span class="sort-arrow">'+this.sortArrow(1,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th style="width:70px;text-align:right" onclick="RatingApp.onChartSort(\''+tableKey+'\',2)">\u6613<span class="sort-arrow">'+this.sortArrow(2,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th style="width:70px;text-align:right" onclick="RatingApp.onChartSort(\''+tableKey+'\',3)">\u666e<span class="sort-arrow">'+this.sortArrow(3,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th style="width:70px;text-align:right" onclick="RatingApp.onChartSort(\''+tableKey+'\',4)">\u96e3<span class="sort-arrow">'+this.sortArrow(4,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th style="width:70px;text-align:right" onclick="RatingApp.onChartSort(\''+tableKey+'\',5)">FC<span class="sort-arrow">'+this.sortArrow(5,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='<th style="width:70px;text-align:right" onclick="RatingApp.onChartSort(\''+tableKey+'\',6)">\u5730\u529b<span class="sort-arrow">'+this.sortArrow(6,this.chartSort[tableKey].col,this.chartSort[tableKey].dir)+'</span></th>'
+    h+='</tr></thead><tbody>'
+    result.rows.forEach(function(e){
+      var lvl=e.difficultyTableLevels[tableKey]
+      var sr=e.clearDifficultyStarRatings||{}
+      h+='<tr>'
+      h+='<td style="color:#ffe082;font-weight:600">'+tc.levelPrefix+RatingApp.esc(lvl)+'</td>'
+      h+='<td class="chart-name" title="'+RatingApp.esc(e.name)+'">'+RatingApp.esc(e.name)+'</td>'
+      h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.easy)+'</td>'
+      h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.normal)+'</td>'
+      h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.hard)+'</td>'
+      h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.fullCombo)+'</td>'
+      h+='<td style="text-align:right">'+(e.chartDiscrimination!=null?e.chartDiscrimination.toFixed(2):'-')+'</td>'
+      h+='</tr>'
+    })
+    h+='</tbody></table></div>'
+    h+='<div class="page-controls">'
+    h+='<div class="page-size-group">\u8868\u793a\u4ef6\u6570: '
+    ;[25,50,100,0].forEach(function(size){
+      var label=size===0?'Full':size
+      h+='<button onclick="RatingApp.onChartPageSize(\''+tableKey+'\','+size+')"'+(self.chartPageSize[tableKey]===size?' class="active"':'')+'>'+label+'</button>'
+    })
+    h+='</div>'
+    h+='<div class="page-nav">'
+    h+='<button onclick="RatingApp.onChartPageNavTo(\''+tableKey+'\',0)"'+(result.page<=0?' disabled':'')+'>&laquo;</button>'
+    h+='<button onclick="RatingApp.onChartPageNav(\''+tableKey+'\',-1)"'+(result.page<=0?' disabled':'')+'>\u524d\u3078</button>'
+    h+='<span>'+(result.npages>0?(result.page+1)+'/'+result.npages:'0/0')+'</span>'
+    h+='<button onclick="RatingApp.onChartPageNav(\''+tableKey+'\',1)"'+(result.page>=result.npages-1?' disabled':'')+'>\u6b21\u3078</button>'
+    h+='<button onclick="RatingApp.onChartPageNavTo(\''+tableKey+'\',-1)"'+(result.page>=result.npages-1?' disabled':'')+'>&raquo;</button>'
+    h+='</div>'
+    h+='<span>'+result.total+'\u4ef6</span></div>'
+    area.innerHTML=h
+  },
+  chartDiffCell:function(val){
+    if(val==null)return'<span style="color:#555">-</span>'
+    var cls=val<0?'color:#788a9c':'color:#d0dce8'
+    return'<span style="'+cls+'">'+val.toFixed(2)+'</span>'
+  },
+  getChartPaged:function(tableKey){
+    var entries=this.getChartSorted(tableKey)
+    var pageSize=this.chartPageSize[tableKey]
+    var page=this.chartPage[tableKey]
+    if(pageSize===0)return{rows:entries,total:entries.length,page:0,npages:1}
+    var npages=Math.ceil(entries.length/pageSize)||1
+    if(page>=npages)page=npages-1
+    if(page<0)page=0
+    this.chartPage[tableKey]=page
+    var start=page*pageSize
+    return{rows:entries.slice(start,start+pageSize),total:entries.length,page:page,npages:npages}
+  },
+  onChartStarFilter:function(key,val){this.chartFilters[key].star=val;this.chartPage[key]=0;this.renderChartTable()},
+  onChartTitleFilter:function(key,val){this.chartFilters[key].title=val;this.chartPage[key]=0;this.renderChartTable()},
+  onChartSort:function(key,col){
+    var s=this.chartSort[key]
+    if(s.col===col){s.dir=-s.dir}else{s.col=col;s.dir=1}
+    this.chartPage[key]=0
+    this.renderChartTable()
+  },
+  onChartPageSize:function(key,size){this.chartPageSize[key]=size;this.chartPage[key]=0;this.renderChartTable()},
+  onChartPageNav:function(key,delta){
+    var r=this.getChartPaged(key)
+    this.chartPage[key]=Math.max(0,Math.min(this.chartPage[key]+delta,r.npages-1))
+    this.renderChartTable()
+  },
+  onChartPageNavTo:function(key,target){
+    var r=this.getChartPaged(key)
+    this.chartPage[key]=target<0?r.npages-1:Math.max(0,target)
+    this.renderChartTable()
   },
   esc:function(s){
     if(s==null)return''
