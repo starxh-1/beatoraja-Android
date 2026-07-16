@@ -874,7 +874,7 @@ public class SettingsActivity extends Activity {
                 removeBtn.setBackgroundColor(0xFFAA3333);
                 removeBtn.setTextColor(0xFFFFFFFF);
                 setupGamepadFocusable(removeBtn);
-                removeBtn.setOnClickListener(v -> { bmsPaths.remove(index); refreshBmsPathList(); });
+                removeBtn.setOnClickListener(v -> { bmsPaths.remove(index); refreshBmsPathList(); saveConfigToJson(); });
                 row.addView(removeBtn);
             } else {
                 editText.setEnabled(false);
@@ -920,7 +920,7 @@ public class SettingsActivity extends Activity {
             removeBtn.setBackgroundColor(0xFFAA3333);
             removeBtn.setTextColor(0xFFFFFFFF);
             setupGamepadFocusable(removeBtn);
-            removeBtn.setOnClickListener(v -> { tableUrls.remove(index); refreshTableUrlList(); });
+            removeBtn.setOnClickListener(v -> { tableUrls.remove(index); refreshTableUrlList(); saveConfigToJson(); });
             row.addView(editText); row.addView(updateBtn); row.addView(removeBtn);
             tableUrlContainer.addView(row);
         }

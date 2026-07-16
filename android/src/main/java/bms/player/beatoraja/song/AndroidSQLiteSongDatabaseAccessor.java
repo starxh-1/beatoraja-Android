@@ -48,7 +48,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     private static final Pattern SCORE_NOTES_COMPARE_PATTERN = Pattern.compile("score\\.notes\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+(?:\\.\\d+)?)");
     private static final Pattern SCORELOG_DATE_COMPARE_PATTERN = Pattern.compile("scorelog\\.date\\s*(>=|<=|!=|=|>|<)\\s*(-?\\d+)");
     private final DBHelper helper;
-    private final String[] bmsroot;
+    private String[] bmsroot;
     // 多线程扫描：增加线程数以更好地利用 I/O 并行能力
     // BMS 文件解析属于 I/O 密集型任务，线程数应超过 CPU 核心数
     private static final int PARALLEL_THREAD_COUNT = "true".equals(System.getProperty("beatoraja.32bit"))
@@ -796,6 +796,43 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         // 初始化进度
         if (progress != null) {
             progress.onFileScanned(0, totalFiles);
+        }
+
+        // 同步 bmsroot 并清理已从配置中移除的路径下的残留歌曲
+        // SettingsActivity 修改 bmsroot 后只写入了 JSON 文件，内存中仍未更新，
+        // 导致扫描仍然使用旧路径，已删除路径下的歌曲永远不会被清理。
+        this.bmsroot = paths.clone();
+        int orphanedCount = 0;
+        {
+            java.util.List<String> toDelete = new java.util.ArrayList<>();
+            try (Cursor c = db.rawQuery("SELECT path FROM song", null)) {
+                while (c.moveToNext()) {
+                    String songPath = c.getString(0);
+                    if (songPath == null) continue;
+                    boolean belongs = false;
+                    for (String root : paths) {
+                        if (root != null && songPath.startsWith(root)) {
+                            belongs = true;
+                            break;
+                        }
+                    }
+                    if (!belongs) toDelete.add(songPath);
+                }
+            }
+            if (!toDelete.isEmpty()) {
+                db.beginTransactionNonExclusive();
+                try {
+                    for (String path : toDelete) {
+                        db.delete("song", "path = ?", new String[]{path});
+                        orphanedCount++;
+                    }
+                    db.setTransactionSuccessful();
+                } finally {
+                    db.endTransaction();
+                }
+                rebuildFolderTable(db);
+                Log.i(TAG, "updateSongDatas: Deleted " + orphanedCount + " orphaned songs from removed bmsroot paths");
+            }
         }
 
         // 检查数据库中已有多少歌曲记录，用于统计
