@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>BMS Chart Difficulty List</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  background:#0f1923;color:#d0dce8;padding:12px;overflow-x:hidden;
+  -webkit-text-size-adjust:100%
+}
+.container{max-width:100%;margin:0 auto}
+.header{display:flex;align-items:center;justify-content:space-between;padding:12px 0}
+.header h1{font-size:18px;color:#4fc3f7}
+.lang-btns{display:flex;gap:2px}
+.lang-btn{
+  background:transparent;border:1px solid rgba(79,195,247,0.25);border-radius:4px;
+  color:#788a9c;font-size:10px;padding:2px 5px;cursor:pointer;transition:all .15s
+}
+.lang-btn.active{border-color:#4fc3f7;color:#4fc3f7;background:rgba(79,195,247,0.1)}
+.filters{
+  background:#1a2a3a;border-radius:10px;padding:10px;margin-bottom:10px;
+  font-size:13px;border:1px solid #1e3a5a
+}
+.filter-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filter-row label{color:#788a9c;margin-right:4px;font-size:12px}
+.filter-row select,.filter-row input[type=text]{
+  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
+  padding:5px 8px;color:#d0dce8;font-size:12px
+}
+.filter-row input[type=text]{width:180px}
+.tabs{display:inline-flex;margin-bottom:10px;border-radius:8px;overflow:hidden;border:1px solid #1e3a5a}
+.tab-btn{
+  padding:6px 16px;font-size:12px;font-weight:600;
+  background:#1a2a3a;color:#788a9c;border:none;cursor:pointer;transition:all .2s
+}
+.tab-btn.active{background:#1e3a5a;color:#4fc3f7}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{background:#142838;color:#4fc3f7;padding:6px 4px;text-align:left;
+   position:sticky;top:0;white-space:nowrap;font-weight:600;cursor:pointer;
+   user-select:none}
+th:hover{background:#1e3a5a}
+th .sort-arrow{font-size:9px;margin-left:2px;color:#ffe082}
+td{padding:6px 4px;border-bottom:1px solid #1a3048;white-space:nowrap}
+tr:nth-child(even) td{background:rgba(20,40,56,0.4)}
+.chart-name{max-width:200px;overflow-wrap:break-word;white-space:normal}
+.page-controls{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 0;font-size:12px;color:#788a9c;flex-wrap:wrap;gap:6px
+}
+.page-controls .page-size-group{display:flex;align-items:center;gap:4px}
+.page-controls button{
+  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
+  padding:3px 8px;color:#4fc3f7;font-size:11px;cursor:pointer
+}
+.page-controls button.active{background:#1e3a5a;color:#ffe082;border-color:rgba(255,224,130,0.4)}
+.page-controls button:disabled{opacity:.3;cursor:default}
+.page-controls span{min-width:50px;text-align:center}
+.loading{text-align:center;padding:40px 16px;color:#788a9c}
+.spinner{
+  width:30px;height:30px;border:3px solid #1e3a5a;
+  border-top-color:#4fc3f7;border-radius:50%;
+  animation:spin .8s linear infinite;margin:0 auto 10px
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-msg{text-align:center;padding:20px;color:#788a9c;font-size:13px}
+.lamp-noplay{color:#555}.lamp-failed{color:#e74c3c}
+.lamp-easy{color:#1ff00c}.lamp-normal{color:#ebfc05}
+.lamp-hard{color:#f7f3f2}.lamp-fc{color:#1bdbf5}
+.close-btn{
+  display:table;margin:12px auto 0;padding:8px 24px;
+  background:rgba(168,85,247,0.12);color:#4fc3f7;
+  border:1px solid rgba(100,100,180,0.3);border-radius:8px;
+  font-size:14px;cursor:pointer;text-align:center
+}
+</style>
+</head>
+<body>
+<div id="app">
+<div class="loading"><div class="spinner"></div><p>Loading...</p></div>
+</div>
+<script>
+var _lang='ja';
+function _t(k){var l=LANG[_lang]||LANG.ja;return l[k]||k}
+var LANG={
+  ja:{title:'\u96e3\u5ea6\u63a8\u5b9a\u8868',chart:'\u30c1\u30e3\u30fc\u30c8',star:'\u2605',
+      titleCol:'\u30bf\u30a4\u30c8\u30eb',lamp:'\u30e9\u30f3\u30d7',diff:'\u96e3\u5ea6',
+      ground:'\u5730\u529b',perPage:'\u8868\u793a\u4ef6\u6570',prev:'\u524d\u3078',
+      next:'\u6b21\u3078',items:'\u4ef6',close:'Close',filter:'\u7b5b\u9009',
+      starFilter:'\u2605\u30ec\u30d9\u30eb',titleFilter:'\u30bf\u30a4\u30c8\u30eb\u691c\u7d22',
+      all:'\u5168\u90e8',noData:'\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093'},
+  en:{title:'Chart Difficulty List',chart:'Chart',star:'Star',titleCol:'Title',
+      lamp:'Lamp',diff:'Difficulty',ground:'Ground',perPage:'Per page',prev:'Prev',
+      next:'Next',items:'items',close:'Close',filter:'Filters',
+      starFilter:'Star Level',titleFilter:'Search title',all:'All',noData:'No data'},
+  zh:{title:'\u96be\u5ea6\u63a8\u5b9a\u8868',chart:'\u8c31\u9762',star:'\u2605',
+      titleCol:'\u66f2\u540d',lamp:'\u706f',diff:'\u96be\u5ea6',ground:'\u5730\u529b',
+      perPage:'\u6bcf\u9875\u663e\u793a',prev:'\u4e0a\u4e00\u9875',next:'\u4e0b\u4e0b\u9875',
+      items:'\u6761',close:'\u5173\u95ed',filter:'\u7b5b\u9009',starFilter:'\u661f\u7ea7',
+      titleFilter:'\u6309\u66f2\u540d\u691c\u7d22',all:'\u5168\u90e8',noData:'\u6ca1\u6709\u6570\u636e'}
+};
+var ChartListApp={
+  data:null,sortCol:0,sortDir:1,page:0,pageSize:50,activeTab:'insane',
+  filters:{insane:{star:'all',title:''},insane2nd:{star:'all',title:''},
+    satellite:{star:'all',title:''},stella:{star:'all',title:''},
+    overjoy:{star:'all',title:''},dan:{star:'all',title:''}},
+  sortState:{insane:{col:0,dir:1},insane2nd:{col:0,dir:1},satellite:{col:0,dir:1},
+    stella:{col:0,dir:1},overjoy:{col:0,dir:1},dan:{col:0,dir:1}},
+  pageState:{insane:0,insane2nd:0,satellite:0,stella:0,overjoy:0,dan:0},
+  pageSizeState:{insane:50,insane2nd:50,satellite:50,stella:50,overjoy:50,dan:50},
+  TABLES:[
+    {key:'insane',label:'Insane',prefix:'\u2605'},
+    {key:'insane2nd',label:'Insane2nd',prefix:'\u25bc'},
+    {key:'satellite',label:'Satellite',prefix:'sl'},
+    {key:'stella',label:'Stella',prefix:'st'},
+    {key:'overjoy',label:'Overjoy',prefix:'\u2605\u2605'},
+    {key:'dan',label:'\u6bb5\u4f4d\u8a8d\u5b9a',prefix:'\u6bb5\u4f4d'}
+  ],
+  init:function(d){
+    if(typeof d==='string'){try{this.data=JSON.parse(d)}catch(e){this.renderError(e.message);return}}
+    else{this.data=d}
+    this.render()
+  },
+  render:function(){
+    var d=this.data;if(!d){document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading...</p></div>';return}
+    if(d.error){this.renderError(d.error);return}
+    var h='<div class="container">'
+    h+='<div class="header"><h1>'+_t('title')+'</h1>'
+    h+='<div class="lang-btns">'
+    var ls=[['ja','\u65e5\u672c\u8a9e'],['en','English'],['zh','\u4e2d\u6587']];
+    for(var i=0;i<ls.length;i++)h+='<button onclick="ChartListApp.switchLang(\''+ls[i][0]+'\')" class="lang-btn'+(ls[i][0]===_lang?' active':'')+'">'+ls[i][1]+'</button>'
+    h+='</div></div>'
+    var tc=this.TABLES
+    h+='<div class="tabs">'
+    for(var i=0;i<tc.length;i++)h+='<button class="tab-btn'+(this.activeTab===tc[i].key?' active':'')+'" onclick="ChartListApp.switchTab(\''+tc[i].key+'\')">'+tc[i].label+'</button>'
+    h+='</div>'
+    h+='<div id="table-area"></div>'
+    h+='<button class="close-btn" onclick="ChartListApp.close()">Close</button></div>'
+    document.getElementById('app').innerHTML=h
+    this.renderTable()
+  },
+  switchLang:function(l){_lang=l;this.render()},
+  switchTab:function(k){this.activeTab=k;this.render()},
+  getEntries:function(k){
+    if(!this.data||!this.data.chartEntries)return[]
+    var self=this
+    return this.data.chartEntries.filter(function(e){
+      return e.difficultyTableLevels&&e.difficultyTableLevels[k]!==undefined
+    })
+  },
+  getFiltered:function(k){
+    var arr=this.getEntries(k)
+    var f=this.filters[k]
+    if(f.star&&f.star!=='all'){
+      arr=arr.filter(function(e){return e.difficultyTableLevels[k]===f.star})
+    }
+    if(f.title){
+      var q=f.title.toLowerCase()
+      arr=arr.filter(function(e){return e.name.toLowerCase().indexOf(q)>=0})
+    }
+    return arr
+  },
+  getStarLevels:function(k){
+    var entries=this.getEntries(k)
+    var levels={}
+    entries.forEach(function(e){var l=e.difficultyTableLevels[k];if(l)levels[l]=true})
+    return Object.keys(levels).sort(function(a,b){return(parseFloat(a)||0)-(parseFloat(b)||0)})
+  },
+  getSorted:function(k){
+    var arr=this.getFiltered(k)
+    var s=this.sortState[k]
+    if(s.col>=0){
+      arr.sort(function(a,b){
+        var va,vb
+        switch(s.col){
+          case 0:va=parseFloat(a.difficultyTableLevels[k])||0;vb=parseFloat(b.difficultyTableLevels[k])||0;break
+          case 1:va=a.name.toLowerCase();vb=b.name.toLowerCase();break
+          case 2:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.easy)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.easy)||0;break
+          case 3:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.normal)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.normal)||0;break
+          case 4:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.hard)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.hard)||0;break
+          case 5:va=(a.clearDifficultyStarRatings&&a.clearDifficultyStarRatings.fullCombo)||0;vb=(b.clearDifficultyStarRatings&&b.clearDifficultyStarRatings.fullCombo)||0;break
+          case 6:va=a.chartDiscrimination||0;vb=b.chartDiscrimination||0;break
+          default:return 0
+        }
+        if(va<vb)return -s.dir
+        if(va>vb)return s.dir
+        return 0
+      })
+    }
+    return arr
+  },
+  getPaged:function(k){
+    var arr=this.getSorted(k)
+    var ps=this.pageSizeState[k]
+    var pg=this.pageState[k]
+    if(ps===0)return{rows:arr,total:arr.length,page:0,npages:1}
+    var np=Math.ceil(arr.length/ps)||1
+    if(pg>=np)pg=np-1;if(pg<0)pg=0
+    this.pageState[k]=pg
+    return{rows:arr.slice(pg*ps,pg*ps+ps),total:arr.length,page:pg,npages:np}
+  },
+  renderTable:function(){
+    var area=document.getElementById('table-area')
+    if(!area)return
+    var k=this.activeTab,tc=this.TABLES.find(function(t){return t.key===k})
+    var f=this.filters[k],sl=this.getStarLevels(k)
+    var h=''
+    h+='<div class="filters"><div class="filter-row">'
+    h+='<label>'+_t('starFilter')+':</label><select id="star-sel" onchange="ChartListApp.onStarFilter(this.value)">'
+    h+='<option value="all"'+(f.star==='all'?' selected':'')+'>'+_t('all')+'</option>'
+    sl.forEach(function(l){h+='<option value="'+l+'"'+(f.star===l?' selected':'')+'>'+tc.prefix+l+'</option>'})
+    h+='</select>'
+    h+='<label>'+_t('titleFilter')+':</label><input type="text" id="title-input" value="'+this.esc(f.title)+'" oninput="ChartListApp.onTitleFilter(this.value)" placeholder="\u691c\u7d22...">'
+    h+='</div></div>'
+    var result=this.getPaged(k)
+    if(!result.rows.length){h+='<div class="empty-msg">'+_t('noData')+'</div>';area.innerHTML=h;return}
+    h+='<div class="table-wrap"><table><thead><tr>'
+    h+='<th style="width:50px" onclick="ChartListApp.onSort(0)">\u2605<span class="sort-arrow">'+this.arrow(0)+'</span></th>'
+    h+='<th onclick="ChartListApp.onSort(1)">'+_t('titleCol')+'<span class="sort-arrow">'+this.arrow(1)+'</span></th>'
+    h+='<th style="width:65px;text-align:right" onclick="ChartListApp.onSort(2)">\u6613<span class="sort-arrow">'+this.arrow(2)+'</span></th>'
+    h+='<th style="width:65px;text-align:right" onclick="ChartListApp.onSort(3)">\u666e<span class="sort-arrow">'+this.arrow(3)+'</span></th>'
+    h+='<th style="width:65px;text-align:right" onclick="ChartListApp.onSort(4)">\u96e3<span class="sort-arrow">'+this.arrow(4)+'</span></th>'
+    h+='<th style="width:65px;text-align:right" onclick="ChartListApp.onSort(5)">FC<span class="sort-arrow">'+this.arrow(5)+'</span></th>'
+    h+='<th style="width:65px;text-align:right" onclick="ChartListApp.onSort(6)">\u5730\u529b<span class="sort-arrow">'+this.arrow(6)+'</span></th>'
+    h+='</tr></thead><tbody>'
+    result.rows.forEach(function(e){
+      var lvl=e.difficultyTableLevels[k]
+      var sr=e.clearDifficultyStarRatings||{}
+      h+='<tr>'
+      h+='<td style="color:#ffe082;font-weight:600">'+tc.prefix+ChartListApp.esc(lvl)+'</td>'
+      h+='<td class="chart-name" title="'+ChartListApp.esc(e.name)+'">'+ChartListApp.esc(e.name)+'</td>'
+      h+='<td style="text-align:right">'+ChartListApp.diffCell(sr.easy)+'</td>'
+      h+='<td style="text-align:right">'+ChartListApp.diffCell(sr.normal)+'</td>'
+      h+='<td style="text-align:right">'+ChartListApp.diffCell(sr.hard)+'</td>'
+      h+='<td style="text-align:right">'+ChartListApp.diffCell(sr.fullCombo)+'</td>'
+      h+='<td style="text-align:right">'+(e.chartDiscrimination!=null?e.chartDiscrimination.toFixed(2):'-')+'</td>'
+      h+='</tr>'
+    })
+    h+='</tbody></table></div>'
+    h+='<div class="page-controls">'
+    h+='<div class="page-size-group">'+_t('perPage')+': '
+    var self=this
+    ;[25,50,100,0].forEach(function(s){
+      h+='<button onclick="ChartListApp.onPageSize('+s+')"'+(self.pageSizeState[k]===s?' class="active"':'')+'>'+(s===0?'Full':s)+'</button>'
+    })
+    h+='</div><div class="page-nav">'
+    h+='<button onclick="ChartListApp.onPageNav(-10)"'+(result.page<=0?' disabled':'')+'>&laquo;</button>'
+    h+='<button onclick="ChartListApp.onPageNav(-1)"'+(result.page<=0?' disabled':'')+'>'+_t('prev')+'</button>'
+    h+='<span>'+(result.npages>0?(result.page+1)+'/'+result.npages:'0/0')+'</span>'
+    h+='<button onclick="ChartListApp.onPageNav(1)"'+(result.page>=result.npages-1?' disabled':'')+'>'+_t('next')+'</button>'
+    h+='<button onclick="ChartListApp.onPageNav(10)"'+(result.page>=result.npages-1?' disabled':'')+'>&raquo;</button>'
+    h+='</div><span>'+result.total+_t('items')+'</span></div>'
+    area.innerHTML=h
+  },
+  diffCell:function(v){
+    if(v==null)return'<span style="color:#555">-</span>'
+    return'<span style="color:'+(v<0?'#788a9c':'#d0dce8')+'">'+v.toFixed(2)+'</span>'
+  },
+  arrow:function(col){var s=this.sortState[this.activeTab];return col===s.col?(s.dir>0?'\u25b2':'\u25bc'):''},
+  onSort:function(col){
+    var s=this.sortState[this.activeTab]
+    if(s.col===col)s.dir=-s.dir;else{s.col=col;s.dir=1}
+    this.pageState[this.activeTab]=0;this.renderTable()
+  },
+  onStarFilter:function(v){this.filters[this.activeTab].star=v;this.pageState[this.activeTab]=0;this.renderTable()},
+  onTitleFilter:function(v){this.filters[this.activeTab].title=v;this.pageState[this.activeTab]=0;this.renderTable()},
+  onPageSize:function(s){this.pageSizeState[this.activeTab]=s;this.pageState[this.activeTab]=0;this.renderTable()},
+  onPageNav:function(d){
+    var k=this.activeTab,ps=this.pageSizeState[k]
+    var total=this.getFiltered(k).length
+    var np=ps===0?1:Math.ceil(total/ps)||1
+    this.pageState[k]=Math.max(0,Math.min(this.pageState[k]+d,np-1))
+    this.renderTable()
+  },
+  esc:function(s){if(!s)return'';return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')},
+  renderError:function(m){document.getElementById('app').innerHTML='<div class="container" style="text-align:center;padding:40px;color:#e74c3c"><p>'+this.esc(m)+'</p><button class="close-btn" onclick="ChartListApp.close()">Close</button></div>'},
+  close:function(){if(window.RatingBridge)window.RatingBridge.close()}
+};
+</script>
+</body>
+</html>

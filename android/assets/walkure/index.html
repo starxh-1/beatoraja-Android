@@ -62,6 +62,7 @@ body{
 .star-category-header:hover{background:#1e3a5a}
 .star-category-header .arrow{font-size:10px;transition:transform .2s}
 .star-category-header.open .arrow{transform:rotate(90deg)}
+.star-category-header .cat-cb{width:14px;height:14px;accent-color:#4fc3f7;cursor:pointer;margin:0;pointer-events:auto}
 .star-category-items{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding-left:8px}
 .star-category-items.collapsed{display:none}
 .star-actions{display:flex;gap:4px;margin-bottom:6px}
@@ -679,10 +680,41 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
         catDiv.className='star-category'
         var header=document.createElement('div')
         header.className='star-category-header'
-        header.innerHTML='<span class="arrow">\u25b6</span> '+cat.name+' ('+cat.items.length+')'
-        header.onclick=(function(div){
-          return function(){
-            var hdr=this
+        // Category-level checkbox to toggle all items in this category
+        var catCb=document.createElement('input')
+        catCb.type='checkbox'
+        catCb.className='cat-cb'
+        catCb.checked=true
+        catCb.dataset.group=group
+        catCb.dataset.catIdx=ci
+        catCb.addEventListener('click',function(e){e.stopPropagation()})
+        catCb.addEventListener('change',function(e){
+          e.stopPropagation()
+          var idx=parseInt(this.dataset.catIdx)
+          var g=this.dataset.group
+          var catItems=self.ALL_STARS_CATEGORIES[idx].items
+          var container=document.getElementById(g+'-filter')
+          if(!container)return
+          var cbs=container.querySelectorAll('input[type=checkbox]:not(.cat-cb)')
+          // Collect only checkboxes belonging to this category
+          var catSet=new Set(catItems)
+          for(var i=0;i<cbs.length;i++){
+            if(catSet.has(cbs[i].value)){
+              cbs[i].checked=catCb.checked
+              cbs[i].parentNode.className=catCb.checked?'checked':''
+            }
+          }
+          self.onFilterChange(g)
+        })
+        header.appendChild(catCb)
+        var arrowSpan=document.createElement('span')
+        arrowSpan.className='arrow'
+        arrowSpan.textContent='\u25b6'
+        header.appendChild(arrowSpan)
+        header.appendChild(document.createTextNode(' '+cat.name+' ('+cat.items.length+')'))
+        header.onclick=(function(div,hdr,catCbRef){
+          return function(e){
+            if(e.target===catCbRef)return
             var items=div.querySelector('.star-category-items')
             if(items.classList.contains('collapsed')){
               items.classList.remove('collapsed')
@@ -692,7 +724,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
               hdr.classList.remove('open')
             }
           }
-        })(catDiv)
+        })(catDiv,header,catCb)
         catDiv.appendChild(header)
         var itemsDiv=document.createElement('div')
         itemsDiv.className='star-category-items collapsed'
@@ -703,8 +735,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
           cb.value=cat.items[i]
           cb.checked=true
           cb.dataset.group=group
+          cb.dataset.catIdx=ci
           cb.addEventListener('change',function(){
             this.parentNode.className=this.checked?'checked':''
+            // Update category checkbox state
+            self.updateCatCb(this.dataset.group,parseInt(this.dataset.catIdx))
             self.onFilterChange(this.dataset.group)
           })
           lbl.appendChild(cb)
@@ -734,6 +769,24 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       }
     }
   },
+  updateCatCb:function(group,catIdx){
+    var container=document.getElementById(group+'-filter')
+    if(!container)return
+    var catItems=this.ALL_STARS_CATEGORIES[catIdx].items
+    var catSet=new Set(catItems)
+    var cbs=container.querySelectorAll('input[type=checkbox]:not(.cat-cb)')
+    var total=0,checked=0
+    for(var i=0;i<cbs.length;i++){
+      if(catSet.has(cbs[i].value)){
+        total++
+        if(cbs[i].checked)checked++
+      }
+    }
+    var catCb=container.querySelectorAll('.cat-cb')[catIdx]
+    if(catCb){
+      catCb.checked=(total>0&&checked===total)
+    }
+  },
   onFilterChange:function(group){
     if(group==='rec-star'||group==='rec-old-lamp'||group==='rec-new-lamp'){this.recPage=0;this.rerenderRecTable()}
     else if(group==='rev-star'||group==='rev-lamp'){this.revPage=0;this.rerenderRevTable()}
@@ -744,7 +797,10 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       var el=document.getElementById(containers[i])
       if(!el)continue
       var cbs=el.querySelectorAll('input[type=checkbox]')
-      for(var j=0;j<cbs.length;j++){cbs[j].checked=true;cbs[j].parentNode.className='checked'}
+      for(var j=0;j<cbs.length;j++){
+        cbs[j].checked=true
+        if(!cbs[j].classList.contains('cat-cb'))cbs[j].parentNode.className='checked'
+      }
     }
     this.recPage=0
     this.rerenderRecTable()
@@ -755,7 +811,10 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       var el=document.getElementById(containers[i])
       if(!el)continue
       var cbs=el.querySelectorAll('input[type=checkbox]')
-      for(var j=0;j<cbs.length;j++){cbs[j].checked=true;cbs[j].parentNode.className='checked'}
+      for(var j=0;j<cbs.length;j++){
+        cbs[j].checked=true
+        if(!cbs[j].classList.contains('cat-cb'))cbs[j].parentNode.className='checked'
+      }
     }
     var groundEl=document.getElementById('rev-ground-filter')
     if(groundEl)groundEl.value=''
@@ -765,8 +824,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
   toggleStarGroup:function(id,check){
     var el=document.getElementById(id)
     if(!el)return
-    var cbs=el.querySelectorAll('input[type=checkbox]')
+    var cbs=el.querySelectorAll('input[type=checkbox]:not(.cat-cb)')
     for(var j=0;j<cbs.length;j++){cbs[j].checked=check;cbs[j].parentNode.className=check?'checked':''}
+    // Sync all category checkboxes
+    var catCbs=el.querySelectorAll('.cat-cb')
+    for(var k=0;k<catCbs.length;k++){catCbs[k].checked=check}
   },
   probCell:function(p){
     var pc=(p*100).toFixed(1)

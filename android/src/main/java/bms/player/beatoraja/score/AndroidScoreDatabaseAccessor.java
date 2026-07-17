@@ -235,7 +235,12 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
 
     @Override
     public List<ScoreData> getScoreDatas(String sql) {
-        SQLiteDatabase db = helper.getReadableDatabase();
+        // Use a fresh OPEN_READONLY connection to avoid stale WAL snapshots
+        // from the cached helper connection. This ensures Walkure and other
+        // readers always see the latest committed writes.
+        String dbPath = helper.getDatabaseName();
+        SQLiteDatabase db = SQLiteDatabase.openDatabase(dbPath, null,
+                SQLiteDatabase.OPEN_READONLY);
         List<ScoreData> result = new ArrayList<>();
         try (Cursor c = db.rawQuery("SELECT * FROM score WHERE " + sql, null)) {
             while (c.moveToNext()) {
@@ -244,6 +249,8 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
             }
         } catch (Exception e) {
             Logger.getGlobal().severe("getScoreDatas(sql) error: " + e.getMessage());
+        } finally {
+            try { db.close(); } catch (Exception ignored) {}
         }
         return result;
     }
