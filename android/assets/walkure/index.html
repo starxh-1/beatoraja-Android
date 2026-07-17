@@ -692,6 +692,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
           e.stopPropagation()
           var idx=parseInt(this.dataset.catIdx)
           var g=this.dataset.group
+          var checked=this.checked
           var catItems=self.ALL_STARS_CATEGORIES[idx].items
           var container=document.getElementById(g+'-filter')
           if(!container)return
@@ -700,8 +701,8 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
           var catSet=new Set(catItems)
           for(var i=0;i<cbs.length;i++){
             if(catSet.has(cbs[i].value)){
-              cbs[i].checked=catCb.checked
-              cbs[i].parentNode.className=catCb.checked?'checked':''
+              cbs[i].checked=checked
+              cbs[i].parentNode.className=checked?'checked':''
             }
           }
           self.onFilterChange(g)
@@ -848,7 +849,9 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var refStr=v.toFixed(2),html='<span class="slot-row">'
     for(var i=0;i<refStr.length;i++){
       var c=refStr[i]
-      if(c=='.'){html+='<span class="slot-dot">.</span>'}else{
+      if(c=='.'){html+='<span class="slot-dot">.</span>'}
+      else if(c=='-'){html+='<span class="slot-dot">-</span>'}
+      else{
         html+='<span class="slot-col"><span class="strip">'
         for(var r=0;r<this._SLOT_COPIES;r++){for(var d=0;d<=9;d++)html+='<span>'+d+'</span>'}
         html+='</span></span>'
@@ -924,14 +927,18 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
   },
   _formatMatch:function(val,refStr){
     var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')
-    while(vp[0].length<rp[0].length)vp[0]='0'+vp[0]
-    if(vp[0].length>rp[0].length)vp[0]=vp[0].slice(-rp[0].length)
-    return vp[0]+'.'+vp[1]
+    var rSign=rp[0].charAt(0)==='-'?-1:0
+    var vSign=vp[0].charAt(0)==='-'?-1:0
+    var rNum=rp[0].substring(Math.abs(rSign))
+    var vNum=vp[0].substring(Math.abs(vSign))
+    while(vNum.length<rNum.length)vNum='0'+vNum
+    if(vNum.length>rNum.length)vNum=vNum.slice(-rNum.length)
+    return(rSign<0?'-':'')+vNum+'.'+vp[1]
   },
   _setSlotPos:function(el,str,anim,fromPos){
     var cols=el.querySelectorAll('.slot-col'),idx=0
     for(var i=0;i<str.length;i++){
-      if(str[i]=='.')continue
+      if(str[i]=='.'||str[i]=='-')continue
       var t=parseInt(str[i]),col=cols[idx];if(!col)break
       var st=col.querySelector('.strip')
       if(anim){

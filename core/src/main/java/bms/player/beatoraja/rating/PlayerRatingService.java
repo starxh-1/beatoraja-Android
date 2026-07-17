@@ -18,6 +18,11 @@ public class PlayerRatingService {
 
     private RecommendationModelData model;
     private boolean loadAttempted = false;
+    private static final double[] STAR_POINTS;
+    static {
+        STAR_POINTS = new double[25];
+        for (int i = 0; i < 25; i++) STAR_POINTS[i] = i + 1;
+    }
 
     public void loadModel() {
         if (loadAttempted) return;
@@ -96,13 +101,15 @@ public class PlayerRatingService {
             if (matchedScores.isEmpty()) {
                 // No data to estimate from — fallback theta
                 theta = -2.0;
-                playerStarRating = 0.0;
+                playerStarRating = Math.round(
+                    IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
                 observationCount = 0;
             } else {
                 PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
                 if (result == null) {
                     theta = -2.0;
-                    playerStarRating = 0.0;
+                    playerStarRating = Math.round(
+                        IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
                     observationCount = matchedScores.size();
                 } else {
                     theta = result.theta;
