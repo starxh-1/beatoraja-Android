@@ -17,17 +17,13 @@ body{
 .header h1{font-size:20px;color:#4fc3f7;margin-bottom:2px}
 .header .subtitle{font-size:13px;color:#788a9c}
 /* .rating-card removed - now inline styles in render() */
-/* slot machine */
-@keyframes slotScroll{
-  0%{transform:translateY(0)}
-  100%{transform:translateY(-10em)}
+.star-rating{font-size:34px;font-weight:bold;color:#ffe082;font-variant-numeric:tabular-nums;text-align:center;margin:16px 0;line-height:1.1}
+.low-confidence{
+  background:rgba(255,224,130,0.08);border:1px solid rgba(255,224,130,0.3);
+  border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;
+  color:#ffe082;line-height:1.5
 }
-.slot-row{display:inline-flex;align-items:center;vertical-align:middle;height:1em;overflow:visible;user-select:none;-webkit-user-select:none;touch-action:none}
-.slot-col{display:inline-block;width:0.7em;height:1em;overflow:hidden;position:relative;vertical-align:top;user-select:none;-webkit-user-select:none}
-.slot-col .strip{position:absolute;left:0;top:0;width:100%;will-change:transform;line-height:1}
-.slot-col .strip span{display:block;height:1em;text-align:center;font-variant-numeric:tabular-nums}
-.slot-dot{display:inline-block;width:0.3em;text-align:center;vertical-align:top;line-height:1}
-.slot-col.scrambling .strip{animation-name:slotScroll;animation-timing-function:linear;animation-iteration-count:infinite}
+.low-confidence strong{color:#ffe082}
 
 .tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #1e3a5a}
 .tab-btn{
@@ -179,7 +175,8 @@ var LANG={
     lamp:'\u30e9\u30f3\u30d7',
     diff:'\u96e3\u5ea6',
     ground:'\u5730\u529b\u8b5c\u9762\u5ea6',
-    recDeg:'\u30ea\u30b3\u30e1\u30f3\u5ea6'
+    recDeg:'\u30ea\u30b3\u30e1\u30f3\u5ea6',
+    lowConfidence:'\u30c7\u30fc\u30bf\u4e0d\u8db3\uff08{n}\u8b5c\u9762\u30de\u30c3\u30c1\uff09\u3001\u30ea\u30b3\u30e1\u30f3\u30c9\u306f\u53c2\u8003\u306e\u307f\u3067\u3059\u3002'
   },
   en:{
     title:'Player Rating',
@@ -203,7 +200,8 @@ var LANG={
     lamp:'Lamp',
     diff:'Difficulty',
     ground:'Chart Difficulty',
-    recDeg:'Recommendation'
+    recDeg:'Recommendation',
+    lowConfidence:'Limited data ({n} charts matched). Recommendations are for reference only.'
   },
   zh:{
     title:'\u73a9\u5bb6\u5b9e\u529b',
@@ -227,7 +225,8 @@ var LANG={
     lamp:'\u706f',
     diff:'\u96be\u5ea6',
     ground:'\u5730\u529b\u8c31\u9762\u5ea6',
-    recDeg:'\u63a8\u8350\u5ea6'
+    recDeg:'\u63a8\u8350\u5ea6',
+    lowConfidence:'\u6570\u636e\u4e0d\u8db3\uff08\u4ec5\u5339\u914d\u5230 {n} \u9996\u8c31\u9762\uff09\uff0c\u63a8\u8350\u4ec5\u4f9b\u53c2\u8003\u3002'
   },
   ko:{
     title:'\ud50c\ub808\uc774\uc5b4 \uc2e4\ub825',
@@ -251,7 +250,8 @@ var LANG={
     lamp:'\ub7a8\ud504',
     diff:'\ub09c\uc774\ub3c4',
     ground:'\ucc28\ud2b8 \ub09c\uc774\ub3c4',
-    recDeg:'\ucd94\ucc9c\ub3c4'
+    recDeg:'\ucd94\ucc9c\ub3c4',
+    lowConfidence:'\ub370\uc774\ud130 \ubd80\uc871 ({n}\uace1\ub9e4 \ub9e4\uce6d). \ucd94\ucc9c\uc740 \ucc38\uace0\uc6a9\uc785\ub2c8\ub2e4.'
   }
 }
 var RatingApp={
@@ -299,10 +299,7 @@ var RatingApp={
     for(var i=0;i<l.length;i++)h+='<button onclick="RatingApp.switchLang(\''+l[i]+'\')" class="lang-btn'+(l[i]===_lang?' active':'')+'">'+ln[i]+'</button>'
     h+='</div>'
     h+='</div>'
-    h+='<div style="display:flex;align-items:center;justify-content:center;gap:8px;margin:16px 0">'
-    h+='<span style="font-size:34px;color:#ffe082">\u2605</span>'
-    h+='<span id="star-slot" style="font-size:34px;font-weight:bold;color:#ffe082;font-variant-numeric:tabular-nums"></span>'
-    h+='</div>'
+    h+='<div class="star-rating" id="star-rating"></div>'
     h+='<div class="tabs">'
     h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">'+_t('recommend')+'</button>'
     h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">'+_t('revRecommend')+'</button>'
@@ -313,15 +310,13 @@ var RatingApp={
     h+='<div id="tab2" class="tab-content"></div>'
     h+='<button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
     document.getElementById('app').innerHTML=h
-    this.updateStarSlot(d.playerStarRating)
+    this.renderStarRating()
     this.renderRecTab()
     this.renderRevTab()
   },
   switchLang:function(l){
     _lang=l
-    var saved;var el=document.getElementById('star-slot');if(el)saved=el.innerHTML
     this.render()
-    if(saved){var el2=document.getElementById('star-slot');if(el2)el2.innerHTML=saved}
   },
   switchTab:function(idx){
     var btns=document.querySelectorAll('.tab-btn')
@@ -396,6 +391,12 @@ var RatingApp={
     if(!d||!d.recommendation||!d.recommendation.length){document.getElementById('tab0').innerHTML='<div class="empty-msg">'+_t('noRec')+'</div>';return}
     var tab=document.getElementById('tab0')
     tab.innerHTML=''
+    if(d.lowConfidence){
+      var banner=document.createElement('div')
+      banner.className='low-confidence'
+      banner.innerHTML='\u26a0 '+_t('lowConfidence').replace('{n}',d.observationCount||0)
+      tab.appendChild(banner)
+    }
     var filters=document.createElement('div')
     filters.className='filters'
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
@@ -837,140 +838,25 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var bg='hsl('+hue+',70%,35%)'
     return'<div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div> '+pc+'%'
   },
-  // ── Slot machine star rating ──
-  _SLOT_COPIES:5,
-  _SLOT_START:2,
-  _SLOT_SPINS:2,
-  updateStarSlot:function(v){
-    if(v==null){var e=document.getElementById('star-slot');if(e)e.textContent='?';return}
-    var p=0
-    if(window.RatingBridge&&window.RatingBridge.getPrevStarRating)p=window.RatingBridge.getPrevStarRating()
-    var e=document.getElementById('star-slot');if(!e)return
-    var refStr=v.toFixed(2),html='<span class="slot-row">'
-    for(var i=0;i<refStr.length;i++){
-      var c=refStr[i]
-      if(c=='.'){html+='<span class="slot-dot">.</span>'}
-      else if(c=='-'){html+='<span class="slot-dot">-</span>'}
-      else{
-        html+='<span class="slot-col"><span class="strip">'
-        for(var r=0;r<this._SLOT_COPIES;r++){for(var d=0;d<=9;d++)html+='<span>'+d+'</span>'}
-        html+='</span></span>'
-      }
-    }
-    html+='</span>'
-    e.innerHTML=html
-    this._setSlotPos(e,this._formatMatch(p,refStr),false)
-    var self=this
-    requestAnimationFrame(function(){requestAnimationFrame(function(){self._setSlotPos(e,refStr,true)})})
-    if(window.RatingBridge&&window.RatingBridge.saveStarRating)window.RatingBridge.saveStarRating(v)
-    // long-press scramble
-    var row=e.querySelector('.slot-row')
-    if(row){
-      row._pressTimer=null
-      row._targetVal=refStr
-      var cols=row.querySelectorAll('.slot-col')
-      var speeds=[0.3,0.55,0.85]
-      var startScramble=function(){
-        for(var i=0;i<cols.length;i++){
-          var strip=cols[i].querySelector('.strip')
-          strip.style.animation=''
-          strip.style.transition=''
-          strip.style.transform=''
-          cols[i].classList.add('scrambling')
-          strip.style.animationDuration=speeds[i%speeds.length]+'s'
-        }
-      }
-      var stopScramble=function(){
-        if(row._pressTimer){clearTimeout(row._pressTimer);row._pressTimer=null}
-        // read animated position BEFORE removing the animation class
-        var positions=[]
-        for(var i=0;i<cols.length;i++){
-          var strip=cols[i].querySelector('.strip')
-          var matrix=getComputedStyle(strip).transform
-          var ty=0
-          if(matrix&&matrix!=='none'){
-            var m2d=matrix.match(/matrix\(([^)]+)\)/)
-            if(m2d){var p=m2d[1].split(',');ty=parseFloat(p[5])||0}
-            else{
-              var m3d=matrix.match(/matrix3d\(([^)]+)\)/)
-              if(m3d){var p3=m3d[1].split(',');ty=parseFloat(p3[13])||0}
-            }
-          }
-          // snap to nearest digit boundary (each digit = 1em = fontSize px)
-          var fs=parseFloat(getComputedStyle(strip).fontSize)||34
-          ty=Math.round(ty/fs)*fs
-          positions.push(ty)
-        }
-        // freeze each strip at its current visual position
-        for(var i=0;i<cols.length;i++){
-          var strip=cols[i].querySelector('.strip')
-          cols[i].classList.remove('scrambling')
-          strip.style.animation='none'
-          strip.style.transition='none'
-          strip.style.transform='translateY('+positions[i]+'px)'
-        }
-        // force reflow then slide back after 0.5s
-        row.offsetHeight
-        setTimeout(function(){self._setSlotPos(e,row._targetVal,true,positions)},500)
-      }
-      row.addEventListener('touchstart',function(){
-        row._pressTimer=setTimeout(startScramble,500)
-      },{passive:true})
-      row.addEventListener('touchend',stopScramble)
-      row.addEventListener('touchcancel',stopScramble)
-      row.addEventListener('mousedown',function(){
-        row._pressTimer=setTimeout(startScramble,500)
-      })
-      row.addEventListener('mouseup',stopScramble)
-      row.addEventListener('mouseleave',stopScramble)
-    }
+  // ── Star rating display (static text, walkure-offline style) ──
+  // Formats a star rating as "★X.XX"; null/undefined becomes "★?".
+  // Handles negatives (★-2.10) and avoids "-0.00" since Math.round of a
+  // near-zero negative yields -0, whose sign is dropped.
+  formatStarRating:function(v){
+    if(v==null||isNaN(v))return'\u2605?'
+    var rounded=Math.round(v*100)/100
+    return'\u2605'+rounded.toFixed(2)
   },
-  _formatMatch:function(val,refStr){
-    var rp=refStr.split('.'),vp=val.toFixed(rp[1].length).split('.')
-    var rSign=rp[0].charAt(0)==='-'?-1:0
-    var vSign=vp[0].charAt(0)==='-'?-1:0
-    var rNum=rp[0].substring(Math.abs(rSign))
-    var vNum=vp[0].substring(Math.abs(vSign))
-    while(vNum.length<rNum.length)vNum='0'+vNum
-    if(vNum.length>rNum.length)vNum=vNum.slice(-rNum.length)
-    return(rSign<0?'-':'')+vNum+'.'+vp[1]
-  },
-  _setSlotPos:function(el,str,anim,fromPos){
-    var cols=el.querySelectorAll('.slot-col'),idx=0
-    for(var i=0;i<str.length;i++){
-      if(str[i]=='.'||str[i]=='-')continue
-      var t=parseInt(str[i]),col=cols[idx];if(!col)break
-      var st=col.querySelector('.strip')
-      if(anim){
-        var targetEm=-(this._SLOT_START*10+t+this._SLOT_SPINS*10)
-        if(fromPos&&fromPos[idx]!==undefined){
-          var fs=parseFloat(getComputedStyle(st).fontSize)||34
-          var curEm=-fromPos[idx]/fs
-          var curDigit=((Math.round(curEm)%10)+10)%10
-          var target=null
-          if(curDigit>t){
-            // current > target: slide DOWN (toward 0), nearest digit-t above current
-            for(var c=0;c<this._SLOT_COPIES;c++){
-              var p=-(c*10+t)
-              if(p>curEm&&(target===null||p<target))target=p
-            }
-          }else if(curDigit<t){
-            // current < target: slide UP (away from 0), nearest digit-t below current
-            for(var c=0;c<this._SLOT_COPIES;c++){
-              var p2=-(c*10+t)
-              if(p2<curEm&&(target===null||p2>target))target=p2
-            }
-          }
-          if(target!==null)targetEm=target
-        }
-        st.style.transition='transform 0.5s cubic-bezier(0.15,0.85,0.35,1) '+(idx*0.07+0.1)+'s'
-        st.style.transform='translateY('+targetEm+'em)'
-      }else{
-        st.style.transition='none'
-        st.style.transform='translateY(-'+(this._SLOT_START*10+t)+'em)'
-      }
-      idx++
-    }
+  // 0 songs (no model-matched observations) → always show 0.00.
+  renderStarRating:function(){
+    var d=this.data
+    var el=document.getElementById('star-rating')
+    if(!el)return
+    var v
+    if(!d||!d.observationCount)v=0
+    else if(d.playerStarRating==null)v=null
+    else v=d.playerStarRating
+    el.textContent=this.formatStarRating(v)
   },
   renderLoading:function(){
     document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading...</p></div>'

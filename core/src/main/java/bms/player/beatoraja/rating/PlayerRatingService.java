@@ -73,7 +73,7 @@ public class PlayerRatingService {
             Map<String, Integer> playerLampByMd5 = new HashMap<>();
             for (ScoreData sd : allScores) {
                 String sha256 = sd.getSha256();
-                String md5 = sha256ToMd5.get(sha256);
+                String md5 = sha256ToMd5.get(sha256.toLowerCase());
                 if (md5 == null) continue;
                 int lampOrd = ClearLampMapper.beatorajaClearToOrdinal(sd.getClear());
                 if (lampOrd <= 0) continue;
@@ -94,29 +94,52 @@ public class PlayerRatingService {
             }
             Gdx.app.log("PlayerRating", "Model-matched: " + matchedScores.size());
 
+            // 4b. Filter out failed/noplay observations before MLE — the GRM has
+            // no clearDifficulty for those lamps, so including them biases theta
+            // toward the boundary and collapses all recommendation probabilities.
+            List<MatchedScore> estimatingScores = new ArrayList<>();
+            for (MatchedScore ms : matchedScores) {
+                if (ms.getLampOrdinal() >= 2) estimatingScores.add(ms);
+            }
+            Gdx.app.log("PlayerRating", "Estimating from: " + estimatingScores.size() + " (filtered " + (matchedScores.size() - estimatingScores.size()) + " failed/noplay)");
+
             // 5. Estimate rating from player's actual scores
             double theta;
             double playerStarRating;
             int observationCount;
             if (matchedScores.isEmpty()) {
-                // No data to estimate from — fallback theta
-                theta = -2.0;
-                playerStarRating = Math.round(
-                    IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
+                theta = 0.0;
+                playerStarRating = 0.0;
                 observationCount = 0;
+            } else if (estimatingScores.isEmpty()) {
+                // All matched scores are failed/noplay — estimator has no usable
+                // signal. Use a slightly-below-average fallback so recommendations
+                // still surface at low probabilities.
+                theta = -1.5;
+                playerStarRating = Math.round(IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
+                observationCount = matchedScores.size();
             } else {
-                PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
+                PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(estimatingScores, model.starRatingMapping);
                 if (result == null) {
-                    theta = -2.0;
-                    playerStarRating = Math.round(
-                        IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
-                    observationCount = matchedScores.size();
+                    // Estimation failed — too few observations or boundary.
+                    theta = -1.5;
+                    playerStarRating = Math.round(IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
+                    observationCount = estimatingScores.size();
                 } else {
                     theta = result.theta;
                     playerStarRating = result.playerStarRating;
                     observationCount = result.observationCount;
                 }
             }
+
+            // Safety: clamp to the model's valid star range [0, 25].
+            playerStarRating = Math.max(0.0, Math.min(25.0, playerStarRating));
+
+            // 5b. Low-confidence threshold: with <10 matched scores the MLE theta
+            // is unstable, so we widen the recommendation gate from 0.2 → 0.05 to
+            // give the UI something to render. The HTML surfaces this via a banner.
+            boolean lowConfidence = observationCount > 0 && observationCount < 10;
+            double recProbThreshold = lowConfidence ? 0.05 : 0.2;
 
             // 6. Build recommendation array — iterate ALL model entries
             StringBuilder recJson = new StringBuilder();
@@ -133,7 +156,7 @@ public class PlayerRatingService {
                     if (cd == null) continue;
                     double prob = IrtMath.sigmoid(chartEntry.chartDiscrimination * (theta - cd));
                     prob = Math.round(prob * 1000.0) / 1000.0;
-                    if (prob >= 0.2) {
+                    if (prob >= recProbThreshold) {
                         RecEntry re = new RecEntry();
                         re.name = chartEntry.name;
                         re.md5 = chartEntry.md5;
@@ -148,6 +171,7 @@ public class PlayerRatingService {
                 }
             }
             recEntries.sort((a, b) -> Double.compare(b.prob, a.prob));
+            Gdx.app.log("PlayerRating", "theta=" + theta + " threshold=" + recProbThreshold + " recEntries=" + recEntries.size() + " lowConfidence=" + lowConfidence);
             for (RecEntry re : recEntries) {
                 if (!recFirst) recJson.append(",");
                 recFirst = false;
@@ -273,6 +297,7 @@ public class PlayerRatingService {
             json.append("\"playerStarRating\":").append(playerStarRating).append(",");
             json.append("\"theta\":").append(theta).append(",");
             json.append("\"observationCount\":").append(observationCount).append(",");
+            json.append("\"lowConfidence\":").append(lowConfidence).append(",");
             json.append("\"recommendation\":").append(recJson.toString()).append(",");
             json.append("\"reverseRecommendation\":").append(revJson.toString()).append(",");
             json.append("\"chartEntries\":").append(chartJson.toString());
