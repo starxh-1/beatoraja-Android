@@ -359,6 +359,30 @@
             android:orientation="vertical"
             android:layout_marginBottom="24dp"/>
 
+        <!-- Scan Songs On Launch -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/scan_songs_on_launch"
+                android:textColor="#FFFFFF"
+                android:textSize="16sp"
+                android:gravity="center_vertical"/>
+
+            <Switch
+                android:id="@+id/scanSongsOnLaunchSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:checked="true" />
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

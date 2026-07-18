@@ -19,6 +19,16 @@
     <string name="section_bms_path">歌曲路径</string>
     <string name="add">+ 添加</string>
     <string name="tap_to_remove">点击以移除</string>
+    <string name="scan_songs_on_launch">启动时扫描歌曲</string>
+    <string name="onboard_welcome_title">欢迎使用 beatoraja</string>
+    <string name="onboard_welcome_message">你是第一次接触 BMS，还是已经在其他平台上游玩过 beatoraja？</string>
+    <string name="onboard_newbie">我是新手</string>
+    <string name="onboard_veteran">我是老资历</string>
+    <string name="onboard_newbie_title">欢迎！</string>
+    <string name="onboard_newbie_content">本设置页控制游戏的核心选项：显示、音频、玩家档案、歌曲路径等。部分选项旁边会有一个小问号「?」，点击（或手柄聚焦）即可查看该选项的作用或说明。进入游戏后，可以通过浮动菜单快速调整常用选项（如键位配置，显示帧数等）。</string>
+    <string name="onboard_veteran_title">欢迎！</string>
+    <string name="onboard_veteran_content">本设置与原版 beatoraja 大多数选项保持一致，仅多出一些手机版特有的选项（音频频谱选项，全屏拉伸等）。此外，进入游戏后可以通过新增的浮动菜单快速调整常用选项（如键位配置，显示帧数等）。</string>
+    <string name="onboard_got_it">知道了</string>
     <string name="section_play_options">游玩选项</string>
     <string name="show_audio_spectrum">显示音频频谱</string>
     <string name="bga_display">BGA Display</string>

@@ -19,6 +19,16 @@
     <string name="section_bms_path">Song Paths</string>
     <string name="add">+ Add</string>
     <string name="tap_to_remove">Tap to remove</string>
+    <string name="scan_songs_on_launch">Scan Songs On Launch</string>
+    <string name="onboard_welcome_title">Welcome to beatoraja</string>
+    <string name="onboard_welcome_message">Are you new to BMS, or have you played beatoraja on another platform before?</string>
+    <string name="onboard_newbie">I\'m new</string>
+    <string name="onboard_veteran">I\'ve played before</string>
+    <string name="onboard_newbie_title">Welcome!</string>
+    <string name="onboard_newbie_content">This Settings page controls the game\'s core options: display, audio, player profiles, song paths, and more. Some options have a small "?" next to their label — tap or focus it to see what that option does or learn more. After starting the game, you can use the floating menu to quickly adjust common options (such as key configuration, FPS display, etc.).</string>
+    <string name="onboard_veteran_title">Welcome!</string>
+    <string name="onboard_veteran_content">Most of these options match the original beatoraja. A few mobile-specific options are added (audio spectrum, fullscreen stretch, etc.). In addition, after entering the game you can use the new floating menu to quickly adjust common options (such as key configuration, FPS display, etc.).</string>
+    <string name="onboard_got_it">Got it</string>
     <string name="section_play_options">Play Options</string>
     <string name="show_audio_spectrum">Show Audio Spectrum</string>
     <string name="bga_display">BGA Display</string>

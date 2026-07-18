@@ -19,6 +19,16 @@
     <string name="section_bms_path">곡 경로</string>
     <string name="add">+ 추가</string>
     <string name="tap_to_remove">탭하여 제거</string>
+    <string name="scan_songs_on_launch">시작 시 곡 스캔</string>
+    <string name="onboard_welcome_title">beatoraja에 오신 것을 환영합니다</string>
+    <string name="onboard_welcome_message">BMS가 처음이신가요, 아니면 다른 플랫폼에서 beatoraja를 플레이해 본 적이 있나요?</string>
+    <string name="onboard_newbie">처음입니다</string>
+    <string name="onboard_veteran">플레이해 본 적 있습니다</string>
+    <string name="onboard_newbie_title">환영합니다!</string>
+    <string name="onboard_newbie_content">이 설정 화면은 게임의 핵심 옵션(화면, 오디오, 플레이어 프로필, 곡 경로 등)을 조정합니다. 일부 옵션 옆에는 작은 "?" 표시가 있으며, 이를 탭(또는 게임패드로 포커스)하면 해당 옵션의 설명을 보거나 더 자세한 정보를 확인할 수 있습니다. 게임 시작 후, 플로팅 메뉴를 통해 키 배치, FPS 표시 등 자주 쓰는 옵션을 빠르게 조정할 수 있습니다.</string>
+    <string name="onboard_veteran_title">환영합니다!</string>
+    <string name="onboard_veteran_content">대부분의 옵션은 원본 beatoraja와 동일합니다. 모바일판 전용 옵션(오디오 스펙트럼, 전체 화면 늘리기 등)이 추가되어 있습니다. 또한 게임 시작 후 새로 추가된 플로팅 메뉴를 통해 키 배치, FPS 표시 등 자주 쓰는 옵션을 빠르게 조정할 수 있습니다.</string>
+    <string name="onboard_got_it">확인</string>
     <string name="section_play_options">플레이 옵션</string>
     <string name="show_audio_spectrum">오디오 스펙트럼 표시</string>
     <string name="bga_display">BGA 표시</string>

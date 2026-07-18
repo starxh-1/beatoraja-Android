@@ -216,21 +216,12 @@ public final class MusicSelector extends MainState {
 
 		// Android版本：改进的异步歌曲扫描
 		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-			// Android 平台：首次启动或数据库为空时，必须强制触发扫描
-			// 不依赖 isUpdatesong() 标志，确保用户首次安装后能看到歌曲列表
-			boolean dbEmpty = false;
-			try {
-				SongData[] testQuery = songdb.getSongDatas("1", "1");
-				bms.player.beatoraja.song.FolderData[] testFolders = songdb.getFolderDatas("1", "1");
-				dbEmpty = (testQuery.length == 0 && testFolders.length == 0);
-			} catch (Exception e) {
-				dbEmpty = true; // 查询出错也视为需要扫描
-			}
-
-			boolean shouldScan = main.getPlayerResource().getConfig().isUpdatesong() || dbEmpty;
+			// 严格遵循 settings 里的 "Scan Songs On Launch" 开关（config.updatesong）。
+			// 早期版本曾用 dbEmpty 兜底强制扫描，但这会让用户关闭开关后仍被扫描，
+			// 关闭开关意味着用户主动选择跳过启动扫描（曲库大、很少新增歌曲的常见诉求）。
+			boolean shouldScan = main.getPlayerResource().getConfig().isUpdatesong();
 			Logger.getGlobal().info("Android版本：异步触发歌曲扫描 (updatesong="
 				+ main.getPlayerResource().getConfig().isUpdatesong()
-				+ ", dbEmpty=" + dbEmpty
 				+ ", shouldScan=" + shouldScan + ")");
 			Logger.getGlobal().info("Android版本：bmsroot=" + java.util.Arrays.toString(main.getConfig().getBmsroot()));
 

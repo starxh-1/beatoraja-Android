@@ -80,6 +80,7 @@ public class SettingsActivity extends Activity {
     private int selectedBgaExpand = 1;
     private int selectedFloatingMenuPosition = 0;
     private boolean selectedStretchFullscreen = false;
+    private boolean selectedScanSongsOnLaunch = true;
     private int selectedInputDuration = 16;
     private boolean selectedJkocHack = false;
     private boolean selectedAnalogScratch = false;
@@ -134,6 +135,13 @@ public class SettingsActivity extends Activity {
     /** 后台线程列表，用于 onDestroy 时停止 */
     private final List<Thread> backgroundThreads = new java.util.ArrayList<>();
 
+    /** 首次启动引导：SharedPreferences 持久化标记 */
+    private static final String PREFS_NAME = "beatoraja_prefs";
+    private static final String KEY_ONBOARDED = "first_launch_onboarded";
+    private android.app.AlertDialog onboardDialog;
+    /** 引导第二步的内容由用户在第一步选择的角色决定 */
+    private Boolean onboardIsNewbie = null;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 在加载视图之前，强制刷新当前上下文的语言环境
@@ -155,6 +163,9 @@ public class SettingsActivity extends Activity {
         setContentView(R.layout.activity_settings);
         settingsScrollView = findViewById(R.id.settingsScrollView);
         initViews();
+
+        // 首次启动引导：询问用户身份并给出对应说明。仅在第一次显示，之后不再出现。
+        maybeShowOnboarding();
 
         // 构建手柄导航用的焦点控件列表
         buildFocusableControlsList();
@@ -198,6 +209,49 @@ public class SettingsActivity extends Activity {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                 android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT, callback);
         }
+    }
+
+    /**
+     * First-launch onboarding. Shows a two-step dialog asking the user whether they are new
+     * to BMS or already familiar with beatoraja from another platform, then displays a brief
+     * explanation tailored to their answer. The dialog is shown only once per install.
+     */
+    private void maybeShowOnboarding() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (prefs.getBoolean(KEY_ONBOARDED, false)) return;
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(R.string.onboard_welcome_title)
+                .setMessage(R.string.onboard_welcome_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.onboard_newbie, (d, w) -> {
+                    onboardIsNewbie = Boolean.TRUE;
+                    showOnboardContent();
+                })
+                .setNegativeButton(R.string.onboard_veteran, (d, w) -> {
+                    onboardIsNewbie = Boolean.FALSE;
+                    showOnboardContent();
+                })
+                .show();
+    }
+
+    private void showOnboardContent() {
+        if (onboardIsNewbie == null) return;
+        int titleRes = onboardIsNewbie ? R.string.onboard_newbie_title : R.string.onboard_veteran_title;
+        int msgRes = onboardIsNewbie ? R.string.onboard_newbie_content : R.string.onboard_veteran_content;
+        onboardDialog = new android.app.AlertDialog.Builder(this)
+                .setTitle(titleRes)
+                .setMessage(msgRes)
+                .setCancelable(true)
+                .setPositiveButton(R.string.onboard_got_it, (d, w) -> markOnboarded())
+                .setOnDismissListener(d -> markOnboarded())
+                .show();
+    }
+
+    private void markOnboarded() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putBoolean(KEY_ONBOARDED, true).apply();
+        onboardDialog = null;
     }
 
     private void updateContextLanguage() {
@@ -258,6 +312,7 @@ public class SettingsActivity extends Activity {
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
                 selectedStretchFullscreen = findJsonBooleanValue(json, "stretchFullscreen", false);
+                selectedScanSongsOnLaunch = findJsonBooleanValue(json, "updatesong", true);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
             } else {
@@ -665,6 +720,13 @@ public class SettingsActivity extends Activity {
         // BMS Path Container
         bmsPathContainer = findViewById(R.id.bmsPathContainer);
         setupGamepadFocusable(findViewById(R.id.addBmsPathBtn));
+
+        // Scan Songs On Launch Switch
+        Switch scanSongsSwitch = findViewById(R.id.scanSongsOnLaunchSwitch);
+        scanSongsSwitch.setChecked(selectedScanSongsOnLaunch);
+        scanSongsSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> selectedScanSongsOnLaunch = isChecked);
+        setupGamepadFocusable(scanSongsSwitch);
+
         findViewById(R.id.addBmsPathBtn).setOnClickListener(v -> {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
@@ -1071,6 +1133,7 @@ public class SettingsActivity extends Activity {
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
             config.put("stretchFullscreen", selectedStretchFullscreen);
+            config.put("updatesong", selectedScanSongsOnLaunch);
 
             // 自动同步当前系统语言给游戏内核
             String currentLang = Locale.getDefault().getLanguage();
@@ -1786,6 +1849,7 @@ public class SettingsActivity extends Activity {
             }
         }
         showAudioSpectrum = ((Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
+        selectedScanSongsOnLaunch = ((Switch) findViewById(R.id.scanSongsOnLaunchSwitch)).isChecked();
         selectedFloatingMenuPosition = ((Spinner) findViewById(R.id.floatingMenuPositionSpinner)).getSelectedItemPosition();
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
         selectedBgaExpand = ((Spinner) findViewById(R.id.bgaExpandSpinner)).getSelectedItemPosition();

@@ -19,6 +19,16 @@
     <string name="section_bms_path">楽曲パス</string>
     <string name="add">+ 追加</string>
     <string name="tap_to_remove">タップして削除</string>
+    <string name="scan_songs_on_launch">起動時に楽曲をスキャン</string>
+    <string name="onboard_welcome_title">beatoraja へようこそ</string>
+    <string name="onboard_welcome_message">BMS は初めてですか？それとも他のプラットフォームで beatoraja を遊んだことがありますか？</string>
+    <string name="onboard_newbie">初めてです</string>
+    <string name="onboard_veteran">遊んだことがあります</string>
+    <string name="onboard_newbie_title">ようこそ！</string>
+    <string name="onboard_newbie_content">この設定画面では、表示・音声・プレイヤープロフィール・楽曲パスなど、ゲームの主要なオプションを調整できます。一部のオプションの横には小さな「?」マークがあり、タップ（またはゲームパッドでフォーカス）するとその項目の説明を表示できます。ゲーム開始後、フローティングメニューからキー配置やFPS表示などのよく使うオプションを素早く変更できます。</string>
+    <string name="onboard_veteran_title">ようこそ！</string>
+    <string name="onboard_veteran_content">ほとんどの項目はオリジナルの beatoraja と同じです。モバイル版特有の項目（オーディオスペクトラム、全画面ストレッチなど）が追加されています。また、ゲーム開始後に新設のフローティングメニューからキー配置やFPS表示などのよく使うオプションを素早く変更できます。</string>
+    <string name="onboard_got_it">了解</string>
     <string name="section_play_options">プレイオプション</string>
     <string name="show_audio_spectrum">オーディオスペクトラムを表示</string>
     <string name="bga_display">BGA ディスプレイ設定</string>
