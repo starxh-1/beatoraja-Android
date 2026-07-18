@@ -19,7 +19,7 @@
     <string name="section_bms_path">楽曲パス</string>
     <string name="add">+ 追加</string>
     <string name="tap_to_remove">タップして削除</string>
-    <string name="scan_songs_on_launch">起動時に楽曲をスキャン</string>
+    <string name="scan_songs_on_launch">毎回起動時に自動で楽曲をスキャン</string>
     <string name="onboard_welcome_title">beatoraja へようこそ</string>
     <string name="onboard_welcome_message">BMS は初めてですか？それとも他のプラットフォームで beatoraja を遊んだことがありますか？</string>
     <string name="onboard_newbie">初めてです</string>
@@ -85,7 +85,7 @@
     <string-array name="audio_visualization_mode_options">
         <item>Off</item>
         <item>スペクトラム</item>
-        <item>波形</item>
+        <item>ライン</item>
     </string-array>
     <string-array name="gauge_auto_shift_options">
         <item>None</item>

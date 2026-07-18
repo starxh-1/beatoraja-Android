@@ -17,7 +17,6 @@ public class SideSpectrumRenderer {
 
     private float[] spectrum = new float[64]; // 32 Left + 32 Right
     private float[] topValues = new float[64];
-    private float[] waveform = new float[2048]; // 1024 L + 1024 R interleaved
     private static final float FALLING_SPEED = 0.02f;
     private static final int BANDS_PER_CHANNEL = 64;
     private float testTimer = 0;
@@ -96,29 +95,16 @@ public class SideSpectrumRenderer {
 
         testTimer += Gdx.graphics.getDeltaTime();
 
-        // 1. 获取数据
+        // 1. 获取数据（两种模式都共用频谱数组；波形模式只是把同一份数据画成另一种形状）
         boolean hasRealData = false;
         if (spectrumProvider != null) {
-            if (mode == MODE_WAVEFORM) {
-                float[] latest = spectrumProvider.getWaveformSamples();
-                if (latest != null && latest.length >= 2048) {
-                    java.lang.System.arraycopy(latest, 0, waveform, 0, 2048);
-                    for (int i = 0; i < 2048; i += 8) {
-                        if (Math.abs(waveform[i]) > 0.0001f) {
-                            hasRealData = true;
-                            break;
-                        }
-                    }
-                }
-            } else {
-                float[] latest = spectrumProvider.getSpectrumMagnitudes();
-                if (latest != null && latest.length >= 64) {
-                    java.lang.System.arraycopy(latest, 0, spectrum, 0, 64);
-                    for (float v : spectrum) {
-                        if (v > 0.0001f) {
-                            hasRealData = true;
-                            break;
-                        }
+            float[] latest = spectrumProvider.getSpectrumMagnitudes();
+            if (latest != null && latest.length >= 64) {
+                java.lang.System.arraycopy(latest, 0, spectrum, 0, 64);
+                for (float v : spectrum) {
+                    if (v > 0.0001f) {
+                        hasRealData = true;
+                        break;
                     }
                 }
             }
@@ -164,7 +150,7 @@ public class SideSpectrumRenderer {
             }
             shapeRenderer.setProjectionMatrix(camera.combined);
             if (mode == MODE_WAVEFORM) {
-                renderWaveformInGameArea(waveform, hasRealData, specScreenW, specScreenH);
+                renderWaveformInGameArea(spectrum, hasRealData, specScreenW, specScreenH);
             } else {
                 renderInGameArea(spectrum, topValues, hasRealData, specScreenW, specScreenH);
             }
@@ -178,7 +164,7 @@ public class SideSpectrumRenderer {
             }
             shapeRenderer.setProjectionMatrix(camera.combined);
             if (mode == MODE_WAVEFORM) {
-                renderWaveformInBlackBars(waveform, w, h, hasRealData);
+                renderWaveformInBlackBars(spectrum, w, h, hasRealData);
             } else {
                 renderInBlackBars(spectrum, topValues, w, h, hasRealData);
             }
@@ -202,7 +188,7 @@ public class SideSpectrumRenderer {
             float monoVal = (spectrum[i] + spectrum[32 + i]) / 2f;
             float monoTop = (topValues[i] + topValues[32 + i]) / 2f;
 
-            // 频谱值映射到高度
+            // 频谱值映射到高度（dB 缩放后值偏高，乘 0.5 让柱子更克制）
             float barHeight = monoVal * screenH * 0.9f;
             float topHeight = monoTop * screenH * 0.9f;
             barHeight = Math.min(barHeight, screenH - 2);
@@ -334,9 +320,9 @@ public class SideSpectrumRenderer {
         shapeRenderer.rect(anchorX + topX, y, 4, barH - 2);
     }
 
-    // 在游戏内区域渲染波形 - 单线 polyline，L/R 取平均
-    private void renderWaveformInGameArea(float[] wave, boolean hasRealData, float screenW, float screenH) {
-        int n = 1024;
+    // 在游戏内区域渲染波形（频谱换成波形形状）— 64 个频段值连接成 polyline，以 0.5 为中线做上下偏移
+    private void renderWaveformInGameArea(float[] spectrum, boolean hasRealData, float screenW, float screenH) {
+        int n = 64; // 32 L + 32 R
         float midY = screenH * 0.5f;
         float halfH = screenH * 0.45f;
         Color live = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.9f) : new Color(0.4f, 0.6f, 1f, 0.45f);
@@ -350,16 +336,18 @@ public class SideSpectrumRenderer {
         float prevY = midY;
         for (int i = 0; i < n; i++) {
             float x = (float) i / (n - 1) * screenW;
-            float v = (wave[i * 2] + wave[i * 2 + 1]) * 0.5f;
-            if (v < -1f) v = -1f; else if (v > 1f) v = 1f;
-            float y = midY - v * halfH;
-            if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1.5f);
+            // L/R 平均，sqrt 放大低幅值；以 0.5 为中线做偏移；幅度放大 3.5x 让波动更明显
+            float avg = (spectrum[i] + spectrum[32 + i]) * 0.5f;
+            float v = (float) Math.sqrt(avg) - 0.5f;
+            if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
+            float y = midY - v * halfH * 3.5f;
+            if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
             prevX = x; prevY = y;
         }
     }
 
-    // 在黑边区域渲染波形 - 复用频谱的 totalHeight / maxBarW，几何与频谱一致
-    private void renderWaveformInBlackBars(float[] wave, int w, int h, boolean hasRealData) {
+    // 在黑边区域渲染波形（频谱换成波形形状）— Y = 频段序号、X = 幅度向外延伸，几何与频谱条带对齐
+    private void renderWaveformInBlackBars(float[] spectrum, int w, int h, boolean hasRealData) {
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
         Color live = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.9f) : new Color(0.4f, 0.6f, 1f, 0.45f);
@@ -369,7 +357,7 @@ public class SideSpectrumRenderer {
             float topBarH = (h - gameH) / 2f;
             float bottomBarH = topBarH;
             if (topBarH > 4 && bottomBarH > 4) {
-                int n = 1024;
+                int bins = 32;
                 float centerH = h - topBarH; // top bar floor (above game area)
 
                 // 上黑边 - L 通道
@@ -377,12 +365,12 @@ public class SideSpectrumRenderer {
                 shapeRenderer.rect(0, h - topBarH * 0.5f - 0.5f, w, 1f);
                 shapeRenderer.setColor(live);
                 float prevX = 0, prevY = 0;
-                for (int i = 0; i < n; i++) {
-                    float x = (float) i / (n - 1) * w;
-                    float v = wave[i * 2];
-                    if (v < -1f) v = -1f; else if (v > 1f) v = 1f;
-                    float y = centerH + v * (topBarH * 0.45f);
-                    if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1.5f);
+                for (int b = 0; b < bins; b++) {
+                    float x = (float) b / (bins - 1) * w;
+                    float v = (float) Math.sqrt(spectrum[b]) - 0.5f;
+                    if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
+                    float y = centerH + v * (topBarH * 1.8f);
+                    if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
 
@@ -392,12 +380,12 @@ public class SideSpectrumRenderer {
                 shapeRenderer.setColor(live);
                 prevX = 0; prevY = bottomBarH * 0.5f;
                 float rightMid = bottomBarH * 0.5f;
-                for (int i = 0; i < n; i++) {
-                    float x = (float) i / (n - 1) * w;
-                    float v = wave[i * 2 + 1];
-                    if (v < -1f) v = -1f; else if (v > 1f) v = 1f;
-                    float y = rightMid + v * (bottomBarH * 0.45f);
-                    if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1.5f);
+                for (int b = 0; b < bins; b++) {
+                    float x = (float) b / (bins - 1) * w;
+                    float v = (float) Math.sqrt(spectrum[32 + b]) - 0.5f;
+                    if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
+                    float y = rightMid + v * (bottomBarH * 1.8f);
+                    if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
             }
@@ -406,16 +394,13 @@ public class SideSpectrumRenderer {
 
         if (blackBarW == 0) return;
 
-        // 横屏（侧黑边）：瀑布布局 — Y = 采样序号（sample 0 在顶，与频谱 i=1→i=31 顶到底一致），
+        // 横屏（侧黑边）：瀑布布局 — Y = 频段序号（0 在底，bins-1 在顶），
         // X = 幅度从游戏边界向外延伸。totalHeight / maxBarW 与频谱常量完全相同。
-        // 1024 个采样先 bin 成 128 槽再做线段连接，密度接近频谱条带。
-        int n = 1024;
-        int bins = 128;
-        int samplesPerBin = n / bins; // 16
+        int bins = 32; // 频谱每通道 32 段，直接连成线段
         float totalHeight = h * 0.8f;
         float baseY = (h - totalHeight) / 2f;
         float maxBarW = Math.min(w * 0.09f, blackBarW);
-        float ampScale = 1f; //
+        float ampScale = 1.0f; // 与 spectrum 一致：x 方向不超过 maxBarW；靠 sqrt 放大低幅值来体现"明显"
         float anchorL = blackBarW;       // 左侧游戏边界
         float anchorR = w - blackBarW;   // 右侧游戏边界
         Color baseColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
@@ -430,28 +415,20 @@ public class SideSpectrumRenderer {
         // L 通道 — 幅度向左（外侧）延伸
         float prevX = anchorL, prevY = baseY + totalHeight;
         for (int b = 0; b < bins; b++) {
-            int start = b * samplesPerBin;
-            int end = (b == bins - 1) ? n : start + samplesPerBin;
-            float sum = 0f;
-            for (int i = start; i < end; i++) sum += Math.abs(wave[i * 2]);
-            float avg = sum / (end - start);
+            float v = (float) Math.sqrt(spectrum[b]);
             float y = baseY + (float) (bins - 1 - b) / (bins - 1) * totalHeight;
-            float x = anchorL - avg * maxBarW * ampScale;
-            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
+            float x = anchorL - v * maxBarW * ampScale;
+            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1.5f);
             prevX = x; prevY = y;
         }
 
         // R 通道 — 幅度向右（外侧）延伸
         prevX = anchorR; prevY = baseY + totalHeight;
         for (int b = 0; b < bins; b++) {
-            int start = b * samplesPerBin;
-            int end = (b == bins - 1) ? n : start + samplesPerBin;
-            float sum = 0f;
-            for (int i = start; i < end; i++) sum += Math.abs(wave[i * 2 + 1]);
-            float avg = sum / (end - start);
+            float v = (float) Math.sqrt(spectrum[32 + b]);
             float y = baseY + (float) (bins - 1 - b) / (bins - 1) * totalHeight;
-            float x = anchorR + avg * maxBarW * ampScale;
-            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
+            float x = anchorR + v * maxBarW * ampScale;
+            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1.5f);
             prevX = x; prevY = y;
         }
     }

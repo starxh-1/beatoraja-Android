@@ -248,15 +248,15 @@ public class SettingsActivity extends Activity {
 
     /**
      * Veteran branch, layer 1. Shows a blank-titled dialog with the message "(^^)" and two
-     * buttons: "关闭" ends onboarding immediately, "你就没啥要说的吗？" reveals the real
-     * veteran welcome in layer 2.
+     * buttons: "你就没啥要说的吗？" reveals the real veteran welcome in layer 2,
+     * "关闭" ends onboarding immediately.
      */
     private void showOnboardVeteranLayer1() {
         android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
                 .setMessage(R.string.onboard_veteran_layer1_message)
                 .setCancelable(true)
-                .setPositiveButton(R.string.onboard_veteran_layer1_close, (d, w) -> markOnboarded())
-                .setNegativeButton(R.string.onboard_veteran_layer1_more, (d, w) -> showOnboardVeteranLayer2())
+                .setPositiveButton(R.string.onboard_veteran_layer1_more, (d, w) -> showOnboardVeteranLayer2())
+                .setNegativeButton(R.string.onboard_veteran_layer1_close, (d, w) -> markOnboarded())
                 .setOnDismissListener(d -> markOnboarded());
         // layer1 title is intentionally blank — don't pass an empty resource, just skip the call
         onboardDialog = b.show();

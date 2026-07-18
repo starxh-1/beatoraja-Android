@@ -19,7 +19,7 @@
     <string name="section_bms_path">곡 경로</string>
     <string name="add">+ 추가</string>
     <string name="tap_to_remove">탭하여 제거</string>
-    <string name="scan_songs_on_launch">시작 시 곡 스캔</string>
+    <string name="scan_songs_on_launch">매 시작 시 자동으로 곡 스캔</string>
     <string name="onboard_welcome_title">beatoraja에 오신 것을 환영합니다</string>
     <string name="onboard_welcome_message">BMS가 처음이신가요, 아니면 다른 플랫폼에서 beatoraja를 플레이해 본 적이 있나요?</string>
     <string name="onboard_newbie">처음입니다</string>

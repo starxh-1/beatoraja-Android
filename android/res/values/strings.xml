@@ -19,7 +19,7 @@
     <string name="section_bms_path">Song Paths</string>
     <string name="add">+ Add</string>
     <string name="tap_to_remove">Tap to remove</string>
-    <string name="scan_songs_on_launch">Scan Songs On Launch</string>
+    <string name="scan_songs_on_launch">Auto Scan Songs on Every Launch</string>
     <string name="onboard_welcome_title">Welcome to beatoraja</string>
     <string name="onboard_welcome_message">Are you new to BMS, or have you played beatoraja on another platform before?</string>
     <string name="onboard_newbie">I\'m new</string>
@@ -127,7 +127,7 @@
     <string-array name="audio_visualization_mode_options">
         <item>Off</item>
         <item>Spectrum</item>
-        <item>Waveform</item>
+        <item>Line</item>
     </string-array>
     <string-array name="bga_expand_options">
         <item>Full</item>

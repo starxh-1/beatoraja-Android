@@ -19,7 +19,7 @@
     <string name="section_bms_path">歌曲路径</string>
     <string name="add">+ 添加</string>
     <string name="tap_to_remove">点击以移除</string>
-    <string name="scan_songs_on_launch">启动时扫描歌曲</string>
+    <string name="scan_songs_on_launch">每次启动时自动扫描歌曲</string>
     <string name="onboard_welcome_title">欢迎使用 beatoraja</string>
     <string name="onboard_welcome_message">你是第一次接触 BMS，还是已经在其他平台上游玩过 beatoraja？</string>
     <string name="onboard_newbie">我是新手</string>
@@ -112,7 +112,7 @@
     <string-array name="audio_visualization_mode_options">
         <item>关闭</item>
         <item>频谱</item>
-        <item>波形</item>
+        <item>线条</item>
     </string-array>
     <string-array name="gauge_auto_shift_options">
         <item>None</item>
