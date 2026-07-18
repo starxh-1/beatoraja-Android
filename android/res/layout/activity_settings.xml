@@ -431,7 +431,7 @@
             android:orientation="vertical"
             android:visibility="gone">
 
-        <!-- Audio Spectrum -->
+        <!-- Audio Visualization Mode (Off / Spectrum / Waveform) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -449,7 +449,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/show_audio_spectrum"
+                    android:text="@string/audio_visualization_mode"
                     android:textColor="#FFFFFF"
                     android:textSize="16sp" />
 
@@ -463,11 +463,11 @@
                     android:paddingStart="8dp"/>
             </LinearLayout>
 
-            <Switch
-                android:id="@+id/showAudioSpectrumSwitch"
-                android:layout_width="wrap_content"
+            <Spinner
+                android:id="@+id/audioVisualizationModeSpinner"
+                android:layout_width="160dp"
                 android:layout_height="48dp"
-                android:checked="true" />
+                android:background="#333333"/>
         </LinearLayout>
 
         <!-- Floating Menu Position -->

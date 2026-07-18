@@ -35,6 +35,7 @@
     <string name="onboard_got_it">知道了</string>
     <string name="section_play_options">游玩选项</string>
     <string name="show_audio_spectrum">显示音频频谱</string>
+    <string name="audio_visualization_mode">音频可视化</string>
     <string name="bga_display">BGA Display</string>
     <string name="green_number">绿数字</string>
     <string name="green_number_help_title">绿数字</string>
@@ -107,6 +108,11 @@
         <item>Full</item>
         <item>Keep Ratio</item>
         <item>Off</item>
+    </string-array>
+    <string-array name="audio_visualization_mode_options">
+        <item>关闭</item>
+        <item>频谱</item>
+        <item>波形</item>
     </string-array>
     <string-array name="gauge_auto_shift_options">
         <item>None</item>

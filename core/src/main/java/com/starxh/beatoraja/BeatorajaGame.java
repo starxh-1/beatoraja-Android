@@ -59,7 +59,7 @@ public class BeatorajaGame extends ApplicationAdapter {
             MainState state = controller.getCurrentState();
             if (state != null && (state instanceof BMSPlayer)) {
                 Config cfg = controller.getConfig();
-                if (cfg != null && cfg.isShowAudioSpectrum()) {
+                if (cfg != null && cfg.getAudioVisualizationMode() != Config.MODE_OFF) {
                     configureSpectrumRenderer(cfg);
                     spectrumRenderer.render();
                 }
@@ -68,6 +68,8 @@ public class BeatorajaGame extends ApplicationAdapter {
     }
 
     private void configureSpectrumRenderer(Config cfg) {
+        spectrumRenderer.setMode(cfg.getAudioVisualizationMode());
+
         // 检查当前 skin 的 In-Game Spectrum 选项是否开启
         boolean inGameSpectrumOption = true;
         if (controller != null) {

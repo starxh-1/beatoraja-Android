@@ -63,6 +63,7 @@ public class SettingsActivity extends Activity {
     private String selectedPlayerName = "player1";
     private List<String> bmsPaths = new ArrayList<>();
     private boolean showAudioSpectrum = true;
+    private int audioVisualizationMode = 1; // 0=off, 1=spectrum, 2=waveform
     private List<String> tableUrls = new ArrayList<>();
     private List<String> availablePlayers = new ArrayList<>();
     private int selectedGaugeAutoShift = 3;
@@ -341,7 +342,11 @@ public class SettingsActivity extends Activity {
                     }
                 }
                 if (!hasDefault) bmsPaths.add(0, defaultBmsPath);
-                showAudioSpectrum = findJsonBooleanValue(json, "showAudioSpectrum", true);
+                audioVisualizationMode = findJsonIntValue(json, "audioVisualizationMode", -1);
+                if (audioVisualizationMode < 0) {
+                    audioVisualizationMode = findJsonBooleanValue(json, "showAudioSpectrum", true) ? 1 : 0;
+                }
+                showAudioSpectrum = audioVisualizationMode != 0;
                 selectedFloatingMenuPosition = findJsonIntValue(json, "floatingMenuPosition", 0);
                 selectedBga = findJsonIntValue(json, "bga", 0);
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
@@ -775,11 +780,24 @@ public class SettingsActivity extends Activity {
             }
         });
 
-        // Show Audio Spectrum
-        Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
-        showAudioSpectrumSwitch.setChecked(showAudioSpectrum);
-        showAudioSpectrumSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> showAudioSpectrum = isChecked);
-        setupGamepadFocusable(showAudioSpectrumSwitch);
+        // Audio Visualization Mode (0=Off, 1=Spectrum, 2=Waveform)
+        Spinner audioVisualizationModeSpinner = findViewById(R.id.audioVisualizationModeSpinner);
+        String[] visualizationOptions = getResources().getStringArray(R.array.audio_visualization_mode_options);
+        ArrayAdapter<String> vizAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, visualizationOptions);
+        vizAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
+        audioVisualizationModeSpinner.setAdapter(vizAdapter);
+        if (audioVisualizationMode < 0) audioVisualizationMode = 1;
+        if (audioVisualizationMode > 2) audioVisualizationMode = 1;
+        audioVisualizationModeSpinner.setSelection(audioVisualizationMode);
+        audioVisualizationModeSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                audioVisualizationMode = position;
+                showAudioSpectrum = position != 0;
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
+        setupGamepadFocusable(audioVisualizationModeSpinner);
 
         // Display section switch — 锁定音频频谱开关（拉伸至全屏开启时强制关闭并禁用）
         Switch stretchFullscreenSwitch = findViewById(R.id.stretchFullscreenSwitch);
@@ -1162,7 +1180,8 @@ public class SettingsActivity extends Activity {
             audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
             config.put("audio", audio);
-            config.put("showAudioSpectrum", showAudioSpectrum);
+            config.put("audioVisualizationMode", audioVisualizationMode);
+            config.put("showAudioSpectrum", audioVisualizationMode != 0);
             config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
@@ -1882,7 +1901,8 @@ public class SettingsActivity extends Activity {
                 if (e instanceof EditText) { String p = ((EditText) e).getText().toString().trim(); if (!p.isEmpty()) bmsPaths.add(p); }
             }
         }
-        showAudioSpectrum = ((Switch) findViewById(R.id.showAudioSpectrumSwitch)).isChecked();
+        showAudioSpectrum = ((Spinner) findViewById(R.id.audioVisualizationModeSpinner)).getSelectedItemPosition() != 0;
+        audioVisualizationMode = ((Spinner) findViewById(R.id.audioVisualizationModeSpinner)).getSelectedItemPosition();
         selectedScanSongsOnLaunch = ((Switch) findViewById(R.id.scanSongsOnLaunchSwitch)).isChecked();
         selectedFloatingMenuPosition = ((Spinner) findViewById(R.id.floatingMenuPositionSpinner)).getSelectedItemPosition();
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
@@ -1933,13 +1953,14 @@ public class SettingsActivity extends Activity {
      * 用户可以重新手动开启。
      */
     private void applyStretchFullscreenLockState() {
-        Switch showAudioSpectrumSwitch = findViewById(R.id.showAudioSpectrumSwitch);
+        Spinner audioVisualizationModeSpinner = findViewById(R.id.audioVisualizationModeSpinner);
         if (selectedStretchFullscreen) {
-            showAudioSpectrumSwitch.setEnabled(false);
-            showAudioSpectrumSwitch.setChecked(false);
+            audioVisualizationModeSpinner.setEnabled(false);
+            audioVisualizationModeSpinner.setSelection(0);
+            audioVisualizationMode = 0;
             showAudioSpectrum = false;
         } else {
-            showAudioSpectrumSwitch.setEnabled(true);
+            audioVisualizationModeSpinner.setEnabled(true);
         }
     }
 

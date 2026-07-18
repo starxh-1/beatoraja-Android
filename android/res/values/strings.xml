@@ -35,6 +35,7 @@
     <string name="onboard_got_it">Got it</string>
     <string name="section_play_options">Play Options</string>
     <string name="show_audio_spectrum">Show Audio Spectrum</string>
+    <string name="audio_visualization_mode">Audio Visualization</string>
     <string name="bga_display">BGA Display</string>
     <string name="bga_expand" translatable="false">BGA Expand</string>
     <string name="gauge_auto_shift" translatable="false">Gauge Auto Shift</string>
@@ -121,6 +122,12 @@
         <item>On</item>
         <item>Auto</item>
         <item>Off</item>
+    </string-array>
+
+    <string-array name="audio_visualization_mode_options">
+        <item>Off</item>
+        <item>Spectrum</item>
+        <item>Waveform</item>
     </string-array>
     <string-array name="bga_expand_options">
         <item>Full</item>

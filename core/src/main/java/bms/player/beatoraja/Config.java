@@ -146,14 +146,38 @@ public class Config implements Validatable, Serializable {
 	}
 
 	public boolean isShowAudioSpectrum() {
-		return showAudioSpectrum;
+		return audioVisualizationMode != MODE_OFF;
 	}
 
 	public void setShowAudioSpectrum(boolean showAudioSpectrum) {
+		this.audioVisualizationMode = showAudioSpectrum ? MODE_SPECTRUM : MODE_OFF;
 		this.showAudioSpectrum = showAudioSpectrum;
 	}
 
 	private boolean showAudioSpectrum = true;
+
+	/** Off */
+	public static final int MODE_OFF = 0;
+	/** Spectrum (bar) visualization, the original default. */
+	public static final int MODE_SPECTRUM = 1;
+	/** Waveform (time-domain PCM) visualization. */
+	public static final int MODE_WAVEFORM = 2;
+
+	/**
+	 * Audio visualization mode. 0 = OFF, 1 = spectrum (default), 2 = waveform.
+	 * Default of {@code -1} is a sentinel indicating "unset" so that legacy
+	 * configs (with only {@code showAudioSpectrum}) can be migrated via
+	 * {@link #validate()} during load.
+	 */
+	private int audioVisualizationMode = -1;
+
+	public int getAudioVisualizationMode() {
+		return audioVisualizationMode;
+	}
+
+	public void setAudioVisualizationMode(int audioVisualizationMode) {
+		this.audioVisualizationMode = audioVisualizationMode;
+	}
 
 	public boolean isSpectrumInGameArea() {
 		return spectrumInGameArea;
@@ -679,6 +703,15 @@ public class Config implements Validatable, Serializable {
 		tablepath = tablepath != null ? tablepath : TABLEPATH_DEFAULT;
 		playerpath = playerpath != null ? playerpath : PLAYERPATH_DEFAULT;
 		skinpath = skinpath != null ? skinpath : SKINPATH_DEFAULT;
+
+		// Migrate legacy configs that predate audioVisualizationMode.
+		// Default sentinel (-1) means "unset" — fall back to the boolean legacy value,
+		// then clamp into the valid range. Defaults to spectrum on fresh configs.
+		if (audioVisualizationMode < 0) {
+			audioVisualizationMode = showAudioSpectrum ? MODE_SPECTRUM : MODE_OFF;
+		}
+		audioVisualizationMode = MathUtils.clamp(audioVisualizationMode, MODE_OFF, MODE_WAVEFORM);
+
 		return true;
 	}
 
@@ -818,6 +851,7 @@ public class Config implements Validatable, Serializable {
         c.stretchFullscreen = this.stretchFullscreen;
         // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
+        c.audioVisualizationMode = this.audioVisualizationMode;
         return c;
     }
 
@@ -870,6 +904,7 @@ public class Config implements Validatable, Serializable {
         c.stretchFullscreen = changes.stretchFullscreen;
         // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;
+        c.audioVisualizationMode = changes.audioVisualizationMode;
         return c;
     }
 }
