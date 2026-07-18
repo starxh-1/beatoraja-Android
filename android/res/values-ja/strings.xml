@@ -30,7 +30,7 @@
     <string name="onboard_veteran_layer1_message">(^^)</string>
     <string name="onboard_veteran_layer1_close">閉じる</string>
     <string name="onboard_veteran_layer1_more">何も言わないの？</string>
-    <string name="onboard_veteran_title">おかえりなさい！</string>
+    <string name="onboard_veteran_title">ようこそ！</string>
     <string name="onboard_veteran_content">ほとんどの項目はオリジナルの beatoraja と同じです。モバイル版特有の項目（オーディオスペクトラム、全画面ストレッチなど）が追加されています。また、ゲーム開始後に新設のフローティングメニューからキー配置やFPS表示などのよく使うオプションを素早く変更できます。</string>
     <string name="onboard_got_it">了解</string>
     <string name="section_play_options">プレイオプション</string>

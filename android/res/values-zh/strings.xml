@@ -30,7 +30,7 @@
     <string name="onboard_veteran_layer1_message">(^^)</string>
     <string name="onboard_veteran_layer1_close">关闭</string>
     <string name="onboard_veteran_layer1_more">你就没啥要说的吗？</string>
-    <string name="onboard_veteran_title">欢迎回来！</string>
+    <string name="onboard_veteran_title">欢迎！</string>
     <string name="onboard_veteran_content">本设置与原版 beatoraja 大多数选项保持一致，仅多出一些手机版特有的选项（音频频谱选项，全屏拉伸等）。此外，进入游戏后可以通过新增的浮动菜单快速调整常用选项（如键位配置，显示帧数等）。</string>
     <string name="onboard_got_it">知道了</string>
     <string name="section_play_options">游玩选项</string>
