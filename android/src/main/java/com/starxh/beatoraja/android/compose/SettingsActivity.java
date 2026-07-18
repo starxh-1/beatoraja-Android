@@ -237,15 +237,49 @@ public class SettingsActivity extends Activity {
 
     private void showOnboardContent() {
         if (onboardIsNewbie == null) return;
-        int titleRes = onboardIsNewbie ? R.string.onboard_newbie_title : R.string.onboard_veteran_title;
-        int msgRes = onboardIsNewbie ? R.string.onboard_newbie_content : R.string.onboard_veteran_content;
-        onboardDialog = new android.app.AlertDialog.Builder(this)
-                .setTitle(titleRes)
-                .setMessage(msgRes)
+        if (onboardIsNewbie) {
+            showOnboardDialog(R.string.onboard_newbie_title, R.string.onboard_newbie_content,
+                    R.string.onboard_got_it, true);
+        } else {
+            showOnboardVeteranLayer1();
+        }
+    }
+
+    /**
+     * Veteran branch, layer 1. Shows a blank-titled dialog with the message "(^^)" and two
+     * buttons: "关闭" ends onboarding immediately, "你就没啥要说的吗？" reveals the real
+     * veteran welcome in layer 2.
+     */
+    private void showOnboardVeteranLayer1() {
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+                .setMessage(R.string.onboard_veteran_layer1_message)
                 .setCancelable(true)
-                .setPositiveButton(R.string.onboard_got_it, (d, w) -> markOnboarded())
-                .setOnDismissListener(d -> markOnboarded())
-                .show();
+                .setPositiveButton(R.string.onboard_veteran_layer1_close, (d, w) -> markOnboarded())
+                .setNegativeButton(R.string.onboard_veteran_layer1_more, (d, w) -> showOnboardVeteranLayer2())
+                .setOnDismissListener(d -> markOnboarded());
+        // layer1 title is intentionally blank — don't pass an empty resource, just skip the call
+        onboardDialog = b.show();
+    }
+
+    private void showOnboardVeteranLayer2() {
+        showOnboardDialog(R.string.onboard_veteran_title, R.string.onboard_veteran_content,
+                R.string.onboard_got_it, true);
+    }
+
+    private void showOnboardDialog(int titleRes, int messageRes, int positiveButtonRes, boolean dismissMarksOnboarded) {
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+                .setMessage(messageRes)
+                .setCancelable(true)
+                .setPositiveButton(positiveButtonRes, (d, w) -> markOnboarded());
+        // Only set title if the resource resolves to non-empty text
+        CharSequence title = getText(titleRes);
+        if (title != null && title.length() > 0) {
+            b.setTitle(title);
+        }
+        if (dismissMarksOnboarded) {
+            b.setOnDismissListener(d -> markOnboarded());
+        }
+        onboardDialog = b.show();
     }
 
     private void markOnboarded() {
