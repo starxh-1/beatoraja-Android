@@ -408,10 +408,14 @@ public class SideSpectrumRenderer {
 
         // 横屏（侧黑边）：瀑布布局 — Y = 采样序号（sample 0 在顶，与频谱 i=1→i=31 顶到底一致），
         // X = 幅度从游戏边界向外延伸。totalHeight / maxBarW 与频谱常量完全相同。
+        // 1024 个采样先 bin 成 128 槽再做线段连接，密度接近频谱条带。
         int n = 1024;
+        int bins = 128;
+        int samplesPerBin = n / bins; // 16
         float totalHeight = h * 0.8f;
         float baseY = (h - totalHeight) / 2f;
         float maxBarW = Math.min(w * 0.09f, blackBarW);
+        float ampScale = 1f; //
         float anchorL = blackBarW;       // 左侧游戏边界
         float anchorR = w - blackBarW;   // 右侧游戏边界
         Color baseColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
@@ -425,23 +429,29 @@ public class SideSpectrumRenderer {
 
         // L 通道 — 幅度向左（外侧）延伸
         float prevX = anchorL, prevY = baseY + totalHeight;
-        for (int i = 0; i < n; i++) {
-            float y = baseY + (float) (n - 1 - i) / (n - 1) * totalHeight;
-            float v = wave[i * 2];
-            if (v < -1f) v = -1f; else if (v > 1f) v = 1f;
-            float x = anchorL - Math.abs(v) * maxBarW;
-            if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
+        for (int b = 0; b < bins; b++) {
+            int start = b * samplesPerBin;
+            int end = (b == bins - 1) ? n : start + samplesPerBin;
+            float sum = 0f;
+            for (int i = start; i < end; i++) sum += Math.abs(wave[i * 2]);
+            float avg = sum / (end - start);
+            float y = baseY + (float) (bins - 1 - b) / (bins - 1) * totalHeight;
+            float x = anchorL - avg * maxBarW * ampScale;
+            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
             prevX = x; prevY = y;
         }
 
         // R 通道 — 幅度向右（外侧）延伸
         prevX = anchorR; prevY = baseY + totalHeight;
-        for (int i = 0; i < n; i++) {
-            float y = baseY + (float) (n - 1 - i) / (n - 1) * totalHeight;
-            float v = wave[i * 2 + 1];
-            if (v < -1f) v = -1f; else if (v > 1f) v = 1f;
-            float x = anchorR + Math.abs(v) * maxBarW;
-            if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
+        for (int b = 0; b < bins; b++) {
+            int start = b * samplesPerBin;
+            int end = (b == bins - 1) ? n : start + samplesPerBin;
+            float sum = 0f;
+            for (int i = start; i < end; i++) sum += Math.abs(wave[i * 2 + 1]);
+            float avg = sum / (end - start);
+            float y = baseY + (float) (bins - 1 - b) / (bins - 1) * totalHeight;
+            float x = anchorR + avg * maxBarW * ampScale;
+            if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 1f);
             prevX = x; prevY = y;
         }
     }
