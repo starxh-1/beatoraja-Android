@@ -2,6 +2,7 @@ package bms.table;
 
 import java.io.*;
 import java.net.*;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -18,7 +19,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
  */
 public class DifficultyTableParser {
 
-	// TODO bug:HTTP RequestPropertyを指定しないと403を返すサイトへの対応(JSONは一度byteデータで読む必要あり)
+	private static final String USER_AGENT = "Mozilla/5.0 (Linux; Android) beatoraja-Android";
+	private static final int CONNECT_TIMEOUT_MS = 10000;
+	private static final int READ_TIMEOUT_MS = 30000;
 
 	/**
 	 * 難易度表データ
@@ -48,15 +51,25 @@ public class DifficultyTableParser {
 
 	private String[] readAllLines(String urlname) {
 		String[] result = null;
-		try (BufferedReader br = new BufferedReader(new InputStreamReader(new URL(urlname).openStream()))) {
-			List<String> l = new ArrayList();
-			String line = null;
-			while ((line = br.readLine()) != null) {
-				l.add(line);
+		HttpURLConnection conn = null;
+		try {
+			conn = (HttpURLConnection) new URL(urlname).openConnection();
+			conn.setRequestProperty("User-Agent", USER_AGENT);
+			conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+			conn.setReadTimeout(READ_TIMEOUT_MS);
+			try (BufferedReader br = new BufferedReader(
+					new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+				List<String> l = new ArrayList();
+				String line = null;
+				while ((line = br.readLine()) != null) {
+					l.add(line);
+				}
+				result = l.toArray(new String[l.size()]);
 			}
-			result = l.toArray(new String[l.size()]);
 		} catch (IOException e) {
 			Logger.getGlobal().severe("難易度表サイト解析中の例外:" + e.getMessage());
+		} finally {
+			if (conn != null) conn.disconnect();
 		}
 		return result;
 	}
@@ -233,9 +246,17 @@ public class DifficultyTableParser {
 	 * @throws IOException
 	 */
 	public void decodeJSONTableHeader(DifficultyTable dt, URL jsonheader) throws IOException {
-		ObjectMapper mapper = new ObjectMapper();
-		this.decodeJSONTableHeader(dt, mapper.readValue(jsonheader, Map.class));
-		dt.setHeadURL(jsonheader.toExternalForm());
+		HttpURLConnection conn = (HttpURLConnection) jsonheader.openConnection();
+		conn.setRequestProperty("User-Agent", USER_AGENT);
+		conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+		conn.setReadTimeout(READ_TIMEOUT_MS);
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+			this.decodeJSONTableHeader(dt, mapper.readValue(conn.getInputStream(), Map.class));
+			dt.setHeadURL(jsonheader.toExternalForm());
+		} finally {
+			conn.disconnect();
+		}
 	}
 
 	private DifficultyTable decodeJSONTableHeader(DifficultyTable dt, Map<String, Object> result) throws IOException {
@@ -357,10 +378,16 @@ public class DifficultyTableParser {
 	 */
 	public void decodeJSONTableData(DifficultyTable dt, URL jsondata) throws IOException {
 		Logger.getGlobal().info("難易度表データ読み込み - " + jsondata.toExternalForm());
-		// JSON読み込み
-		ObjectMapper mapper = new ObjectMapper();
-		// 難易度表に変換
-		this.decodeJSONTableData(dt, mapper.readValue(jsondata, List.class), false);
+		HttpURLConnection conn = (HttpURLConnection) jsondata.openConnection();
+		conn.setRequestProperty("User-Agent", USER_AGENT);
+		conn.setConnectTimeout(CONNECT_TIMEOUT_MS);
+		conn.setReadTimeout(READ_TIMEOUT_MS);
+		try {
+			ObjectMapper mapper = new ObjectMapper();
+			this.decodeJSONTableData(dt, mapper.readValue(conn.getInputStream(), List.class), true);
+		} finally {
+			conn.disconnect();
+		}
 	}
 
 	private void decodeJSONTableData(DifficultyTable dt, List<Map<String, Object>> result, boolean accept) {
