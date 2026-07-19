@@ -132,8 +132,9 @@ public class PlayerRatingService {
                 }
             }
 
-            // Safety: clamp to the model's valid star range [0, 25].
-            playerStarRating = Math.max(0.0, Math.min(25.0, playerStarRating));
+            // Safety: walkure rating scale 上界 ★25,下界不限制 — 弱鸡玩家会显示 ★-2.10 这类负值。
+            // IrtMath 的外推在 theta < mapping[0] 时给出负数,这是合法显示值(index.html:843 注释确认)。
+            playerStarRating = Math.min(playerStarRating, 25.0);
 
             // 5b. Low-confidence threshold: with <10 matched scores the MLE theta
             // is unstable, so we widen the recommendation gate from 0.2 → 0.05 to
