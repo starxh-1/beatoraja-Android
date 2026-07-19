@@ -196,9 +196,8 @@ public class MusicPlayer extends MainState {
 		specX = (skinW - specW) / 2;  // X 居中
 		specY = (int)(skinH * SPEC_Y_OFFSET);  // Y 放到上方
 
-		// 启动后开启持续渲染(选曲界面默认是关的),并把 FPS 限制到 60
+		// 启动后开启持续渲染(选曲界面默认是关的)
 		Gdx.graphics.setContinuousRendering(true);
-		Gdx.graphics.setForegroundFPS(60);
 	}
 
 	private void loadStagefile() {
@@ -702,10 +701,9 @@ public class MusicPlayer extends MainState {
 
 	@Override
 	public void resume() {
-		// 从 standby / 切回前台 时,libGDX 会关掉持续渲染和 FPS 限制,这里重新打开
+		// 从 standby / 切回前台 时,libGDX 会关掉持续渲染,这里重新打开
 		if (Gdx.graphics != null) {
 			Gdx.graphics.setContinuousRendering(true);
-			Gdx.graphics.setForegroundFPS(60);
 		}
 		// GL 上下文在 onStop 后被重建,所有 Texture 引用都已失效 —— 重新加载舞台图
 		if (currentSong != null && stagefile == null) {

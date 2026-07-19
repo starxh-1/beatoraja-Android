@@ -48,7 +48,7 @@ public class FloatingMenu implements InputProcessor {
     private boolean keyConfigMode = false; // 是否为 KeyConfig 界面
     private boolean isPlayMode = false; // 是否为 Play 界面
     /** Play 模式时：距上次交互超过此时间则自动隐藏图标（秒） */
-    private static final float HIDE_DELAY = 1.0f;
+    private static final float HIDE_DELAY = 0f;
     /** Play 模式时：距上次交互已过时间（秒） */
     private float sinceLastInteraction = 0f;
     /** Play 模式时：图标是否因超时被隐藏（点击图标区域可重新显示） */

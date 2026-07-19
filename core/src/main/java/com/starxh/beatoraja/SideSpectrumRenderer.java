@@ -19,6 +19,13 @@ public class SideSpectrumRenderer {
     private float[] topValues = new float[64];
     private static final float FALLING_SPEED = 0.02f;
     private static final int BANDS_PER_CHANNEL = 64;
+
+    private static final Color COLOR_BAR_ACTIVE = new Color(0.4f, 0.8f, 1f, 0.5f);
+    private static final Color COLOR_BAR_INACTIVE = new Color(0.4f, 0.6f, 1f, 0.4f);
+    private static final Color COLOR_LIVE_ACTIVE = new Color(0.4f, 0.8f, 1f, 0.9f);
+    private static final Color COLOR_LIVE_INACTIVE = new Color(0.4f, 0.6f, 1f, 0.45f);
+    private static final Color COLOR_BASELINE = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+
     private float testTimer = 0;
 
     // 游戏内区域渲染
@@ -175,7 +182,7 @@ public class SideSpectrumRenderer {
 
     // 游戏内区域渲染 - 横向32band频谱
     private void renderInGameArea(float[] spectrum, float[] topValues, boolean hasRealData, float screenW, float screenH) {
-        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+        Color barColor = hasRealData ? COLOR_BAR_ACTIVE : COLOR_BAR_INACTIVE;
 
         // 32个频段，水平排列，填充整个区域
         float barW = screenW / 32f;
@@ -226,7 +233,7 @@ public class SideSpectrumRenderer {
         float totalHeight = h * 0.8f;
         float barH = totalHeight / 32f;
         float barThickness = barH * 0.7f;
-        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+        Color barColor = hasRealData ? COLOR_BAR_ACTIVE : COLOR_BAR_INACTIVE;
 
         float baseY = (h - totalHeight) / 2;
         for (int i = 1; i <= 31; i++) {
@@ -254,7 +261,7 @@ public class SideSpectrumRenderer {
         float barW = totalSpan / BANDS_PER_BAR;
         float barThickness = barW * 0.7f;
         float startX = (w - totalSpan) / 2f;
-        Color barColor = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.5f) : new Color(0.4f, 0.6f, 1f, 0.4f);
+        Color barColor = hasRealData ? COLOR_BAR_ACTIVE : COLOR_BAR_INACTIVE;
 
         // 上黑边：左声道 32 频段，baseY 贴游戏区顶边，向上长
         for (int i = 0; i < BANDS_PER_BAR; i++) {
@@ -325,10 +332,10 @@ public class SideSpectrumRenderer {
         int n = 64; // 32 L + 32 R
         float midY = screenH * 0.5f;
         float halfH = screenH * 0.45f;
-        Color live = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.9f) : new Color(0.4f, 0.6f, 1f, 0.45f);
+        Color live = hasRealData ? COLOR_LIVE_ACTIVE : COLOR_LIVE_INACTIVE;
 
         // Baseline
-        shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0.3f);
+        shapeRenderer.setColor(COLOR_BASELINE);
         shapeRenderer.rect(0, midY - 0.5f, screenW, 1f);
 
         shapeRenderer.setColor(live);
@@ -350,7 +357,7 @@ public class SideSpectrumRenderer {
     private void renderWaveformInBlackBars(float[] spectrum, int w, int h, boolean hasRealData) {
         float gameW = h * (1920f / 1080f);
         float blackBarW = (w - gameW) / 2f;
-        Color live = hasRealData ? new Color(0.4f, 0.8f, 1f, 0.9f) : new Color(0.4f, 0.6f, 1f, 0.45f);
+        Color live = hasRealData ? COLOR_LIVE_ACTIVE : COLOR_LIVE_INACTIVE;
 
         if (blackBarW < 0) {
             float gameH = w * (1080f / 1920f);
@@ -358,33 +365,33 @@ public class SideSpectrumRenderer {
             float bottomBarH = topBarH;
             if (topBarH > 4 && bottomBarH > 4) {
                 int bins = 32;
-                float centerH = h - topBarH; // top bar floor (above game area)
 
-                // 上黑边 - L 通道
-                shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0.3f);
-                shapeRenderer.rect(0, h - topBarH * 0.5f - 0.5f, w, 1f);
+                // 上黑边 - L 通道（从游戏区顶边向上延伸，与频谱对称）
+                float baselineTop = h - topBarH;
+                shapeRenderer.setColor(COLOR_BASELINE);
+                shapeRenderer.rect(0, baselineTop - 0.5f, w, 1f);
                 shapeRenderer.setColor(live);
-                float prevX = 0, prevY = 0;
+                float prevX = 0, prevY = baselineTop;
                 for (int b = 0; b < bins; b++) {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = centerH + v * (topBarH * 1.8f);
+                    float y = baselineTop - v * (topBarH * 1.8f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
 
-                // 下黑边 - R 通道
-                shapeRenderer.setColor(0.5f, 0.5f, 0.5f, 0.3f);
-                shapeRenderer.rect(0, bottomBarH * 0.5f - 0.5f, w, 1f);
+                // 下黑边 - R 通道（从游戏区底边向下延伸，与频谱对称）
+                float baselineBottom = bottomBarH;
+                shapeRenderer.setColor(COLOR_BASELINE);
+                shapeRenderer.rect(0, baselineBottom - 0.5f, w, 1f);
                 shapeRenderer.setColor(live);
-                prevX = 0; prevY = bottomBarH * 0.5f;
-                float rightMid = bottomBarH * 0.5f;
+                prevX = 0; prevY = baselineBottom;
                 for (int b = 0; b < bins; b++) {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[32 + b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = rightMid + v * (bottomBarH * 1.8f);
+                    float y = baselineBottom + v * (bottomBarH * 1.8f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
@@ -403,7 +410,7 @@ public class SideSpectrumRenderer {
         float ampScale = 1.0f; // 与 spectrum 一致：x 方向不超过 maxBarW；靠 sqrt 放大低幅值来体现"明显"
         float anchorL = blackBarW;       // 左侧游戏边界
         float anchorR = w - blackBarW;   // 右侧游戏边界
-        Color baseColor = new Color(0.5f, 0.5f, 0.5f, 0.3f);
+        Color baseColor = COLOR_BASELINE;
 
         // 边界中线（与频谱条带共享同一根锚轴）
         shapeRenderer.setColor(baseColor);

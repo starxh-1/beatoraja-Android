@@ -976,6 +976,10 @@ public class MainController {
             // Android：只要 maxFPS 有效且未开启无限帧率模式，就执行帧率控制
             // 注意：maxFPS = 1000 表示"自动检测"模式（Config默认值），实际使用时会被替换
             doFrameLimit = !config.isAndroidUnlimitedFPS() && maxFPS > 0 && maxFPS < 1000;
+            // Android 11+：Surface.setFrameRate() + GLSurfaceView vsync 已接管时序，跳过应用层 sleep
+            if (doFrameLimit && setFrameRateMethod != null) {
+                doFrameLimit = false;
+            }
         } else {
             // 非 Android：VSync 关闭且 maxFPS 有效时执行
             doFrameLimit = !config.isVsync() && maxFPS > 0;
@@ -1018,8 +1022,7 @@ public class MainController {
                 LockSupport.parkNanos(200_000);
             }
 
-            // 第三阶段：最后 200µs 用忙等保证精度
-            // Android 优化：跳过忙等，避免占用 GPU 驱动线程需要的 CPU 时间
+            // 第三阶段：最后 200µs 用忙等保证精度（Android 跳过）
             if (!isAndroid) {
                 while (System.nanoTime() < nextFrameTimeNanos) {
                     // busy-wait for precision
