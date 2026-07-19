@@ -1153,7 +1153,10 @@ public class SettingsActivity extends Activity {
                     File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
                     try (java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(new java.io.FileOutputStream(cacheFile))) { oos.writeObject(table); }
                     updated++;
-                } catch (Exception e) { failed++; }
+                } catch (Exception e) {
+                    failed++;
+                    Log.e("SettingsActivity", "updateAllTables: failed for url=" + url, e);
+                }
             }
             final int s = updated, f = failed;
             runOnUiThread(() -> { updateAllBtn.setText(getString(R.string.btn_update)); updateAllBtn.setEnabled(true); Toast.makeText(this, getString(R.string.msg_tables_updated_summary, s, f), Toast.LENGTH_LONG).show(); });
