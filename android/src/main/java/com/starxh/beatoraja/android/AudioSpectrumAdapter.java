@@ -40,15 +40,6 @@ public class AudioSpectrumAdapter implements AudioSpectrumProvider {
     }
 
     @Override
-    public float[] getWaveformSamples() {
-        if (oboeAudio != null) {
-            float[] wave = oboeAudio.getWaveformSamples();
-            if (wave != null) return wave;
-        }
-        return new float[2048];
-    }
-
-    @Override
     public void setAsGlobalProvider() {
         AudioSpectrumManager.setGlobalProvider(this);
         Log.i(TAG, "Set as global provider");

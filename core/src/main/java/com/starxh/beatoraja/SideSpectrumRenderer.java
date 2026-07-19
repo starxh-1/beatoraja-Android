@@ -366,32 +366,28 @@ public class SideSpectrumRenderer {
             if (topBarH > 4 && bottomBarH > 4) {
                 int bins = 32;
 
-                // 上黑边 - L 通道（从游戏区顶边向上延伸，与频谱对称）
-                float baselineTop = h - topBarH;
-                shapeRenderer.setColor(COLOR_BASELINE);
-                shapeRenderer.rect(0, baselineTop - 0.5f, w, 1f);
+                // 上黑边 - L 通道（居中于黑边，朝游戏区方向延伸）
+                float baselineTop = h - topBarH / 2f;
                 shapeRenderer.setColor(live);
                 float prevX = 0, prevY = baselineTop;
                 for (int b = 0; b < bins; b++) {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = baselineTop - v * (topBarH * 1.8f);
+                    float y = baselineTop - v * (topBarH * 0.85f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
 
-                // 下黑边 - R 通道（从游戏区底边向下延伸，与频谱对称）
-                float baselineBottom = bottomBarH;
-                shapeRenderer.setColor(COLOR_BASELINE);
-                shapeRenderer.rect(0, baselineBottom - 0.5f, w, 1f);
+                // 下黑边 - R 通道（居中于黑边，朝游戏区方向延伸）
+                float baselineBottom = bottomBarH / 2f;
                 shapeRenderer.setColor(live);
                 prevX = 0; prevY = baselineBottom;
                 for (int b = 0; b < bins; b++) {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[32 + b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = baselineBottom + v * (bottomBarH * 1.8f);
+                    float y = baselineBottom + v * (bottomBarH * 0.85f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
@@ -410,12 +406,6 @@ public class SideSpectrumRenderer {
         float ampScale = 1.0f; // 与 spectrum 一致：x 方向不超过 maxBarW；靠 sqrt 放大低幅值来体现"明显"
         float anchorL = blackBarW;       // 左侧游戏边界
         float anchorR = w - blackBarW;   // 右侧游戏边界
-        Color baseColor = COLOR_BASELINE;
-
-        // 边界中线（与频谱条带共享同一根锚轴）
-        shapeRenderer.setColor(baseColor);
-        shapeRenderer.rect(anchorL - 0.5f, baseY, 1f, totalHeight);
-        shapeRenderer.rect(anchorR - 0.5f, baseY, 1f, totalHeight);
 
         shapeRenderer.setColor(live);
 
