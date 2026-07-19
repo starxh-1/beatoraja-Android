@@ -12,8 +12,8 @@ import java.util.Map;
  */
 public class PlayerRatingEstimator {
 
-    private static final double THETA_MIN = -20.0;
-    private static final double THETA_MAX = 20.0;
+    private static final double THETA_MIN = -5.0;
+    private static final double THETA_MAX = 5.0;
     private static final double BISECTION_EPSILON = 1.0e-6;
 
     public static class Observation {
@@ -62,12 +62,10 @@ public class PlayerRatingEstimator {
         }
 
         RatingResult result = new RatingResult();
-        // Clamp theta to the natural model range before downstream use. The
-        // bisection search uses THETA_MIN/MAX as wide sentinels, but the
-        // starRatingMapping covers theta ∈ [1, 25] (values ≈ -1.7 to 4.0);
-        // anything outside [-3, 5] would make every recommendation prob ≈ 0 or
-        // ≈ 1, which collapses the list.
-        theta = Math.max(-3.0, Math.min(5.0, theta));
+        // Clamp theta to the natural model range. starRatingMapping covers
+        // theta ∈ [-1.7, 4.0] (★1..★25); THETA_MIN/MAX is the bisection range
+        // and already sits inside this, so this clamp is a no-op safety net.
+        theta = Math.max(THETA_MIN, Math.min(THETA_MAX, theta));
         result.theta = theta;
         result.playerStarRating = Math.round(interpolateStarRating(theta, starRatingMapping) * 100.0) / 100.0;
         result.observationCount = observations.size();
