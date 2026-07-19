@@ -9,7 +9,12 @@ local property = {
 	{name = "Song Information", item = {
 		{name = "Show", op = 950},
 		{name = "Hide", op = 951}
-	}, def = "Show"}
+	}, def = "Show"},
+	{name = "Stagefile Display", item = {
+		{name = "OFF", op = 952},
+		{name = "KEEP ASPECT", op = 953},
+		{name = "FULL", op = 954}
+	}, def = "FULL"}
 }
 
 
@@ -57,7 +62,10 @@ local function main()
 	}
 	skin.destination = {
 
-		{id = -100, dst = {
+		{id = -100, op = {191, 954}, stretch = 0, dst = {
+			{x = 0, y = 0, w = 1280, h = 720}
+		}},
+		{id = -100, op = {191, 953}, stretch = 6, dst = {
 			{x = 0, y = 0, w = 1280, h = 720}
 		}},
 		{id = "genre", op = {950}, loop = 2000, dst = {
