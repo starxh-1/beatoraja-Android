@@ -1,6 +1,25 @@
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 eclipse.project.name = appName + '-core'
 
+def generatedVersionDir = file("$buildDir/generated/sources/version")
+def generatedVersionFile = new File(generatedVersionDir, 'bms/player/beatoraja/Version.java')
+
+task generateVersion {
+    outputs.file generatedVersionFile
+    doLast {
+        generatedVersionFile.parentFile.mkdirs()
+        generatedVersionFile.text = """package bms.player.beatoraja;
+
+public final class Version {
+    public static final String VALUE = "${projectVersion}";
+}
+"""
+    }
+}
+
+sourceSets.main.java.srcDirs += generatedVersionDir
+compileJava.dependsOn generateVersion
+
 dependencies {
   // beatoraja 核心 JSON 工具
   implementation "com.fasterxml.jackson.core:jackson-databind:2.22.0"
