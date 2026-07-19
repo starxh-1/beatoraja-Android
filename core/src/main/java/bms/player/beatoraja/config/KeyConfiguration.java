@@ -574,7 +574,8 @@ public class KeyConfiguration extends MainState {
 			return;
 		}
 		int newKey = keyboard.getLastPressedKey();
-		if (newKey == Keys.ENTER || newKey == Keys.NUMPAD_ENTER) {
+		// ENTER/NUMPAD_ENTER 作为 START/SELECT 的合法绑定必须放行;仅屏蔽 1P 普通键位以防误触
+		if (index >= 0 && (newKey == Keys.ENTER || newKey == Keys.NUMPAD_ENTER)) {
 			return;
 		}
 		if (index >= 0) {
