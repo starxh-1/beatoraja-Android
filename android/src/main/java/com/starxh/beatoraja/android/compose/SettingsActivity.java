@@ -1059,16 +1059,7 @@ public class SettingsActivity extends Activity {
                     table.setSourceURL(url.trim());
                 }
                 new bms.table.DifficultyTableParser().decode(true, table);
-                File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
-                try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(new java.util.zip.GZIPOutputStream(new java.io.FileOutputStream(cacheFile)), StandardCharsets.UTF_8)) {
-                    com.badlogic.gdx.utils.Json json = new com.badlogic.gdx.utils.Json();
-                    json.setElementType(bms.player.beatoraja.TableData.class, "folder", java.util.ArrayList.class);
-                    json.setElementType(bms.player.beatoraja.TableData.TableFolder.class, "songs", java.util.ArrayList.class);
-                    json.setElementType(bms.player.beatoraja.TableData.class, "course", java.util.ArrayList.class);
-                    json.setElementType(bms.player.beatoraja.CourseData.class, "trophy", java.util.ArrayList.class);
-                    json.setOutputType(com.badlogic.gdx.utils.JsonWriter.OutputType.json);
-                    writer.write(json.prettyPrint(convertToTableData(table)));
-                }
+                saveTableCache(table, url);
                 runOnUiThread(() -> { updateBtn.setText(getString(R.string.btn_update)); updateBtn.setEnabled(true); editText.setEnabled(true); Toast.makeText(this, getString(R.string.msg_table_updated), Toast.LENGTH_SHORT).show(); });
             } catch (Exception e) {
                 runOnUiThread(() -> { updateBtn.setText(getString(R.string.btn_update)); updateBtn.setEnabled(true); editText.setEnabled(true); Toast.makeText(this, getString(R.string.msg_update_failed, e.getMessage()), Toast.LENGTH_LONG).show(); });
@@ -1076,6 +1067,23 @@ public class SettingsActivity extends Activity {
         });
         synchronized (backgroundThreads) { backgroundThreads.add(updateThread); }
         updateThread.start();
+    }
+
+    private void saveTableCache(bms.table.DifficultyTable table, String url) throws IOException {
+        File tableDir = new File(getExternalFilesDir(null), "table");
+        if (!tableDir.exists()) tableDir.mkdirs();
+        File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
+        try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
+                new java.util.zip.GZIPOutputStream(new java.io.FileOutputStream(cacheFile)),
+                StandardCharsets.UTF_8)) {
+            com.badlogic.gdx.utils.Json json = new com.badlogic.gdx.utils.Json();
+            json.setElementType(bms.player.beatoraja.TableData.class, "folder", java.util.ArrayList.class);
+            json.setElementType(bms.player.beatoraja.TableData.TableFolder.class, "songs", java.util.ArrayList.class);
+            json.setElementType(bms.player.beatoraja.TableData.class, "course", java.util.ArrayList.class);
+            json.setElementType(bms.player.beatoraja.CourseData.class, "trophy", java.util.ArrayList.class);
+            json.setOutputType(com.badlogic.gdx.utils.JsonWriter.OutputType.json);
+            writer.write(json.prettyPrint(convertToTableData(table)));
+        }
     }
 
     private String sha256(String input) {
@@ -1148,10 +1156,7 @@ public class SettingsActivity extends Activity {
                 try {
                     bms.table.DifficultyTable table = new bms.table.DifficultyTable(url.trim());
                     new bms.table.DifficultyTableParser().decode(true, table);
-                    File tableDir = new File(getExternalFilesDir(null), "table");
-                    if (!tableDir.exists()) tableDir.mkdirs();
-                    File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
-                    try (java.io.ObjectOutputStream oos = new java.io.ObjectOutputStream(new java.io.FileOutputStream(cacheFile))) { oos.writeObject(table); }
+                    saveTableCache(table, url);
                     updated++;
                 } catch (Exception e) {
                     failed++;
