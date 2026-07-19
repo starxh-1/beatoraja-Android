@@ -781,7 +781,7 @@ public class AndroidLauncher extends AndroidApplication {
             getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
             suppressImeForGameInput();
         }
-        if (pendingInitialization) {
+        if (pendingInitialization && !isWaitingForPermissionResult) {
             if (checkAndRequestStoragePermissions()) {
                 pendingInitialization = false;
                 isWaitingForPermissionResult = false;
