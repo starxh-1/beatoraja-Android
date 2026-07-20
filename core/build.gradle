@@ -5,6 +5,7 @@ def generatedVersionDir = file("$buildDir/generated/sources/version")
 def generatedVersionFile = new File(generatedVersionDir, 'bms/player/beatoraja/Version.java')
 
 task generateVersion {
+    inputs.property 'projectVersion', projectVersion
     outputs.file generatedVersionFile
     doLast {
         generatedVersionFile.parentFile.mkdirs()
