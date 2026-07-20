@@ -423,16 +423,8 @@ public class BGAProcessor {
 
 	private int bgaDrawCount = 0;
 	public void drawBGA(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r) {
-		// In portrait mode, override the BGA region with the full viewport.
-		// The Lua-computed region may be smaller than the viewport due to dw/dh scaling
-		// (src=FULLHD, dst=HD), causing the 270°-rotated BGA to not cover the full screen.
-		if (isPortrait) {
-			Rectangle vp = sprite.getViewport();
-			if (vp != null && vp.width > 0 && vp.height > 0) {
-				portraitRect.set(0, 0, vp.width, vp.height);
-				r = portraitRect;
-			}
-		}
+		// Portrait BGA position/size is now controlled entirely by the Lua skin (geo.bga).
+		// Removing the full-viewport override so that Lua x/y/w/h/stretch take effect.
 		if (bgaDrawCount < 3) {
 			bgaDrawCount++;
 			Gdx.app.log("BGAProcessor", "drawBGA: isPortrait=" + isPortrait
@@ -521,7 +513,6 @@ public class BGAProcessor {
 	/**
 	 * Modify the aspect ratio and draw BGA
 	 */
-	private final Rectangle portraitRect = new Rectangle();
 	private int fixRatioLogCount = 0;
 	private void drawBGAFixRatio(SkinBGA dst, SkinObjectRenderer sprite, Rectangle r, Texture bga){
 		image.setTexture(bga);
