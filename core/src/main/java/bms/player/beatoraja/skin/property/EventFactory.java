@@ -140,11 +140,11 @@ public class EventFactory {
 		 * 楽曲ファイルのドキュメントをOS既定のドキュメントビューアーで開く
 		 */
 		open_document(17, (state) -> {
-			if (!isDesktopSupported()) {
-				return;
-			}
+			// 不再用 isDesktopSupported() 守卫:Android 上 java.awt.Desktop 永远不可用,
+			// 真正的平台分派在 openFile() 里完成(反射调 AndroidLauncher.openFile 或 Desktop.open)。
 			if(state instanceof MusicSelector selector && selector.getBarManager().getSelected() instanceof SongBar songbar && songbar.existsSong()) {
 				File parent = new File(songbar.getSongData().getPath()).getParentFile();
+				if (parent == null) return;
 				File[] files = parent.listFiles();
 				if (files != null) {
 					for (File f : files) {
@@ -827,10 +827,20 @@ public class EventFactory {
 		}
 	
 		private static void openFile(java.io.File file) {
+			if (file == null || !file.exists()) return;
 			try {
-				Class<?> desktopClass = Class.forName("java.awt.Desktop");
-				Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-				desktopClass.getMethod("open", java.io.File.class).invoke(desktop, file);
+				com.badlogic.gdx.Application app = com.badlogic.gdx.Gdx.app;
+				if (app != null && app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
+					// Android: 反射调用 AndroidLauncher.openFile(String path),
+					// 内部用 FileProvider + ACTION_VIEW text/plain 跳转外部应用。
+					Object launcher = app;
+					java.lang.reflect.Method method = launcher.getClass().getMethod("openFile", String.class);
+					method.invoke(launcher, file.getAbsolutePath());
+				} else {
+					Class<?> desktopClass = Class.forName("java.awt.Desktop");
+					Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
+					desktopClass.getMethod("open", java.io.File.class).invoke(desktop, file);
+				}
 			} catch (Throwable e) {
 				e.printStackTrace();
 			}

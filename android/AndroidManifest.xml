@@ -48,6 +48,18 @@
         android:windowSoftInputMode="stateAlwaysHidden|adjustNothing"
         android:useEmbeddedDex="false"/>
 
+    <!-- FileProvider: 用于把 BMS README/外部文件用 content:// 暴露给外部应用,
+         ACTION_VIEW + text/plain 跳转时需要 (Android 7+ 必须用 content:// 不能传 file://) -->
+    <provider
+        android:name="androidx.core.content.FileProvider"
+        android:authorities="com.starxh.beatoraja.fileprovider"
+        android:exported="false"
+        android:grantUriPermissions="true">
+        <meta-data
+            android:name="android.support.FILE_PROVIDER_PATHS"
+            android:resource="@xml/file_paths" />
+    </provider>
+
       <!-- 游戏性能优化标签 -->
       <meta-data
           android:name="android.max_aspect"

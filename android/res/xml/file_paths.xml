@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 主外部存储 (/sdcard, /storage/emulated/0 等),覆盖 BMS 文件夹常见位置 -->
+    <external-path name="external" path="." />
+    <!-- 应用私有外部目录 (Android/data/com.starxh.beatoraja/files) -->
+    <external-files-path name="external_files" path="." />
+    <!-- 应用私有内部目录 -->
+    <files-path name="internal_files" path="." />
+</paths>

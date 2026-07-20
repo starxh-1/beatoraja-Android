@@ -1163,6 +1163,35 @@ public class AndroidLauncher extends AndroidApplication {
         } catch (Exception e) { Log.e(TAG, "Failed to open URL: " + url, e); }
     }
 
+    /**
+     * 通过反射从 core 模块 (EventFactory.openFile) 调用的入口。
+     * 把 BMS 文件夹下的 README/任意文件用 ACTION_VIEW 交给系统选择器,
+     * 让用户挑一个外部应用来打开 (文本查看器、Markdown 阅读器等)。
+     */
+    public void openFile(String path) {
+        runOnUiThread(() -> openFileDirect(path));
+    }
+
+    private void openFileDirect(String path) {
+        if (path == null || path.isEmpty()) return;
+        java.io.File file = new java.io.File(path);
+        if (!file.exists()) {
+            Log.w(TAG, "openFileDirect: file does not exist: " + path);
+            return;
+        }
+        try {
+            android.net.Uri uri = androidx.core.content.FileProvider.getUriForFile(
+                    this, "com.starxh.beatoraja.fileprovider", file);
+            android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
+            intent.setDataAndType(uri, "text/plain");
+            intent.addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to open file: " + path, e);
+        }
+    }
+
     // ─── Rating WebView ───
 
     private static android.app.AlertDialog ratingDialog = null;

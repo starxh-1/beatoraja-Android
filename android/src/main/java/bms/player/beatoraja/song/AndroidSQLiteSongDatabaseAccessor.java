@@ -1597,6 +1597,13 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 }
             }
 
+            // Fallback:seenThisScan 不全时(增量扫描中 processBmsFile 被中断/解码失败
+            // 都会漏掉路径),直接走文件系统查本目录树是否存在任意 BMS 文件。
+            // 没有这一步,BMS/21/ 这种只在增量扫描中新增的目录会因为父目录链全断而消失。
+            if (!hasBms && directoryTreeHasBms(dir)) {
+                hasBms = true;
+            }
+
             if (hasBms && !insertedPaths.contains(dirPath)) {
                 insertFolder(dir, db);
                 insertedPaths.add(dirPath);
@@ -1632,6 +1639,40 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             default:
                 return false;
         }
+    }
+
+    /**
+     * Fallback: 在 rebuildFolderTree 里,如果 seenThisScan 没有命中当前目录,
+     * 就直接走文件系统查这个目录树里是否真的存在 BMS 文件。
+     * 找到任一 .bms/.bme/.bml/.pms/.bmson 即返回 true,避免父目录链因为 seenThisScan
+     * 不全而整条丢失 (Bug 3)。
+     *
+     * 深度有限制 (MAX_BMS_PROBE_DEPTH),在特别深的目录树里也不会无限递归;
+     * 一般 BMS 库深度不会超过这个限制,实际上大多数增量扫描几层就能定位到 BMS 文件。
+     */
+    private boolean directoryTreeHasBms(FileHandle dir) {
+        return directoryTreeHasBms(dir, 0);
+    }
+
+    private static final int MAX_BMS_PROBE_DEPTH = 6;
+
+    private boolean directoryTreeHasBms(FileHandle dir, int depth) {
+        if (depth > MAX_BMS_PROBE_DEPTH) return false;
+        FileHandle[] children;
+        try {
+            children = dir.list();
+        } catch (Exception e) {
+            return false;
+        }
+        if (children == null) return false;
+        for (FileHandle child : children) {
+            if (child.isDirectory()) {
+                if (directoryTreeHasBms(child, depth + 1)) return true;
+            } else if (isBmsFile(child.name().toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

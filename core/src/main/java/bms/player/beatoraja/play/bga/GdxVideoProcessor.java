@@ -188,8 +188,17 @@ public class GdxVideoProcessor implements MovieProcessor {
             if (loop) {
                 targetVideoTime = targetVideoTime % videoDuration;
             } else {
-                // 非循环视频：游戏时间已超过视频时长，视频自然结束。
-                // 停止 seek 以避免 MediaPlayer "Attempt to seek to past end of file" 和异常帧闪现。
+                // 非循环视频:游戏时间已超过视频时长,视频自然结束。
+                // 必须真正 pause(),否则 native getCurrentTimestamp() 在 EOF 后会返回 0/异常值,
+                // 下一次同步周期会触发 severe-drift 分支把播放头 seek 回中间某一帧(画面"倒带")。
+                if (playing) {
+                    try {
+                        videoPlayer.pause();
+                    } catch (Exception e) {
+                        Logger.getGlobal().warning("Video pause on EOF failed: " + e.getMessage());
+                    }
+                    playing = false;
+                }
                 return;
             }
         }
