@@ -47,6 +47,15 @@ public class SystemSoundManager {
 		if(config.getSoundpath() != null && config.getSoundpath().length() > 0) {
 			scan(new File(config.getSoundpath()).getAbsoluteFile(), sounds, "clear");
 		}
+		// BGM fallback: 当 filesDir/bgm/ 没找到任何集时,去 filesDir/sound/ 找带 select/decide 标记的目录
+		// (默认的 sound/default/ 里有 select.mp3 + decide.ogg,既能当 sound 也能当 BGM)。
+		// 这样游戏内 BGM 列表始终至少有 "default" 可选,用户放外部集后再切回去也能找到。
+		if (bgms.size == 0 && config.getSoundpath() != null && config.getSoundpath().length() > 0) {
+			scan(new File(config.getSoundpath()).getAbsoluteFile(), bgms, "select");
+			if (bgms.size > 0) {
+				Logger.getGlobal().info("BGM 集为空,从 sound/ 目录 fallback: " + bgms.size + " 个候选");
+			}
+		}
 		Logger.getGlobal().info("検出されたBGM Set : " + bgms.size + " Sound Set : " + sounds.size);
 	}
 

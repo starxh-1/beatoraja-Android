@@ -500,11 +500,26 @@ public class AndroidLauncher extends AndroidApplication {
 
     /**
      * 检测外部 sound 集并导入到 sound 目录（与 skin 同样支持 zip 或文件夹）。
+     * 先把 APK assets/sound/default/ 落到 filesDir/sound/default/(作为永驻默认集),
+     * 再 overlay 用户从 Download/beatoraja/sound/ 导入的集。
+     * 否则只要用户放了任何外部集,内置的 default 就会被跳过、列表里消失。
      */
     private void ensureExternalSoundZip(File filesDir) {
         File externalSoundDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SOUND_FOLDER);
         File internalSoundDir = new File(filesDir, "sound");
+        ensureSoundAssets(filesDir);
         ensureExternalResourceImport(externalSoundDir, internalSoundDir, "sound");
+    }
+
+    /**
+     * 把 APK assets/sound/default/ 拷到 filesDir/sound/default/。
+     * 与 ensureSkinAssets 同模式:无早退出,每次启动都调用,copyAssetFolder 内部按子项
+     * if (!destSub.exists()) 跳过已有文件,所以是幂等的"补缺"语义。
+     */
+    private void ensureSoundAssets(File filesDir) {
+        File soundDefaultDir = new File(filesDir, "sound/default");
+        soundDefaultDir.mkdirs();
+        copyAssetFolder(getAssets(), "sound/default", soundDefaultDir);
     }
 
     /**
