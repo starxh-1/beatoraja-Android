@@ -42,18 +42,16 @@ public class KeyConfiguration extends MainState {
 			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
 			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "F-SCR", "R-SCR", "START", "SELECT" },
 			{ "1 KEY", "2 KEY", "3 KEY", "4 KEY", "5 KEY", "6 KEY", "7 KEY", "8 KEY", "9 KEY", "START", "SELECT" },
+			// 10 KEYS: 1P/2P 各 7 槽 + START + SELECT = 16 项,必须与 KEYSA[3] 长度一致
 			{ "1P-1 KEY", "1P-2 KEY", "1P-3 KEY", "1P-4 KEY", "1P-5 KEY", "1P-F-SCR",
 				"1P-R-SCR", "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY",
 				"2P-F-SCR", "2P-R-SCR", "START", "SELECT" },
+			// 14 KEYS: 1P/2P 各 9 槽 + START + SELECT = 20 项,必须与 KEYSA[4] 长度一致
 			{ "1P-1 KEY", "1P-2 KEY", "1P-3 KEY", "1P-4 KEY", "1P-5 KEY", "1P-6 KEY", "1P-7 KEY", "1P-F-SCR",
 					"1P-R-SCR", "2P-1 KEY", "2P-2 KEY", "2P-3 KEY", "2P-4 KEY", "2P-5 KEY", "2P-6 KEY", "2P-7 KEY",
 					"2P-F-SCR", "2P-R-SCR", "START", "SELECT" },
 			{ "C1", "C#1", "D1", "D#1", "E1", "F1", "F#1", "G1", "G#1", "A1", "A#1", "B1", "C2", "C#2", "D2", "D#2",
-					"E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "WHEEL-UP", "WHEEL-DOWN",
-					"2P-C1", "2P-C#1", "2P-D1", "2P-D#1", "2P-E1", "2P-F1", "2P-F#1", "2P-G1", "2P-G#1", "2P-A1", "2P-A#1",
-					"2P-B1", "2P-C2", "2P-C#2", "2P-D2", "2P-D#2", "2P-E2", "2P-F2", "2P-F#2", "2P-G2", "2P-G#2",
-					"2P-A2", "2P-A#2", "2P-B2", "2P-WHEEL-UP", "2P-WHEEL-DOWN",
-					"START", "SELECT" },
+					"E2", "F2", "F#2", "G2", "G#2", "A2", "A#2", "B2", "WHEEL-UP", "WHEEL-DOWN", "START", "SELECT" },
 			{ "1P-C1", "1P-C#1", "1P-D1", "1P-D#1", "1P-E1", "1P-F1", "1P-F#1", "1P-G1", "1P-G#1", "1P-A1", "1P-A#1",
 					"1P-B1", "1P-C2", "1P-C#2", "1P-D2", "1P-D#2", "1P-E2", "1P-F2", "1P-F#2", "1P-G2", "1P-G#2",
 					"1P-A2", "1P-A#2", "1P-B2", "1P-WHEEL-UP", "1P-WHEEL-DOWN", "2P-C1", "2P-C#1", "2P-D1", "2P-D#1",
@@ -65,18 +63,16 @@ public class KeyConfiguration extends MainState {
 			{ 0, 1, 2, 3, 4, 5, 6, -1, -2 },
 			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
 			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, -1, -2 },
-			// 10 KEYS: 1P (0..13) + 2P (100..113)
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, -1, -2 },
-			// 14 KEYS: 1P (0..17) + 2P (100..117)
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, -1, -2 },
-			// 24 KEYS: 1P (0..25) + 2P (100..125)
-			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25,
-			  100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, -1, -2 },
+			// 10 KEYS: 仅 1P (0..13),不暴露 2P 槽位
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, -1, -2 },
+			// 14 KEYS: 仅 1P (0..17),不暴露 2P 槽位
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, -1, -2 },
+			// 24 KEYS (单玩家模式): 仅 1P (0..25),不暴露 2P 槽位
+			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, -1, -2 },
 			// 24 KEYS DOUBLE: 共享同一 controllerConfigs[0],1P (0..25) + 2P (26..51)
 			{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
 					29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, -1,
 					-2 } };
-	private static final int playerOffset = 100;
 
 	private static final String[] SELECTKEY = { "2dx sp", "popn", "2dx dp" };
 
@@ -202,7 +198,7 @@ public class KeyConfiguration extends MainState {
 				if (keyinput && bmc.getLastPressedButton() != -1) {
 					setControllerKeyAssign(currentKeysa[cursorpos], bmc);
 					// 显示配置信息
-					String keyName = currentKeys[cursorpos >= 0 && cursorpos < currentKeys.length ? cursorpos : 0];
+					String keyName = currentKeys[cursorpos >= 0 && cursorpos < currentKeys.length ? cursorpos : 0]; // 仅用于日志,cursorpos 已由 KEYSA.length 约束,越界时回退 0
 					String buttonName = BMControllerInputProcessor.BMKeys.toString(bmc.getLastPressedButton());
 					String controllerType = XboxControllerHelper.isXboxController(bmc.getName()) ? "XBOX" : "Gamepad";
 					Gdx.app.log("KeyConfig", "Mapped " + controllerType + " [" + bmc.getName() + "] "
@@ -554,10 +550,6 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private int getKeyboardKeyAssign(int index) {
-		// 2P 槽位 (index >= 100) 没有 2P 键盘配置 — 一律视为未绑定
-		if (index >= 100) {
-			return -1;
-		}
 		if (index >= 0) {
 			return keyboardConfig.getKeyAssign()[index];
 		} else if (index == -1) {
@@ -569,22 +561,92 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setKeyboardKeyAssign(int index) {
-		// 2P 槽位不允许绑定键盘 — 2P 仅支持 controller
-		if (index >= 100) {
-			return;
-		}
 		int newKey = keyboard.getLastPressedKey();
-		// ENTER/NUMPAD_ENTER 作为 START/SELECT 的合法绑定必须放行;仅屏蔽 1P 普通键位以防误触
-		if (index >= 0 && (newKey == Keys.ENTER || newKey == Keys.NUMPAD_ENTER)) {
+		// 保留原生按键(ControlKeys 中除数字外的)不可绑定
+		if (keyboard.isReservedKey(newKey)) {
 			return;
 		}
-		if (index >= 0) {
-			keyboardConfig.getKeyAssign()[index] = packKey(keyboardConfig.getKeyAssign()[index], newKey);
-		} else if (index == -1) {
-			keyboardConfig.setStart(packKey(keyboardConfig.getStart(), newKey));
-		} else if (index == -2) {
-			keyboardConfig.setSelect(packKey(keyboardConfig.getSelect(), newKey));
+		// SCR 槽位(F-SCR/R-SCR/WHEEL 等)支持多键 pack;普通键槽位仍按 upstream reset+direct set
+		boolean isScratchSlot = isScratchKeySlot(index);
+		if (isScratchSlot) {
+			if (index >= 0) {
+				keyboardConfig.getKeyAssign()[index] = packKey(keyboardConfig.getKeyAssign()[index], newKey);
+			} else if (index == -1) {
+				keyboardConfig.setStart(packKey(keyboardConfig.getStart(), newKey));
+			} else if (index == -2) {
+				keyboardConfig.setSelect(packKey(keyboardConfig.getSelect(), newKey));
+			}
+		} else {
+			resetKeyAssign(index);
+			if (index >= 0) {
+				keyboardConfig.getKeyAssign()[index] = newKey;
+			} else if (index == -1) {
+				keyboardConfig.setStart(newKey);
+			} else if (index == -2) {
+				keyboardConfig.setSelect(newKey);
+			}
 		}
+	}
+
+	/**
+	 * 当前模式 (mode) 下,index 对应的槽位是否是 SCR(F-SCR/R-SCR/WHEEL 等)。
+	 * 用于让 SCR 槽位支持多键 pack,普通键槽位仍按 upstream reset+direct set。
+	 * 判定依据是 KEYS 标签 — Mode.scratchKey 仅包含 F-SCR(5K/7K),
+	 * 漏掉了 R-SCR 这种"反向/换手"槽位,所以直接看标签更稳。
+	 */
+	private boolean isScratchKeySlot(int index) {
+		if (index < 0) return false; // START/SELECT 不参与 pack
+		String label = KEYS[mode][index];
+		if (label.contains("SCR") || label.contains("WHEEL")) {
+			return true;
+		}
+		for (int sc : MODE_HINT[mode].scratchKey) {
+			if (index == sc) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * 将 next 键打包进 current(8 bits per slot,0xFF 表示该 slot 空)。
+	 * current 为单键 (< 256) 时,按单键直接处理(高 3 字节视为空),
+	 * 保证从默认绑定升级到多键绑定时不会丢失已有按键。
+	 * 已包含 next 时取反 (= toggle off);已满 4 键时丢弃新键。
+	 * 所有未占用的 slot 都必须显式写入 0xFF,否则 0 会被
+	 * getKeyboardKeyString 误识别为按键 0 → 显示 "Unknown"。
+	 */
+	private int packKey(int current, int next) {
+		if (next == -1) return current;
+		int[] ids = new int[4];
+		int count = 0;
+		boolean found = false;
+		if (current >= 0 && current < 256) {
+			if (current == next) return -1;
+			ids[0] = current;
+			count = 1;
+		} else {
+			for (int j = 0; j < 4; j++) {
+				int id = (current >> (j * 8)) & 0xFF;
+				if (id == 0xFF) continue;
+				if (id == next) { found = true; continue; }
+				ids[count++] = id;
+			}
+		}
+		int result = 0xFFFFFFFF;
+		if (found) {
+			if (count == 0) return -1;
+			for (int j = 0; j < count; j++) {
+				result = (result & ~(0xFF << (j * 8))) | (ids[j] << (j * 8));
+			}
+			return result;
+		}
+		if (count >= 4) return current;
+		ids[count++] = next;
+		for (int j = 0; j < count; j++) {
+			result = (result & ~(0xFF << (j * 8))) | (ids[j] << (j * 8));
+		}
+		return result;
 	}
 
 	private String getKeyboardKeyString(int packed) {
@@ -601,10 +663,6 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private String getMouseScratchKeyString(int index, String defaultKeyString) {
-		// 2P 槽位不支持鼠标转盘 — 直接返回调用方的 defaultKeyString,避免后续 null 引起 NPE
-		if (index >= 100) {
-			return defaultKeyString;
-		}
 		String keyString = null;
 		if (index >= 0) {
 			keyString = keyboardConfig.getMouseScratchConfig().getKeyString(index);
@@ -621,10 +679,6 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setMouseScratchKeyAssign(int index, KeyBoardInputProcesseor kbp) {
-		// 2P 槽位不允许绑定鼠标转盘
-		if (index >= 100) {
-			return;
-		}
 		resetKeyAssign(index);
 		int lastMouseScratch = kbp.getMouseScratchInput().getLastMouseScratch();
 		if (index >= 0) {
@@ -638,7 +692,7 @@ public class KeyConfiguration extends MainState {
 
 	private int getControllerKeyAssign(int device, int index) {
 		if (index >= 0) {
-			return controllerConfigs[device].getKeyAssign()[index % 100];
+			return controllerConfigs[device].getKeyAssign()[index];
 		} else if (index == -1) {
 			return controllerConfigs[device].getStart();
 		} else if (index == -2) {
@@ -648,91 +702,30 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void setControllerKeyAssign(int index, BMControllerInputProcessor bmc) {
-		// index 格式: 1P=0..N, 2P=100..N+100, START=-1, SELECT=-2
-		// cindex (1P 还是 2P controller) 由 index/playerOffset 决定
-		final int cindex;
-		if (index >= 100) {
-			cindex = index / 100;
-		} else {
-			cindex = 0;
-		}
-		if (cindex < 0 || cindex >= controllerConfigs.length) {
-			return;
-		}
-		// 找名字匹配的 controller:如果当前 cindex 名字不匹配,在所有 controllers 里找
-		int actualCindex = -1;
-		if (bmc.getName().equals(controllerConfigs[cindex].getName())) {
-			actualCindex = cindex;
-		} else {
-			for (int i = 0; i < controllerConfigs.length; i++) {
-				if (bmc.getName().equals(controllerConfigs[i].getName())) {
-					actualCindex = i;
-					break;
-				}
+		int cindex = -1;
+		for (int i = 0; i < controllerConfigs.length; i++) {
+			if (bmc.getName().equals(controllerConfigs[i].getName())) {
+				cindex = i;
+				break;
 			}
 		}
-		if (actualCindex < 0) {
+		if (cindex < 0) {
 			return;
 		}
-
+		resetKeyAssign(index);
 		int newBtn = bmc.getLastPressedButton();
 		if (index >= 0) {
-			controllerConfigs[actualCindex].getKeyAssign()[index % 100] = packKey(controllerConfigs[actualCindex].getKeyAssign()[index % 100], newBtn);
+			controllerConfigs[cindex].getKeyAssign()[index] = newBtn;
 		} else if (index == -1) {
-			controllerConfigs[actualCindex].setStart(packKey(controllerConfigs[actualCindex].getStart(), newBtn));
+			controllerConfigs[cindex].setStart(newBtn);
 		} else if (index == -2) {
-			controllerConfigs[actualCindex].setSelect(packKey(controllerConfigs[actualCindex].getSelect(), newBtn));
+			controllerConfigs[cindex].setSelect(newBtn);
 		}
 		// 消费 lastPressedButton,防止下一帧 pollControllerNavShortcuts 把它当 nav 快捷键
 		bmc.setLastPressedButton(-1);
 	}
 
-	private int packKey(int current, int next) {
-		if (next == -1) return current;
-		if (current == -1) return next;
-		if (current >= 0 && current < 256) {
-			if (current == next) return -1; // Toggle off
-			// Pack 2 keys: Key1 | Key2 << 8 | 0xFF << 16 | 0xFF << 24
-			return current | (next << 8) | (0xFF << 16) | (0xFF << 24);
-		}
-		// Already packed, toggle or append
-		int[] ids = new int[3];
-		int count = 0;
-		boolean found = false;
-		for (int j = 0; j < 3; j++) {
-			int id = (current >> (j * 8)) & 0xFF;
-			if (id == 0xFF) continue;
-			if (id == next) {
-				found = true;
-				continue;
-			}
-			ids[count++] = id;
-		}
-
-		if (found) {
-			// Toggle off
-			if (count == 0) return -1;
-			if (count == 1) return ids[0];
-			return ids[0] | (ids[1] << 8) | (0xFF << 16) | (0xFF << 24);
-		} else {
-			// Append
-			if (count >= 3) return current; // Limit to 3 keys
-			int result = current;
-			for (int j = 0; j < 3; j++) {
-				if (((current >> (j * 8)) & 0xFF) == 0xFF) {
-					result = (current & ~(0xFF << (j * 8))) | (next << (j * 8));
-					break;
-				}
-			}
-			return result;
-		}
-	}
-
 	private MidiConfig.Input getMidiKeyAssign(int index) {
-		// 2P 槽位不支持 MIDI
-		if (index >= 100) {
-			return null;
-		}
 		if (index >= 0) {
 			return midiconfig.getKeyAssign(index);
 		} else if (index == -1) {
@@ -745,31 +738,24 @@ public class KeyConfiguration extends MainState {
 
 	private void resetKeyAssign(int index) {
 		if (index >= 0) {
-			final int slot = index % 100;
-			final boolean is2P = index >= 100;
-			if (!is2P) {
-				keyboardConfig.getKeyAssign()[slot] = -1;
-				keyboardConfig.getMouseScratchConfig().getKeyAssign()[slot] = -1;
-				midiconfig.setKeyAssign(slot, null);
-			}
+			keyboardConfig.getKeyAssign()[index] = -1;
+			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index] = -1;
+			midiconfig.setKeyAssign(index, null);
 			for (ControllerConfig cc : controllerConfigs) {
-				cc.getKeyAssign()[slot] = -1;
+				cc.getKeyAssign()[index] = -1;
 			}
 		}
 	}
 
 	private void deleteKeyAssign(int index) {
 		final int noAssign = -1;
-		final boolean is2P = index >= 100;
+		if (index >= 0) keyboardConfig.getKeyAssign()[index] = noAssign;
 		if(index >= 0) {
-			if (!is2P) {
-				keyboardConfig.getKeyAssign()[index % 100] = noAssign;
-				keyboardConfig.getMouseScratchConfig().getKeyAssign()[index % 100] = noAssign;
-				midiconfig.setKeyAssign(index % 100, null);
-			}
+			keyboardConfig.getMouseScratchConfig().getKeyAssign()[index] = noAssign;
 			for (ControllerConfig cc : controllerConfigs) {
-				cc.getKeyAssign()[index % 100] = noAssign;
+				cc.getKeyAssign()[index] = noAssign;
 			}
+			midiconfig.setKeyAssign(index, null);
 		} else if (index == -1) {
 			keyboardConfig.setStart(noAssign);
 			keyboardConfig.getMouseScratchConfig().setStart(noAssign);
@@ -789,10 +775,6 @@ public class KeyConfiguration extends MainState {
 
 	private void setMidiKeyAssign(int index) {
 		if (midiinput == null) return;
-		// 2P 槽位不支持 MIDI
-		if (index >= 100) {
-			return;
-		}
 		resetKeyAssign(index);
 		if (index >= 0) {
 			midiconfig.setKeyAssign(index, midiinput.getLastPressedKey());
@@ -804,12 +786,11 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void validateKeyboardLength() {
-		// 键盘配置只承担 1P 槽位 (index < 100),2P 槽位的 key % 100 才是 1P 位置
-		// 这里用 key%100 计算 maxKey,避免把键盘数组膨胀到 100+ 长度
+		// 用 KEYSA 中最大的正槽位计算 maxKey,START(-1)/SELECT(-2) 忽略。
 		int maxKey = 0;
 		for (int key : KEYSA[mode]) {
-			if (key % 100 > maxKey) {
-				maxKey = key % 100;
+			if (key > maxKey) {
+				maxKey = key;
 			}
 		}
 		if (keyboardConfig.getKeyAssign().length <= maxKey) {
@@ -822,23 +803,11 @@ public class KeyConfiguration extends MainState {
 	}
 
 	private void validateControllerLength() {
-		int maxPlayer = 0;
 		int maxKey = 0;
 		for (int key : KEYSA[mode]) {
-			if (key / playerOffset > maxPlayer) {
-				maxPlayer = key / playerOffset;
+			if (key > maxKey) {
+				maxKey = key;
 			}
-			if (key % playerOffset > maxKey) {
-				maxKey = key % playerOffset;
-			}
-		}
-		if (controllerConfigs.length <= maxPlayer) {
-			ControllerConfig[] configs = new ControllerConfig[maxPlayer + 1];
-			for (int i = 0; i < configs.length; i++) {
-				configs[i] = i < controllerConfigs.length ? controllerConfigs[i] : new ControllerConfig();
-			}
-			pc.setController(configs);
-			controllerConfigs = configs;
 		}
 		for (ControllerConfig controllerConfig : controllerConfigs) {
 			if (controllerConfig.getKeyAssign().length <= maxKey) {
