@@ -337,7 +337,6 @@ public final class SkinTextFont extends SkinText {
     public void draw(SkinObjectRenderer sprite, float offsetX, float offsetY) {
         if(font != null) {
             if (color.a == 0f) {
-                Gdx.app.log("FontDebug", "Skipping draw: color alpha is 0 for text: " + getText());
                 return;
             }
             if (parameter.size <= 0) {

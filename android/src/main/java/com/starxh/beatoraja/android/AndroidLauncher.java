@@ -267,8 +267,10 @@ public class AndroidLauncher extends AndroidApplication {
         // 首次启动时创建必要的目录
         createDefaultDirectories();
 
-        // 检测并解压 skin zip 到外部存储
+        // 检测并解压 skin/bgm/sound zip 到外部存储
         ensureExternalSkinZip(filesDir);
+        ensureExternalBgmZip(filesDir);
+        ensureExternalSoundZip(filesDir);
 
         // 检测并解压 songs zip 到 Download 目录
         ensureExternalSongZip();
@@ -406,6 +408,8 @@ public class AndroidLauncher extends AndroidApplication {
     private static final String BEATORAJA_BASE = "beatoraja";
     private static final String SONGS_FOLDER = "songs";
     private static final String SKINS_FOLDER = "skins";
+    private static final String BGM_FOLDER = "bgm";
+    private static final String SOUND_FOLDER = "sound";
 
     /**
      * 首次启动时创建必要的目录
@@ -414,6 +418,8 @@ public class AndroidLauncher extends AndroidApplication {
         File downloadBase = new File(getDownloadPath(), BEATORAJA_BASE);
         File songsDir = new File(downloadBase, SONGS_FOLDER);
         File skinsDir = new File(downloadBase, SKINS_FOLDER);
+        File bgmDir = new File(downloadBase, BGM_FOLDER);
+        File soundDir = new File(downloadBase, SOUND_FOLDER);
 
         if (!songsDir.exists()) {
             songsDir.mkdirs();
@@ -431,6 +437,14 @@ public class AndroidLauncher extends AndroidApplication {
         if (!skinsDir.exists()) {
             skinsDir.mkdirs();
             Log.i(TAG, "Created skins directory: " + skinsDir.getAbsolutePath());
+        }
+        if (!bgmDir.exists()) {
+            bgmDir.mkdirs();
+            Log.i(TAG, "Created bgm directory: " + bgmDir.getAbsolutePath());
+        }
+        if (!soundDir.exists()) {
+            soundDir.mkdirs();
+            Log.i(TAG, "Created sound directory: " + soundDir.getAbsolutePath());
         }
 
         // 创建内部存储中的必要目录 (table, songinfo, etc.)
@@ -465,80 +479,114 @@ public class AndroidLauncher extends AndroidApplication {
     private void ensureExternalSkinZip(File filesDir) {
         File externalSkinsDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SKINS_FOLDER);
         File internalSkinDir = new File(filesDir, "skin");
-
-        if (externalSkinsDir.exists() && externalSkinsDir.isDirectory()) {
-            boolean hasProcessed = false;
-
-            // 处理 zip 文件
-            File[] zipFiles = externalSkinsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
-            if (zipFiles != null && zipFiles.length > 0) {
-                Log.i(TAG, "Found " + zipFiles.length + " skin zip(s) in: " + externalSkinsDir.getAbsolutePath());
-                for (File zip : zipFiles) {
-                    String skinName = zip.getName().replace(".zip", "");
-                    File destFile = new File(internalSkinDir, skinName);
-
-                    if (destFile.exists() && destFile.list() != null && destFile.list().length > 0) {
-                        Log.i(TAG, "Skin already exists, skip: " + destFile.getAbsolutePath());
-                    } else if (destFile.exists() && !destFile.isDirectory()) {
-                        destFile.delete();
-                    }
-
-                    if (!destFile.exists() || !destFile.isDirectory()) {
-                        File destParent = destFile.getParentFile();
-                        if (destParent != null && !destParent.exists()) destParent.mkdirs();
-                        File tempZip = new File(internalSkinDir, skinName + ".zip");
-                        if (zip.renameTo(tempZip)) {
-                            Log.i(TAG, "Moved skin zip to: " + tempZip.getAbsolutePath());
-                            if (extractSkinZip(tempZip, internalSkinDir)) {
-                                tempZip.delete();
-                                Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
-                            }
-                        } else {
-                            if (extractSkinZip(zip, internalSkinDir)) {
-                                zip.delete();
-                                Log.i(TAG, "Deleted skin zip after extract: " + zip.getName());
-                            }
-                        }
-                    }
-                }
-                hasProcessed = true;
-            }
-
-            // 处理文件夹
-            File[] skinFolders = externalSkinsDir.listFiles(File::isDirectory);
-            if (skinFolders != null && skinFolders.length > 0) {
-                for (File skinFolder : skinFolders) {
-                    File destSkinDir = new File(internalSkinDir, skinFolder.getName());
-                    if (destSkinDir.exists()) {
-                        Log.i(TAG, "Skin folder already exists, skip: " + destSkinDir.getAbsolutePath());
-                    } else {
-                        if (skinFolder.renameTo(destSkinDir)) {
-                            Log.i(TAG, "Moved skin folder to: " + destSkinDir.getAbsolutePath());
-                        } else {
-                            try {
-                                copyDirectory(skinFolder, destSkinDir);
-                                deleteRecursive(skinFolder);
-                                Log.i(TAG, "Copied and deleted skin folder: " + skinFolder.getName());
-                            } catch (IOException e) {
-                                Log.e(TAG, "Failed to copy skin folder: " + skinFolder.getName(), e);
-                            }
-                        }
-                    }
-                }
-                hasProcessed = true;
-            }
-            if (hasProcessed) return;
-        }
+        // 先把 APK assets 里的内置皮肤(GenericTheme、default 等)落到 filesDir/skin/,
+        // 再 overlay 用户从 Download/beatoraja/skins/ 导入的皮肤。
+        // 否则只要用户放了任何外部皮肤,内置皮肤就会被跳过、列表里消失。
+        // copyAssetFolder 内部对每个子项做 if (!destSub.exists()) 检查,所以这里重复调用是安全的。
         ensureSkinAssets(filesDir);
+        ensureExternalResourceImport(externalSkinsDir, internalSkinDir, "skin");
     }
 
-    private boolean extractSkinZip(File zipFile, File destDir) {
-        destDir.mkdirs();
-        String skinName = zipFile.getName().replace(".zip", "");
-        File skinExtractDir = new File(destDir, skinName);
+    /**
+     * 检测外部 BGM 集并导入到 bgm 目录（与 skin 同样支持 zip 或文件夹）。
+     * 用户把 <code>Download/beatoraja/bgm/&lt;setName&gt;.zip</code> 或
+     * <code>Download/beatoraja/bgm/&lt;setName&gt;/</code> 放进来即可。
+     */
+    private void ensureExternalBgmZip(File filesDir) {
+        File externalBgmDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + BGM_FOLDER);
+        File internalBgmDir = new File(filesDir, "bgm");
+        ensureExternalResourceImport(externalBgmDir, internalBgmDir, "bgm");
+    }
 
-        if (skinExtractDir.exists() && skinExtractDir.list() != null && skinExtractDir.list().length > 0) {
-            Log.i(TAG, "Skin already extracted, skip: " + skinExtractDir.getAbsolutePath());
+    /**
+     * 检测外部 sound 集并导入到 sound 目录（与 skin 同样支持 zip 或文件夹）。
+     */
+    private void ensureExternalSoundZip(File filesDir) {
+        File externalSoundDir = new File(getDownloadPath(), BEATORAJA_BASE + "/" + SOUND_FOLDER);
+        File internalSoundDir = new File(filesDir, "sound");
+        ensureExternalResourceImport(externalSoundDir, internalSoundDir, "sound");
+    }
+
+    /**
+     * 把 <code>externalDir</code> 下的 zip / 子文件夹导入到 <code>internalDir</code>。
+     * 与 skin 一致:zip 优先 move(失败则 copy+extract),子文件夹 move(失败则 copy+delete)。
+     * 导入完成后源文件/源目录会被删除,避免下次启动重复导入。
+     *
+     * @return true 表示有 zip 或子文件夹被处理过
+     */
+    private boolean ensureExternalResourceImport(File externalDir, File internalDir, String logTag) {
+        if (!externalDir.exists() || !externalDir.isDirectory()) return false;
+
+        if (!internalDir.exists() && !internalDir.mkdirs()) {
+            Log.w(TAG, "Failed to create internal dir: " + internalDir.getAbsolutePath());
+            return false;
+        }
+
+        boolean hasProcessed = false;
+
+        File[] zipFiles = externalDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".zip"));
+        if (zipFiles != null && zipFiles.length > 0) {
+            Log.i(TAG, "Found " + zipFiles.length + " " + logTag + " zip(s) in: " + externalDir.getAbsolutePath());
+            for (File zip : zipFiles) {
+                String name = zip.getName().replace(".zip", "");
+                File destFile = new File(internalDir, name);
+
+                if (destFile.isDirectory() && destFile.list() != null && destFile.list().length > 0) {
+                    Log.i(TAG, logTag + " already exists, skip: " + destFile.getAbsolutePath());
+                    zip.delete();
+                    continue;
+                } else if (destFile.exists() && !destFile.isDirectory()) {
+                    destFile.delete();
+                }
+
+                File tempZip = new File(internalDir, name + ".zip");
+                if (zip.renameTo(tempZip)) {
+                    Log.i(TAG, "Moved " + logTag + " zip to: " + tempZip.getAbsolutePath());
+                    if (extractZip(tempZip, internalDir)) {
+                        tempZip.delete();
+                        Log.i(TAG, "Deleted " + logTag + " zip after extract: " + zip.getName());
+                    }
+                } else {
+                    if (extractZip(zip, internalDir)) {
+                        zip.delete();
+                        Log.i(TAG, "Deleted " + logTag + " zip after extract: " + zip.getName());
+                    }
+                }
+            }
+            hasProcessed = true;
+        }
+
+        File[] folders = externalDir.listFiles(File::isDirectory);
+        if (folders != null && folders.length > 0) {
+            for (File folder : folders) {
+                File destDir = new File(internalDir, folder.getName());
+                if (destDir.exists()) {
+                    Log.i(TAG, logTag + " folder already exists, skip: " + destDir.getAbsolutePath());
+                } else if (folder.renameTo(destDir)) {
+                    Log.i(TAG, "Moved " + logTag + " folder to: " + destDir.getAbsolutePath());
+                } else {
+                    try {
+                        copyDirectory(folder, destDir);
+                        deleteRecursive(folder);
+                        Log.i(TAG, "Copied and deleted " + logTag + " folder: " + folder.getName());
+                    } catch (IOException e) {
+                        Log.e(TAG, "Failed to copy " + logTag + " folder: " + folder.getName(), e);
+                    }
+                }
+            }
+            hasProcessed = true;
+        }
+
+        return hasProcessed;
+    }
+
+    private boolean extractZip(File zipFile, File destDir) {
+        destDir.mkdirs();
+        String name = zipFile.getName().replace(".zip", "");
+        File extractDir = new File(destDir, name);
+
+        if (extractDir.exists() && extractDir.list() != null && extractDir.list().length > 0) {
+            Log.i(TAG, "Already extracted, skip: " + extractDir.getAbsolutePath());
             return false;
         }
 
@@ -553,7 +601,7 @@ public class AndroidLauncher extends AndroidApplication {
                 }
                 if (entryName.isEmpty()) continue;
 
-                File outFile = new File(skinExtractDir, entryName);
+                File outFile = new File(extractDir, entryName);
                 if (entry.isDirectory()) {
                     outFile.mkdirs();
                 } else {
@@ -568,7 +616,7 @@ public class AndroidLauncher extends AndroidApplication {
             }
             return true;
         } catch (IOException e) {
-            Log.e(TAG, "Failed to extract skin zip: " + zipFile.getName(), e);
+            Log.e(TAG, "Failed to extract zip: " + zipFile.getName(), e);
             return false;
         }
     }
@@ -728,7 +776,6 @@ public class AndroidLauncher extends AndroidApplication {
 
     private void ensureSkinAssets(File filesDir) {
         File skinDir = new File(filesDir, "skin");
-        if (skinDir.exists()) return;
         skinDir.mkdirs();
         copyAssetFolder(getAssets(), "skin", skinDir);
     }

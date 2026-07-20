@@ -126,6 +126,12 @@ public interface VideoPlayer extends Disposable {
 	 * @return the time elapsed in milliseconds */
 	int getCurrentTimestamp ();
 
+	/** This will return the total duration of the currently loaded video.
+	 * Returns 0 until the video is buffered/prepared (call {@link #isBuffered()} to check).
+	 *
+	 * @return the duration of the video in milliseconds, or 0 if not yet known */
+	int getDuration ();
+
 	/** This will seek to the given time in the video.
 	 * @param msec The time to seek to in milliseconds */
 	void seek (int msec);

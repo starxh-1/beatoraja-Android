@@ -427,6 +427,14 @@ public class VideoPlayerAndroid extends AbstractVideoPlayer implements VideoPlay
 	}
 
 	@Override
+	public int getDuration () {
+		if (!prepared || player == null) {
+			return 0;
+		}
+		return player.getDuration();
+	}
+
+	@Override
 	public void seek (int msec) {
 		if (prepared) {
 			player.seekTo(msec);

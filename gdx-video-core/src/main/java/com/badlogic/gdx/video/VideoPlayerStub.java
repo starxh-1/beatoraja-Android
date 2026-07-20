@@ -92,6 +92,11 @@ class VideoPlayerStub extends AbstractVideoPlayer {
 	}
 
 	@Override
+	public int getDuration () {
+		return 0;
+	}
+
+	@Override
 	public void seek (int msec) {
 	}
 

@@ -184,6 +184,18 @@ public class GdxVideoProcessor implements MovieProcessor {
         long targetVideoTime = gameTime - gameStartTime;
         if (targetVideoTime < 0) return;
 
+        // 视频时长在底层 player 完成 prepare 之前为 0;一旦获得就缓存。
+        // 没有这个值,下面的 loop-wrap / EOF 分支永远进不去,
+        // → loop 视频 N 个循环后 drift 持续放大触发 severe-drift 反向 seek,
+        //   native MediaPlayer 把越界 seek 夹到 duration 附近,画面"卡"在结尾前的帧。
+        if (videoDuration <= 0) {
+            int d = videoPlayer.getDuration();
+            if (d > 0) {
+                videoDuration = d;
+                Logger.getGlobal().info("Video duration obtained: " + videoDuration + "ms (gameStartTime=" + gameStartTime + ")");
+            }
+        }
+
         if (videoDuration > 0 && targetVideoTime > videoDuration) {
             if (loop) {
                 targetVideoTime = targetVideoTime % videoDuration;
@@ -336,6 +348,7 @@ public class GdxVideoProcessor implements MovieProcessor {
             gameStartTime = -1;
             lastSeekTime = -1;
             initialSeekDone = false;
+            videoDuration = -1;
             currentTexture = null;
         } catch (Exception e) {
             // 静默失败
@@ -394,6 +407,7 @@ public class GdxVideoProcessor implements MovieProcessor {
         playing = false;
         startTime = -1;
         gameStartTime = -1;
+        videoDuration = -1;
         if (videoPlayer != null) {
             try {
                 videoPlayer.dispose();
