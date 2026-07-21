@@ -149,9 +149,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     public SongData[] getSongDatas(String key, String value) {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        // Use rawQuery with try-with-resources to ensure cursor closure
-        String sql = "SELECT * FROM song WHERE " + key + " = '" + value.replace("'", "''") + "'";
-        try (Cursor c = db.rawQuery(sql, null)) {
+        String sql = "SELECT * FROM song WHERE " + key + " = ?";
+        try (Cursor c = db.rawQuery(sql, new String[]{value})) {
             while (c.moveToNext()) {
                 SongData sd = cursorToSongData(c);
                 list.add(sd);
@@ -181,24 +180,46 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     @Override
     public SongData[] getSongDatas(String[] hashes) {
         if (hashes == null || hashes.length == 0) return SongData.EMPTY;
-        StringBuilder md5s = new StringBuilder();
-        StringBuilder sha256s = new StringBuilder();
+        List<String> md5List = new ArrayList<>();
+        List<String> sha256List = new ArrayList<>();
         for (String h : hashes) {
-            if (h.length() > 32) {
-                if (sha256s.length() > 0) sha256s.append(',');
-                sha256s.append('\'').append(h).append('\'');
-            } else {
-                if (md5s.length() > 0) md5s.append(',');
-                md5s.append('\'').append(h).append('\'');
+            if (h != null) {
+                if (h.length() > 32) {
+                    sha256List.add(h);
+                } else {
+                    md5List.add(h);
+                }
             }
         }
-        String sql = "SELECT * FROM song WHERE "
-                + (md5s.length() > 0 ? "md5 IN (" + md5s.toString() + ")" : "1=0")
-                + " OR "
-                + (sha256s.length() > 0 ? "sha256 IN (" + sha256s.toString() + ")" : "1=0");
+        // Build parameterized query
+        StringBuilder sql = new StringBuilder("SELECT * FROM song WHERE ");
+        List<String> args = new ArrayList<>();
+        if (!md5List.isEmpty()) {
+            sql.append("md5 IN (");
+            for (int i = 0; i < md5List.size(); i++) {
+                if (i > 0) sql.append(',');
+                sql.append('?');
+                args.add(md5List.get(i));
+            }
+            sql.append(')');
+        } else {
+            sql.append("1=0");
+        }
+        sql.append(" OR ");
+        if (!sha256List.isEmpty()) {
+            sql.append("sha256 IN (");
+            for (int i = 0; i < sha256List.size(); i++) {
+                if (i > 0) sql.append(',');
+                sql.append('?');
+                args.add(sha256List.get(i));
+            }
+            sql.append(')');
+        } else {
+            sql.append("1=0");
+        }
         SQLiteDatabase db = helper.getReadableDatabase();
         List<SongData> list = new ArrayList<>();
-        try (Cursor c = db.rawQuery(sql, null)) {
+        try (Cursor c = db.rawQuery(sql.toString(), args.toArray(new String[0]))) {
             while (c.moveToNext()) {
                 list.add(cursorToSongData(c));
             }
@@ -653,6 +674,14 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         db.beginTransaction();
         try {
             for (SongData sd : songs) {
+                int preservedTail = sd.getTail();
+                // Preserve existing tail from DB (setSongDatas is used for favorite/tag updates,
+                // should not overwrite tail which is managed separately by updateSongTail)
+                try (Cursor c = db.rawQuery("SELECT tail FROM song WHERE sha256 = ?", new String[]{sd.getSha256()})) {
+                    if (c.moveToFirst()) {
+                        preservedTail = c.getInt(0);
+                    }
+                } catch (Throwable ignored) {}
                 ContentValues cv = new ContentValues();
                 cv.put("md5", sd.getMd5());
                 cv.put("sha256", sd.getSha256());
@@ -674,7 +703,7 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                 cv.put("maxbpm", sd.getMaxbpm());
                 cv.put("minbpm", sd.getMinbpm());
                 cv.put("length", sd.getLength());
-                cv.put("tail", sd.getTail());
+                cv.put("tail", preservedTail);
                 cv.put("mode", sd.getMode());
                 cv.put("judge", sd.getJudge());
                 cv.put("feature", sd.getFeature());
@@ -723,10 +752,8 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         SQLiteDatabase db = helper.getReadableDatabase();
         List<FolderData> list = new ArrayList<>();
         try {
-            // Use rawQuery with direct string instead of db.query() with parameters
-            // This avoids SQLDroid issue where getParameterMetaData is not implemented
-            String sql = "SELECT * FROM folder WHERE " + key + " = '" + value.replace("'", "''") + "'";
-            try (Cursor c = db.rawQuery(sql, null)) {
+            String sql = "SELECT * FROM folder WHERE " + key + " = ?";
+            try (Cursor c = db.rawQuery(sql, new String[]{value})) {
                 while (c.moveToNext()) {
                     FolderData fd = new FolderData();
                     fd.setTitle(getStringSafe(c, "title"));
@@ -754,10 +781,44 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     @Override
     public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll, SongScanProgress progress) {
         if (updatepath != null) {
-            updateSongDatas(new String[]{updatepath}, updateAll, progress);
+            // updateParentWhenMissing: if the parent folder is missing from the folder table,
+            // scan the parent first to ensure the folder hierarchy is correct.
+            // Skip the parent check when updatepath IS a bmsroot (the root itself may not have
+            // a folder table entry, and scanning its parent would be wrong).
+            String pathToScan = ensureParentFolderExists(updatepath, bmsroot);
+            updateSongDatas(new String[]{pathToScan}, updateAll, progress);
         } else {
             updateSongDatas(bmsroot, updateAll, progress);
         }
+    }
+
+    private String ensureParentFolderExists(String path, String[] bmsroot) {
+        if (path == null || path.trim().isEmpty()) return path;
+        // Check if path equals any bmsroot — if so, return unchanged.
+        // The bmsroot itself may not have a folder table entry; scanning its parent
+        // would pick up unwanted files outside the root.
+        String normalized = path.replace('\\', '/');
+        if (!normalized.endsWith("/")) normalized += "/";
+        if (bmsroot != null) {
+            for (String root : bmsroot) {
+                if (root == null) continue;
+                String nr = root.replace('\\', '/');
+                if (!nr.endsWith("/")) nr += "/";
+                if (normalized.equals(nr)) return path;
+            }
+        }
+        File parent = new File(path).getParentFile();
+        if (parent == null) return path;
+        String parentPath = parent.getAbsolutePath().replace('\\', '/');
+        if (!parentPath.endsWith("/")) parentPath += "/";
+        // Check if parent folder already exists in the folder table
+        SQLiteDatabase db = helper.getReadableDatabase();
+        try (Cursor c = db.rawQuery("SELECT 1 FROM folder WHERE path = ?", new String[]{parentPath})) {
+            if (c.moveToFirst()) return path; // parent exists, scan the original path
+        } catch (Throwable ignored) {}
+        // Parent not found, scan the parent directory instead
+        Log.i(TAG, "ensureParentFolderExists: parent folder '" + parentPath + "' not in DB, scanning parent first");
+        return parent.getAbsolutePath();
     }
 
     /**

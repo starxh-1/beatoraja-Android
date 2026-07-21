@@ -396,11 +396,15 @@ public final class MusicSelector extends MainState {
 	public void input() {
 		final BMSPlayerInputProcessor input = main.getInputProcessor();
 
-
 		if (input.getControlKeyState(ControlKeys.NUM6)) {
 			main.changeState(MainStateType.CONFIG);
 		} else if (input.isActivated(KeyCommand.OPEN_SKIN_CONFIGURATION)) {
 			main.changeState(MainStateType.SKINCONFIG);
+		}
+
+		// Debug: check F2 state before musicinput processes it (non-consuming check)
+		if (input.getControlKeyState(bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys.F2)) {
+			Gdx.app.log("MusicSelector", "F2 state is active before musicinput.input()");
 		}
 
 		musicinput.input();
