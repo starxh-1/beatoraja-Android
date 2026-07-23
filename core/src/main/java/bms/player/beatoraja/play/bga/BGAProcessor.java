@@ -267,16 +267,10 @@ public class BGAProcessor {
 		Gdx.app.postRunnable(() -> mpgresource.disposeOld());
 	}
 	/**
-	 * BGAの初期データをあらかじめキャッシュする
+	 * 视频解码器/文件预加载。设计为在 BGA 加载线程上调用，避免阻塞 GL 线程。
+	 * BMSResource 的 bgaloader 在 setModel 之后调用本方法，mediaLoadFinished() 隐含了完成信号。
 	 */
-	public void prepare(BMSPlayer player) {
-		pos = 0;
-		resetCurrentlyPlayingBGA();
-		bgaFramebufferDirty = true;
-		if(cache != null) {
-			cache.prepare(timelines);
-		}
-
+	public void prepareDecoders() {
 		// 预加载视频解码器，减少首次播放延迟
 		for (MovieProcessor mpg : movies) {
 			if (mpg != null) {
@@ -288,6 +282,18 @@ public class BGAProcessor {
 			if (mpg != null) {
 				mpg.preload();
 			}
+		}
+	}
+
+	/**
+	 * BGAの初期データをあらかじめキャッシュする
+	 */
+	public void prepare(BMSPlayer player) {
+		pos = 0;
+		resetCurrentlyPlayingBGA();
+		bgaFramebufferDirty = true;
+		if(cache != null) {
+			cache.prepare(timelines);
 		}
 		// 初始化为 -1 而非 0，确保 time=0 的 BGA 事件不会被 prepareBGA() 跳过
 		// （prepareBGA 中 tl.getTime() > this.time 条件：0 > -1 为 true，0 > 0 为 false）

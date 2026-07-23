@@ -134,6 +134,11 @@ public class BMSResource {
 						prevBgaloader.join();
 					}
 					bga.setModel(bgamodel);
+					// 在加载线程上预加载解码器/视频文件，避免阻塞 GL 线程的 STATE_PRELOAD 第一帧
+					// （MediaCodec 首次打开每个几百 ms，N 个 BGA 串起来就是秒级）
+					if (bgamodel != null) {
+						bga.prepareDecoders();
+					}
 				} catch (Throwable e) {
 					Logger.getGlobal().severe(e.getClass().getName() + " : " + e.getMessage());
 					e.printStackTrace();
