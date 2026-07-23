@@ -1294,6 +1294,22 @@ public class AndroidLauncher extends AndroidApplication {
                 public void saveStarRating(double val) {
                     prevStarRating = val;
                 }
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public String getSettings() {
+                    return instance.getSharedPreferences(
+                            "beatoraja_prefs",
+                            android.content.Context.MODE_PRIVATE)
+                            .getString("walkure_settings", "{}");
+                }
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public void saveSettings(String json) {
+                    instance.getSharedPreferences(
+                            "beatoraja_prefs",
+                            android.content.Context.MODE_PRIVATE).edit()
+                            .putString("walkure_settings", json == null ? "{}" : json).apply();
+                }
             }, "RatingBridge");
 
             webView.setWebViewClient(new android.webkit.WebViewClient() {

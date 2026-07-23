@@ -5,144 +5,189 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <title>Walkure Rating</title>
 <style>
+:root{
+  --bg:#0f1923;--fg:#d0dce8;--accent:#4fc3f7;--muted:#788a9c;--gold:#ffe082;
+  --panel:#1a2a3a;--panel2:#142838;--border:#1e3a5a;--danger:#e74c3c;
+  --row-alt:rgba(20,40,56,0.4);--row-border:#1a3048;
+  --accent-soft:rgba(79,195,247,0.25);--accent-bg:rgba(79,195,247,0.1);--accent-faint:rgba(79,195,247,0.2);
+  --purple-soft:rgba(168,85,247,0.12);--purple-border:rgba(100,100,180,0.3);
+  --gold-soft:rgba(255,224,130,0.08);--gold-border:rgba(255,224,130,0.3);--gold-edge:rgba(255,224,130,0.4);
+  --shadow:rgba(0,0,0,0.5)
+}
+body.theme-light{
+  --bg:#f4f7fa;--fg:#1c2b3a;--accent:#2196f3;--muted:#5a6a7a;--gold:#c8960a;
+  --panel:#e2eaf2;--panel2:#ffffff;--border:#c2d2e2;--danger:#c0392b;
+  --row-alt:rgba(0,0,0,0.03);--row-border:#d8e0e8;
+  --accent-soft:rgba(33,150,243,0.25);--accent-bg:rgba(33,150,243,0.1);--accent-faint:rgba(33,150,243,0.2);
+  --purple-soft:rgba(126,87,194,0.12);--purple-border:rgba(126,87,194,0.3);
+  --gold-soft:rgba(200,150,10,0.08);--gold-border:rgba(200,150,10,0.3);--gold-edge:rgba(200,150,10,0.4);
+  --shadow:rgba(0,0,0,0.2)
+}
 *{margin:0;padding:0;box-sizing:border-box}
 body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-  background:#0f1923;color:#d0dce8;padding:16px;overflow-x:hidden;
+  background:var(--bg);color:var(--fg);padding:16px;overflow-x:hidden;
   -webkit-text-size-adjust:100%
 }
 .container{max-width:100%;margin:0 auto}
 .header{display:flex;align-items:flex-start;justify-content:space-between;padding:20px 0 12px}
 .header .title-block{text-align:left}
-.header h1{font-size:20px;color:#4fc3f7;margin-bottom:2px}
-.header .subtitle{font-size:13px;color:#788a9c}
-/* .rating-card removed - now inline styles in render() */
-.star-rating{font-size:34px;font-weight:bold;color:#ffe082;font-variant-numeric:tabular-nums;text-align:center;margin:16px 0;line-height:1.1}
+.header h1{font-size:20px;color:var(--accent);margin-bottom:2px}
+.header .subtitle{font-size:13px;color:var(--muted)}
+.star-rating{font-size:34px;font-weight:bold;color:var(--gold);font-variant-numeric:tabular-nums;text-align:center;margin:16px 0;line-height:1.1}
 .low-confidence{
-  background:rgba(255,224,130,0.08);border:1px solid rgba(255,224,130,0.3);
+  background:var(--gold-soft);border:1px solid var(--gold-border);
   border-radius:8px;padding:8px 12px;margin-bottom:8px;font-size:12px;
-  color:#ffe082;line-height:1.5
+  color:var(--gold);line-height:1.5
 }
-.low-confidence strong{color:#ffe082}
+.low-confidence strong{color:var(--gold)}
 
-.tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid #1e3a5a}
+.tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
 .tab-btn{
   flex:0 0 auto;padding:8px 43px;text-align:center;font-size:14px;font-weight:600;
-  background:#1a2a3a;color:#788a9c;border:none;cursor:pointer;
+  background:var(--panel);color:var(--muted);border:none;cursor:pointer;
   transition:all .2s
 }
-.tab-btn.active{background:#1e3a5a;color:#4fc3f7}
+.tab-btn.active{background:var(--border);color:var(--accent)}
 .tab-btn:first-child{border-radius:10px 0 0 10px}
 .tab-btn:last-child{border-radius:0 10px 10px 0}
 .tab-content{display:none}
 .tab-content.active{display:block}
 .filters{
-  background:#1a2a3a;border-radius:10px;padding:12px;margin-bottom:12px;
-  font-size:13px;border:1px solid #1e3a5a
+  background:var(--panel);border-radius:10px;padding:12px;margin-bottom:12px;
+  font-size:13px;border:1px solid var(--border)
 }
-.filters-title{font-weight:600;color:#4fc3f7;margin-bottom:8px;font-size:14px}
+.filters-title{font-weight:600;color:var(--accent);margin-bottom:8px;font-size:14px}
 .filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;align-items:center}
-.filter-row label{color:#788a9c;margin-right:4px}
+.filter-row label{color:var(--muted);margin-right:4px}
 .filter-row input[type=text]{
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:6px 10px;color:#d0dce8;font-size:13px;width:100%;max-width:300px
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 10px;color:var(--fg);font-size:13px;width:100%;max-width:300px
 }
 .star-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .star-category{margin-bottom:6px}
 .star-category-header{
   display:flex;align-items:center;gap:6px;padding:4px 8px;
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  cursor:pointer;font-size:12px;color:#4fc3f7;font-weight:600;
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  cursor:pointer;font-size:12px;color:var(--accent);font-weight:600;
   user-select:none;-webkit-user-select:none
 }
-.star-category-header:hover{background:#1e3a5a}
+.star-category-header:hover{background:var(--border)}
 .star-category-header .arrow{font-size:10px;transition:transform .2s}
 .star-category-header.open .arrow{transform:rotate(90deg)}
-.star-category-header .cat-cb{width:14px;height:14px;accent-color:#4fc3f7;cursor:pointer;margin:0;pointer-events:auto}
+.star-category-header .cat-cb{width:14px;height:14px;accent-color:var(--accent);cursor:pointer;margin:0;pointer-events:auto}
 .star-category-items{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;padding-left:8px}
 .star-category-items.collapsed{display:none}
 .star-actions{display:flex;gap:4px;margin-bottom:6px}
 .star-actions button{
-  background:transparent;border:1px solid rgba(79,195,247,0.2);border-radius:4px;
-  color:#4fc3f7;font-size:10px;padding:2px 8px;cursor:pointer
+  background:transparent;border:1px solid var(--accent-faint);border-radius:4px;
+  color:var(--accent);font-size:10px;padding:2px 8px;cursor:pointer
 }
 .star-group label{
   display:inline-flex;align-items:center;gap:3px;
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:4px 8px;font-size:12px;cursor:pointer;color:#788a9c
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:var(--muted)
 }
-.star-group label.checked{color:#ffe082;border-color:rgba(255,224,130,0.4)}
+.star-group label.checked{color:var(--gold);border-color:var(--gold-edge)}
 .lamp-group{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px}
 .lamp-group label{
   display:inline-flex;align-items:center;gap:3px;
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:4px 8px;font-size:12px;cursor:pointer;color:#788a9c
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 8px;font-size:12px;cursor:pointer;color:var(--muted)
 }
-.lamp-group label.checked{border-color:rgba(79,195,247,0.4);color:#4fc3f7}
+.lamp-group label.checked{border-color:var(--accent-soft);color:var(--accent)}
 .filter-actions{display:flex;gap:8px;margin-top:8px}
 .filter-actions button{
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:4px 12px;color:#4fc3f7;font-size:12px;cursor:pointer
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 12px;color:var(--accent);font-size:12px;cursor:pointer
 }
 .table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
-th{background:#142838;color:#4fc3f7;padding:8px 6px;text-align:left;
+th{background:var(--panel2);color:var(--accent);padding:8px 6px;text-align:left;
    position:sticky;top:0;white-space:nowrap;font-weight:600;cursor:pointer;
    user-select:none}
-th:hover{background:#1e3a5a}
-th .sort-arrow{font-size:10px;margin-left:3px;color:#ffe082}
-td{padding:8px 6px;border-bottom:1px solid #1a3048;white-space:nowrap}
-tr:nth-child(even) td{background:rgba(20,40,56,0.4)}
+th:hover{background:var(--border)}
+th .sort-arrow{font-size:10px;margin-left:3px;color:var(--gold)}
+td{padding:8px 6px;border-bottom:1px solid var(--row-border);white-space:nowrap}
+tr:nth-child(even) td{background:var(--row-alt)}
 .prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
 .chart-name{max-width:180px;overflow-wrap:break-word;white-space:normal}
 .chart-table select,.chart-table input[type=text]{
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:6px 10px;color:#d0dce8;font-size:13px
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 10px;color:var(--fg);font-size:13px
 }
 .chart-table input[type=text]{width:200px}
-.lamp-noplay{color:#555}.lamp-failed{color:#e74c3c}
+.lamp-noplay{color:#555}.lamp-failed{color:var(--danger)}
 .lamp-easy{color:#1ff00c}
 .lamp-normal{color:#ebfc05}
 .lamp-hard{color:#f7f3f2}
 .lamp-fullCombo,.lamp-fc{color:#1bdbf5}
-.empty-msg{text-align:center;padding:30px 16px;color:#788a9c;font-size:14px}
+.empty-msg{text-align:center;padding:30px 16px;color:var(--muted);font-size:14px}
 .page-controls{
   display:flex;align-items:center;justify-content:space-between;
-  padding:10px 0;font-size:13px;color:#788a9c;flex-wrap:wrap;gap:8px
+  padding:10px 0;font-size:13px;color:var(--muted);flex-wrap:wrap;gap:8px
 }
 .page-controls .page-size-group{display:flex;align-items:center;gap:6px}
 .page-controls .page-size-group button{
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:4px 10px;color:#4fc3f7;font-size:12px;cursor:pointer
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 10px;color:var(--accent);font-size:12px;cursor:pointer
 }
-.page-controls .page-size-group button.active{background:#1e3a5a;color:#ffe082;border-color:rgba(255,224,130,0.4)}
+.page-controls .page-size-group button.active{background:var(--border);color:var(--gold);border-color:var(--gold-edge)}
 .page-controls .page-nav{display:flex;align-items:center;gap:6px}
 .page-controls .page-nav button{
-  background:#142838;border:1px solid #1e3a5a;border-radius:6px;
-  padding:4px 10px;color:#4fc3f7;font-size:12px;cursor:pointer
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:4px 10px;color:var(--accent);font-size:12px;cursor:pointer
 }
 .page-controls .page-nav button:disabled{opacity:.3;cursor:default}
 .page-controls .page-nav span{min-width:60px;text-align:center}
 .close-btn{
   display:table;margin:16px auto 0;padding:10px 32px;
-  background:rgba(168,85,247,0.12);color:#4fc3f7;
-  border:1px solid rgba(100,100,180,0.3);border-radius:10px;
+  background:var(--purple-soft);color:var(--accent);
+  border:1px solid var(--purple-border);border-radius:10px;
   font-size:16px;cursor:pointer;text-align:center
 }
-.loading{text-align:center;padding:60px 16px;color:#788a9c}
+.loading{text-align:center;padding:60px 16px;color:var(--muted)}
 .spinner{
-  width:36px;height:36px;border:4px solid #1e3a5a;
-  border-top-color:#4fc3f7;border-radius:50%;
+  width:36px;height:36px;border:4px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;
   animation:spin .8s linear infinite;margin:0 auto 12px
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.count-badge{font-size:11px;color:#788a9c;margin-left:6px}
-.lang-btns{display:flex;gap:2px;flex-shrink:0}
+.count-badge{font-size:11px;color:var(--muted);margin-left:6px}
+.lang-btns{display:flex;gap:2px;flex-shrink:0;align-items:center}
 .lang-btn{
-  background:transparent;border:1px solid rgba(79,195,247,0.25);border-radius:4px;
-  color:#788a9c;font-size:10px;padding:2px 5px;cursor:pointer;transition:all .15s
+  background:transparent;border:1px solid var(--accent-soft);border-radius:4px;
+  color:var(--muted);font-size:10px;padding:2px 5px;cursor:pointer;transition:all .15s
 }
-.lang-btn.active{border-color:#4fc3f7;color:#4fc3f7;background:rgba(79,195,247,0.1)}
+.lang-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-bg)}
+.gear-btn{
+  background:transparent;border:1px solid var(--accent-soft);border-radius:4px;
+  color:var(--muted);font-size:14px;padding:0 6px;cursor:pointer;line-height:1.4;margin-left:2px
+}
+.gear-btn:hover{color:var(--accent);border-color:var(--accent)}
+.settings-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;
+  display:flex;align-items:center;justify-content:center;padding:16px
+}
+.settings-panel{
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:20px;max-width:340px;width:100%;color:var(--fg);box-shadow:0 8px 24px var(--shadow)
+}
+.settings-header{
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:16px;font-weight:600;color:var(--accent);margin-bottom:16px
+}
+.settings-header button{
+  background:transparent;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px
+}
+.settings-row{margin-bottom:14px}
+.settings-row .label{font-size:13px;color:var(--muted);margin-bottom:6px}
+.settings-row .opts{display:flex;gap:6px;flex-wrap:wrap}
+.settings-row .opts button{
+  background:var(--panel2);border:1px solid var(--border);border-radius:6px;
+  padding:6px 14px;color:var(--accent);font-size:13px;cursor:pointer
+}
+.settings-row .opts button.active{background:var(--border);color:var(--gold);border-color:var(--gold-edge)}
 </style>
 </head>
 <body>
@@ -257,6 +302,7 @@ var LANG={
 var RatingApp={
   data:null,
   chartData:null,
+  settings:{theme:'dark'},
   recSortCol:4,
   recSortDir:-1,
   revSortCol:5,
@@ -281,6 +327,8 @@ var RatingApp={
   showRating:function(d){
     if(typeof d==='string'){try{this.data=JSON.parse(d)}catch(e){this.renderError("Invalid data");return}}
     else{this.data=d}
+    this.loadSettings()
+    this.applySettings()
     this.recPage=0;this.revPage=0
     if(d.chartEntries)this.chartData=d.chartEntries
     this.render()
@@ -297,6 +345,7 @@ var RatingApp={
     h+='<div class="lang-btns">'
     var l=['ja','en','zh','ko'],ln=['\u65e5\u672c\u8a9e','English','\u4e2d\u6587','\ud55c\uad6d\uc5b4']
     for(var i=0;i<l.length;i++)h+='<button onclick="RatingApp.switchLang(\''+l[i]+'\')" class="lang-btn'+(l[i]===_lang?' active':'')+'">'+ln[i]+'</button>'
+    h+='<button class="gear-btn" onclick="RatingApp.openSettings()">\u2699</button>'
     h+='</div>'
     h+='</div>'
     h+='<div class="star-rating" id="star-rating"></div>'
@@ -423,7 +472,7 @@ var RatingApp={
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div><div class="star-actions"><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',true)">All</button><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',false)">None</button></div>'+
       '<div class="filter-row"><label>'+_t('lamp')+':</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
-      '<div class="filter-row"><label>'+_t('ground')+':</label><input type="text" id="rev-ground-filter" placeholder="min" style="background:#142838;border:1px solid #1e3a5a;border-radius:6px;padding:4px 8px;color:#d0dce8;font-size:12px;width:80px"></div>'+
+      '<div class="filter-row"><label>'+_t('ground')+':</label><input type="text" id="rev-ground-filter" placeholder="min" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--fg);font-size:12px;width:80px"></div>'+
       '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">'+_t('reset')+'</button></div>'
     tab.appendChild(filters)
     var area=document.createElement('div')
@@ -862,10 +911,53 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     document.getElementById('app').innerHTML='<div class="loading"><div class="spinner"></div><p>Loading...</p></div>'
   },
   renderError:function(msg){
-    document.getElementById('app').innerHTML='<div class="container"><div style="text-align:center;padding:40px 16px;color:#e74c3c"><div style="font-size:48px;margin-bottom:12px">!</div><p>'+this.esc(msg)+'</p></div><button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
+    document.getElementById('app').innerHTML='<div class="container"><div style="text-align:center;padding:40px 16px;color:var(--danger)"><div style="font-size:48px;margin-bottom:12px">!</div><p>'+this.esc(msg)+'</p></div><button class="close-btn" onclick="RatingApp.close()">Close</button></div>'
   },
   close:function(){
     if(window.RatingBridge){window.RatingBridge.close()}
+  },
+  applySettings:function(){
+    var t=this.settings&&this.settings.theme==='light'?'light':'dark'
+    document.body.className='theme-'+t
+  },
+  openSettings:function(){
+    var existing=document.getElementById('settings-overlay')
+    if(existing)return
+    var cur=this.settings&&this.settings.theme==='light'?'light':'dark'
+    var h='<div class="settings-overlay" id="settings-overlay" onclick="if(event.target===this)RatingApp.closeSettings()">'
+    h+='<div class="settings-panel">'
+    h+='<div class="settings-header"><span>\u8bbe\u7f6e</span><button onclick="RatingApp.closeSettings()">\u00d7</button></div>'
+    h+='<div class="settings-row"><div class="label">\u4e3b\u9898</div><div class="opts">'
+    h+='<button onclick="RatingApp.setTheme(\'dark\')" class="'+(cur==='dark'?'active':'')+'">\u6697\u8272</button>'
+    h+='<button onclick="RatingApp.setTheme(\'light\')" class="'+(cur==='light'?'active':'')+'">\u4eae\u8272</button>'
+    h+='</div></div>'
+    h+='</div></div>'
+    document.body.insertAdjacentHTML('beforeend',h)
+  },
+  closeSettings:function(){
+    var el=document.getElementById('settings-overlay')
+    if(el)el.remove()
+    this.saveSettings()
+  },
+  setTheme:function(t){
+    this.settings.theme=t
+    this.applySettings()
+    var btns=document.querySelectorAll('#settings-overlay .opts button')
+    for(var i=0;i<btns.length;i++){
+      btns[i].className=(btns[i].getAttribute('onclick').indexOf('\''+t+'\'')>=0)?'active':''
+    }
+  },
+  saveSettings:function(){
+    if(window.RatingBridge&&window.RatingBridge.saveSettings){
+      window.RatingBridge.saveSettings(JSON.stringify(this.settings))
+    }
+  },
+  loadSettings:function(){
+    var raw=null
+    try{if(window.RatingBridge&&window.RatingBridge.getSettings){raw=window.RatingBridge.getSettings()}}catch(e){}
+    var parsed={}
+    if(raw){try{parsed=JSON.parse(raw)}catch(e){}}
+    this.settings.theme=(parsed&&parsed.theme==='light')?'light':'dark'
   },
   switchChartTab:function(key){
     this.chartActiveTab=key
@@ -882,7 +974,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var entries=this.getChartEntries(tableKey)
     var f=this.chartFilters[tableKey]
     if(f.star&&f.star!=='all'){
-      entries=entries.filter(function(e){return e.difficultyTableLevels[tableKey]===f.star})
+      if(tableKey==='dan'){
+        entries=entries.filter(function(e){return e.difficultyTableLevels[tableKey]!=null})
+      }else{
+        entries=entries.filter(function(e){return e.difficultyTableLevels[tableKey]===f.star})
+      }
     }
     if(f.title){
       var q=f.title.toLowerCase()
@@ -914,6 +1010,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     return entries
   },
   getChartStarLevels:function(tableKey){
+    if(tableKey==='dan')return['\u6bb5\u4f4d']
     var entries=this.getChartEntries(tableKey)
     var levels={}
     entries.forEach(function(e){var l=e.difficultyTableLevels[tableKey];if(l)levels[l]=true})
@@ -946,7 +1043,10 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     h+='<div class="filters" style="margin-bottom:8px"><div class="filter-row">'
     h+='<label>\u2605:</label><select id="chart-star-'+tableKey+'" onchange="RatingApp.onChartStarFilter(\''+tableKey+'\',this.value)">'
     h+='<option value="all"'+(f.star==='all'?' selected':'')+'>All</option>'
-    starLevels.forEach(function(lvl){h+='<option value="'+RatingApp.esc(lvl)+'"'+(f.star===lvl?' selected':'')+'>'+tc.levelPrefix+RatingApp.esc(lvl)+'</option>'})
+    starLevels.forEach(function(lvl){
+      var label=tableKey==='dan'?tc.levelPrefix:tc.levelPrefix+RatingApp.esc(lvl)
+      h+='<option value="'+RatingApp.esc(lvl)+'"'+(f.star===lvl?' selected':'')+'>'+label+'</option>'
+    })
     h+='</select>'
     h+='<label>\u30bf\u30a4\u30c8\u30eb:</label><input type="text" id="chart-title-'+tableKey+'" value="'+this.esc(f.title)+'" oninput="RatingApp.onChartTitleFilter(\''+tableKey+'\',this.value)" placeholder="\u691c\u7d22...">'
     h+='</div></div>'
@@ -965,7 +1065,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       var lvl=e.difficultyTableLevels[tableKey]
       var sr=e.clearDifficultyStarRatings||{}
       h+='<tr>'
-      h+='<td style="color:#ffe082;font-weight:600">'+tc.levelPrefix+RatingApp.esc(lvl)+'</td>'
+      h+='<td style="color:var(--gold);font-weight:600">'+(tableKey==='dan'?tc.levelPrefix:tc.levelPrefix+RatingApp.esc(lvl))+'</td>'
       h+='<td class="chart-name" title="'+RatingApp.esc(e.name)+'">'+RatingApp.esc(e.name)+'</td>'
       h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.easy)+'</td>'
       h+='<td style="text-align:right">'+RatingApp.chartDiffCell(sr.normal)+'</td>'
@@ -994,7 +1094,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
   },
   chartDiffCell:function(val){
     if(val==null)return'<span style="color:#555">-</span>'
-    var cls=val<0?'color:#788a9c':'color:#d0dce8'
+    var cls=val<0?'color:var(--muted)':'color:var(--fg)'
     return'<span style="'+cls+'">'+val.toFixed(2)+'</span>'
   },
   getChartPaged:function(tableKey){
