@@ -635,7 +635,6 @@ local function main(keysNumber)
 		{id = "src_titlegradation_header", path = "parts/titlegradation_header.png"},
 		{id = "src_titlegradation_standby", path = "parts/titlegradation_standby.png"},
 
-		{id = "src_fullcombo_glow", path = "parts/fullcombo/glow.png"},
 		{id = "src_fullcombo_circle", path = "parts/fullcombo/circle.png"},
 		{id = "src_fullcombo_ring", path = "parts/fullcombo/ring.png"},
 		{id = "src_fullcombo_text", path = "parts/fullcombo/text.png"},
@@ -2968,22 +2967,6 @@ local function main(keysNumber)
 	do
 		local color = {r = 255, g = 255, b = 255}
 
-		-- glow
-		do
-			append_all(skin.image, {
-				{id = "fullcombo_glow", src = "src_fullcombo_glow", x = 0, y = 0, w = -1, h = -1},
-			})
-			append_all(skin.destination, {
-				{id = "fullcombo_glow", timer = 48, loop = -1, dst = {
-					-- 下から伸びて、細くなって消える
-					merge_all({time = 0, x = geo.lane.x, y = geo.lane.y, w = geo.lane.w, h = 0}, color),
-					{time = 100, h = geo.lane.h, acc = 2},
-					{time = 1000, x = geo.lane.x + geo.lane.w / 2 - 10, w = 20, a = 230},
-					{time = 1400, x = geo.lane.x + geo.lane.w / 2, w = 0, a = 0}
-				}},
-			})
-		end
-
 		-- circle
 		do
 			append_all(skin.image, {
@@ -3017,8 +3000,6 @@ local function main(keysNumber)
 		do
 			local text_h = 60 local text_w = 400
 			append_all(skin.image, {
-				{id = "fullcombo_glow", src = "src_fullcombo_glow", x = 0, y = 0, w = -1, h = -1},
-
 				{id = "fullcombo_text_full", src = "src_fullcombo_text", x = 0, y = 0, w = text_w, h = text_h},
 				{id = "fullcombo_text_combo", src = "src_fullcombo_text", x = 0, y = text_h, w = text_w, h = text_h}
 			})
