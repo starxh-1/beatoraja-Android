@@ -19,6 +19,7 @@ What's added: Audio Spectrum — it's in the Play Option in the launcher.
 What's different:
 1. All JavaFX-related implementations are gone — I had AI throw together a new launcher, it just needs to be able to change options.
 2. Audio engine swapped to libgdx-oboe — honestly, without Oboe this port couldn't have happened at all.
+3. Built-in Walkure recommendation
 
 Everything else is essentially inherited from beatoraja.
 
@@ -31,7 +32,7 @@ Everything else is essentially inherited from beatoraja.
 
 ## 4. TBD Features
 
-- Walkure recommendation
+None
 
 ## 5. Features That Can't Be Implemented (too difficult)
 
