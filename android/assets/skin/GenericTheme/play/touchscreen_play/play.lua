@@ -3119,7 +3119,7 @@ local function main(keysNumber)
 					}},
 				})
 			else
-				local size = geo.lane.w * 1.2
+				local size = geo.lane.w * 0.6
 				append_all(skin.destination, {
 					{id = "fullcombo_circle", timer = 48, loop = -1, dst = {
 						merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
@@ -3135,9 +3135,9 @@ local function main(keysNumber)
 			append_all(skin.image, {
 				{id = "fullcombo_ring", src = "src_fullcombo_ring", x = 0, y = 0, w = -1, h = -1},
 			})
-			local size = 2500
 			if isPortraitLayout() then
 				local ring_y = geo.lane.y + geo.lane.h / 2
+				local size = 2500
 				append_all(skin.destination, {
 					{id = "fullcombo_ring", timer = 48, loop = -1, dst = {
 						merge_all({time = 0, x = geo.lane.x, y = ring_y, w = 0, h = 0, acc = 2, angle = 270, cx = 0.5, cy = 0.5}, color),
@@ -3145,6 +3145,7 @@ local function main(keysNumber)
 					}},
 				})
 			else
+				local size = 1250
 				append_all(skin.destination, {
 					{id = "fullcombo_ring", timer = 48, loop = -1, dst = {
 						merge_all({time = 0, x = geo.lane.center_x, y = geo.lane.y, w = 0, h = 0, acc = 2}, color),
