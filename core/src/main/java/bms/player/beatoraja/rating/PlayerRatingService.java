@@ -18,11 +18,6 @@ public class PlayerRatingService {
 
     private RecommendationModelData model;
     private boolean loadAttempted = false;
-    private static final double[] STAR_POINTS;
-    static {
-        STAR_POINTS = new double[25];
-        for (int i = 0; i < 25; i++) STAR_POINTS[i] = i + 1;
-    }
 
     public void loadModel() {
         if (loadAttempted) return;
@@ -102,20 +97,30 @@ public class PlayerRatingService {
             // made star rating insensitive to failed charts.
             Gdx.app.log("PlayerRating", "Estimating from: " + matchedScores.size() + " matched scores");
 
-            // 5. Estimate rating from player's actual scores
+            // 5. Estimate rating from player's actual scores.
             double theta;
             double playerStarRating;
             int observationCount;
+            boolean estimationFailed = false;
             if (matchedScores.isEmpty()) {
+                // Render ★0.00 with empty rec lists (index.html:905) — the chartEntries
+                // tab still works so the page isn't a dead end.
                 theta = 0.0;
                 playerStarRating = 0.0;
                 observationCount = 0;
             } else {
-                PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
+                PlayerRatingEstimator.RatingResult result =
+                    PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
                 if (result == null) {
-                    // Estimation failed — numerical collapse fallback.
-                    theta = -1.5;
-                    playerStarRating = Math.round(IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
+                    // RATING_ESTIMATION_FAILED parity with walkure-offline (player-rating.js:18-26):
+                    // the MLE could not be located (typically 2 failed plays on charts well
+                    // above the player's skill push θ outside [-20, 20]). Rather than fully
+                    // blocking the page, emit empty rating + rec lists and let the player
+                    // still browse the推定表 (chartEntries tab) — they can use it to find
+                    // charts to play that will give us enough data to estimate next time.
+                    estimationFailed = true;
+                    theta = 0.0;
+                    playerStarRating = 0.0;
                     observationCount = matchedScores.size();
                 } else {
                     theta = result.theta;
@@ -124,124 +129,123 @@ public class PlayerRatingService {
                 }
             }
 
-            // Safety: walkure rating scale 上界 ★25,下界不限制 — 弱鸡玩家会显示 ★-2.10 这类负值。
-            // IrtMath 的外推在 theta < mapping[0] 时给出负数,这是合法显示值(index.html:843 注释确认)。
-            playerStarRating = Math.min(playerStarRating, 25.0);
-
-            // 5b. Low-confidence threshold: with <10 matched scores the MLE theta
-            // is unstable, so we widen the recommendation gate from 0.2 → 0.05 to
-            // give the UI something to render. The HTML surfaces this via a banner.
-            boolean lowConfidence = observationCount > 0 && observationCount < 10;
-            double recProbThreshold = lowConfidence ? 0.05 : 0.2;
+            // IrtMath extrapolation in theta < mapping[0] yields legal negative star
+            // ratings (★-2.10 etc.) — keep parity with upstream, which does not clamp
+            // either side of the range.
+            double recProbThreshold = 0.2;
 
             // 6. Build recommendation array — iterate ALL model entries
             StringBuilder recJson = new StringBuilder();
             recJson.append("[");
-            boolean recFirst = true;
             List<RecEntry> recEntries = new ArrayList<>();
-            for (RecommendationModelData.ChartEntry chartEntry : model.entriesByMd5.values()) {
-                int currentOrd = playerLampByMd5.containsKey(chartEntry.md5) ? playerLampByMd5.get(chartEntry.md5) : 0;
-                // Try targets from easy(2) through fullCombo(5), only those above current
-                for (int t = Math.max(currentOrd + 1, 2); t <= 5; t++) {
-                    String targetLamp = ClearLampMapper.LAMP_NAMES[t];
-                    if (targetLamp == null || targetLamp.isEmpty()) continue;
-                    Double cd = chartEntry.clearDifficulty != null ? chartEntry.clearDifficulty.get(targetLamp) : null;
-                    if (cd == null) continue;
-                    double prob = IrtMath.sigmoid(chartEntry.chartDiscrimination * (theta - cd));
-                    prob = Math.round(prob * 1000.0) / 1000.0;
-                    if (prob >= recProbThreshold) {
-                        RecEntry re = new RecEntry();
-                        re.name = chartEntry.name;
-                        re.md5 = chartEntry.md5;
-                        re.currentClearLamp = currentOrd > 0 ? ClearLampMapper.LAMP_NAMES[currentOrd] : "noplay";
-                        re.targetClearLamp = targetLamp;
-                        re.prob = prob;
-                        re.discrimination = chartEntry.chartDiscrimination;
-                        re.diffLevels = chartEntry.difficultyTableLevels;
-                        re.entryType = chartEntry.entryType;
-                        recEntries.add(re);
+            if (!estimationFailed) {
+                boolean recFirst = true;
+                for (RecommendationModelData.ChartEntry chartEntry : model.entriesByMd5.values()) {
+                    int currentOrd = playerLampByMd5.containsKey(chartEntry.md5) ? playerLampByMd5.get(chartEntry.md5) : 0;
+                    // Try targets from easy(2) through fullCombo(5), only those above current
+                    for (int t = Math.max(currentOrd + 1, 2); t <= 5; t++) {
+                        String targetLamp = ClearLampMapper.LAMP_NAMES[t];
+                        if (targetLamp == null || targetLamp.isEmpty()) continue;
+                        Double cd = chartEntry.clearDifficulty != null ? chartEntry.clearDifficulty.get(targetLamp) : null;
+                        if (cd == null) continue;
+                        double prob = IrtMath.sigmoid(chartEntry.chartDiscrimination * (theta - cd));
+                        prob = Math.round(prob * 1000.0) / 1000.0;
+                        if (prob >= recProbThreshold) {
+                            RecEntry re = new RecEntry();
+                            re.name = chartEntry.name;
+                            re.md5 = chartEntry.md5;
+                            re.currentClearLamp = currentOrd > 0 ? ClearLampMapper.LAMP_NAMES[currentOrd] : "noplay";
+                            re.targetClearLamp = targetLamp;
+                            re.prob = prob;
+                            re.discrimination = chartEntry.chartDiscrimination;
+                            re.diffLevels = chartEntry.difficultyTableLevels;
+                            re.entryType = chartEntry.entryType;
+                            recEntries.add(re);
+                        }
                     }
                 }
-            }
-            recEntries.sort((a, b) -> Double.compare(b.prob, a.prob));
-            Gdx.app.log("PlayerRating", "theta=" + theta + " threshold=" + recProbThreshold + " recEntries=" + recEntries.size() + " lowConfidence=" + lowConfidence);
-            for (RecEntry re : recEntries) {
-                if (!recFirst) recJson.append(",");
-                recFirst = false;
-                recJson.append("{");
-                recJson.append("\"name\":\"").append(escapeJson(re.name)).append("\",");
-                recJson.append("\"md5\":\"").append(escapeJson(re.md5)).append("\",");
-                recJson.append("\"entryType\":\"").append(escapeJson(re.entryType)).append("\",");
-                recJson.append("\"currentClearLamp\":\"").append(re.currentClearLamp).append("\",");
-                recJson.append("\"targetClearLamp\":\"").append(re.targetClearLamp).append("\",");
-                recJson.append("\"prob\":").append(re.prob);
-                if (re.diffLevels != null && !re.diffLevels.isEmpty()) {
-                    recJson.append(",\"difficultyTableLevels\":{");
-                    boolean lvlFirst = true;
-                    for (Map.Entry<String, String> le : re.diffLevels.entrySet()) {
-                        if (!lvlFirst) recJson.append(",");
-                        lvlFirst = false;
-                        recJson.append("\"").append(escapeJson(le.getKey())).append("\":\"").append(escapeJson(le.getValue())).append("\"");
+                recEntries.sort((a, b) -> Double.compare(b.prob, a.prob));
+                Gdx.app.log("PlayerRating", "theta=" + theta + " threshold=" + recProbThreshold + " recEntries=" + recEntries.size() + " observations=" + observationCount);
+                for (RecEntry re : recEntries) {
+                    if (!recFirst) recJson.append(",");
+                    recFirst = false;
+                    recJson.append("{");
+                    recJson.append("\"name\":\"").append(escapeJson(re.name)).append("\",");
+                    recJson.append("\"md5\":\"").append(escapeJson(re.md5)).append("\",");
+                    recJson.append("\"entryType\":\"").append(escapeJson(re.entryType)).append("\",");
+                    recJson.append("\"currentClearLamp\":\"").append(re.currentClearLamp).append("\",");
+                    recJson.append("\"targetClearLamp\":\"").append(re.targetClearLamp).append("\",");
+                    recJson.append("\"prob\":").append(re.prob);
+                    if (re.diffLevels != null && !re.diffLevels.isEmpty()) {
+                        recJson.append(",\"difficultyTableLevels\":{");
+                        boolean lvlFirst = true;
+                        for (Map.Entry<String, String> le : re.diffLevels.entrySet()) {
+                            if (!lvlFirst) recJson.append(",");
+                            lvlFirst = false;
+                            recJson.append("\"").append(escapeJson(le.getKey())).append("\":\"").append(escapeJson(le.getValue())).append("\"");
+                        }
+                        recJson.append("}");
                     }
+                    recJson.append(",\"chartDiscrimination\":").append(re.discrimination);
                     recJson.append("}");
                 }
-                recJson.append(",\"chartDiscrimination\":").append(re.discrimination);
-                recJson.append("}");
             }
             recJson.append("]");
 
             // 7. Build reverse recommendation array — iterate ALL model entries
             StringBuilder revJson = new StringBuilder();
             revJson.append("[");
-            boolean revFirst = true;
             List<RevEntry> revEntries = new ArrayList<>();
-            for (RecommendationModelData.ChartEntry chartEntry : model.entriesByMd5.values()) {
-                int currentOrd = playerLampByMd5.containsKey(chartEntry.md5) ? playerLampByMd5.get(chartEntry.md5) : 0;
-                if (currentOrd < 2) continue; // need at least easy clear
-                String lamp = ClearLampMapper.LAMP_NAMES[currentOrd];
-                Double cd = chartEntry.clearDifficulty != null ? chartEntry.clearDifficulty.get(lamp) : null;
-                if (cd == null) continue;
-                double prob = IrtMath.sigmoid(chartEntry.chartDiscrimination * (theta - cd));
-                prob = Math.round(prob * 1000.0) / 1000.0;
-                if (prob < 0.5) {
-                    RevEntry re = new RevEntry();
-                    re.name = chartEntry.name;
-                    re.md5 = chartEntry.md5;
-                    re.clearLamp = lamp;
-                    re.prob = prob;
-                    re.discrimination = chartEntry.chartDiscrimination;
-                    re.diffLevels = chartEntry.difficultyTableLevels;
-                    re.entryType = chartEntry.entryType;
-                    Double cdStar = chartEntry.clearDifficultyStarRatings != null ? chartEntry.clearDifficultyStarRatings.get(lamp) : null;
-                    re.clearDifficultyStarRating = cdStar;
-                    revEntries.add(re);
-                }
-            }
-            revEntries.sort((a, b) -> Double.compare(a.prob, b.prob));
-            for (RevEntry re : revEntries) {
-                if (!revFirst) revJson.append(",");
-                revFirst = false;
-                revJson.append("{");
-                revJson.append("\"name\":\"").append(escapeJson(re.name)).append("\",");
-                revJson.append("\"md5\":\"").append(escapeJson(re.md5)).append("\",");
-                revJson.append("\"entryType\":\"").append(escapeJson(re.entryType)).append("\",");
-                revJson.append("\"clearLamp\":\"").append(re.clearLamp).append("\",");
-                revJson.append("\"prob\":").append(re.prob);
-                if (re.clearDifficultyStarRating != null) {
-                    revJson.append(",\"clearDifficultyStarRating\":").append(re.clearDifficultyStarRating);
-                }
-                if (re.diffLevels != null && !re.diffLevels.isEmpty()) {
-                    revJson.append(",\"difficultyTableLevels\":{");
-                    boolean lvlFirst = true;
-                    for (Map.Entry<String, String> le : re.diffLevels.entrySet()) {
-                        if (!lvlFirst) revJson.append(",");
-                        lvlFirst = false;
-                        revJson.append("\"").append(escapeJson(le.getKey())).append("\":\"").append(escapeJson(le.getValue())).append("\"");
+            if (!estimationFailed) {
+                boolean revFirst = true;
+                for (RecommendationModelData.ChartEntry chartEntry : model.entriesByMd5.values()) {
+                    int currentOrd = playerLampByMd5.containsKey(chartEntry.md5) ? playerLampByMd5.get(chartEntry.md5) : 0;
+                    if (currentOrd < 2) continue; // need at least easy clear
+                    String lamp = ClearLampMapper.LAMP_NAMES[currentOrd];
+                    Double cd = chartEntry.clearDifficulty != null ? chartEntry.clearDifficulty.get(lamp) : null;
+                    if (cd == null) continue;
+                    double prob = IrtMath.sigmoid(chartEntry.chartDiscrimination * (theta - cd));
+                    prob = Math.round(prob * 1000.0) / 1000.0;
+                    if (prob < 0.5) {
+                        RevEntry re = new RevEntry();
+                        re.name = chartEntry.name;
+                        re.md5 = chartEntry.md5;
+                        re.clearLamp = lamp;
+                        re.prob = prob;
+                        re.discrimination = chartEntry.chartDiscrimination;
+                        re.diffLevels = chartEntry.difficultyTableLevels;
+                        re.entryType = chartEntry.entryType;
+                        Double cdStar = chartEntry.clearDifficultyStarRatings != null ? chartEntry.clearDifficultyStarRatings.get(lamp) : null;
+                        re.clearDifficultyStarRating = cdStar;
+                        revEntries.add(re);
                     }
+                }
+                revEntries.sort((a, b) -> Double.compare(a.prob, b.prob));
+                for (RevEntry re : revEntries) {
+                    if (!revFirst) revJson.append(",");
+                    revFirst = false;
+                    revJson.append("{");
+                    revJson.append("\"name\":\"").append(escapeJson(re.name)).append("\",");
+                    revJson.append("\"md5\":\"").append(escapeJson(re.md5)).append("\",");
+                    revJson.append("\"entryType\":\"").append(escapeJson(re.entryType)).append("\",");
+                    revJson.append("\"clearLamp\":\"").append(re.clearLamp).append("\",");
+                    revJson.append("\"prob\":").append(re.prob);
+                    if (re.clearDifficultyStarRating != null) {
+                        revJson.append(",\"clearDifficultyStarRating\":").append(re.clearDifficultyStarRating);
+                    }
+                    if (re.diffLevels != null && !re.diffLevels.isEmpty()) {
+                        revJson.append(",\"difficultyTableLevels\":{");
+                        boolean lvlFirst = true;
+                        for (Map.Entry<String, String> le : re.diffLevels.entrySet()) {
+                            if (!lvlFirst) revJson.append(",");
+                            lvlFirst = false;
+                            revJson.append("\"").append(escapeJson(le.getKey())).append("\":\"").append(escapeJson(le.getValue())).append("\"");
+                        }
+                        revJson.append("}");
+                    }
+                    revJson.append(",\"chartDiscrimination\":").append(re.discrimination);
                     revJson.append("}");
                 }
-                revJson.append(",\"chartDiscrimination\":").append(re.discrimination);
-                revJson.append("}");
             }
             revJson.append("]");
 
@@ -290,7 +294,6 @@ public class PlayerRatingService {
             json.append("\"playerStarRating\":").append(playerStarRating).append(",");
             json.append("\"theta\":").append(theta).append(",");
             json.append("\"observationCount\":").append(observationCount).append(",");
-            json.append("\"lowConfidence\":").append(lowConfidence).append(",");
             json.append("\"recommendation\":").append(recJson.toString()).append(",");
             json.append("\"reverseRecommendation\":").append(revJson.toString()).append(",");
             json.append("\"chartEntries\":").append(chartJson.toString());

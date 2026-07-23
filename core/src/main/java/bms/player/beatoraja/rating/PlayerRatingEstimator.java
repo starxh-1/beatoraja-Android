@@ -12,8 +12,12 @@ import java.util.Map;
  */
 public class PlayerRatingEstimator {
 
-    private static final double THETA_MIN = -5.0;
-    private static final double THETA_MAX = 5.0;
+    // Match walkure-offline player-rating.js THETA_MIN/MAX. The previous
+    // ±5 band silently clamped players with only failed plays (or only
+    // very high clears) to ±5.0, producing misleading star ratings instead
+    // of surfacing the estimation failure.
+    private static final double THETA_MIN = -20.0;
+    private static final double THETA_MAX = 20.0;
     private static final double BISECTION_EPSILON = 1.0e-6;
 
     public static class Observation {
@@ -31,11 +35,13 @@ public class PlayerRatingEstimator {
     /**
      * Estimate player skill from matched scores.
      *
-     * Returns {@code null} only when the observation list is empty after
-     * building.  Boundary cases (MLE outside [THETA_MIN, THETA_MAX]) are
-     * clamped to the nearest boundary instead of returning null, so the
-     * caller always gets a star rating — the caller should clamp the final
-     * star rating to [0, 25] as a safety net.
+     * Returns {@code null} when the MLE cannot be located — either because
+     * no observations are available, or because the log-likelihood derivative
+     * has no sign change inside [THETA_MIN, THETA_MAX] (the player's observed
+     * lamp distribution pushes the MLE outside the range). The latter case
+     * matches walkure-offline player-rating.js:18-26, which throws
+     * RATING_ESTIMATION_FAILED for the same condition. Callers should treat
+     * {@code null} as a hard failure and surface an error to the user.
      */
     public static RatingResult estimate(List<MatchedScore> scores, double[] starRatingMapping) {
         List<Observation> observations = buildObservations(scores);
@@ -44,30 +50,21 @@ public class PlayerRatingEstimator {
             return null;
         }
 
-        double dMin = logLikelihoodDerivative(THETA_MIN, observations);
-        double dMax = logLikelihoodDerivative(THETA_MAX, observations);
-
-        double theta;
-        if (dMin > 0.0 && dMax < 0.0) {
-            // Normal: the derivative crosses zero inside [THETA_MIN, THETA_MAX].
-            theta = IrtMath.findZeroByBisection(
-                (candidate) -> logLikelihoodDerivative(candidate, observations),
-                THETA_MIN, THETA_MAX, BISECTION_EPSILON);
-        } else {
-            // No sign change: the MLE is outside the range.  Use the derivative
-            // at the midpoint (theta=0) to determine which direction the
-            // likelihood is sloping, then clamp to the corresponding boundary.
-            double dMid = logLikelihoodDerivative(0.0, observations);
-            theta = dMid > 0.0 ? THETA_MAX : THETA_MIN;
+        // walkure-offline player-rating.js:18-26 — when the derivative at the
+        // upper bound is still positive (or at the lower bound still negative),
+        // the MLE lies outside the range and bisection would converge to a
+        // boundary rather than the true likelihood peak. Treat as failure.
+        if (logLikelihoodDerivative(THETA_MAX, observations) > 0.0
+                || logLikelihoodDerivative(THETA_MIN, observations) < 0.0) {
+            return null;
         }
 
         RatingResult result = new RatingResult();
-        // Clamp theta to the natural model range. starRatingMapping covers
-        // theta ∈ [-1.7, 4.0] (★1..★25); THETA_MIN/MAX is the bisection range
-        // and already sits inside this, so this clamp is a no-op safety net.
-        theta = Math.max(THETA_MIN, Math.min(THETA_MAX, theta));
-        result.theta = theta;
-        result.playerStarRating = Math.round(interpolateStarRating(theta, starRatingMapping) * 100.0) / 100.0;
+        result.theta = IrtMath.findZeroByBisection(
+            (candidate) -> logLikelihoodDerivative(candidate, observations),
+            THETA_MIN, THETA_MAX, BISECTION_EPSILON);
+        result.playerStarRating = Math.round(
+            interpolateStarRating(result.theta, starRatingMapping) * 100.0) / 100.0;
         result.observationCount = observations.size();
         return result;
     }
