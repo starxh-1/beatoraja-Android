@@ -365,6 +365,8 @@ var RatingApp={
   },
   switchLang:function(l){
     _lang=l
+    this.settings.lang=l
+    this.saveSettings()
     this.render()
   },
   switchTab:function(idx){
@@ -958,6 +960,9 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var parsed={}
     if(raw){try{parsed=JSON.parse(raw)}catch(e){}}
     this.settings.theme=(parsed&&parsed.theme==='light')?'light':'dark'
+    this.settings.lang=(parsed&&typeof parsed.lang==='string'
+        &&['ja','en','zh','ko'].indexOf(parsed.lang)>=0)?parsed.lang:'ja'
+    _lang=this.settings.lang
   },
   switchChartTab:function(key){
     this.chartActiveTab=key
