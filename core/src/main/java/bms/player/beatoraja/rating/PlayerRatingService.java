@@ -94,14 +94,13 @@ public class PlayerRatingService {
             }
             Gdx.app.log("PlayerRating", "Model-matched: " + matchedScores.size());
 
-            // 4b. Filter out failed/noplay observations before MLE — the GRM has
-            // no clearDifficulty for those lamps, so including them biases theta
-            // toward the boundary and collapses all recommendation probabilities.
-            List<MatchedScore> estimatingScores = new ArrayList<>();
-            for (MatchedScore ms : matchedScores) {
-                if (ms.getLampOrdinal() >= 2) estimatingScores.add(ms);
-            }
-            Gdx.app.log("PlayerRating", "Estimating from: " + estimatingScores.size() + " (filtered " + (matchedScores.size() - estimatingScores.size()) + " failed/noplay)");
+            // 4b. Pass all matched scores to the MLE — including failed (lampOrdinal=1).
+            // Upstream walkure-offline (player-rating.js:46-62) treats every score
+            // as an ordinal-1..5 observation with categoryThresholds = [-Inf, easy,
+            // normal, hard, fullCombo, +Inf], so failed plays naturally exert
+            // downward pressure on theta. The previous filter dropped them, which
+            // made star rating insensitive to failed charts.
+            Gdx.app.log("PlayerRating", "Estimating from: " + matchedScores.size() + " matched scores");
 
             // 5. Estimate rating from player's actual scores
             double theta;
@@ -111,20 +110,13 @@ public class PlayerRatingService {
                 theta = 0.0;
                 playerStarRating = 0.0;
                 observationCount = 0;
-            } else if (estimatingScores.isEmpty()) {
-                // All matched scores are failed/noplay — estimator has no usable
-                // signal. Use a slightly-below-average fallback so recommendations
-                // still surface at low probabilities.
-                theta = -1.5;
-                playerStarRating = Math.round(IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
-                observationCount = matchedScores.size();
             } else {
-                PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(estimatingScores, model.starRatingMapping);
+                PlayerRatingEstimator.RatingResult result = PlayerRatingEstimator.estimate(matchedScores, model.starRatingMapping);
                 if (result == null) {
-                    // Estimation failed — too few observations or boundary.
+                    // Estimation failed — numerical collapse fallback.
                     theta = -1.5;
                     playerStarRating = Math.round(IrtMath.interpolatePiecewiseLinear(theta, model.starRatingMapping, STAR_POINTS) * 100.0) / 100.0;
-                    observationCount = estimatingScores.size();
+                    observationCount = matchedScores.size();
                 } else {
                     theta = result.theta;
                     playerStarRating = result.playerStarRating;
