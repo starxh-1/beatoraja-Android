@@ -862,16 +862,22 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         // 同步 bmsroot 并清理已从配置中移除的路径下的残留歌曲
         // SettingsActivity 修改 bmsroot 后只写入了 JSON 文件，内存中仍未更新，
         // 导致扫描仍然使用旧路径，已删除路径下的歌曲永远不会被清理。
-        this.bmsroot = paths.clone();
+        //
+        // 注意：paths 不一定是配置的 bmsroot —— F2 在子目录扫描时 paths 只有一个子目录。
+        // 不能用 paths 覆盖 this.bmsroot，那样会让 insertFolder 的 findMatchingRoot/crc32
+        // 把扫描路径本身当 bmsroot，导致子目录的 parent CRC 算成 ROOT_CRC（e2977170），
+        // 视觉上的表现是"扫了哪个文件夹，它就跳到 root 列表里"。所以 this.bmsroot
+        // 始终保持构造时设置的全量配置，下面用 this.bmsroot（而不是 paths）做孤儿判断。
         int orphanedCount = 0;
         {
+            final String[] roots = (this.bmsroot != null && this.bmsroot.length > 0) ? this.bmsroot : paths;
             java.util.List<String> toDelete = new java.util.ArrayList<>();
             try (Cursor c = db.rawQuery("SELECT path FROM song", null)) {
                 while (c.moveToNext()) {
                     String songPath = c.getString(0);
                     if (songPath == null) continue;
                     boolean belongs = false;
-                    for (String root : paths) {
+                    for (String root : roots) {
                         if (root != null && songPath.startsWith(root)) {
                             belongs = true;
                             break;
