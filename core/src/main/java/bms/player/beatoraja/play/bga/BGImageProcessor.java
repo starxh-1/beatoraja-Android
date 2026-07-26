@@ -38,20 +38,6 @@ public class BGImageProcessor {
 		cache = new PixmapResourcePool(maxgen) {
 
 			protected Pixmap convert(Pixmap pixmap) {
-				// 只对 BMP 格式的图片进行黑色透明化处理
-				// 通过文件路径判断是否为 BMP
-				boolean needsColorKeying = false;
-				
-				// 注意：这里无法直接获取原始文件路径，所以采用更智能的策略
-				// 只处理不包含 Alpha 通道的图片（RGB888格式通常是BMP或JPG）
-				if (pixmap.getFormat() == Pixmap.Format.RGB888) {
-					needsColorKeying = true;
-				}
-				
-				if (needsColorKeying) {
-					pixmap = applyBlackColorKeyOptimized(pixmap);
-				}
-				
 				int bgasize = Math.max(pixmap.getHeight(), pixmap.getWidth());
 				if ( bgasize <=256 ){
 					final int fixx = (256 - pixmap.getWidth()) / 2;
@@ -61,59 +47,6 @@ public class BGImageProcessor {
 					pixmap.dispose();
 					return fixpixmap;
 				}
-				return pixmap;
-			}
-			
-			/**
-			 * 优化的黑色颜色键控：使用直接字节缓冲区处理，避免逐像素调用
-			 * 这比原来的方法快 10-50 倍
-			 */
-			private Pixmap applyBlackColorKeyOptimized(Pixmap source) {
-				int width = source.getWidth();
-				int height = source.getHeight();
-				
-				// 转换为 RGBA8888 格式（如果还不是）
-				Pixmap pixmap;
-				if (source.getFormat() != Pixmap.Format.RGBA8888) {
-					pixmap = new Pixmap(width, height, Pixmap.Format.RGBA8888);
-					pixmap.drawPixmap(source, 0, 0, width, height, 0, 0, width, height);
-					source.dispose();
-				} else {
-					pixmap = source;
-				}
-				
-				// 使用直接字节缓冲区进行快速像素处理
-				java.nio.ByteBuffer buffer = pixmap.getPixels();
-				buffer.rewind();
-				
-				int blackPixelCount = 0;
-				int pixelCount = width * height;
-				
-				// 直接操作字节缓冲区，比逐像素调用快得多
-				for (int i = 0; i < pixelCount; i++) {
-					// RGBA8888 格式在 ByteBuffer 中的顺序取决于平台
-				 // 通常是 R, G, B, A 或 A, R, G, B
-					// 我们读取像素值来判断
-					int pixelIndex = i * 4;
-					
-					// 读取 RGBA 值
-					int r = buffer.get(pixelIndex) & 0xFF;
-					int g = buffer.get(pixelIndex + 1) & 0xFF;
-					int b = buffer.get(pixelIndex + 2) & 0xFF;
-					int a = buffer.get(pixelIndex + 3) & 0xFF;
-					
-					// 如果是纯黑色且 Alpha 不为 0
-					if (r == 0 && g == 0 && b == 0 && a != 0) {
-						// 将 Alpha 设为 0
-						buffer.put(pixelIndex + 3, (byte) 0);
-						blackPixelCount++;
-					}
-				}
-				
-				if (blackPixelCount > 0) {
-					Logger.getGlobal().fine("BGA Color Keying (optimized): Converted " + blackPixelCount + " black pixels in " + width + "x" + height + " image");
-				}
-				
 				return pixmap;
 			}
 		};
