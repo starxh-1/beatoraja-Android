@@ -283,7 +283,11 @@ public class EventFactory {
 			if(state instanceof MusicSelector selector) {
 				Bar selected = selector.getBarManager().getSelected();
 				if (selected instanceof FolderBar) {
-					selector.main.updateSong(((FolderBar) selected).getFolderData().getPath());
+					// Root FolderBar has folder == null; fall back to a full scan so
+					// F2 works even when the DB is empty (e.g. user disabled the
+					// "Scan Songs On Launch" toggle on first boot).
+					bms.player.beatoraja.song.FolderData fd = ((FolderBar) selected).getFolderData();
+					selector.main.updateSong(fd != null ? fd.getPath() : null);
 				} else if (selected instanceof TableBar) {
 					selector.main.updateTable((TableBar) selected);
 				} else if (selected instanceof SongBar) {
@@ -291,7 +295,7 @@ public class EventFactory {
 					if (path != null) {
 						selector.main.updateSong(new File(path).getParentFile().getAbsolutePath());
 					}
-				}				
+				}
 			}
 		}),
 		/**

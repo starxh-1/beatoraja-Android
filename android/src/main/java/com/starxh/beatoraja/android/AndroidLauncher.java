@@ -358,7 +358,7 @@ public class AndroidLauncher extends AndroidApplication {
         bms.player.beatoraja.ScoreDatabaseAccessor.setFactory(
             path -> new bms.player.beatoraja.score.AndroidScoreDatabaseAccessor(AndroidLauncher.this, path));
 
-        initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, true), config);
+        initialize(new BeatorajaGame(null, null, null, BMSPlayerMode.AUTOPLAY, false), config);
 
         // 反射清空 libGDX 内部在 initialize() 里注册的 audio LifecycleListener
         // (它在 onPause 时调 audio.pause() → Oboe requestStop stream,锁屏会让所有状态没声音)。

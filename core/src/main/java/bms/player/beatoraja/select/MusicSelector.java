@@ -89,6 +89,7 @@ public final class MusicSelector extends MainState {
 	private long currentRankingDuration = -1;
 
 	private boolean showNoteGraph = false;
+	private boolean songUpdated;
 
 	private ScoreDataCache scorecache;
 	private ScoreDataCache rivalcache;
@@ -115,6 +116,7 @@ public final class MusicSelector extends MainState {
 
 	public MusicSelector(MainController main, boolean songUpdated) {
 		super(main);
+		this.songUpdated = songUpdated;
 		this.config = main.getPlayerResource().getPlayerConfig();
 
 		songdb = main.getSongDatabase();
@@ -214,39 +216,12 @@ public final class MusicSelector extends MainState {
 		}
 
 
-		// Android版本：改进的异步歌曲扫描
-		if (com.badlogic.gdx.Gdx.app.getType() == com.badlogic.gdx.Application.ApplicationType.Android) {
-			// 严格遵循 settings 里的 "Scan Songs On Launch" 开关（config.updatesong）。
-			// 早期版本曾用 dbEmpty 兜底强制扫描，但这会让用户关闭开关后仍被扫描，
-			// 关闭开关意味着用户主动选择跳过启动扫描（曲库大、很少新增歌曲的常见诉求）。
-			boolean shouldScan = main.getPlayerResource().getConfig().isUpdatesong();
-			Logger.getGlobal().info("Android版本：异步触发歌曲扫描 (updatesong="
-				+ main.getPlayerResource().getConfig().isUpdatesong()
-				+ ", shouldScan=" + shouldScan + ")");
-			Logger.getGlobal().info("Android版本：bmsroot=" + java.util.Arrays.toString(main.getConfig().getBmsroot()));
-
-			if (shouldScan) {
-				new Thread(() -> {
-					try {
-						// 后台异步扫描，使用增量扫描（不强制刷新）
-						main.updateSong(null);
-						// 避免固定 sleep，让 updateSong 线程自然完成
-
-						// 扫描完成后在 UI 线程更新歌曲列表
-						Gdx.app.postRunnable(() -> {
-							manager.updateBar();
-							Logger.getGlobal().info("Android版本：歌曲列表更新完成");
-						});
-					} catch (Exception e) {
-						Gdx.app.error("MusicSelector", "Error during song scanning", e);
-					}
-				}).start();
-			}
-		} else {
-			// 非 Android 平台保持原有的简单逻辑，但避免同步阻塞
-			if (main.getPlayerResource().getConfig().isUpdatesong()) {
-				main.updateSong(null);
-			}
+		// Auto-scan on entry: matches upstream MusicSelector.java:136-138 —
+		// scan only when no launcher pre-scan ran AND the user enabled the toggle.
+		// MainController.updateSong(...) spawns a worker thread internally, so this
+		// call is non-blocking even though we run it from the GL thread here.
+		if (!songUpdated && main.getPlayerResource().getConfig().isUpdatesong()) {
+			main.updateSong(null);
 		}
 	}
 

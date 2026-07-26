@@ -25,23 +25,23 @@ public class BeatorajaGame extends ApplicationAdapter {
     private Config bmsConfig;
     private PlayerConfig playerConfig;
     private BMSPlayerMode mode;
-    private boolean useAudio;
+    private boolean songUpdated;
 
     public BeatorajaGame() {
     }
 
-    public BeatorajaGame(File rootPath, Config bmsConfig, PlayerConfig playerConfig, BMSPlayerMode mode, boolean useAudio) {
+    public BeatorajaGame(File rootPath, Config bmsConfig, PlayerConfig playerConfig, BMSPlayerMode mode, boolean songUpdated) {
         this.rootPath = rootPath;
         this.bmsConfig = bmsConfig;
         this.playerConfig = playerConfig;
         this.mode = mode;
-        this.useAudio = useAudio;
+        this.songUpdated = songUpdated;
     }
 
     @Override
     public void create() {
         // 使用传入的参数初始化 beatoraja 核心控制器
-        controller = new MainController(rootPath, bmsConfig, playerConfig, mode, useAudio);
+        controller = new MainController(rootPath, bmsConfig, playerConfig, mode, songUpdated);
         controller.setBeatorajaGame(this);
         controller.create();
         spectrumRenderer = new SideSpectrumRenderer();
