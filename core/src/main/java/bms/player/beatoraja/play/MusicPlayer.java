@@ -42,14 +42,18 @@ public class MusicPlayer extends MainState {
 
 	// 自己的歌曲列表（显示所有文件夹的歌曲）
 	private SongData[] allSongs;
-	private int selectedIndex = 0;
-	private SongData currentSong;
-	private BMSModel currentModel;
-	private BGAutoplayThread bgThread;
-	private AutoAdvanceThread advanceThread;
-	private long playStartTimeMs;
-	private long totalDurationMs;
-	private Texture stagefile;
+	// 跨线程读写的字段 —— 后台 transitionToNextInBackground / AutoAdvanceThread 写,
+	// render() / loadAndPlaySelected() (GL 线程) 读,加 volatile 保证可见性。
+	private volatile int selectedIndex = 0;
+	private volatile SongData currentSong;
+	private volatile BMSModel currentModel;
+	private volatile BGAutoplayThread bgThread;
+	private volatile AutoAdvanceThread advanceThread;
+	private volatile long playStartTimeMs;
+	private volatile long totalDurationMs;
+	private volatile Texture stagefile;
+	// dispose 之后 transition 不要再起新线程 —— 防止 dispose 和 transition 竞争导致孤儿线程
+	private volatile boolean disposed = false;
 	private Pixmap stagefilePixmap;
 	private BitmapFont font;
 	private int skinW;
@@ -86,7 +90,8 @@ public class MusicPlayer extends MainState {
 	private volatile boolean isTransitioning = false;
 
 	// 后台过渡时旧 stagefile 无法立即 dispose(需要 GL 线程),先暂存,等 render() 再清理
-	private Texture stagefileToDispose = null;
+	// 跨线程:transitionToNextInBackground (后台) 写,render (GL) 读+dispose —— volatile
+	private volatile Texture stagefileToDispose = null;
 
 	// 播放模式 (顺序 / 随机 / 单曲循环)
 	private enum PlayMode { SEQUENCE, RANDOM, LOOP_ONE }
@@ -560,7 +565,9 @@ public class MusicPlayer extends MainState {
 		return idx;
 	}
 
-	private void loadAndPlaySelected() {
+	// synchronized(this) —— 跟 transitionToNextInBackground() 同一把锁,
+	// 防止"手动 NEXT 按钮"和"曲尾自动 transition"竞争导致重复起线程 / 音频重叠。
+	private synchronized void loadAndPlaySelected() {
 		if (allSongs == null || selectedIndex < 0 || selectedIndex >= allSongs.length) return;
 		SongData next = allSongs[selectedIndex];
 		if (next == null) return;
@@ -722,7 +729,11 @@ public class MusicPlayer extends MainState {
 		}
 	}
 
-	private void shutdownResources() {
+	// synchronized(this) —— 跟 transitionToNextInBackground() 同一把锁,
+	// 防止"用户关闭播放器"和"后台自动切歌"竞争导致孤儿线程泄漏。
+	// 注意:本方法也会被 loadAndPlaySelected()(手动切歌)调用,不能在这里设 disposed=true,
+	// 否则手动 NEXT 一次之后自动 transition 会永远看到 disposed=true 而不再起新线程。
+	private synchronized void shutdownResources() {
 		if (advanceThread != null) {
 			advanceThread.stop = true;
 			advanceThread = null;
@@ -763,6 +774,10 @@ public class MusicPlayer extends MainState {
 
 	@Override
 	public void dispose() {
+		// 必须先于 shutdownResources() 设 disposed=true。dispose 走 GL 线程,
+		// shutdownResources() 是 synchronized(this) —— 后台 transition 想要起新线程必须先拿到锁,
+		// 拿到锁后第一时间读 disposed 就会看到 true,跳过 BMSModel 加载和线程创建。
+		disposed = true;
 		shutdownResources();
 		if (font != null && font != main.getSystemFont18()) {
 			font.dispose();
@@ -960,6 +975,9 @@ public class MusicPlayer extends MainState {
 	 */
 	private synchronized boolean transitionToNextInBackground() {
 		if (isTransitioning) return false;
+		// 早期 disposed 检查 —— dispose() 已设 disposed=true 并在等锁,
+		// 本方法一拿到锁就该立刻放弃,不要白白加载 BMSModel / 算 tail / 设音频模型。
+		if (disposed) return false;
 		isTransitioning = true;
 		try {
 			// 1. 停掉 advanceThread(防止它重复进入本方法)
@@ -1037,7 +1055,7 @@ public class MusicPlayer extends MainState {
 			this.totalDurationMs = Math.max(lastEventTime + 1000, lastNoteTime + tail);
 			Gdx.app.log("MusicPlayer", "transitionToNext totalDurationMs: " + totalDurationMs + " ms, tail: " + tail + ", lastNoteTime: " + lastNoteTime + ", lastEventTime: " + lastEventTime);
 
-			// 9. 启动新线程
+			// 9. 启动新线程(disposed 已在方法入口检查过,这里不需要再检查)
 			this.playStartTimeMs = System.currentTimeMillis();
 			this.bgThread = new BGAutoplayThread(currentModel, main,
 					playStartTimeMs);
