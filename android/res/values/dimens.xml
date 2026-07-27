@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screen & section padding -->
+    <dimen name="screen_padding">24dp</dimen>
+    <dimen name="section_padding_bottom">16dp</dimen>
+    <dimen name="item_padding_bottom">16dp</dimen>
+    <dimen name="item_padding_bottom_large">24dp</dimen>
+    <dimen name="item_padding_bottom_small">8dp</dimen>
+    <dimen name="divider_margin_vertical">16dp</dimen>
+    <dimen name="divider_margin_vertical_small">8dp</dimen>
+
+    <!-- Font sizes -->
+    <dimen name="text_size_title">28sp</dimen>
+    <dimen name="text_size_section">20sp</dimen>
+    <dimen name="text_size_body">16sp</dimen>
+    <dimen name="text_size_small">14sp</dimen>
+    <dimen name="text_size_tiny">12sp</dimen>
+    <dimen name="text_size_help">18sp</dimen>
+    <dimen name="text_size_section_arrow">16sp</dimen>
+
+    <!-- Component heights -->
+    <dimen name="button_height">40dp</dimen>
+    <dimen name="button_height_small">36dp</dimen>
+    <dimen name="control_height">48dp</dimen>
+    <dimen name="control_height_small">40dp</dimen>
+    <dimen name="divider_height">1dp</dimen>
+    <dimen name="table_container_bottom_padding">200dp</dimen>
+
+    <!-- Component widths -->
+    <dimen name="spinner_width">160dp</dimen>
+    <dimen name="edittext_width">80dp</dimen>
+    <dimen name="percent_label_width">60dp</dimen>
+    <dimen name="replay_label_width">40dp</dimen>
+    <dimen name="unit_label_width">40dp</dimen>
+
+    <!-- Inline paddings -->
+    <dimen name="help_padding_start">8dp</dimen>
+    <dimen name="unit_padding_start">4dp</dimen>
+    <dimen name="edittext_padding">8dp</dimen>
+
+    <!-- Inter-button / inter-control spacing -->
+    <dimen name="button_spacing">12dp</dimen>
+    <dimen name="button_spacing_small">8dp</dimen>
+</resources>

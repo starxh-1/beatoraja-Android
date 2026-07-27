@@ -144,6 +144,11 @@
     <string name="dialog_new_player">新建玩家</string>
 
     <string name="hint_player_name">玩家名称</string>
+    <string name="rename_player">重命名</string>
+    <string name="dialog_rename_player">重命名玩家</string>
+    <string name="msg_player_renamed">玩家已重命名为 \'%1$s\'</string>
+    <string name="msg_player_rename_exists">已存在名为 \'%1$s\' 的玩家</string>
+    <string name="msg_player_rename_same">名称未更改</string>
     <string name="btn_create">创建</string>
     <string name="btn_cancel">取消</string>
     <string name="msg_player_created">玩家 \'%1$s\' 已创建</string>
@@ -170,7 +175,7 @@
 
     <!-- Help texts for ? buttons -->
     <string name="player_help_title">选择玩家</string>
-    <string name="player_help">你可以点击"新建玩家"来新建一个player。在只有一个player的情况下无法删除。\n\n导出和导入分数均使用zip压缩包打包（这是因为player目录下不止score.db造成的）。如想进行分数备份，可以使用导出功能，并放到你想存储的文件夹。当你需要重新导入分数时，只需要点击zip导入即可。</string>
+    <string name="player_help">你可以点击"新建玩家"来新建一个玩家。文件夹 ID 与玩家名（保存在 config 中）会保持同步，修改其中之一会同时更新另一个。\n\n使用"重命名"可以修改当前玩家的名称（文件夹与 config 会一并更新）。在只有一个player的情况下无法删除。\n\n导出和导入分数均使用zip压缩包打包（这是因为player目录下不止score.db造成的）。如想进行分数备份，可以使用导出功能，并放到你想存储的文件夹。当你需要重新导入分数时，只需要点击zip导入即可。</string>
 
     <string name="bms_path_help_title">歌曲路径</string>
     <string name="bms_path_help">应用本身已经默认创建了一个歌曲路径（位于download/beatoraja/songs，不可删除。）你可以点击添加按钮来增加新的歌曲路径。\n\nApp本身支持在目录下放置zip，当更新歌曲目录时，检测到zip会解压，但仍建议直接放置文件夹（App自带的zip解压性能相对较差。）\n\n导入的目录结构要求如下：\n\n如果是Zip : inochi_ogg.zip → 解压 → 解压得到 inochi_ogg 文件夹 → 打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n如果是文件夹：打开inochi_ogg文件夹 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>

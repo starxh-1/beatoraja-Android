@@ -9,14 +9,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="@dimen/screen_padding">
 
         <!-- Header -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_title"
-            android:textSize="28sp"
+            android:textSize="@dimen/text_size_title"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:layout_marginBottom="32dp"/>
@@ -26,14 +26,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/section_display"
-            android:textSize="20sp"
+            android:textSize="@dimen/text_size_section"
             android:textColor="#4FC3F7"
-            android:layout_marginBottom="16dp"/>
+            android:layout_marginBottom="@dimen/section_padding_bottom"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -49,7 +49,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/stretch_fullscreen"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_body"
                     android:gravity="center_vertical"/>
 
                 <TextView
@@ -58,37 +58,37 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <Switch
                 android:id="@+id/stretchFullscreenSwitch"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:checked="false" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Audio Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/section_audio"
-            android:textSize="20sp"
+            android:textSize="@dimen/text_size_section"
             android:textColor="#4FC3F7"
-            android:layout_marginBottom="16dp"/>
+            android:layout_marginBottom="@dimen/section_padding_bottom"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <TextView
                 android:layout_width="0dp"
@@ -96,13 +96,13 @@
                 android:layout_weight="1"
                 android:text="@string/system_volume"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <SeekBar
                 android:id="@+id/systemVolumeSeekBar"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:layout_weight="1"
                                 android:max="100"
                 android:progress="100"
@@ -111,11 +111,11 @@
 
             <TextView
                 android:id="@+id/volumePercent"
-                android:layout_width="60dp"
+                android:layout_width="@dimen/percent_label_width"
                 android:layout_height="wrap_content"
                 android:text="100%"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_size_small"
                 android:gravity="end|center_vertical"/>
         </LinearLayout>
 
@@ -123,7 +123,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom">
 
             <TextView
                 android:layout_width="0dp"
@@ -131,13 +131,13 @@
                 android:layout_weight="1"
                 android:text="@string/key_volume"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <SeekBar
                 android:id="@+id/keyVolumeSeekBar"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:layout_weight="1"
                                 android:max="100"
                 android:progress="100"
@@ -146,20 +146,19 @@
 
             <TextView
                 android:id="@+id/keyVolumePercent"
-                android:layout_width="60dp"
+                android:layout_width="@dimen/percent_label_width"
                 android:layout_height="wrap_content"
                 android:gravity="end|center_vertical"
                 android:text="100%"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:textSize="@dimen/text_size_small" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
-            android:orientation="horizontal"
-            android:text="100%">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"
+            android:orientation="horizontal">
 
             <TextView
                 android:layout_width="0dp"
@@ -168,12 +167,12 @@
                 android:gravity="center_vertical"
                 android:text="@string/bgm_volume"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp" />
+                android:textSize="@dimen/text_size_body" />
 
             <SeekBar
                 android:id="@+id/bgmVolumeSeekBar"
                 android:layout_width="0dp"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:layout_weight="1"
                 android:max="100"
                 android:progress="100"
@@ -182,34 +181,34 @@
 
             <TextView
                 android:id="@+id/bgmVolumePercent"
-                android:layout_width="60dp"
+                android:layout_width="@dimen/percent_label_width"
                 android:layout_height="wrap_content"
                 android:gravity="end|center_vertical"
                 android:text="100%"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp" />
+                android:textSize="@dimen/text_size_small" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Player Section -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/section_player"
-            android:textSize="20sp"
+            android:textSize="@dimen/text_size_section"
             android:textColor="#4FC3F7"
-            android:layout_marginBottom="16dp"/>
+            android:layout_marginBottom="@dimen/section_padding_bottom"/>
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="12dp"
+            android:layout_marginBottom="@dimen/button_spacing"
             android:gravity="center_vertical">
 
             <LinearLayout
@@ -224,7 +223,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/select_player"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_body"
                     android:gravity="center_vertical"/>
 
                 <TextView
@@ -233,74 +232,91 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <Spinner
                 android:id="@+id/playerSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
+        <!-- Player buttons row 1: New / Delete / Rename -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/button_spacing">
 
             <Button
                 android:id="@+id/newPlayerBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/button_height"
+                android:layout_weight="1"
                 android:text="@string/new_player"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
 
             <Button
                 android:id="@+id/deletePlayerBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginStart="12dp"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/button_height"
+                android:layout_weight="1"
+                android:layout_marginStart="@dimen/button_spacing"
                 android:text="@string/delete"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#AA3333"
                 android:textColor="#FFFFFF"/>
 
             <Button
-                android:id="@+id/exportScoreBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
-                android:layout_marginStart="12dp"
-                android:text="@string/export"
-                android:textSize="12sp"
-                android:backgroundTint="#4CAF50"
-                android:textColor="#FFFFFF"/>
+                android:id="@+id/renamePlayerBtn"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/button_height"
+                android:layout_weight="1"
+                android:layout_marginStart="@dimen/button_spacing"
+                android:text="@string/rename_player"
+                android:textSize="@dimen/text_size_tiny"
+                android:backgroundTint="#FBC02D"
+                android:textColor="#000000"/>
         </LinearLayout>
 
+        <!-- Player buttons row 2: Export / Import -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
+
+            <Button
+                android:id="@+id/exportScoreBtn"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/button_height"
+                android:layout_weight="1"
+                android:text="@string/export"
+                android:textSize="@dimen/text_size_tiny"
+                android:backgroundTint="#4CAF50"
+                android:textColor="#FFFFFF"/>
 
             <Button
                 android:id="@+id/importPlayerBtn"
-                android:layout_width="wrap_content"
-                android:layout_height="40dp"
+                android:layout_width="0dp"
+                android:layout_height="@dimen/button_height"
+                android:layout_weight="1"
+                android:layout_marginStart="@dimen/button_spacing"
                 android:text="@string/import_score_db"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#FF9800"
                 android:textColor="#FFFFFF"/>
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- BMS Path Section -->
         <LinearLayout
@@ -308,7 +324,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/section_padding_bottom">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -321,7 +337,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/section_bms_path"
-                    android:textSize="20sp"
+                    android:textSize="@dimen/text_size_section"
                     android:textColor="#4FC3F7"/>
 
                 <TextView
@@ -330,16 +346,16 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <Button
                 android:id="@+id/addBmsPathBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="@dimen/button_height_small"
                 android:text="@string/add"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
         </LinearLayout>
@@ -348,16 +364,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/tap_to_remove"
-            android:textSize="12sp"
+            android:textSize="@dimen/text_size_tiny"
             android:textColor="#888888"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="@dimen/item_padding_bottom_small"/>
 
         <LinearLayout
             android:id="@+id/bmsPathContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="24dp"/>
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"/>
 
         <!-- Scan Songs On Launch -->
         <LinearLayout
@@ -365,7 +381,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_small">
 
             <TextView
                 android:layout_width="0dp"
@@ -373,21 +389,21 @@
                 android:layout_weight="1"
                 android:text="@string/scan_songs_on_launch"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Switch
                 android:id="@+id/scanSongsOnLaunchSwitch"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:checked="true" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Play Options Section (Expandable) -->
         <LinearLayout
@@ -396,7 +412,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/section_padding_bottom"
             android:clickable="true"
             android:focusable="true">
 
@@ -405,7 +421,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/section_play_options"
-                android:textSize="20sp"
+                android:textSize="@dimen/text_size_section"
                 android:textColor="#4FC3F7"/>
 
             <TextView
@@ -413,7 +429,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/expand"
                 android:textColor="#4FC3F7"
-                android:textSize="12sp"/>
+                android:textSize="@dimen/text_size_tiny"/>
 
             <TextView
                 android:id="@+id/playOptionsArrow"
@@ -421,7 +437,7 @@
                 android:layout_height="wrap_content"
                 android:text="▼"
                 android:textColor="#4FC3F7"
-                android:textSize="16sp"/>
+                android:textSize="@dimen/text_size_section_arrow"/>
         </LinearLayout>
 
         <LinearLayout
@@ -435,7 +451,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
@@ -451,7 +467,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/audio_visualization_mode"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp" />
+                    android:textSize="@dimen/text_size_body" />
 
                 <TextView
                     android:id="@+id/audioSpectrumHelp"
@@ -459,14 +475,14 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <Spinner
                 android:id="@+id/audioVisualizationModeSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -474,7 +490,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom"
             android:orientation="horizontal">
 
             <TextView
@@ -483,13 +499,13 @@
                 android:layout_weight="1"
                 android:text="@string/floating_menu_position"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/floatingMenuPositionSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -497,7 +513,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom"
             android:orientation="horizontal">
 
             <TextView
@@ -506,13 +522,13 @@
                 android:layout_weight="1"
                 android:text="@string/bga_display"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/bgaDisplaySpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -520,7 +536,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom"
             android:orientation="horizontal">
 
             <TextView
@@ -529,13 +545,13 @@
                 android:layout_weight="1"
                 android:text="@string/bga_expand"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/bgaExpandSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -543,7 +559,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom"
             android:gravity="center_vertical">
 
             <LinearLayout
@@ -558,7 +574,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/gauge_auto_shift"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_body"
                     android:gravity="center_vertical"/>
 
                 <TextView
@@ -567,14 +583,14 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <Spinner
                 android:id="@+id/gaugeAutoShiftSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -583,15 +599,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/auto_save_replay"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
-                android:layout_marginBottom="8dp"/>
+                android:textSize="@dimen/text_size_body"
+                android:layout_marginBottom="@dimen/item_padding_bottom_small"/>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -600,17 +616,17 @@
                 android:layout_marginBottom="4dp">
 
                 <TextView
-                    android:layout_width="40dp"
+                    android:layout_width="@dimen/replay_label_width"
                     android:layout_height="wrap_content"
                     android:text="1"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"/>
 
                 <Spinner
                     android:id="@+id/autoSaveReplay1"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="@dimen/control_height_small"
                     android:layout_weight="1"
                     android:background="#333333"/>
             </LinearLayout>
@@ -622,17 +638,17 @@
                 android:layout_marginBottom="4dp">
 
                 <TextView
-                    android:layout_width="40dp"
+                    android:layout_width="@dimen/replay_label_width"
                     android:layout_height="wrap_content"
                     android:text="2"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"/>
 
                 <Spinner
                     android:id="@+id/autoSaveReplay2"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="@dimen/control_height_small"
                     android:layout_weight="1"
                     android:background="#333333"/>
             </LinearLayout>
@@ -644,17 +660,17 @@
                 android:layout_marginBottom="4dp">
 
                 <TextView
-                    android:layout_width="40dp"
+                    android:layout_width="@dimen/replay_label_width"
                     android:layout_height="wrap_content"
                     android:text="3"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"/>
 
                 <Spinner
                     android:id="@+id/autoSaveReplay3"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="@dimen/control_height_small"
                     android:layout_weight="1"
                     android:background="#333333"/>
             </LinearLayout>
@@ -666,17 +682,17 @@
                 android:layout_marginBottom="4dp">
 
                 <TextView
-                    android:layout_width="40dp"
+                    android:layout_width="@dimen/replay_label_width"
                     android:layout_height="wrap_content"
                     android:text="4"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"/>
 
                 <Spinner
                     android:id="@+id/autoSaveReplay4"
                     android:layout_width="0dp"
-                    android:layout_height="40dp"
+                    android:layout_height="@dimen/control_height_small"
                     android:layout_weight="1"
                     android:background="#333333"/>
             </LinearLayout>
@@ -687,7 +703,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom"
             android:gravity="center_vertical">
 
             <LinearLayout
@@ -702,7 +718,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/green_number"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_body"
                     android:gravity="center_vertical"/>
 
                 <TextView
@@ -711,20 +727,20 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <EditText
                 android:id="@+id/greenNumberInput"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
+                android:layout_width="@dimen/edittext_width"
+                android:layout_height="@dimen/control_height_small"
                 android:background="#333333"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_size_small"
                 android:gravity="center"
                 android:inputType="number"
-                android:padding="8dp"/>
+                android:padding="@dimen/edittext_padding"/>
         </LinearLayout>
 
         <!-- TARGET SCORE -->
@@ -732,7 +748,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom">
 
             <TextView
                 android:layout_width="0dp"
@@ -740,13 +756,13 @@
                 android:layout_weight="1"
                 android:text="@string/target_score"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/targetScoreSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -755,7 +771,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom">
 
             <TextView
                 android:layout_width="0dp"
@@ -763,13 +779,13 @@
                 android:layout_weight="1"
                 android:text="@string/gauge_type"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/gaugeTypeSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -778,7 +794,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"
             android:gravity="center_vertical">
 
             <LinearLayout
@@ -793,7 +809,7 @@
                     android:layout_height="wrap_content"
                     android:text="@string/note_timing_offset"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"
+                    android:textSize="@dimen/text_size_body"
                     android:gravity="center_vertical"/>
 
                 <TextView
@@ -802,27 +818,27 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <EditText
                 android:id="@+id/noteTimingOffsetInput"
-                android:layout_width="80dp"
-                android:layout_height="40dp"
+                android:layout_width="@dimen/edittext_width"
+                android:layout_height="@dimen/control_height_small"
                 android:background="#333333"
                 android:textColor="#FFFFFF"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_size_small"
                 android:gravity="center"
                 android:inputType="number|numberSigned"
-                android:padding="8dp"/>
+                android:padding="@dimen/edittext_padding"/>
 
             <TextView
-                android:layout_width="40dp"
+                android:layout_width="@dimen/unit_label_width"
                 android:layout_height="wrap_content"
                 android:text="@string/ms"
                 android:textColor="#888888"
-                android:textSize="14sp"
+                android:textSize="@dimen/text_size_small"
                 android:gravity="center_vertical"/>
         </LinearLayout>
 
@@ -831,7 +847,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <TextView
                 android:layout_width="0dp"
@@ -839,13 +855,13 @@
                 android:layout_weight="1"
                 android:text="@string/auto_timing_adjust"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Switch
                 android:id="@+id/autoTimingAdjustSwitch"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:checked="false" />
         </LinearLayout>
 
@@ -854,7 +870,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <TextView
                 android:layout_width="0dp"
@@ -862,13 +878,13 @@
                 android:layout_weight="1"
                 android:text="@string/note_modifier"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/noteModifierSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -878,7 +894,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <TextView
                 android:layout_width="0dp"
@@ -886,13 +902,13 @@
                 android:layout_weight="1"
                 android:text="@string/hispeed_fix"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Spinner
                 android:id="@+id/hispeedFixSpinner"
-                android:layout_width="160dp"
-                android:layout_height="48dp"
+                android:layout_width="@dimen/spinner_width"
+                android:layout_height="@dimen/control_height"
                 android:background="#333333"/>
         </LinearLayout>
 
@@ -901,7 +917,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom">
 
             <TextView
                 android:layout_width="0dp"
@@ -909,13 +925,13 @@
                 android:layout_weight="1"
                 android:text="@string/enable_lanecover"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Switch
                 android:id="@+id/enableLanecoverSwitch"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:checked="true" />
         </LinearLayout>
 
@@ -924,7 +940,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="24dp">
+            android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <TextView
                 android:layout_width="0dp"
@@ -932,13 +948,13 @@
                 android:layout_weight="1"
                 android:text="@string/enable_lift"
                 android:textColor="#FFFFFF"
-                android:textSize="16sp"
+                android:textSize="@dimen/text_size_body"
                 android:gravity="center_vertical"/>
 
             <Switch
                 android:id="@+id/enableLiftSwitch"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="@dimen/control_height"
                 android:checked="false" />
         </LinearLayout>
 
@@ -947,9 +963,9 @@
         <View
             android:layout_width="match_parent"
 
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Input Options Section (Expandable) -->
         <LinearLayout
@@ -958,7 +974,7 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/section_padding_bottom"
             android:clickable="true"
             android:focusable="true">
 
@@ -973,7 +989,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/section_input_options"
-                    android:textSize="20sp"
+                    android:textSize="@dimen/text_size_section"
                     android:textColor="#4FC3F7"/>
 
                 <TextView
@@ -982,8 +998,8 @@
                     android:layout_height="wrap_content"
                     android:text=" ? "
                     android:textColor="#4FC3F7"
-                    android:textSize="18sp"
-                    android:paddingStart="8dp"/>
+                    android:textSize="@dimen/text_size_help"
+                    android:paddingStart="@dimen/help_padding_start"/>
             </LinearLayout>
 
             <TextView
@@ -991,7 +1007,7 @@
                 android:layout_height="wrap_content"
                 android:text="@string/expand"
                 android:textColor="#4FC3F7"
-                android:textSize="12sp"/>
+                android:textSize="@dimen/text_size_tiny"/>
 
             <TextView
                 android:id="@+id/inputOptionsArrow"
@@ -999,7 +1015,7 @@
                 android:layout_height="wrap_content"
                 android:text="▼"
                 android:textColor="#4FC3F7"
-                android:textSize="16sp"/>
+                android:textSize="@dimen/text_size_section_arrow"/>
         </LinearLayout>
 
         <LinearLayout
@@ -1014,7 +1030,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:gravity="center_vertical">
 
                 <LinearLayout
@@ -1029,36 +1045,36 @@
                         android:layout_height="wrap_content"
                         android:text="@string/minimum_input_duration"
                         android:textColor="#FFFFFF"
-                        android:textSize="16sp"
+                        android:textSize="@dimen/text_size_body"
                         android:gravity="center_vertical"/>
                 </LinearLayout>
 
                 <EditText
                     android:id="@+id/inputDurationInput"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
+                    android:layout_width="@dimen/edittext_width"
+                    android:layout_height="@dimen/control_height_small"
                     android:background="#333333"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"
                     android:inputType="number"
-                    android:padding="8dp"/>
+                    android:padding="@dimen/edittext_padding"/>
 
                 <TextView
-                    android:layout_width="40dp"
+                    android:layout_width="@dimen/unit_label_width"
                     android:layout_height="wrap_content"
                     android:text="@string/ms"
                     android:textColor="#888888"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center_vertical"
-                    android:paddingStart="4dp"/>
+                    android:paddingStart="@dimen/unit_padding_start"/>
             </LinearLayout>
 
             <!-- JKOC HACK -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -1074,7 +1090,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/jkoc_hack"
                         android:textColor="#FFFFFF"
-                        android:textSize="16sp" />
+                        android:textSize="@dimen/text_size_body" />
 
                     <TextView
                         android:id="@+id/jkocHackHelp"
@@ -1082,21 +1098,21 @@
                         android:layout_height="wrap_content"
                         android:text=" ? "
                         android:textColor="#4FC3F7"
-                        android:textSize="18sp"
-                        android:paddingStart="8dp"/>
+                        android:textSize="@dimen/text_size_help"
+                        android:paddingStart="@dimen/help_padding_start"/>
                 </LinearLayout>
 
                 <Switch
                     android:id="@+id/jkocHackSwitch"
                     android:layout_width="wrap_content"
-                    android:layout_height="48dp" />
+                    android:layout_height="@dimen/control_height" />
             </LinearLayout>
 
             <!-- ANALOG SCRATCH -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -1112,7 +1128,7 @@
                         android:layout_height="wrap_content"
                         android:text="@string/analog_scratch"
                         android:textColor="#FFFFFF"
-                        android:textSize="16sp" />
+                        android:textSize="@dimen/text_size_body" />
 
                     <TextView
                         android:id="@+id/analogScratchHelp"
@@ -1120,14 +1136,14 @@
                         android:layout_height="wrap_content"
                         android:text=" ? "
                         android:textColor="#4FC3F7"
-                        android:textSize="18sp"
-                        android:paddingStart="8dp"/>
+                        android:textSize="@dimen/text_size_help"
+                        android:paddingStart="@dimen/help_padding_start"/>
                 </LinearLayout>
 
                 <Switch
                     android:id="@+id/analogScratchSwitch"
                     android:layout_width="wrap_content"
-                    android:layout_height="48dp" />
+                    android:layout_height="@dimen/control_height" />
             </LinearLayout>
 
             <!-- ANALOG SCRATCH THRESHOLD -->
@@ -1135,7 +1151,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:gravity="center_vertical">
 
                 <TextView
@@ -1144,25 +1160,25 @@
                     android:layout_weight="1"
                     android:text="@string/analog_scratch_threshold"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"/>
+                    android:textSize="@dimen/text_size_body"/>
 
                 <EditText
                     android:id="@+id/analogScratchThresholdInput"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
+                    android:layout_width="@dimen/edittext_width"
+                    android:layout_height="@dimen/control_height_small"
                     android:background="#333333"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"
                     android:inputType="number"
-                    android:padding="8dp"/>
+                    android:padding="@dimen/edittext_padding"/>
             </LinearLayout>
 
             <!-- ANALOG SCRATCH ALGORITHM -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -1172,26 +1188,26 @@
                     android:layout_weight="1"
                     android:text="@string/analog_scratch_algorithm"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"/>
+                    android:textSize="@dimen/text_size_body"/>
 
                 <Spinner
                     android:id="@+id/analogScratchAlgorithmSpinner"
-                    android:layout_width="160dp"
-                    android:layout_height="48dp"
+                    android:layout_width="@dimen/spinner_width"
+                    android:layout_height="@dimen/control_height"
                     android:background="#333333"/>
             </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="1dp"
+                android:layout_height="@dimen/divider_height"
                 android:background="#222222"
-                android:layout_marginVertical="8dp"/>
+                android:layout_marginVertical="@dimen/divider_margin_vertical_small"/>
 
             <!-- MOUSE SCRATCH -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -1201,12 +1217,12 @@
                     android:layout_weight="1"
                     android:text="@string/mouse_scratch"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp" />
+                    android:textSize="@dimen/text_size_body" />
 
                 <Switch
                     android:id="@+id/mouseScratchSwitch"
                     android:layout_width="wrap_content"
-                    android:layout_height="48dp" />
+                    android:layout_height="@dimen/control_height" />
             </LinearLayout>
 
             <!-- MOUSE SCRATCH THRESHOLD -->
@@ -1214,7 +1230,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:gravity="center_vertical">
 
                 <TextView
@@ -1223,18 +1239,18 @@
                     android:layout_weight="1"
                     android:text="@string/mouse_scratch_threshold"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"/>
+                    android:textSize="@dimen/text_size_body"/>
 
                 <EditText
                     android:id="@+id/mouseScratchThresholdInput"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
+                    android:layout_width="@dimen/edittext_width"
+                    android:layout_height="@dimen/control_height_small"
                     android:background="#333333"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"
                     android:inputType="number"
-                    android:padding="8dp"/>
+                    android:padding="@dimen/edittext_padding"/>
             </LinearLayout>
 
             <!-- MOUSE SCRATCH DISTANCE -->
@@ -1242,7 +1258,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:gravity="center_vertical">
 
                 <TextView
@@ -1251,26 +1267,26 @@
                     android:layout_weight="1"
                     android:text="@string/mouse_scratch_distance"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"/>
+                    android:textSize="@dimen/text_size_body"/>
 
                 <EditText
                     android:id="@+id/mouseScratchDistanceInput"
-                    android:layout_width="80dp"
-                    android:layout_height="40dp"
+                    android:layout_width="@dimen/edittext_width"
+                    android:layout_height="@dimen/control_height_small"
                     android:background="#333333"
                     android:textColor="#FFFFFF"
-                    android:textSize="14sp"
+                    android:textSize="@dimen/text_size_small"
                     android:gravity="center"
                     android:inputType="number"
-                    android:padding="8dp"/>
+                    android:padding="@dimen/edittext_padding"/>
             </LinearLayout>
 
             <!-- MOUSE SCRATCH ALGORITHM -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
                 android:orientation="horizontal"
+                android:layout_marginBottom="@dimen/item_padding_bottom"
                 android:gravity="center_vertical">
 
                 <TextView
@@ -1279,12 +1295,12 @@
                     android:layout_weight="1"
                     android:text="@string/mouse_scratch_algorithm"
                     android:textColor="#FFFFFF"
-                    android:textSize="16sp"/>
+                    android:textSize="@dimen/text_size_body"/>
 
                 <Spinner
                     android:id="@+id/mouseScratchAlgorithmSpinner"
-                    android:layout_width="160dp"
-                    android:layout_height="48dp"
+                    android:layout_width="@dimen/spinner_width"
+                    android:layout_height="@dimen/control_height"
                     android:background="#333333"/>
             </LinearLayout>
 
@@ -1292,9 +1308,9 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Table Section -->
         <LinearLayout
@@ -1302,32 +1318,32 @@
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:layout_marginBottom="16dp">
+            android:layout_marginBottom="@dimen/section_padding_bottom">
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/section_tables"
-                android:textSize="20sp"
+                android:textSize="@dimen/text_size_section"
                 android:textColor="#4FC3F7"/>
 
             <Button
                 android:id="@+id/addTableUrlBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="@dimen/button_height_small"
                 android:text="@string/add"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#4FC3F7"
                 android:textColor="#000000"/>
 
             <Button
                 android:id="@+id/updateAllTablesBtn"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="@dimen/button_height_small"
+                android:layout_marginStart="@dimen/button_spacing_small"
                 android:text="@string/update_all"
-                android:textSize="12sp"
+                android:textSize="@dimen/text_size_tiny"
                 android:backgroundTint="#FF9800"
                 android:textColor="#000000"/>
         </LinearLayout>
@@ -1336,30 +1352,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/tap_to_remove"
-            android:textSize="12sp"
+            android:textSize="@dimen/text_size_tiny"
             android:textColor="#888888"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="@dimen/item_padding_bottom_small"/>
 
         <LinearLayout
             android:id="@+id/tableUrlContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="24dp"
-            android:paddingBottom="200dp"/>
+            android:layout_marginBottom="@dimen/item_padding_bottom_large"
+            android:paddingBottom="@dimen/table_container_bottom_padding"/>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/divider_height"
             android:background="#333333"
-            android:layout_marginVertical="16dp"/>
+            android:layout_marginVertical="@dimen/divider_margin_vertical"/>
 
         <!-- Buttons -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/item_padding_bottom_large"
             android:gravity="end">
 
 

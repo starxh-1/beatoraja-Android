@@ -164,6 +164,11 @@
     <string name="dialog_new_player">New Player</string>
 
     <string name="hint_player_name">Player name</string>
+    <string name="rename_player">Rename</string>
+    <string name="dialog_rename_player">Rename Player</string>
+    <string name="msg_player_renamed">Player renamed to \'%1$s\'</string>
+    <string name="msg_player_rename_exists">A player named \'%1$s\' already exists</string>
+    <string name="msg_player_rename_same">Name unchanged</string>
     <string name="btn_create">Create</string>
     <string name="btn_cancel">Cancel</string>
     <string name="msg_player_created">Player \'%1$s\' created</string>
@@ -192,7 +197,7 @@
 
     <!-- Help texts for ? buttons -->
     <string name="player_help_title">Select Player</string>
-    <string name="player_help">You can click \"New Player\" to create a new player. You cannot delete a player when there is only one player.\n\nExport and import scores are both using zip compressed packages (this is because the player directory contains more than just score.db). If you want to backup your scores, you can use the export function and save it to your desired folder. When you need to import scores again, simply click \"Import Score.zip\" to import.</string>
+    <string name="player_help">You can click \"New Player\" to create a new player. The folder ID and the player name (stored in config) are kept in sync — renaming either updates the other.\n\nUse \"Rename\" to change the name of the current player (both the folder and config are updated together). You cannot delete a player when there is only one player.\n\nExport and import scores are both using zip compressed packages (this is because the player directory contains more than just score.db). If you want to backup your scores, you can use the export function and save it to your desired folder. When you need to import scores again, simply click \"Import Score.zip\" to import.</string>
 
     <string name="bms_path_help_title">Song Paths</string>
     <string name="bms_path_help">The app has a default Song path created (located at download/beatoraja/songs, cannot be deleted). You can click the add button to add new Song paths.\n\nThe app supports placing zip files in the directory. When updating Song directories, if a zip is detected, it will be extracted. However, it is still recommended to place folders directly (the app\'s built-in zip extraction performance is relatively poor).\n\nThe required directory structure is as follows:\n\nIf zip: inochi_ogg.zip → extract → get inochi_ogg folder → open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nIf folder: open inochi_ogg folder → inochi_ogg/inochi_Another.bms, audio.wav ..</string>

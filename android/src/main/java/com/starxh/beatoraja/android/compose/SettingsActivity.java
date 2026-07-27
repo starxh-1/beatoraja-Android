@@ -685,6 +685,8 @@ public class SettingsActivity extends Activity {
         setupGamepadFocusable(findViewById(R.id.newPlayerBtn));
         findViewById(R.id.deletePlayerBtn).setOnClickListener(v -> deleteCurrentPlayer());
         setupGamepadFocusable(findViewById(R.id.deletePlayerBtn));
+        findViewById(R.id.renamePlayerBtn).setOnClickListener(v -> showRenamePlayerDialog());
+        setupGamepadFocusable(findViewById(R.id.renamePlayerBtn));
         findViewById(R.id.exportScoreBtn).setOnClickListener(v -> exportScoreDatabase());
         setupGamepadFocusable(findViewById(R.id.exportScoreBtn));
         findViewById(R.id.importPlayerBtn).setOnClickListener(v -> importScoreDatabase());
@@ -1227,6 +1229,7 @@ public class SettingsActivity extends Activity {
                 }
                 config = new org.json.JSONObject(sb.toString());
             }
+            config.put("name", selectedPlayerName);
             config.put("gaugeAutoShift", selectedGaugeAutoShift);
             org.json.JSONArray asr = new org.json.JSONArray();
             for (int val : selectedAutoSaveReplay) asr.put(val);
@@ -1547,6 +1550,48 @@ public class SettingsActivity extends Activity {
                 playerSpinner.setSelection(availablePlayers.indexOf(name)); selectedPlayerName = name;
                 Toast.makeText(this, getString(R.string.msg_player_created, name), Toast.LENGTH_SHORT).show();
             } else Toast.makeText(this, name.isEmpty() ? getString(R.string.msg_player_empty) : getString(R.string.msg_player_exists), Toast.LENGTH_SHORT).show();
+        });
+        b.setNegativeButton(getString(R.string.btn_cancel), null); b.show();
+    }
+
+    private void showRenamePlayerDialog() {
+        final String oldName = selectedPlayerName;
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        b.setTitle(getString(R.string.dialog_rename_player));
+        final EditText input = new EditText(this); input.setHint(getString(R.string.hint_player_name));
+        input.setText(oldName); input.setSelection(oldName.length());
+        input.setTextColor(0xFFFFFFFF); input.setBackgroundColor(0xFF333333);
+        LinearLayout c = new LinearLayout(this); c.setPadding(32, 16, 32, 16); c.addView(input); b.setView(c);
+        b.setPositiveButton(getString(R.string.rename_player), (d, w) -> {
+            String newName = input.getText().toString().trim();
+            if (newName.isEmpty()) {
+                Toast.makeText(this, getString(R.string.msg_player_empty), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (newName.equals(oldName)) {
+                Toast.makeText(this, getString(R.string.msg_player_rename_same), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (availablePlayers.contains(newName)) {
+                Toast.makeText(this, getString(R.string.msg_player_rename_exists, newName), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            File playerRoot = getExternalFilesDir(null);
+            File oldDir = new File(playerRoot, "player/" + oldName);
+            File newDir = new File(playerRoot, "player/" + newName);
+            if (!oldDir.renameTo(newDir)) {
+                Log.e("SettingsActivity", "Rename player folder failed: " + oldDir + " -> " + newDir);
+                Toast.makeText(this, getString(R.string.msg_player_rename_same), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            int idx = availablePlayers.indexOf(oldName);
+            if (idx >= 0) availablePlayers.set(idx, newName);
+            selectedPlayerName = newName;
+            ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
+            playerSpinner.setSelection(idx >= 0 ? idx : 0);
+            readPlayOptionsFromPlayerConfig();
+            saveConfigToJson();
+            Toast.makeText(this, getString(R.string.msg_player_renamed, newName), Toast.LENGTH_SHORT).show();
         });
         b.setNegativeButton(getString(R.string.btn_cancel), null); b.show();
     }

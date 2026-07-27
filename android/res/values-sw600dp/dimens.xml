@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Larger padding for tablet/landscape screens -->
+    <dimen name="screen_padding">40dp</dimen>
+    <dimen name="section_padding_bottom">20dp</dimen>
+    <dimen name="item_padding_bottom">20dp</dimen>
+    <dimen name="item_padding_bottom_large">28dp</dimen>
+    <dimen name="divider_margin_vertical">20dp</dimen>
+
+    <!-- Larger text -->
+    <dimen name="text_size_title">32sp</dimen>
+    <dimen name="text_size_section">24sp</dimen>
+    <dimen name="text_size_body">18sp</dimen>
+    <dimen name="text_size_small">16sp</dimen>
+    <dimen name="text_size_tiny">14sp</dimen>
+    <dimen name="text_size_help">20sp</dimen>
+
+    <!-- Larger controls -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_height_small">44dp</dimen>
+    <dimen name="control_height">56dp</dimen>
+    <dimen name="control_height_small">48dp</dimen>
+
+    <!-- Wider spinners / inputs -->
+    <dimen name="spinner_width">220dp</dimen>
+    <dimen name="edittext_width">100dp</dimen>
+    <dimen name="percent_label_width">80dp</dimen>
+</resources>
