@@ -265,9 +265,8 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 	 * 用反射而非直接 import 是为了保持 core 模块不依赖 android.jar
 	 * (同 {@link #loadPicture} 内的 ImageIO 兜底一样的写法)。
 	 *
-	 * Bitmap ARGB_8888 内部以 0xAARRGGBB 32 位存储,Android 一律 little-endian,
-	 * copyPixelsToBuffer 写出的 ByteBuffer 字节序为 [B, G, R, A] per pixel;
-	 * libGDX Pixmap.RGBA8888 期望 [R, G, B, A] —— 每像素交换 byte[0] 和 byte[2]。
+	 * Bitmap.copyPixelsToBuffer 对 ARGB_8888 写出的字节序为 [R, G, B, A] per pixel,
+	 * 与 libGDX Pixmap.RGBA8888 在内存中的期望格式一致,直接 memcpy 即可,无须重排。
 	 */
 	private static Pixmap decodeViaBitmapFactory(String absolutePath) {
 		try {
@@ -302,12 +301,6 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 				src.rewind();
 				byte[] pixels = new byte[pixelCount * 4];
 				src.get(pixels);
-				for (int i = 0; i < pixelCount; i++) {
-					int o = i * 4;
-					byte tmp = pixels[o];
-					pixels[o] = pixels[o + 2];
-					pixels[o + 2] = tmp;
-				}
 				java.nio.ByteBuffer dst = pixmap.getPixels();
 				dst.clear();
 				dst.put(pixels);
