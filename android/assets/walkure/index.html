@@ -474,7 +474,6 @@ var RatingApp={
     filters.innerHTML='<div class="filters-title">'+_t('filter')+'</div>'+
       '<div class="filter-row"><label>\u2605:</label></div><div class="star-group" id="rev-star-filter"></div><div class="star-actions"><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',true)">All</button><button onclick="RatingApp.toggleStarGroup(\'rev-star-filter\',false)">None</button></div>'+
       '<div class="filter-row"><label>'+_t('lamp')+':</label></div><div class="lamp-group" id="rev-lamp-filter"></div>'+
-      '<div class="filter-row"><label>'+_t('ground')+':</label><input type="text" id="rev-ground-filter" placeholder="min" style="background:var(--panel2);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--fg);font-size:12px;width:80px"></div>'+
       '<div class="filter-actions"><button onclick="RatingApp.resetRevFilters()">'+_t('reset')+'</button></div>'
     tab.appendChild(filters)
     var area=document.createElement('div')
@@ -483,8 +482,6 @@ var RatingApp={
     this.buildCheckboxes('rev-star-filter',this.ALL_STARS,'rev-star',true)
     this.buildCheckboxes('rev-lamp-filter',['easy','normal','hard','fullCombo'],'rev-lamp')
     var self=this
-    var groundEl=document.getElementById('rev-ground-filter')
-    if(groundEl)groundEl.addEventListener('input',function(){self.revPage=0;self.rerenderRevTable()})
     this.rerenderRevTable()
   },
   rerenderRecTable:function(){
@@ -520,13 +517,10 @@ var RatingApp={
     var arr=this.data.reverseRecommendation.slice()
     var stars=this.getCheckedSet('rev-star-filter')
     var lamps=this.getCheckedSet('rev-lamp-filter')
-    var groundEl=document.getElementById('rev-ground-filter')
-    var groundMin=groundEl&&groundEl.value?parseFloat(groundEl.value):NaN
     return arr.filter(function(r){
       if(r.clearDifficultyStarRating==null)return false
       if(!RatingApp.matchStarFilter(r.difficultyTableLevels,stars))return false
       if(lamps.size&&!lamps.has(r.clearLamp))return false
-      if(!isNaN(groundMin)&&(r.chartDiscrimination==null||r.chartDiscrimination<groundMin))return false
       return true
     })
   },
@@ -821,6 +815,44 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
         c.appendChild(lbl)
       }
     }
+    this.applyFilterState(containerId,group)
+  },
+  _filterKey:function(group){return 'walkure.filter.'+group},
+  saveFilterState:function(group){
+    var c=document.getElementById(group+'-filter')
+    if(!c)return
+    var s=[]
+    var cbs=c.querySelectorAll('input[type=checkbox]:not(.cat-cb)')
+    for(var i=0;i<cbs.length;i++)s.push({v:cbs[i].value,c:cbs[i].checked})
+    try{localStorage.setItem(this._filterKey(group),JSON.stringify(s))}catch(e){}
+  },
+  applyFilterState:function(containerId,group){
+    try{
+      var raw=localStorage.getItem(this._filterKey(group))
+      if(!raw)return
+      var arr=JSON.parse(raw)
+      var c=document.getElementById(containerId)
+      if(!c)return
+      var map={}
+      for(var i=0;i<arr.length;i++)map[arr[i].v]=arr[i].c
+      var cbs=c.querySelectorAll('input[type=checkbox]:not(.cat-cb)')
+      for(var j=0;j<cbs.length;j++){
+        if(map[cbs[j].value]!==void 0){
+          cbs[j].checked=map[cbs[j].value]
+          cbs[j].parentNode.className=cbs[j].checked?'checked':''
+        }
+      }
+      if(this.ALL_STARS_CATEGORIES){
+        for(var ci=0;ci<this.ALL_STARS_CATEGORIES.length;ci++){
+          this.updateCatCb(group,ci)
+        }
+      }
+    }catch(e){}
+  },
+  clearFilterState:function(groups){
+    for(var i=0;i<groups.length;i++){
+      try{localStorage.removeItem(this._filterKey(groups[i]))}catch(e){}
+    }
   },
   updateCatCb:function(group,catIdx){
     var container=document.getElementById(group+'-filter')
@@ -843,6 +875,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
   onFilterChange:function(group){
     if(group==='rec-star'||group==='rec-old-lamp'||group==='rec-new-lamp'){this.recPage=0;this.rerenderRecTable()}
     else if(group==='rev-star'||group==='rev-lamp'){this.revPage=0;this.rerenderRevTable()}
+    this.saveFilterState(group)
   },
   resetRecFilters:function(){
     var containers=['rec-star-filter','rec-old-lamp-filter','rec-new-lamp-filter']
@@ -855,6 +888,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
         if(!cbs[j].classList.contains('cat-cb'))cbs[j].parentNode.className='checked'
       }
     }
+    this.clearFilterState(['rec-star','rec-old-lamp','rec-new-lamp'])
     this.recPage=0
     this.rerenderRecTable()
   },
@@ -869,8 +903,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
         if(!cbs[j].classList.contains('cat-cb'))cbs[j].parentNode.className='checked'
       }
     }
-    var groundEl=document.getElementById('rev-ground-filter')
-    if(groundEl)groundEl.value=''
+    this.clearFilterState(['rev-star','rev-lamp'])
     this.revPage=0
     this.rerenderRevTable()
   },
@@ -882,6 +915,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     // Sync all category checkboxes
     var catCbs=el.querySelectorAll('.cat-cb')
     for(var k=0;k<catCbs.length;k++){catCbs[k].checked=check}
+    this.saveFilterState(id.replace(/-filter$/,''))
   },
   probCell:function(p){
     var pc=(p*100).toFixed(1)
