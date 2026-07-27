@@ -220,6 +220,14 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 				Logger.getGlobal().warning("BGAファイル読み込み失敗。" + e.getMessage() + " path: " + actualPath);
 			}
 		}
+		// Android 专属兜底:libGDX 的 gdx2d BMP 解码器只支持 24bpp RGB / 8bpp indexed,
+		// 32 位 BMP(含 BITFIELDS、BI_RGB+alpha 等)直接抛异常走到 catch,这里用
+		// android.graphics.BitmapFactory.decodeFile 再救一次。BGRA 字节流重排成
+		// libGDX Pixmap.RGBA8888 期望的 RGBA 字节流。反射调是为了让 core 模块不依赖
+		// android.jar —— 同下面 ImageIO 兜底的写法保持一致。
+		if (tex == null && Gdx.app.getType() == ApplicationType.Android) {
+			tex = decodeViaBitmapFactory(actualPath);
+		}
 		if (tex == null && Gdx.app.getType() != ApplicationType.Android) {
 			Logger.getGlobal().warning("BGAファイル読み込み再試行:" + path);
 			try {
@@ -248,5 +256,69 @@ public class PixmapResourcePool extends ResourcePool<String, Pixmap> {
 		}
 
 		return tex;
+	}
+
+	/**
+	 * Android 专属,通过反射调 {@code android.graphics.BitmapFactory.decodeFile}
+	 * 解码 libGDX 不支持的图片(主要是 32 位 BMP)。失败返回 null。
+	 *
+	 * 用反射而非直接 import 是为了保持 core 模块不依赖 android.jar
+	 * (同 {@link #loadPicture} 内的 ImageIO 兜底一样的写法)。
+	 *
+	 * Bitmap ARGB_8888 内部以 0xAARRGGBB 32 位存储,Android 一律 little-endian,
+	 * copyPixelsToBuffer 写出的 ByteBuffer 字节序为 [B, G, R, A] per pixel;
+	 * libGDX Pixmap.RGBA8888 期望 [R, G, B, A] —— 每像素交换 byte[0] 和 byte[2]。
+	 */
+	private static Pixmap decodeViaBitmapFactory(String absolutePath) {
+		try {
+			Class<?> bitmapFactoryClass = Class.forName("android.graphics.BitmapFactory");
+			Class<?> bitmapClass = Class.forName("android.graphics.Bitmap");
+			Class<?> bitmapConfigClass = Class.forName("android.graphics.Bitmap$Config");
+			java.lang.reflect.Method decodeFileMethod = bitmapFactoryClass.getMethod("decodeFile", String.class);
+			java.lang.reflect.Method getConfigMethod = bitmapClass.getMethod("getConfig");
+			java.lang.reflect.Method getWidthMethod = bitmapClass.getMethod("getWidth");
+			java.lang.reflect.Method getHeightMethod = bitmapClass.getMethod("getHeight");
+			java.lang.reflect.Method copyPixelsToBufferMethod = bitmapClass.getMethod("copyPixelsToBuffer", java.nio.Buffer.class);
+			java.lang.reflect.Method recycleMethod = bitmapClass.getMethod("recycle");
+			Object argb8888 = bitmapConfigClass.getField("ARGB_8888").get(null);
+
+			Object bitmap = decodeFileMethod.invoke(null, absolutePath);
+			if (bitmap == null) return null;
+			try {
+				Object config = getConfigMethod.invoke(bitmap);
+				if (config != argb8888) {
+					// 不支持的 config(RGB_565、ALPHA_8、HARDWARE 等),不展开,留给上层认输
+					Logger.getGlobal().warning("BitmapFactory unsupported config: " + config + " path: " + absolutePath);
+					return null;
+				}
+				int w = (Integer) getWidthMethod.invoke(bitmap);
+				int h = (Integer) getHeightMethod.invoke(bitmap);
+				if (w <= 0 || h <= 0) return null;
+
+				Pixmap pixmap = new Pixmap(w, h, Pixmap.Format.RGBA8888);
+				int pixelCount = w * h;
+				java.nio.ByteBuffer src = java.nio.ByteBuffer.allocate(pixelCount * 4);
+				copyPixelsToBufferMethod.invoke(bitmap, src);
+				src.rewind();
+				byte[] pixels = new byte[pixelCount * 4];
+				src.get(pixels);
+				for (int i = 0; i < pixelCount; i++) {
+					int o = i * 4;
+					byte tmp = pixels[o];
+					pixels[o] = pixels[o + 2];
+					pixels[o + 2] = tmp;
+				}
+				java.nio.ByteBuffer dst = pixmap.getPixels();
+				dst.clear();
+				dst.put(pixels);
+				dst.flip();
+				return pixmap;
+			} finally {
+				recycleMethod.invoke(bitmap);
+			}
+		} catch (Throwable e) {
+			Logger.getGlobal().warning("BitmapFactory decode failed: " + e.getMessage() + " path: " + absolutePath);
+			return null;
+		}
 	}
 }

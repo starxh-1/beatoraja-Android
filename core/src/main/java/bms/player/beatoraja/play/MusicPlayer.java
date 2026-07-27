@@ -330,6 +330,13 @@ public class MusicPlayer extends MainState {
 	}
 
 	private void drawSpectrum(SpriteBatch batch) {
+		// MusicPlayer 强制把全局设置里的"线条"(MODE_WAVEFORM)和"频谱"(MODE_SPECTRUM)
+		// 都按频谱条渲染 —— 本类没有 waveform 绘制路径,只画 bars。
+		// 若用户在 Settings 里选了"关闭"(MODE_OFF),这里直接 return,空出中部频谱区。
+		// 这样既覆盖了"线条模式下进入 MusicPlayer 闪退"的历史问题,又允许用户主动关掉频谱。
+		if (resource.getConfig().getAudioVisualizationMode() == bms.player.beatoraja.Config.MODE_OFF) {
+			return;
+		}
 		// 1. 取频谱(64 段 = 32 左 + 32 右,合并成 32 段单声道)
 		AudioSpectrumProvider provider = AudioSpectrumManager.getGlobalProvider();
 		float[] raw = provider == null ? null : provider.getSpectrumMagnitudes();
