@@ -267,13 +267,16 @@ public class AndroidLauncher extends AndroidApplication {
         // 首次启动时创建必要的目录
         createDefaultDirectories();
 
-        // 检测并解压 skin/bgm/sound zip 到外部存储
-        ensureExternalSkinZip(filesDir);
-        ensureExternalBgmZip(filesDir);
-        ensureExternalSoundZip(filesDir);
-
-        // 检测并解压 songs zip 到 Download 目录
-        ensureExternalSongZip();
+        // 检测并解压 zip 到外部存储 —— 这些都是同步 IO + CPU,放后台线程
+        // 避免主线程阻塞 5+ 秒触发 ANR(尤其 song zip 大小通常几十~几百 MB)
+        // checkAndExtractSongZips() 是公开静态入口,后续 SettingsActivity 可以重新触发
+        final File filesDirForExtract = filesDir;
+        new Thread(() -> {
+            ensureExternalSkinZip(filesDirForExtract);
+            ensureExternalBgmZip(filesDirForExtract);
+            ensureExternalSoundZip(filesDirForExtract);
+            ensureExternalSongZip();
+        }, "ZipExtractor").start();
 
         Config.updateConfigPath();
         PlayerConfig.updateConfigPath();
