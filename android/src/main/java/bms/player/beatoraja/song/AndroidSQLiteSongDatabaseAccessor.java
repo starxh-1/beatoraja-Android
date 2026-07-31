@@ -1614,15 +1614,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             try {
                 FileHandle rootDir = Gdx.files.absolute(root.trim());
                 if (rootDir.exists() && rootDir.isDirectory()) {
-                    // 遍历 bmsroot 下的子目录，bmsroot 本身由根 FolderBar 的 CRC 标识，不插入 folder 表
-                    FileHandle[] children = rootDir.list();
-                    if (children != null) {
-                        for (FileHandle child : children) {
-                            if (child.isDirectory()) {
-                                count += rebuildFolderTree(child, db, insertedPaths);
-                            }
-                        }
-                    }
+                    // bmsroot 自身也需要插入 folder 表 —— FolderBar 加载 [root] 时按 parent=ROOT_CRC
+                    // 查子项,只有 bmsroot 这条记录的 parent 才等于 ROOT_CRC (见 SongUtils.crc32)。
+                    // rebuildFolderTree 内部会先递归子目录,再判断自身有无 BMS,跟 scanFolderRecursively 行为一致。
+                    count += rebuildFolderTree(rootDir, db, insertedPaths);
                 }
             } catch (Throwable t) {
                 Log.w(TAG, "rebuildFolderTable: Error processing root: " + root, t);
@@ -1636,6 +1631,10 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
     /**
      * 递归遍历目录树，对每个包含 BMS 文件的目录调用 insertFolder 插入 folder 记录。
      * 采用后序遍历（先子目录后自身），确保子目录先于父目录插入。
+     *
+     * 注意:此方法也会处理传入的根目录本身(bmsroot 也在内),保持跟
+     * {@link #scanFolderRecursively} 的行为一致 —— 那里会给 bmsroot 自己 insertFolder,
+     * 这里也必须做,否则 [root] 加载时按 parent=ROOT_CRC 查不到 bmsroot。
      *
      * @return 插入的 folder 记录数
      */
