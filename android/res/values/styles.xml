@@ -1,4 +1,5 @@
 <resources>
+    <color name="background">#FFFFFFFF</color>
     <style name="GdxTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:colorBackground">@color/background</item>
         <item name="android:windowFullscreen">true</item>
