@@ -434,6 +434,7 @@ public class MainController {
                 floatingMenu.setVisible(menuVisible);
                 floatingMenu.setSelectMode(state == MainStateType.MUSICSELECT);
                 floatingMenu.setKeyConfigMode(state == MainStateType.CONFIG);
+                floatingMenu.setSkinSelectMode(state == MainStateType.SKINCONFIG);
                 floatingMenu.setPlayMode(state == MainStateType.PLAY);
             }
             // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer

@@ -45,8 +45,9 @@ public class FloatingMenu implements InputProcessor {
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
-    private boolean selectMode = false; // 是否为 Select 界面
+    private boolean selectMode = false; // 是否为 MusicSelect 界面
     private boolean keyConfigMode = false; // 是否为 KeyConfig 界面
+    private boolean skinSelectMode = false; // 是否为 SkinSelect 界面（皮肤选择/配置）
     private boolean isPlayMode = false; // 是否为 Play 界面
     /** Play 模式时：距上次交互超过此时间则自动隐藏图标（秒） */
     private static final float HIDE_DELAY = 0f;
@@ -80,16 +81,21 @@ public class FloatingMenu implements InputProcessor {
         String label;
         final int keycode;
         final boolean isToggle;
-        final boolean showOnSelect; // 是否在 Select 界面显示
-        final boolean showOnKeyConfig; // 是否在 KeyConfig 界面显示
-        final boolean showOnPlay; // 是否在 Play 界面显示
-        MenuItem(String label, int keycode) { this(label, keycode, false, true, true, true); }
-        MenuItem(String label, int keycode, boolean isToggle) { this(label, keycode, isToggle, true, true, true); }
-        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect) { this(label, keycode, isToggle, showOnSelect, true, true); }
-        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig) { this(label, keycode, isToggle, showOnSelect, showOnKeyConfig, true); }
+        final boolean showOnSelect;       // 是否在 MusicSelect 界面显示
+        final boolean showOnKeyConfig;    // 是否在 KeyConfig 界面显示
+        final boolean showOnPlay;         // 是否在 Play 界面显示
+        final boolean showOnSkinSelect;   // 是否在 SkinSelect 界面显示（默认 false，避免误显示）
+        MenuItem(String label, int keycode) { this(label, keycode, false, true, true, true, false); }
+        MenuItem(String label, int keycode, boolean isToggle) { this(label, keycode, isToggle, true, true, true, false); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect) { this(label, keycode, isToggle, showOnSelect, true, true, false); }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig) { this(label, keycode, isToggle, showOnSelect, showOnKeyConfig, true, false); }
         MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig, boolean showOnPlay) {
+            this(label, keycode, isToggle, showOnSelect, showOnKeyConfig, showOnPlay, false);
+        }
+        MenuItem(String label, int keycode, boolean isToggle, boolean showOnSelect, boolean showOnKeyConfig, boolean showOnPlay, boolean showOnSkinSelect) {
             this.label = label; this.keycode = keycode; this.isToggle = isToggle;
-            this.showOnSelect = showOnSelect; this.showOnKeyConfig = showOnKeyConfig; this.showOnPlay = showOnPlay;
+            this.showOnSelect = showOnSelect; this.showOnKeyConfig = showOnKeyConfig;
+            this.showOnPlay = showOnPlay; this.showOnSkinSelect = showOnSkinSelect;
         }
     }
 
@@ -97,39 +103,40 @@ public class FloatingMenu implements InputProcessor {
     // 结构：6个通用 + 13个频谱调整（独占1页）+ 2个Controller Reset
     private final MenuItem[] items = {
         // ── 通用按钮（第1页）───────────────────────
-        new MenuItem("Touch Key: ON",  -100, true,  true, false, false),
-        new MenuItem("Show FPS",      Keys.F1, false, true, false, false),
-        new MenuItem("Update Song",   Keys.F2, false, true, false, false),
-        new MenuItem("Music Player",   -130, false, true, false, false),
-        new MenuItem("Skin Select",   Keys.F12, false, true, false, false),
-        new MenuItem("Key Config", Keys.NUM_6, false, true, false, false),
-        new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false),
-        new MenuItem("Backspace",        Keys.BACKSPACE, false, false, false, false),
-        new MenuItem("ESC",   Keys.ESCAPE, false, false, true, false),
-        new MenuItem("Enter",            Keys.ENTER, false, false, true, false),
-        new MenuItem("Walkure",       -140, false, true, false, false),
-        new MenuItem("^ UP",        Keys.UP, false, true, true, false),
-        new MenuItem("v DOWN",      Keys.DOWN, false, true, true, false),
-        new MenuItem("< LEFT",      Keys.LEFT, false, true, true, false),
-        new MenuItem("> RIGHT",     Keys.RIGHT, false, true, true, false),
+        // 构造参数: (label, keycode, isToggle, showOnSelect, showOnKeyConfig, showOnPlay, showOnSkinSelect)
+        new MenuItem("Touch Key: ON",  -100, true,  true, false, true, false),
+        new MenuItem("Show FPS",      Keys.F1, false, true, false, true, false),
+        new MenuItem("Update Song",   Keys.F2, false, true, false, true, false),
+        new MenuItem("Music Player",   -130, false, true, false, true, false),
+        new MenuItem("Skin Select",   Keys.F12, false, true, false, true, false),
+        new MenuItem("Key Config", Keys.NUM_6, false, true, false, true, true),
+        new MenuItem("NUM 5", Keys.NUM_5, false, true, false, false, true),
+        new MenuItem("Backspace",        Keys.BACKSPACE, false, false, false, false, false),
+        new MenuItem("ESC",   Keys.ESCAPE, false, false, true, true, true),
+        new MenuItem("Enter",            Keys.ENTER, false, false, true, false, true),
+        new MenuItem("^ UP",        Keys.UP, false, true, true, true, true),
+        new MenuItem("v DOWN",      Keys.DOWN, false, true, true, true, true),
+        new MenuItem("< LEFT",      Keys.LEFT, false, true, true, true, true),
+        new MenuItem("> RIGHT",     Keys.RIGHT, false, false, true, false, true),
+        new MenuItem("Walkure",       -140, false, true, false, true, false),
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
-        new MenuItem("X: 0", -111, false, true, false, true),
-        new MenuItem("[-]", -121, false, true, false, true),
-        new MenuItem("[+]", -122, false, true, false, true),
-        new MenuItem("Y: 0", -112, false, true, false, true),
-        new MenuItem("[-]", -123, false, true, false, true),
-        new MenuItem("[+]", -124, false, true, false, true),
-        new MenuItem("W: 0", -113, false, true, false, true),
-        new MenuItem("[-]", -125, false, true, false, true),
-        new MenuItem("[+]", -126, false, true, false, true),
-        new MenuItem("H: 0", -114, false, true, false, true),
-        new MenuItem("[-]", -127, false, true, false, true),
-        new MenuItem("[+]", -128, false, true, false, true),
+        new MenuItem("X: 0", -111, false, true, false, true, false),
+        new MenuItem("[-]", -121, false, true, false, true, false),
+        new MenuItem("[+]", -122, false, true, false, true, false),
+        new MenuItem("Y: 0", -112, false, true, false, true, false),
+        new MenuItem("[-]", -123, false, true, false, true, false),
+        new MenuItem("[+]", -124, false, true, false, true, false),
+        new MenuItem("W: 0", -113, false, true, false, true, false),
+        new MenuItem("[-]", -125, false, true, false, true, false),
+        new MenuItem("[+]", -126, false, true, false, true, false),
+        new MenuItem("H: 0", -114, false, true, false, true, false),
+        new MenuItem("[-]", -127, false, true, false, true, false),
+        new MenuItem("[+]", -128, false, true, false, true, false),
         // ── Controller Reset（第3页，仅KeyConfig模式）──
-        new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false),
-        new MenuItem("NUM 2", Keys.NUM_2, false, false, true, false),
-        new MenuItem("DELETE", Keys.FORWARD_DEL, false, false, true, false),
+        new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false, false),
+        new MenuItem("NUM 2", Keys.NUM_2, false, false, true, false, false),
+        new MenuItem("DELETE", Keys.FORWARD_DEL, false, false, true, false, false),
 
     };
 
@@ -158,6 +165,10 @@ public class FloatingMenu implements InputProcessor {
     private static final int[] SEVEN_KEYS_KEYCODES_DEFAULT = {
         Keys.Z, Keys.S, Keys.X, Keys.D, Keys.C, Keys.F, Keys.V
     };
+    /** 缓存 7K 各键显示名称，避免每帧 Keys.toString 分配 String 触发 GC 压力 */
+    private final String[] cached7KKeyNames = new String[7];
+    /** 缓存 7K 各键当前 keycode（-1 表示未初始化），用于检测配置变更以刷新名称 */
+    private final int[] cached7KKeycodes = new int[] {-1, -1, -1, -1, -1, -1, -1};
     /** 覆盖层整体目标占比（屏幕短边），用于按屏幕尺寸自适应 */
     private static final float K7_TARGET_SCREEN_RATIO = 0.30f;
     private static final float K7_BTN_GAP = 8;
@@ -252,6 +263,12 @@ public class FloatingMenu implements InputProcessor {
         currentPage = 0;
     }
 
+    /** 设置是否为 SkinSelect 界面（影响按钮过滤） */
+    public void setSkinSelectMode(boolean skinSelectMode) {
+        this.skinSelectMode = skinSelectMode;
+        currentPage = 0;
+    }
+
     /** 设置是否为 Play 界面（复用一个通用的菜单，不单独处理） */
     public void setPlayMode(boolean playMode) {
         this.isPlayMode = playMode;
@@ -265,10 +282,10 @@ public class FloatingMenu implements InputProcessor {
 
     /** 判断按钮是否在当前界面显示 */
     private boolean isItemVisible(MenuItem item) {
-        // Play 模式复用 selectMode 的菜单，使用 showOnSelect 作为显示依据
         if (selectMode && !item.showOnSelect) return false;
         if (keyConfigMode && !item.showOnKeyConfig) return false;
-        if (isPlayMode && !item.showOnSelect) return false;
+        if (skinSelectMode && !item.showOnSkinSelect) return false;
+        if (isPlayMode && !item.showOnPlay) return false;
         return true;
     }
 
@@ -611,6 +628,7 @@ public class FloatingMenu implements InputProcessor {
 
         // 读取当前用户配置的 7 个 lane 键位（用户在 Key Config 中可改）
         int[] userKeys = (kbInput != null) ? kbInput.getKeys() : null;
+        refresh7KKeyNamesCache(userKeys);
 
         // 标题（上方居中）
         font.setColor(0.5f, 0.8f, 1f, 0.95f);
@@ -647,15 +665,9 @@ public class FloatingMenu implements InputProcessor {
             glyph.setText(font, num);
             font.draw(sprite, num, bx + (k7BtnW - glyph.width) / 2f, k7PanelY + k7BtnH * 0.66f);
 
-            // 对应键盘按键（小字）：读取用户当前配置，未配置则用默认
-            int keycode;
-            if (userKeys != null && i < userKeys.length && userKeys[i] >= 0) {
-                keycode = userKeys[i];
-            } else {
-                keycode = SEVEN_KEYS_KEYCODES_DEFAULT[i];
-            }
+            // 对应键盘按键（小字）：使用缓存的显示名称，避免每帧 Keys.toString 分配
             font.setColor(0.7f, 0.7f, 0.7f, 0.85f);
-            String keyName = Keys.toString(keycode);
+            String keyName = cached7KKeyNames[i];
             glyph.setText(font, keyName);
             font.draw(sprite, keyName, bx + (k7BtnW - glyph.width) / 2f, k7PanelY + k7BtnH * 0.28f);
         }
@@ -675,6 +687,25 @@ public class FloatingMenu implements InputProcessor {
         String closeLabel = "Release NUM5";
         glyph.setText(font, closeLabel);
         font.draw(sprite, closeLabel, cx + (closeW - glyph.width) / 2f, k7CloseY + (K7_CLOSE_H + glyph.height) / 2f);
+    }
+
+    /**
+     * 刷新 7K 覆盖层各键显示名称的缓存。仅在 keycode 实际变化时（如 Key Config 修改后）
+     * 重新调用 Keys.toString，避免每帧分配短 String 触发 GC 压力。
+     */
+    private void refresh7KKeyNamesCache(int[] userKeys) {
+        for (int i = 0; i < 7; i++) {
+            int keycode;
+            if (userKeys != null && i < userKeys.length && userKeys[i] >= 0) {
+                keycode = userKeys[i];
+            } else {
+                keycode = SEVEN_KEYS_KEYCODES_DEFAULT[i];
+            }
+            if (cached7KKeycodes[i] != keycode) {
+                cached7KKeycodes[i] = keycode;
+                cached7KKeyNames[i] = Keys.toString(keycode);
+            }
+        }
     }
 
     private static class PanelLayout {
