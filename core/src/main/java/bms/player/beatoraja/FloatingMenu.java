@@ -114,12 +114,13 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("Backspace",        Keys.BACKSPACE, false, false, false, false, false),
         new MenuItem("ESC",   Keys.ESCAPE, false, false, true, true, true),
         new MenuItem("Enter",            Keys.ENTER, false, false, true, false, true),
+        new MenuItem("START Hold",    -141, false, true, false, false, true),
         new MenuItem("^ UP",        Keys.UP, false, true, true, true, true),
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, true, true),
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, true, true),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, false, true, false, true),
         new MenuItem("Walkure",       -140, false, true, false, true, false),
-        new MenuItem("START Hold",    -141, false, true, false, false, true),
+
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
         new MenuItem("X: 0", -111, false, true, false, true, false),
@@ -134,6 +135,7 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("H: 0", -114, false, true, false, true, false),
         new MenuItem("[-]", -127, false, true, false, true, false),
         new MenuItem("[+]", -128, false, true, false, true, false),
+
         // ── Controller Reset（第3页，仅KeyConfig模式）──
         new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false, false),
         new MenuItem("NUM 2", Keys.NUM_2, false, false, true, false, false),
