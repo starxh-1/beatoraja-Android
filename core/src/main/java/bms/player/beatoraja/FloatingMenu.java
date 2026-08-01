@@ -119,6 +119,7 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, true, true),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, false, true, false, true),
         new MenuItem("Walkure",       -140, false, true, false, true, false),
+        new MenuItem("START Hold",    -141, false, true, false, false, true),
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
         new MenuItem("X: 0", -111, false, true, false, true, false),
@@ -157,10 +158,12 @@ public class FloatingMenu implements InputProcessor {
     private boolean justExpandedByIcon = false;
 
     // ─── NUM5 长按模式（7K 覆盖层） ───
-    /** NUM5 是否处于"按住"状态（按下未释放） */
-    private boolean num5Held = false;
-    /** 7K 覆盖层是否可见（= num5Held 时显示） */
-    private boolean num5OverlayVisible = false;
+    /** 长按模式类型：NONE=未激活，NUM5=模拟 NUM5 长按，START=模拟 START 长按 */
+    private enum HoldKeyType { NONE, NUM5, START }
+    /** 当前正在长按模拟的按键类型 */
+    private HoldKeyType holdKeyType = HoldKeyType.NONE;
+    /** 是否处于长按状态（按下未释放），决定 7K 覆盖层是否显示 */
+    private boolean holdKeyHeld = false;
     /** 7KEYS 默认标签（仅在无法读取 kbInput 配置时回退使用） */
     private static final int[] SEVEN_KEYS_KEYCODES_DEFAULT = {
         Keys.Z, Keys.S, Keys.X, Keys.D, Keys.C, Keys.F, Keys.V
@@ -352,7 +355,7 @@ public class FloatingMenu implements InputProcessor {
         }
 
         // 7K 覆盖层：检测已断开但未收到 touchUp 的指针（应用切后台等异常路径）
-        if (num5OverlayVisible) {
+        if (holdKeyHeld) {
             for (int p = 0; p < pointer7KKey.length; p++) {
                 int k7 = pointer7KKey[p];
                 if (k7 >= 0 && (p >= pointerConsuming.length || !pointerConsuming[p] || !Gdx.input.isTouched(p))) {
@@ -411,8 +414,8 @@ public class FloatingMenu implements InputProcessor {
             drawPanel(sprite, font);
         }
 
-        // NUM5 长按模式：绘制 7K 覆盖层
-        if (num5OverlayVisible && font != null) {
+        // 长按模式（NUM5/START）：绘制 7K 覆盖层
+        if (holdKeyHeld && font != null) {
             draw7KOverlay(sprite, font);
         }
 
@@ -621,6 +624,34 @@ public class FloatingMenu implements InputProcessor {
         input.setKeyChanged(keyIdx, pressed, microtime);
     }
 
+    /**
+     * 发送 START 按键状态到核心层。
+     * 通过 BMSPlayerInputProcessor.startChanged() 直接设置，与 KeyBoardInputProcessor.poll()
+     * 中处理物理 START 的路径保持一致，绕过 keystate 中转以避免 toggle 的 release 失效。
+     */
+    private void sendStartKey(boolean pressed) {
+        if (kbInput == null) return;
+        Object mc = kbInput.getMainController();
+        if (!(mc instanceof MainController)) return;
+        BMSPlayerInputProcessor input = ((MainController) mc).getInputProcessor();
+        if (input == null) return;
+        input.startChanged(pressed);
+    }
+
+    /**
+     * 释放当前长按模拟的按键（NUM5 或 START）。同时关闭 7K 覆盖层。
+     * 用于关闭按钮、图标再次点击、按钮二次点击等所有收尾路径。
+     */
+    private void releaseHoldKey() {
+        if (holdKeyType == HoldKeyType.NUM5 && kbInput != null) {
+            kbInput.setSimulatedKeyState(Keys.NUM_5, false);
+        } else if (holdKeyType == HoldKeyType.START) {
+            sendStartKey(false);
+        }
+        holdKeyType = HoldKeyType.NONE;
+        holdKeyHeld = false;
+    }
+
     /** 绘制 7K 覆盖层：7 个键 + 标题 + 关闭按钮 */
     private void draw7KOverlay(SpriteBatch sprite, BitmapFont font) {
         calculate7KOverlayLayout();
@@ -632,7 +663,8 @@ public class FloatingMenu implements InputProcessor {
 
         // 标题（上方居中）
         font.setColor(0.5f, 0.8f, 1f, 0.95f);
-        String title = "NUM5 Long-Press: 7KEYS (tap again to release)";
+        String heldName = (holdKeyType == HoldKeyType.START) ? "START" : "NUM5";
+        String title = heldName + " Long-Press: 7KEYS (tap again to release)";
         glyph.setText(font, title);
         font.draw(sprite, title, (logicW - glyph.width) / 2f, k7TitleY + K7_TITLE_H * 0.7f);
 
@@ -782,15 +814,11 @@ public class FloatingMenu implements InputProcessor {
         lastTouchX = screenX;
         lastTouchY = screenY;
 
-        // NUM5 长按模式下的 7K 覆盖层：先于菜单面板处理
-        if (num5OverlayVisible) {
+        // 长按模式（NUM5/START）下的 7K 覆盖层：先于菜单面板处理
+        if (holdKeyHeld) {
             // 关闭按钮
             if (hitTest7KClose(tx, ty)) {
-                num5Held = false;
-                num5OverlayVisible = false;
-                if (kbInput != null) {
-                    kbInput.setSimulatedKeyState(Keys.NUM_5, false);
-                }
+                releaseHoldKey();
                 pointerConsuming[pointer] = true;
                 pointerPressedIndex[pointer] = -1;
                 pointer7KKey[pointer] = -1;
@@ -806,13 +834,9 @@ public class FloatingMenu implements InputProcessor {
                 send7KKey(k7Idx, true);
                 return true;
             }
-            // 点击浮动图标：关闭覆盖层并释放 NUM5（用户重开菜单后可再次按 NUM5 释放）
+            // 点击浮动图标：关闭覆盖层并释放长按键（用户重开菜单后可再次点击释放）
             if (hitTestIcon(tx, ty)) {
-                num5Held = false;
-                num5OverlayVisible = false;
-                if (kbInput != null) {
-                    kbInput.setSimulatedKeyState(Keys.NUM_5, false);
-                }
+                releaseHoldKey();
                 expanded = true;
                 justExpandedByIcon = true;
                 pointerConsuming[pointer] = true;
@@ -922,7 +946,7 @@ public class FloatingMenu implements InputProcessor {
         if (!visible || pointer >= pointerConsuming.length) return false;
         if (pointerConsuming[pointer]) {
             // 7K 覆盖层：始终跟随手指，按下当前命中键、释放之前的键
-            if (num5OverlayVisible) {
+            if (holdKeyHeld) {
                 float tx = screenToLogicX(screenX);
                 float ty = screenToLogicY(screenY);
                 int newHit = hitTest7KKey(tx, ty, pointer7KKey[pointer]);
@@ -1101,23 +1125,23 @@ public class FloatingMenu implements InputProcessor {
         if (index < 0 || index >= items.length) return;
         MenuItem item = items[index];
 
-        // NUM5 长按模式：第一次按下模拟 keydown 不释放（再按一次释放）
-        if (item.keycode == Keys.NUM_5) {
-            if (!num5Held) {
-                num5Held = true;
-                num5OverlayVisible = true;
-                if (kbInput != null) {
-                    kbInput.setSimulatedKeyState(Keys.NUM_5, true);
+        // 长按模式（NUM5/START）：第一次按下模拟 keydown 不释放（再按一次释放）
+        if (item.keycode == Keys.NUM_5 || item.keycode == -141) {
+            if (!holdKeyHeld) {
+                holdKeyHeld = true;
+                holdKeyType = (item.keycode == Keys.NUM_5) ? HoldKeyType.NUM5 : HoldKeyType.START;
+                if (holdKeyType == HoldKeyType.NUM5) {
+                    if (kbInput != null) {
+                        kbInput.setSimulatedKeyState(Keys.NUM_5, true);
+                    }
+                } else {
+                    sendStartKey(true);
                 }
                 expanded = false; // 关闭菜单面板，仅保留浮动图标
-                Gdx.app.log("FloatingMenu", "NUM5 long-press: DOWN, overlay shown");
+                Gdx.app.log("FloatingMenu", holdKeyType + " long-press: DOWN, overlay shown");
             } else {
-                num5Held = false;
-                num5OverlayVisible = false;
-                if (kbInput != null) {
-                    kbInput.setSimulatedKeyState(Keys.NUM_5, false);
-                }
-                Gdx.app.log("FloatingMenu", "NUM5 long-press: UP, overlay hidden");
+                releaseHoldKey();
+                Gdx.app.log("FloatingMenu", "long-press: UP, overlay hidden");
             }
             return;
         }
@@ -1163,8 +1187,8 @@ public class FloatingMenu implements InputProcessor {
             return;
         }
 
-        // NUM5 是切换式长按，不在 touchUp 时释放
-        if (item.keycode == Keys.NUM_5) {
+        // 长按模式（NUM5/START）是切换式，不在 touchUp 时释放
+        if (item.keycode == Keys.NUM_5 || item.keycode == -141) {
             return;
         }
 
