@@ -716,7 +716,7 @@ public class FloatingMenu implements InputProcessor {
         sprite.draw(whitePixel, cx + closeW - 2, k7CloseY, 2, K7_CLOSE_H);
 
         font.setColor(1, 1, 1, 0.95f);
-        String closeLabel = "Release NUM5";
+        String closeLabel = (holdKeyType == HoldKeyType.START) ? "Release START" : "Release NUM5";
         glyph.setText(font, closeLabel);
         font.draw(sprite, closeLabel, cx + (closeW - glyph.width) / 2f, k7CloseY + (K7_CLOSE_H + glyph.height) / 2f);
     }
