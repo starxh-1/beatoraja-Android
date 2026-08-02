@@ -28,7 +28,7 @@ Everything else is essentially inherited from beatoraja.
 - CPU: arm64-v8a, reference baseline is Snapdragon 810.
 - Display: 16:9 1080P for the best experience. Since modern phones rarely have 16:9, the audio spectrum is placed outside the playfield on the left and right by default.
 - RAM: 2GB or above
-- Note: The app technically supports 32-bit devices, but performance is terrible — only barely runnable on K-less BMS. BGA won't even work. (Tested on Xiaomi 2s)
+- Note: The app technically supports 32-bit devices, but performance is terrible — only barely runnable on no Keysounded BMS. BGA won't even work. (Tested on Xiaomi 2s)
 
 ## 4. TBD Features
 
