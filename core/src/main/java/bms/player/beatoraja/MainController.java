@@ -788,6 +788,7 @@ public class MainController {
 
         final Stage stage = current.getStage();
         if (stage != null) {
+            stage.getViewport().setScreenBounds(viewportX, viewportY, viewportW, viewportH);
             stage.getViewport().apply();
             stage.act(Math.min(Gdx.graphics.getDeltaTime(), 1 / 30f));
             stage.draw();

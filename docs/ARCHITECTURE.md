@@ -25,22 +25,22 @@ beatoraja-Android 是 beatoraja 的 Android 移植版。它保留了原项目的
 
 ## 2. 技术与构建基线
 
-| 项目 | 当前值 |
-|---|---|
-| 构建模块 | `:core`、`:android` |
-| Gradle Wrapper | 9.4.0 |
-| Android Gradle Plugin | 9.1.1 |
-| Java | 17 |
-| Kotlin 插件 | 1.9.22 |
-| libGDX | 1.14.0 |
-| gdx-video | 1.3.3 |
-| gdx-controllers | 2.2.4 |
-| Android compile/target SDK | 36 |
-| Android min SDK | 21 |
-| Android applicationId | `com.starxh.beatoraja` |
-| Android versionName | `3.0` |
-| JSON | Jackson 2.21.2 |
-| Lua | LuaJ 3.0.1 |
+| 项目 | 当前值                     |
+|---|-------------------------|
+| 构建模块 | `:core`、`:android`      |
+| Gradle Wrapper | 9.4.0                   |
+| Android Gradle Plugin | 9.1.1                   |
+| Java | 17                      |
+| Kotlin 插件 | 1.9.22                  |
+| libGDX | 1.14.0                  |
+| gdx-video | 1.3.3                   |
+| gdx-controllers | 2.2.4                   |
+| Android compile/target SDK | 36                      |
+| Android min SDK | 21                      |
+| Android applicationId | `com.starxh.beatoraja`  |
+| Android versionName | `3.3`                   |
+| JSON | Jackson 2.21.2          |
+| Lua | LuaJ 3.0.1              |
 | Android SQLite | 原生 SQLite + SQLDroid 依赖 |
 
 重要事实：
