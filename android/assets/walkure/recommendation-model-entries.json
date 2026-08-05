@@ -3282,7 +3282,9 @@
     "entryType": "chart",
     "name": "FREEDOM DiVE [FOUR DIMENSIONS]",
     "difficultyTableLevels": {
-      "stella": "8"
+      "stella": "8",
+      "insane": "25",
+      "overjoy": "5"
     },
     "md5": "c46a81cb184f5a804c119930d6eba748",
     "chartDiscrimination": 2.38,
@@ -7668,7 +7670,8 @@
     "entryType": "chart",
     "name": "subconsciousness - another+ -",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "insane": "3"
     },
     "md5": "4ec61c1d81b50a31f028ba4693e0ddba",
     "chartDiscrimination": 3.12,
@@ -10423,7 +10426,8 @@
     "entryType": "chart",
     "name": "Pursuit Of Outer Space MX",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "insane": "12"
     },
     "md5": "945e88bd2a886308bfcb5786d7551fe2",
     "chartDiscrimination": 4.64,
@@ -12502,7 +12506,8 @@
     "entryType": "chart",
     "name": "the lost dedicated [life]",
     "difficultyTableLevels": {
-      "stella": "8"
+      "stella": "8",
+      "overjoy": "5"
     },
     "md5": "8f2a82e4f1f3e299c5d761a4c673b9ae",
     "chartDiscrimination": 1.69,
@@ -12901,7 +12906,8 @@
     "entryType": "chart",
     "name": "水晶世界 ～Fracture～ [MANIAC]",
     "difficultyTableLevels": {
-      "stella": "1"
+      "stella": "1",
+      "overjoy": "1"
     },
     "md5": "8b327890a493ead1825472d4c4f7bc79",
     "chartDiscrimination": 3.53,
@@ -13764,7 +13770,8 @@
     "entryType": "chart",
     "name": "hypocrite",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "insane": "20"
     },
     "md5": "ff5d7235ba643bc85b804a3df2778590",
     "chartDiscrimination": 3.88,
@@ -13911,7 +13918,8 @@
     "entryType": "chart",
     "name": "Quickening 2 the RED -Sephirothic-",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "insane": "16"
     },
     "md5": "05eda314989c59f315fe8f2ff2d6c7e9",
     "chartDiscrimination": 5.35,
@@ -13953,7 +13961,8 @@
     "entryType": "chart",
     "name": "Love & Justice [EXTREME]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "insane": "21"
     },
     "md5": "e6be97eebfbde50085d4d3b8509b63aa",
     "chartDiscrimination": 3.61,
@@ -13974,7 +13983,8 @@
     "entryType": "chart",
     "name": "Love & Justice [AFOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "insane": "4"
     },
     "md5": "7c774b8922f87de19ab72e96d996726c",
     "chartDiscrimination": 4.02,
@@ -13995,7 +14005,8 @@
     "entryType": "chart",
     "name": "Love & Justice [MANIAQ]",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "insane": "13"
     },
     "md5": "d2f8edb05e9e8dd19b4106ed68c0a668",
     "chartDiscrimination": 4.29,
@@ -14143,7 +14154,8 @@
     "entryType": "chart",
     "name": "HAPPY☆LUCKY☆BABY -UNHAPPY-",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "insane": "2"
     },
     "md5": "0e238760056f24d507a3564421a431c9",
     "chartDiscrimination": 3.78,
@@ -14269,7 +14281,8 @@
     "entryType": "chart",
     "name": "eth剣 [ 7Key_Clover ]",
     "difficultyTableLevels": {
-      "insane2nd": "14"
+      "insane2nd": "14",
+      "insane": "14"
     },
     "md5": "158955b82c49f25c23bc2da39cb3bea4",
     "chartDiscrimination": 4.83,
@@ -14353,7 +14366,8 @@
     "entryType": "chart",
     "name": "Cowardly Clime [Sin]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "overjoy": "1"
     },
     "md5": "6f4c146c25321ca7ab4c6a4f6a83bf42",
     "chartDiscrimination": 3.62,
@@ -14395,7 +14409,8 @@
     "entryType": "chart",
     "name": "PEACE BREAKER[BREAKER]",
     "difficultyTableLevels": {
-      "insane2nd": "24"
+      "insane2nd": "24",
+      "insane": "24"
     },
     "md5": "e6af04686aeaf0a0fa2698cb0b0111ad",
     "chartDiscrimination": 3.28,
@@ -14479,7 +14494,8 @@
     "entryType": "chart",
     "name": "aballava (Clover?)",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "insane": "20"
     },
     "md5": "64fcd7f0c47f0edc6e22a8b712c7f9f2",
     "chartDiscrimination": 4.54,
@@ -14668,7 +14684,8 @@
     "entryType": "chart",
     "name": "Apollo -Mare Tranquillitatis-",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "insane": "22"
     },
     "md5": "92892e7a9f81773b4bf25b8db1c98cac",
     "chartDiscrimination": 4.18,
@@ -14731,7 +14748,8 @@
     "entryType": "chart",
     "name": "Parousia[HARD]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "insane": "1"
     },
     "md5": "37663e91190ce4a0b502def7155df58e",
     "chartDiscrimination": 3.12,
@@ -14773,7 +14791,8 @@
     "entryType": "chart",
     "name": "conflict [EX-HARD]",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "insane": "6"
     },
     "md5": "15e44dfea14cb6812f7fcb56a3a0c409",
     "chartDiscrimination": 4.52,
@@ -14878,7 +14897,8 @@
     "entryType": "chart",
     "name": "煉獄-Purgatorium-[HYPER]",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "insane": "3"
     },
     "md5": "d77e97b6e6ab2aec290dc3c03f286b8c",
     "chartDiscrimination": 3.92,
@@ -14963,7 +14983,8 @@
     "entryType": "chart",
     "name": "弦月の猫 [EX]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "insane": "20"
     },
     "md5": "18c6674e6ddf4e341d6ad6e6d9936365",
     "chartDiscrimination": 4.1,
@@ -15173,7 +15194,8 @@
     "entryType": "chart",
     "name": "英雄 ～氷の妖精のお話～[INFELNO]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "insane": "20"
     },
     "md5": "60efbab48e249a45525255e1a996ee2e",
     "chartDiscrimination": 4.27,
@@ -15194,7 +15216,8 @@
     "entryType": "chart",
     "name": "ETERNAL DRAIN 「第一話 発狂譜面」",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "insane": "7"
     },
     "md5": "d5ecbbdae844eecbc4bfd88e32a595d4",
     "chartDiscrimination": 4.97,
@@ -15300,7 +15323,8 @@
     "entryType": "chart",
     "name": "Leviathan (SP HEXAEMERON+)",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "insane": "10"
     },
     "md5": "5ee91f76ddb49e84dd12b71e17683ace",
     "chartDiscrimination": 5.37,
@@ -15321,7 +15345,8 @@
     "entryType": "chart",
     "name": "Crystal Wind [UV]",
     "difficultyTableLevels": {
-      "insane2nd": "14"
+      "insane2nd": "14",
+      "insane": "14"
     },
     "md5": "567572d8ae089b35a6f38d1d90097a72",
     "chartDiscrimination": 4.82,
@@ -15342,7 +15367,8 @@
     "entryType": "chart",
     "name": "ナイト・オブ・ナイツ [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "insane": "12"
     },
     "md5": "ebe7ae691b9cad8ab7b2323e37691f1c",
     "chartDiscrimination": 5.11,
@@ -15468,7 +15494,8 @@
     "entryType": "chart",
     "name": "性的猟奇的無意味 [7key_EX]",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "insane": "10"
     },
     "md5": "b52bc7cf1874ff2700ca0879bd75e9df",
     "chartDiscrimination": 3.91,
@@ -15594,7 +15621,8 @@
     "entryType": "chart",
     "name": "Ophelia [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "insane": "16"
     },
     "md5": "f625a63c71b41860e1ff302f515700cd",
     "chartDiscrimination": 4.14,
@@ -15636,7 +15664,8 @@
     "entryType": "chart",
     "name": "真・千年女王 [yumether]",
     "difficultyTableLevels": {
-      "insane2nd": "18"
+      "insane2nd": "18",
+      "insane": "18"
     },
     "md5": "17ee7a35750c8e1b1bdfe3a7ca3a3119",
     "chartDiscrimination": 3.14,
@@ -15783,7 +15812,8 @@
     "entryType": "chart",
     "name": "Childie Sharp [HyperWeapon]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "insane": "4"
     },
     "md5": "d431f5779ff511480101f4612cebbfd4",
     "chartDiscrimination": 5.05,
@@ -16036,7 +16066,8 @@
     "entryType": "chart",
     "name": "Ladymade corestar (7 MAIN+)",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "insane": "6"
     },
     "md5": "246a443bc377f25424df0bc0c7535405",
     "chartDiscrimination": 4.91,
@@ -16984,7 +17015,8 @@
     "entryType": "chart",
     "name": "DESIRE DRIVE (LLS HARDCORE REMIX) [SEIRYU ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "insane": "6"
     },
     "md5": "e0d284d13b043cff5d691dab0a7b7315",
     "chartDiscrimination": 4.97,
@@ -17152,7 +17184,8 @@
     "entryType": "chart",
     "name": "雪月夜鐘 -Monsther-",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "insane": "4"
     },
     "md5": "4ffc2e2369740ac9d44da39cea5e0224",
     "chartDiscrimination": 4.29,
@@ -17173,7 +17206,8 @@
     "entryType": "chart",
     "name": "奏龍ピアソラ [T.Instinct]",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "insane": "19"
     },
     "md5": "119eea569c407f1b4539c3881738e40f",
     "chartDiscrimination": 4,
@@ -17405,7 +17439,8 @@
     "entryType": "chart",
     "name": "Master of GENOCIDE [ANOTHER7]",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "insane": "6"
     },
     "md5": "fb05cc2e1da34361d75d001590360667",
     "chartDiscrimination": 4.55,
@@ -17636,7 +17671,9 @@
     "entryType": "chart",
     "name": "HAELEQUIN [EX]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "insane": "7",
+      "satellite": "4"
     },
     "md5": "d70b69449d39959609c20cc95230ff20",
     "chartDiscrimination": 4.33,
@@ -17657,7 +17694,8 @@
     "entryType": "chart",
     "name": "Toki [ClockWise]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "insane": "2"
     },
     "md5": "8f0d978c82050ba902d9247792aab764",
     "chartDiscrimination": 3.62,
@@ -18497,7 +18535,8 @@
     "entryType": "chart",
     "name": "res extensa [Monsther]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "insane": "21"
     },
     "md5": "0d1128a834e2aeb4dc0b31fa9d2dbbc2",
     "chartDiscrimination": 4.25,
@@ -18581,7 +18620,8 @@
     "entryType": "chart",
     "name": "撃墜-HELL AIR FORCE- [yumether]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "insane": "16"
     },
     "md5": "84657561030b58a419167bd3445483df",
     "chartDiscrimination": 4.16,
@@ -18686,7 +18726,8 @@
     "entryType": "chart",
     "name": "Calamity Fortune [F]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "insane": "4"
     },
     "md5": "1b72e8f6439a698e78f94be16470b789",
     "chartDiscrimination": 4.07,
@@ -18854,7 +18895,8 @@
     "entryType": "chart",
     "name": "S [ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "9"
+      "insane2nd": "9",
+      "insane": "9"
     },
     "md5": "5d6abb820987e25c784c49501bf9246a",
     "chartDiscrimination": 5.42,
@@ -19232,7 +19274,8 @@
     "entryType": "chart",
     "name": "Hypertext Transfer Protocol (SP WOONATHER)",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "insane": "19"
     },
     "md5": "273965c4669994761c71c0da25a49c6f",
     "chartDiscrimination": 4.98,
@@ -19442,7 +19485,8 @@
     "entryType": "chart",
     "name": "愛と煩悩と輪廻と常識の極彩世界 [Hyperrealism]",
     "difficultyTableLevels": {
-      "insane2nd": "24"
+      "insane2nd": "24",
+      "overjoy": "4"
     },
     "md5": "799cf85057ae5bf2b93ebfecc322eff7",
     "chartDiscrimination": 3.06,
@@ -19589,7 +19633,8 @@
     "entryType": "chart",
     "name": "Hay FEVER [G]",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "insane": "22"
     },
     "md5": "b64501551556f35f11e263f70fe65d05",
     "chartDiscrimination": 3.79,
@@ -19883,7 +19928,9 @@
     "entryType": "chart",
     "name": "多重極展開 [yumether]",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "insane": "22",
+      "overjoy": "2"
     },
     "md5": "d6fea1389a86fc14eb354fcc5e60e03e",
     "chartDiscrimination": 3.99,
@@ -19988,7 +20035,8 @@
     "entryType": "chart",
     "name": "TIME LIMIT (bms edit) [7key 2052 fix]",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "insane": "10"
     },
     "md5": "085bce7c990a91ec821162666f72a110",
     "chartDiscrimination": 3.89,
@@ -20471,7 +20519,8 @@
     "entryType": "chart",
     "name": "ちんこ音頭2012 [sabunnn]",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "insane": "10"
     },
     "md5": "06eba6331a168ae1ba596c58e5d235cf",
     "chartDiscrimination": 4.22,
@@ -20534,7 +20583,8 @@
     "entryType": "chart",
     "name": "樟葉(remix) [F]",
     "difficultyTableLevels": {
-      "insane2nd": "8"
+      "insane2nd": "8",
+      "insane": "8"
     },
     "md5": "e4dd8090d701a8048cd9662258a4cf0d",
     "chartDiscrimination": 4.57,
@@ -21080,7 +21130,8 @@
     "entryType": "chart",
     "name": "INFINITE BEATS [EXHAUST]",
     "difficultyTableLevels": {
-      "stella": "2"
+      "stella": "2",
+      "overjoy": "2"
     },
     "md5": "4355875c733257e5371a121d0e68ad8c",
     "chartDiscrimination": 2.98,
@@ -21290,7 +21341,8 @@
     "entryType": "chart",
     "name": "corneal -Over The Limit-",
     "difficultyTableLevels": {
-      "stella": "9"
+      "stella": "9",
+      "overjoy": "5"
     },
     "md5": "60c12f77947e4da438f75ee985bdff2e",
     "chartDiscrimination": 2.12,
@@ -21374,7 +21426,8 @@
     "entryType": "chart",
     "name": "重波Samba de Render",
     "difficultyTableLevels": {
-      "stella": "3"
+      "stella": "3",
+      "overjoy": "2"
     },
     "md5": "8bddd756f48796c65c51f4d48535f10d",
     "chartDiscrimination": 3.35,
@@ -21626,7 +21679,8 @@
     "entryType": "chart",
     "name": "Amusing Night Party. [Panic]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "insane": "2"
     },
     "md5": "a68c7692822a21ea43944733eab36c2c",
     "chartDiscrimination": 3.77,
@@ -21773,7 +21827,8 @@
     "entryType": "chart",
     "name": "Nothingness [殺]",
     "difficultyTableLevels": {
-      "stella": "9"
+      "stella": "9",
+      "overjoy": "5"
     },
     "md5": "367b33a91988e3a86a410391a97ee247",
     "chartDiscrimination": 2.23,
@@ -21857,7 +21912,8 @@
     "entryType": "chart",
     "name": "NS22 [7key Another+]",
     "difficultyTableLevels": {
-      "stella": "6"
+      "stella": "6",
+      "overjoy": "5"
     },
     "md5": "c20426480da2741a37d2fdf5f70eaf1b",
     "chartDiscrimination": 2.32,
@@ -22739,7 +22795,8 @@
     "entryType": "chart",
     "name": "オトゲラヴ！ -発狂END-",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "insane": "18"
     },
     "md5": "00b7d72f7ecd3d4f0af4ebdc0ee69f61",
     "chartDiscrimination": 4.3,
@@ -23117,7 +23174,8 @@
     "entryType": "chart",
     "name": "コケシネコ☆クライシス [7KEYS RUNOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "insane": "13"
     },
     "md5": "f13174cf11d942a609c418ddfe2ad6fb",
     "chartDiscrimination": 4.98,
@@ -23831,7 +23889,8 @@
     "entryType": "chart",
     "name": "Wizdomiot [INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "23"
+      "insane2nd": "23",
+      "overjoy": "3"
     },
     "md5": "51f49fca887efcd6d99e624151e8ab5f",
     "chartDiscrimination": 3.26,
@@ -23852,7 +23911,8 @@
     "entryType": "chart",
     "name": "Wizdomiot [ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "insane": "15"
     },
     "md5": "871c6aed53c5dd3ac35686d9a92af4f4",
     "chartDiscrimination": 4.22,
@@ -24629,7 +24689,8 @@
     "entryType": "chart",
     "name": "The ArcticLight",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "insane": "14"
     },
     "md5": "8d7555c23a8f4e0023d3a787c02202d1",
     "chartDiscrimination": 5.13,
@@ -25049,7 +25110,8 @@
     "entryType": "chart",
     "name": "クロートーと星の観測者 [MANIAC]",
     "difficultyTableLevels": {
-      "satellite": "8"
+      "satellite": "8",
+      "insane": "13"
     },
     "md5": "4c1ca130592c2b0d1bd0b55cceb94f5c",
     "chartDiscrimination": 4.16,
@@ -25490,7 +25552,8 @@
     "entryType": "chart",
     "name": "Alt Futur [Fieber]",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "insane": "12"
     },
     "md5": "e7a926d3e177339695c7c7c3eb900030",
     "chartDiscrimination": 4.63,
@@ -25763,7 +25826,8 @@
     "entryType": "chart",
     "name": "Lepontinia -THE LAST PLANET-",
     "difficultyTableLevels": {
-      "satellite": "9"
+      "satellite": "9",
+      "insane": "15"
     },
     "md5": "c6db5f8d4d492abcafb59c7ed1653dec",
     "chartDiscrimination": 5.2,
@@ -25994,7 +26058,8 @@
     "entryType": "chart",
     "name": "Black Lotus [Other]",
     "difficultyTableLevels": {
-      "stella": "6"
+      "stella": "6",
+      "overjoy": "5"
     },
     "md5": "204febd6a2f38c3d4f0f2e3278b6a960",
     "chartDiscrimination": 2.36,
@@ -26204,7 +26269,8 @@
     "entryType": "chart",
     "name": "Lambda Driver [Sorry.]",
     "difficultyTableLevels": {
-      "insane2nd": "24"
+      "insane2nd": "24",
+      "overjoy": "4"
     },
     "md5": "cb439c3f276d9f8aa1dfb29f315936ad",
     "chartDiscrimination": 2.69,
@@ -28283,7 +28349,8 @@
     "entryType": "chart",
     "name": "絵空事の世界と私 [Another]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "ce73f117ef9c4a3ff40fb8069e1c3dda",
     "chartDiscrimination": 2.06,
@@ -28577,7 +28644,8 @@
     "entryType": "chart",
     "name": "The World of Cyber [SP INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "ac4d92b85c08feef7f0aacfaf3858bb5",
     "chartDiscrimination": 1.9,
@@ -28619,7 +28687,8 @@
     "entryType": "chart",
     "name": "Strawberry Mint Chocolate [ice cream]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "b9c7bc62daea8f9ccd4502328d624486",
     "chartDiscrimination": 2.09,
@@ -28787,7 +28856,8 @@
     "entryType": "chart",
     "name": "Alicia Story(UETHER)",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "71b650091137122b6f0c457dd927dea9",
     "chartDiscrimination": 2.14,
@@ -29123,7 +29193,8 @@
     "entryType": "chart",
     "name": "MANHATTAN [sweet Vermut]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "689a2b8f998abcca07f8c9a2726b7cf1",
     "chartDiscrimination": 2.23,
@@ -30278,7 +30349,8 @@
     "entryType": "chart",
     "name": "Berry Go!! [Esteem and Love]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "d2d922aa6bcaeed61087d434b330c30e",
     "chartDiscrimination": 2.29,
@@ -30362,7 +30434,8 @@
     "entryType": "chart",
     "name": "Meaning of Existence [niche]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "satellite": "2"
     },
     "md5": "6dd9bc5c6c7f506cb2a8a4705c42e334",
     "chartDiscrimination": 2.53,
@@ -30551,7 +30624,8 @@
     "entryType": "chart",
     "name": "FIONA [Sog]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "satellite": "2"
     },
     "md5": "3a2759c3528c7ce0d9bf9539b2ddc479",
     "chartDiscrimination": 2.95,
@@ -30887,7 +30961,8 @@
     "entryType": "chart",
     "name": "Implexrough [IMPLEX]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "2"
     },
     "md5": "18f23cd1ad1b0505aec5f9ae10c07600",
     "chartDiscrimination": 2.55,
@@ -30929,7 +31004,8 @@
     "entryType": "chart",
     "name": "char fleuri [Flower　Park]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "satellite": "2"
     },
     "md5": "95cc933f61be66e8f63fa0bdc464b49e",
     "chartDiscrimination": 2.79,
@@ -30971,7 +31047,8 @@
     "entryType": "chart",
     "name": "ラケシスと永遠の祈祷者 [Coeli]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "3"
     },
     "md5": "d4be913786b347383b6f2691dd9a3259",
     "chartDiscrimination": 2.82,
@@ -31559,7 +31636,8 @@
     "entryType": "chart",
     "name": "fly*high*five [ZOI]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "3"
     },
     "md5": "03a9fa5af9ab65bf403777ad3ee43909",
     "chartDiscrimination": 3,
@@ -31643,7 +31721,8 @@
     "entryType": "chart",
     "name": "VISTA [windows]",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "49c7b1064f1c35cc3e269280ee7f6900",
     "chartDiscrimination": 2.78,
@@ -32084,7 +32163,8 @@
     "entryType": "chart",
     "name": "Midnight o'clock -DREAMING-",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "1"
     },
     "md5": "7ed81895343bb928baaef5916c78f441",
     "chartDiscrimination": 2.72,
@@ -32315,7 +32395,8 @@
     "entryType": "chart",
     "name": "Anzu no Kakkoi Ongaku [SP EXTRA]",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "91dc7d0c5d3ccf39804fcac66bf2424c",
     "chartDiscrimination": 2.64,
@@ -32420,7 +32501,8 @@
     "entryType": "chart",
     "name": "deep blue sunrise (pw-Another+)",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "3"
     },
     "md5": "0abfc1cab92f3be6a0a6a83c7256cbd6",
     "chartDiscrimination": 2.62,
@@ -32483,7 +32565,8 @@
     "entryType": "chart",
     "name": "綺雪朧月 (EX)",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "6fb9179fd2576a889301a0dfc99ab6da",
     "chartDiscrimination": 2.64,
@@ -32525,7 +32608,8 @@
     "entryType": "chart",
     "name": "Replunge -Breakthrough-",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "10dfec2e94eebb556fafa7e70616b16d",
     "chartDiscrimination": 3.26,
@@ -32672,7 +32756,8 @@
     "entryType": "chart",
     "name": "Pangaea [IIDX]",
     "difficultyTableLevels": {
-      "insane2nd": "1"
+      "insane2nd": "1",
+      "satellite": "1"
     },
     "md5": "4fac8bb513c9d4e979a1ce5ddd5993a3",
     "chartDiscrimination": 1.54,
@@ -32966,7 +33051,8 @@
     "entryType": "chart",
     "name": "Toki (Sound piercer's Timesucker Remix) [SP ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "2"
     },
     "md5": "f3c17208b6442c85bda6ad773a0f6df1",
     "chartDiscrimination": 2.56,
@@ -33155,7 +33241,8 @@
     "entryType": "chart",
     "name": "シグナルほっぴんぐ [⌒c(∪・x・)]",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "satellite": "3"
     },
     "md5": "58b9afa7ad0340e0fbad864ee1727250",
     "chartDiscrimination": 2.97,
@@ -33302,7 +33389,8 @@
     "entryType": "chart",
     "name": "Silver Eater -Sharira-",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "fb554add7b146c080cd4cdd6b6afb32d",
     "chartDiscrimination": 2.7,
@@ -33386,7 +33474,8 @@
     "entryType": "chart",
     "name": "Apollo [Monsther]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "4"
     },
     "md5": "5f8458521d749bd7bf3c3df6a64e0ae7",
     "chartDiscrimination": 2.66,
@@ -33491,7 +33580,8 @@
     "entryType": "chart",
     "name": "Colour My Sky [Cartelet]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "3"
     },
     "md5": "dcc40c45d2502f31f4e4c2f35bfc8c58",
     "chartDiscrimination": 3.15,
@@ -33911,7 +34001,8 @@
     "entryType": "chart",
     "name": "星屑アポトーシス [Monsther]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "5"
     },
     "md5": "5e22cad170ef35cb488de29d67c14775",
     "chartDiscrimination": 2.84,
@@ -33995,7 +34086,8 @@
     "entryType": "chart",
     "name": "Existence [Another+]",
     "difficultyTableLevels": {
-      "insane2nd": "2"
+      "insane2nd": "2",
+      "satellite": "2"
     },
     "md5": "bde981560115cc2f7fa6e5a93b1c13dc",
     "chartDiscrimination": 2.96,
@@ -34058,7 +34150,8 @@
     "entryType": "chart",
     "name": "After Burner",
     "difficultyTableLevels": {
-      "insane2nd": "3"
+      "insane2nd": "3",
+      "satellite": "2"
     },
     "md5": "197053ba0681ba82bbbb7ec07572de90",
     "chartDiscrimination": 1.94,
@@ -34394,7 +34487,8 @@
     "entryType": "chart",
     "name": "Destr0yer -Hope-",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "4"
     },
     "md5": "02d946340db4001ec78b1e6b9af3a388",
     "chartDiscrimination": 2.65,
@@ -34835,7 +34929,8 @@
     "entryType": "chart",
     "name": "EOS [女神]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "4"
     },
     "md5": "0fcca00f177808e921078208e4a94527",
     "chartDiscrimination": 3.14,
@@ -34898,7 +34993,8 @@
     "entryType": "chart",
     "name": "magia [Insane]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "4"
     },
     "md5": "611d8cdd9c4b0529646e086a25d522fa",
     "chartDiscrimination": 2.96,
@@ -35129,7 +35225,8 @@
     "entryType": "chart",
     "name": "Drop Down [SP Insane]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "4"
     },
     "md5": "3213380b921dd1275fb392c0080f07ae",
     "chartDiscrimination": 2.95,
@@ -35276,7 +35373,8 @@
     "entryType": "chart",
     "name": "Toki [Hrs]",
     "difficultyTableLevels": {
-      "insane2nd": "9"
+      "insane2nd": "9",
+      "satellite": "5"
     },
     "md5": "51ef41dc324468db932334c0c402e5b3",
     "chartDiscrimination": 2.41,
@@ -35507,7 +35605,8 @@
     "entryType": "chart",
     "name": "GLITCH SWITCH [SP INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "3"
     },
     "md5": "6334415043e69d0eb5afc18da3aab1a4",
     "chartDiscrimination": 2.91,
@@ -35675,7 +35774,8 @@
     "entryType": "chart",
     "name": "To the restored sunflower garden [White Another]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "3"
     },
     "md5": "8d6cb28cd80ab924c41f5141ed852326",
     "chartDiscrimination": 2.63,
@@ -36137,7 +36237,8 @@
     "entryType": "chart",
     "name": "PASERI [7keys EX]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "3"
     },
     "md5": "33773d2e776a153623431cda6968b337",
     "chartDiscrimination": 2.46,
@@ -36221,7 +36322,8 @@
     "entryType": "chart",
     "name": "banana man [HARD]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "5"
     },
     "md5": "85ff41c5e0d78d19d06507dbb16ba72f",
     "chartDiscrimination": 2.69,
@@ -36326,7 +36428,8 @@
     "entryType": "chart",
     "name": "Wavetapper [Normality.]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "4"
     },
     "md5": "6113094f09e3d6f563c0c33a96519b2e",
     "chartDiscrimination": 3.51,
@@ -36935,7 +37038,8 @@
     "entryType": "chart",
     "name": "幸なる旋律 -the solitary melody- [F]",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "satellite": "4"
     },
     "md5": "350967ddf2e5038d742a6a311b9982da",
     "chartDiscrimination": 3.28,
@@ -37019,7 +37123,8 @@
     "entryType": "chart",
     "name": "ふゆいろ ドリーマー [冬]",
     "difficultyTableLevels": {
-      "insane2nd": "8"
+      "insane2nd": "8",
+      "satellite": "5"
     },
     "md5": "4170a29a2e6f924beba1bf73fea6cfb8",
     "chartDiscrimination": 3.43,
@@ -37124,7 +37229,8 @@
     "entryType": "chart",
     "name": "BLOODY ROSE [F]",
     "difficultyTableLevels": {
-      "insane2nd": "8"
+      "insane2nd": "8",
+      "satellite": "5"
     },
     "md5": "9e9bbc866bfa78dd7783210cbf62750e",
     "chartDiscrimination": 3.62,
@@ -37250,7 +37356,8 @@
     "entryType": "chart",
     "name": "Signager -HONGKONG EXPRESS-",
     "difficultyTableLevels": {
-      "insane2nd": "8"
+      "insane2nd": "8",
+      "satellite": "5"
     },
     "md5": "bf50b63ea7bce6272ca71a76bce39826",
     "chartDiscrimination": 3.06,
@@ -37544,7 +37651,8 @@
     "entryType": "chart",
     "name": "DataErr0r [SP INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "8"
+      "insane2nd": "8",
+      "satellite": "5"
     },
     "md5": "9a8e87868c57cedbf54167f3a826b141",
     "chartDiscrimination": 2.39,
@@ -37607,7 +37715,8 @@
     "entryType": "chart",
     "name": "Forceful Beat [B]",
     "difficultyTableLevels": {
-      "insane2nd": "4"
+      "insane2nd": "4",
+      "satellite": "3"
     },
     "md5": "3530f52f62545d8405f062966270e0ca",
     "chartDiscrimination": 1.93,
@@ -37670,7 +37779,8 @@
     "entryType": "chart",
     "name": "7SP:雪の少女-MorningDash!Mix- [MANIAQ]",
     "difficultyTableLevels": {
-      "insane2nd": "11"
+      "insane2nd": "11",
+      "satellite": "7"
     },
     "md5": "55701926ca12fa81683b1147e8b7b806",
     "chartDiscrimination": 2.89,
@@ -37733,7 +37843,8 @@
     "entryType": "chart",
     "name": "シオカラ節 (Club & FM Remix) [S+30]",
     "difficultyTableLevels": {
-      "insane2nd": "11"
+      "insane2nd": "11",
+      "satellite": "7"
     },
     "md5": "e318552be7647f44014dea14989af536",
     "chartDiscrimination": 2.43,
@@ -38006,7 +38117,8 @@
     "entryType": "chart",
     "name": "愛と煩悩と輪廻と常識の極彩世界 [SP ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "7"
+      "insane2nd": "7",
+      "satellite": "4"
     },
     "md5": "0169686bd3883f1196f4dd7a4af48f36",
     "chartDiscrimination": 2.25,
@@ -38132,7 +38244,8 @@
     "entryType": "chart",
     "name": "煌舞姫ベアトリクス [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "satellite": "7"
     },
     "md5": "2fb7b1615be8e37023a048679e4a5802",
     "chartDiscrimination": 3.17,
@@ -38888,7 +39001,8 @@
     "entryType": "chart",
     "name": "End Point [ZOI]",
     "difficultyTableLevels": {
-      "insane2nd": "5"
+      "insane2nd": "5",
+      "satellite": "4"
     },
     "md5": "d08e1a937c5080104daa29c79c407075",
     "chartDiscrimination": 3.59,
@@ -39056,7 +39170,8 @@
     "entryType": "chart",
     "name": "君の記憶、風の唄 -LiALIZE-",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "7"
     },
     "md5": "f7add43919242fe9217331e6a90dcf65",
     "chartDiscrimination": 3.03,
@@ -39119,7 +39234,8 @@
     "entryType": "chart",
     "name": "ATHAZA [ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "6"
+      "insane2nd": "6",
+      "satellite": "4"
     },
     "md5": "ae1f33b3beeb299dc9a775437b5e0a1b",
     "chartDiscrimination": 2.57,
@@ -39329,7 +39445,8 @@
     "entryType": "chart",
     "name": "ピアノ連弾的「You」～ひぐらしのなく頃に～ [ LEVEL 4 ]",
     "difficultyTableLevels": {
-      "insane2nd": "9"
+      "insane2nd": "9",
+      "satellite": "6"
     },
     "md5": "03b5e03744b05b8f6534f8a8869d2243",
     "chartDiscrimination": 2.78,
@@ -39623,7 +39740,8 @@
     "entryType": "chart",
     "name": "Yellow Smile (bms edit) (ヽ*'∀')人 (*'∀'ノ)",
     "difficultyTableLevels": {
-      "insane2nd": "9"
+      "insane2nd": "9",
+      "satellite": "6"
     },
     "md5": "bc9af91ef329755dcdbc743f9e76e680",
     "chartDiscrimination": 3.06,
@@ -39665,7 +39783,8 @@
     "entryType": "chart",
     "name": "Memoria-Recollection- -追想の夜明け-",
     "difficultyTableLevels": {
-      "insane2nd": "9"
+      "insane2nd": "9",
+      "satellite": "6"
     },
     "md5": "e8de0fe9c739a15c8810327cfc06e00e",
     "chartDiscrimination": 2.85,
@@ -39938,7 +40057,8 @@
     "entryType": "chart",
     "name": "夜空の★FANTASY [STAR DUST]",
     "difficultyTableLevels": {
-      "insane2nd": "11"
+      "insane2nd": "11",
+      "satellite": "6"
     },
     "md5": "bb54ca99ddb7cb8aae13c70a9a176df8",
     "chartDiscrimination": 3.15,
@@ -40568,7 +40688,8 @@
     "entryType": "chart",
     "name": "Dizzolve [Insane]",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "satellite": "6"
     },
     "md5": "06b00171574f13d3d7a314f4fcd0c00d",
     "chartDiscrimination": 2.97,
@@ -40820,7 +40941,8 @@
     "entryType": "chart",
     "name": "Signager [ZOI]",
     "difficultyTableLevels": {
-      "insane2nd": "10"
+      "insane2nd": "10",
+      "satellite": "6"
     },
     "md5": "e9dfe82dfd8827393fabb87483344e20",
     "chartDiscrimination": 3.32,
@@ -41030,7 +41152,8 @@
     "entryType": "chart",
     "name": "EVERLASTING HAPPiNESS↑ [INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "10"
     },
     "md5": "836662d32209c2ac0f0ce119e8de96fe",
     "chartDiscrimination": 3.16,
@@ -41177,7 +41300,8 @@
     "entryType": "chart",
     "name": "八大地獄邪魂転生狂葬散火歌 [乃憂魔流]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "8"
     },
     "md5": "7c58f39a3c257c585e52fc9820c0070c",
     "chartDiscrimination": 3.01,
@@ -41240,7 +41364,8 @@
     "entryType": "chart",
     "name": "Prog-M -PragMaTiC-",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "8"
     },
     "md5": "6db26f984b34fc62a271ec1d8e5ac8e8",
     "chartDiscrimination": 3.61,
@@ -41324,7 +41449,8 @@
     "entryType": "chart",
     "name": "ココナツ・アバンチュール [SP BLACKANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "7"
     },
     "md5": "5043ca33fac6f0d2078a4c04ebdeb729",
     "chartDiscrimination": 3.03,
@@ -41345,7 +41471,8 @@
     "entryType": "chart",
     "name": "marchendreams.（BMS edit） [7key Grimoire]",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "8"
     },
     "md5": "b2097cb08c8afd4807438c723ac6e03b",
     "chartDiscrimination": 3.32,
@@ -41618,7 +41745,8 @@
     "entryType": "chart",
     "name": "Mario Paint (Time Regression Mix for BMS) [Hi]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "7"
     },
     "md5": "d7240f94d6efc4ddafe82ec77e6f4235",
     "chartDiscrimination": 2.93,
@@ -42122,7 +42250,8 @@
     "entryType": "chart",
     "name": "闘気に満ちた草原 (7KEYS death)",
     "difficultyTableLevels": {
-      "insane2nd": "12"
+      "insane2nd": "12",
+      "satellite": "8"
     },
     "md5": "6e941d565809159e5120aa5a4ee2447b",
     "chartDiscrimination": 3.01,
@@ -42164,7 +42293,8 @@
     "entryType": "chart",
     "name": "Reason of being [EXTRA]",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "8"
     },
     "md5": "619515c2766c42131f5a390c259a243a",
     "chartDiscrimination": 3.07,
@@ -42311,7 +42441,8 @@
     "entryType": "chart",
     "name": "Artificial Rose [Replica]",
     "difficultyTableLevels": {
-      "insane2nd": "14"
+      "insane2nd": "14",
+      "satellite": "8"
     },
     "md5": "4c75b2e852718a5bdb7235b51a8dc878",
     "chartDiscrimination": 3.26,
@@ -42395,7 +42526,8 @@
     "entryType": "chart",
     "name": "恋の2-4-11(BMS Edit) -改二-",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "7"
     },
     "md5": "aa2af9cff7b55399a051221d128d8699",
     "chartDiscrimination": 2.99,
@@ -42479,7 +42611,8 @@
     "entryType": "chart",
     "name": "Berry Go!! [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "10"
     },
     "md5": "819058954e618fe7a1a86c828f9d616e",
     "chartDiscrimination": 2.94,
@@ -42584,7 +42717,8 @@
     "entryType": "chart",
     "name": "Shade of Stars [★]",
     "difficultyTableLevels": {
-      "insane2nd": "11"
+      "insane2nd": "11",
+      "satellite": "8"
     },
     "md5": "a0a6198fba3f1354c9279a190b81ba48",
     "chartDiscrimination": 3.24,
@@ -42626,7 +42760,8 @@
     "entryType": "chart",
     "name": "Free Hand zero [ANOTHER*]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "9"
     },
     "md5": "116b85b4c01a2cd2cc76ac9e4572e3fe",
     "chartDiscrimination": 3.19,
@@ -42794,7 +42929,8 @@
     "entryType": "chart",
     "name": "LOVE★BEAM (orange summer mix) -MANIAC-",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "9"
     },
     "md5": "307f026a9ff63f3ea8ee4d9b150630c4",
     "chartDiscrimination": 2.81,
@@ -42836,7 +42972,8 @@
     "entryType": "chart",
     "name": "Chariot -Miyabi style- [EX]",
     "difficultyTableLevels": {
-      "insane2nd": "11"
+      "insane2nd": "11",
+      "satellite": "7"
     },
     "md5": "b6b60ac9d20a1ffd1fd51795e3037bf4",
     "chartDiscrimination": 2.79,
@@ -42878,7 +43015,8 @@
     "entryType": "chart",
     "name": "MEPHISTO [FS]",
     "difficultyTableLevels": {
-      "insane2nd": "14"
+      "insane2nd": "14",
+      "satellite": "9"
     },
     "md5": "5ee670f21b8191ab70ce806f1b613f7e",
     "chartDiscrimination": 3.2,
@@ -43088,7 +43226,8 @@
     "entryType": "chart",
     "name": "Amusing Colorful Pudding. [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "11"
     },
     "md5": "f19f3a79fe68e9e53b742b88529c0d98",
     "chartDiscrimination": 3.31,
@@ -43298,7 +43437,8 @@
     "entryType": "chart",
     "name": "Grayed Out -Antifront- [Luna]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "10"
     },
     "md5": "07685c8cfbfa61913ddf6a90fb31fe92",
     "chartDiscrimination": 3.14,
@@ -43424,7 +43564,8 @@
     "entryType": "chart",
     "name": "Alcubierre Drive [INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "9"
     },
     "md5": "22aee2d625d790b62a4d8cd4946aba92",
     "chartDiscrimination": 3.16,
@@ -43571,7 +43712,8 @@
     "entryType": "chart",
     "name": "Andromeda [yumether]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "10"
     },
     "md5": "8b3c66f945d041b5df53ba3e292e5c54",
     "chartDiscrimination": 4.04,
@@ -43739,7 +43881,8 @@
     "entryType": "chart",
     "name": "円環の理 [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "13"
+      "insane2nd": "13",
+      "satellite": "8"
     },
     "md5": "4971f11e2d0c0831f8ef83054ed843e4",
     "chartDiscrimination": 3.3,
@@ -43823,7 +43966,8 @@
     "entryType": "chart",
     "name": "PEACE BREAKER[HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "10"
     },
     "md5": "1ebf61990256b79628c9dee6a926ad39",
     "chartDiscrimination": 2.93,
@@ -43844,7 +43988,8 @@
     "entryType": "chart",
     "name": "Aeventyr [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "14"
+      "insane2nd": "14",
+      "satellite": "9"
     },
     "md5": "ad82fe9f05165777f03bcc7b93766caa",
     "chartDiscrimination": 2.9,
@@ -44726,7 +44871,8 @@
     "entryType": "chart",
     "name": "Candy & Baguette [HARDEST]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "10"
     },
     "md5": "aec21fd1d585fdfd67bf93fc1c5c92d9",
     "chartDiscrimination": 2.95,
@@ -44831,7 +44977,8 @@
     "entryType": "chart",
     "name": "サカサマの空に在ったのは [SP XANADU]",
     "difficultyTableLevels": {
-      "insane2nd": "16"
+      "insane2nd": "16",
+      "satellite": "10"
     },
     "md5": "a9e52da28747098fcc9f9a72a14b8a32",
     "chartDiscrimination": 3.13,
@@ -44852,7 +44999,8 @@
     "entryType": "chart",
     "name": "結ばれる奇跡の願い [Shining]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "10"
     },
     "md5": "306bf3bbe1367a629e4efb519f29178e",
     "chartDiscrimination": 2.94,
@@ -45020,7 +45168,8 @@
     "entryType": "chart",
     "name": "Brave My Soul [B.M.S.]",
     "difficultyTableLevels": {
-      "insane2nd": "18"
+      "insane2nd": "18",
+      "satellite": "11"
     },
     "md5": "e446e497aa6d2b60f14a001f49cf2ecc",
     "chartDiscrimination": 3.2,
@@ -45041,7 +45190,8 @@
     "entryType": "chart",
     "name": "Poisonous Peach [Eb]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "11"
     },
     "md5": "56ef487b38517cae523b4720d6898dd3",
     "chartDiscrimination": 3.36,
@@ -45356,7 +45506,8 @@
     "entryType": "chart",
     "name": "hemorrhoids",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "satellite": "12"
     },
     "md5": "8f1bfa14a5bb435b315d364ee2c785c8",
     "chartDiscrimination": 3.29,
@@ -45503,7 +45654,8 @@
     "entryType": "chart",
     "name": "Akasagarbha [yumether]",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "satellite": "12"
     },
     "md5": "5aa0517a13933707497024a8bb54100c",
     "chartDiscrimination": 2.63,
@@ -45566,7 +45718,8 @@
     "entryType": "chart",
     "name": "NS18 [ANOTHER+]",
     "difficultyTableLevels": {
-      "insane2nd": "15"
+      "insane2nd": "15",
+      "satellite": "10"
     },
     "md5": "d69d4f8b5183ede4c383d57241f16ba8",
     "chartDiscrimination": 3.1,
@@ -45608,7 +45761,8 @@
     "entryType": "chart",
     "name": "A D D i c T i O N 4 5 0 0 0 0 0 -L u N A-",
     "difficultyTableLevels": {
-      "insane2nd": "18"
+      "insane2nd": "18",
+      "satellite": "12"
     },
     "md5": "2f8beb8e0b2472121ec9c5f774f8fcef",
     "chartDiscrimination": 3.58,
@@ -45902,7 +46056,8 @@
     "entryType": "chart",
     "name": "Death Opera [The Phantom]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "11"
     },
     "md5": "4f86c4d20af4d619f9fbe693db0c0d30",
     "chartDiscrimination": 3.76,
@@ -45923,7 +46078,8 @@
     "entryType": "chart",
     "name": "blue traces [Capture]",
     "difficultyTableLevels": {
-      "insane2nd": "18"
+      "insane2nd": "18",
+      "satellite": "12"
     },
     "md5": "831c73bdf85fd0f7ba0ef276c7cfc101",
     "chartDiscrimination": 2.83,
@@ -45965,7 +46121,8 @@
     "entryType": "chart",
     "name": "シグナルほっぴんぐ [Yakther]",
     "difficultyTableLevels": {
-      "insane2nd": "17"
+      "insane2nd": "17",
+      "satellite": "11"
     },
     "md5": "049a283f3e0ae3509a718474a2706c7c",
     "chartDiscrimination": 2.71,
@@ -46112,7 +46269,8 @@
     "entryType": "chart",
     "name": "Lucifuge Rofocale [EX+]",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "satellite": "12"
     },
     "md5": "582c2715ca7ce2f0513fecdc3edeb5c4",
     "chartDiscrimination": 2.72,
@@ -46133,7 +46291,8 @@
     "entryType": "chart",
     "name": "Lyrith -迷宮リリス- [INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "satellite": "12"
     },
     "md5": "f649c932d7df6ba14f3c7c4ef69cce4e",
     "chartDiscrimination": 2.81,
@@ -46217,7 +46376,8 @@
     "entryType": "chart",
     "name": "Cinderella Cage -Trancecore Mix- [ANOTHER]",
     "difficultyTableLevels": {
-      "insane2nd": "19"
+      "insane2nd": "19",
+      "satellite": "12"
     },
     "md5": "f51ab8af169a624a1105d1eefa3696fb",
     "chartDiscrimination": 3.5,
@@ -46868,7 +47028,8 @@
     "entryType": "chart",
     "name": "The deepest place cannot be above the sky [loud scream]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "stella": "t1"
     },
     "md5": "9dca6ac3593eae46ec68f92f922e154d",
     "chartDiscrimination": 3.09,
@@ -47183,7 +47344,8 @@
     "entryType": "chart",
     "name": "Re:End of a Dream [Fw:Life]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "stella": "t1"
     },
     "md5": "fe16a58f1bd7c0246a01b47e8539a85c",
     "chartDiscrimination": 3.47,
@@ -49052,7 +49214,8 @@
     "entryType": "chart",
     "name": "Destr0yer -Last Song-",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "stella": "t1"
     },
     "md5": "508caa088da8d50603cfe1389585b0af",
     "chartDiscrimination": 3.25,
@@ -49493,7 +49656,8 @@
     "entryType": "chart",
     "name": "Calamity Fortune [SERPENT]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "stella": "t0"
     },
     "md5": "cada54582f85645b79b99e38298fbb4b",
     "chartDiscrimination": 2.94,
@@ -50564,7 +50728,8 @@
     "entryType": "chart",
     "name": "HAELEQUIN -aletheia-",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "stella": "t0"
     },
     "md5": "5f4eac4c5f1db4e86b43f846bf6476f4",
     "chartDiscrimination": 2.83,
@@ -51152,7 +51317,8 @@
     "entryType": "chart",
     "name": "Romantic Children [魔界]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "stella": "t2"
     },
     "md5": "b5385ffeaf8924174db726c3721a6ffe",
     "chartDiscrimination": 2.27,
@@ -52097,7 +52263,8 @@
     "entryType": "chart",
     "name": "FUXXING YOUR BRAIN [鮭混じりおかか]",
     "difficultyTableLevels": {
-      "insane2nd": "21"
+      "insane2nd": "21",
+      "stella": "t1"
     },
     "md5": "3a16e3bf1a8dddb36ff7e00d00ebe09b",
     "chartDiscrimination": 3.25,
@@ -52202,7 +52369,8 @@
     "entryType": "chart",
     "name": "Drop Down [stand alone]",
     "difficultyTableLevels": {
-      "insane2nd": "23"
+      "insane2nd": "23",
+      "stella": "t3"
     },
     "md5": "72eb962296d74fa32fa0dd32a17369e8",
     "chartDiscrimination": 3.2,
@@ -52727,7 +52895,8 @@
     "entryType": "chart",
     "name": "地球塔デヴォーション[DERAYMASTER]",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "stella": "t2"
     },
     "md5": "5d053aef2e8612f5105dda1b7e9e039b",
     "chartDiscrimination": 2.69,
@@ -53147,7 +53316,8 @@
     "entryType": "chart",
     "name": "The World of Cyber [ANCIENT]",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "stella": "t2"
     },
     "md5": "b8a223e29299d00b86f6cd356a906993",
     "chartDiscrimination": 3.51,
@@ -53819,7 +53989,8 @@
     "entryType": "chart",
     "name": "Alice in Misanthrope -厭世アリス- [INSANE]",
     "difficultyTableLevels": {
-      "insane2nd": "20"
+      "insane2nd": "20",
+      "stella": "t0"
     },
     "md5": "06bce609c001cfd7ecf1b28a513b9a6c",
     "chartDiscrimination": 2.8,
@@ -53966,7 +54137,8 @@
     "entryType": "chart",
     "name": "7SP:雪の少女-MorningDash!Mix- [GOD]",
     "difficultyTableLevels": {
-      "insane2nd": "23"
+      "insane2nd": "23",
+      "stella": "t3"
     },
     "md5": "d06f7121bc12c8bdab9097c936d84ba9",
     "chartDiscrimination": 2.92,
@@ -54092,7 +54264,8 @@
     "entryType": "chart",
     "name": "YO-KAI Drop [殺]",
     "difficultyTableLevels": {
-      "insane2nd": "22"
+      "insane2nd": "22",
+      "stella": "t2"
     },
     "md5": "6a5d9cc47ebba81ab8a703b73cc3af6f",
     "chartDiscrimination": 3.28,
@@ -55373,7 +55546,8 @@
     "entryType": "chart",
     "name": "サカサマの空に在ったのは [SP PUDDLE]",
     "difficultyTableLevels": {
-      "insane2nd": "24"
+      "insane2nd": "24",
+      "stella": "t3"
     },
     "md5": "a2284b403d90fdf8c055dab688838079",
     "chartDiscrimination": 1.97,
@@ -56654,7 +56828,8 @@
     "entryType": "chart",
     "name": "Inherited World [cliche]",
     "difficultyTableLevels": {
-      "insane2nd": "23"
+      "insane2nd": "23",
+      "stella": "t3"
     },
     "md5": "f7bd694275b231527556d74bca2e436c",
     "chartDiscrimination": 3.41,
