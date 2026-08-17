@@ -105,7 +105,7 @@ public class FloatingMenu implements InputProcessor {
         // ── 通用按钮（第1页）───────────────────────
         // 构造参数: (label, keycode, isToggle, showOnSelect, showOnKeyConfig, showOnPlay, showOnSkinSelect)
         new MenuItem("Touch Key: ON",  -100, true,  true, false, true, false),
-        new MenuItem("Show FPS",      Keys.F1, false, true, false, true, false),
+        new MenuItem("Walkure",       -140, false, true, false, true, false),
         new MenuItem("Update Song",   Keys.F2, false, true, false, true, false),
         new MenuItem("Music Player",   -130, false, true, false, true, false),
         new MenuItem("Skin Select",   Keys.F12, false, true, false, true, false),
@@ -119,7 +119,8 @@ public class FloatingMenu implements InputProcessor {
         new MenuItem("v DOWN",      Keys.DOWN, false, true, true, true, true),
         new MenuItem("< LEFT",      Keys.LEFT, false, true, true, true, true),
         new MenuItem("> RIGHT",     Keys.RIGHT, false, false, true, false, true),
-        new MenuItem("Walkure",       -140, false, true, false, true, false),
+        new MenuItem("Show FPS",      Keys.F1, false, true, false, true, false),
+
 
         // ── 频谱调整（第2页，12项，独立使用3列布局）─────
         // showOnKeyConfig=false：频谱调整仅在 Select/Play 界面显示
