@@ -154,4 +154,8 @@
     <string name="gauge_auto_shift_help_title">ゲージ自動切り替え</string>
     <string name="gauge_auto_shift_help">ゲージ自動切り替え。「Best Clear」がすでにデフォルトです。刺激を求めるなら、「None」を選択してHAZARD GAUGEを有効にしてプレイすることもできます。</string>
     <string name="expand">クリックして展開/折りたたみ</string>
+
+    <string name="epilepsy_warning_title">光過敏性てんかん注意</string>
+    <string name="epilepsy_warning_message">このゲームには、点滅する光や急速に変化する画面パターン、視覚効果が含まれています。てんかんの既往がない方でも、ごく一部の人に発作や意識喪失を引き起こす可能性があります。ご本人やご家族にてんかんの既往がある場合は、プレイ前に医師に相談してください。めまい、視覚の異常、目や筋肉のけいれん、方向感覚の喪失などの症状が現れた場合は、ただちにプレイを中止し、医療機関を受診してください。</string>
+    <string name="epilepsy_warning_close">理解しました</string>
 </resources>

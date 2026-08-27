@@ -186,4 +186,8 @@
     <string name="gauge_auto_shift_help_title">血条自动转换</string>
     <string name="gauge_auto_shift_help">血条自动转换。默认已经是Best Clear选项，如果喜欢寻求刺激可以选择None然后开启HAZARD GAUGE来游玩。</string>
     <string name="expand">点击展开/折叠</string>
+
+    <string name="epilepsy_warning_title">光敏性癫痫警告</string>
+    <string name="epilepsy_warning_message">本游戏包含闪烁光线、快速变化的画面图案以及视觉效果，可能会引起极少数人（即使无癫痫病史）发生抽搐或意识丧失。若您或家人有癫痫病史，请在游玩前咨询医生。若在游玩中出现头晕、视力异常、眼部或肌肉抽搐、迷失方向等症状，请立即停止游玩并寻求医疗建议。</string>
+    <string name="epilepsy_warning_close">我已知晓</string>
 </resources>

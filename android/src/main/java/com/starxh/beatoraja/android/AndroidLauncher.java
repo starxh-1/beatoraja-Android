@@ -18,6 +18,7 @@ import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.text.InputType;
+import com.starxh.beatoraja.R;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.ApplicationAdapter;
@@ -222,6 +223,12 @@ public class AndroidLauncher extends AndroidApplication {
         super.onCreate(savedInstanceState);
         instance = this;
 
+        // 进入游戏即弹出光敏性癫痫警告（系统语言，无按钮，3 秒后自动关闭）。
+        // 延后 0.5 秒触发，避开启动初期与 libGDX 初始化并发导致的线程冲突/闪退；
+        // 此时 onCreate 内的 Gdx 同步初始化已完成，弹窗环境更稳定。
+        new android.os.Handler(android.os.Looper.getMainLooper())
+                .postDelayed(this::showPhotosensitiveWarning, 500);
+
         // 检测设备架构并设置系统属性，供core模块使用
         boolean is64Bit = false;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
@@ -408,6 +415,60 @@ public class AndroidLauncher extends AndroidApplication {
         new Handler(Looper.getMainLooper()).postDelayed(this::setupSurfaceFrameRate, 200);
 
         setupSustainedPerformance();
+    }
+
+    /**
+     * 进入游戏（AndroidLauncher 加载期间）自动弹出光敏性癫痫警告。
+     * - 文案始终按设备系统语言显示，不受应用内语言设置影响；
+     * - 无按钮、不可手动关闭（setCancelable(false)）；
+     * - 3 秒后由 Handler 自动关闭。
+     * 注意：Builder 必须用 Activity 自身（this）作为上下文以保证窗口令牌正确、弹窗可见；
+     * 仅借助系统语言上下文 sysCtx 取字符串，从而显示设备系统语言文案。
+     */
+    private android.app.AlertDialog photosensitiveDialog;
+
+    private void showPhotosensitiveWarning() {
+        if (isFinishing() || isDestroyed()) return;
+        if (photosensitiveDialog != null && photosensitiveDialog.isShowing()) return;
+        try {
+            java.util.Locale systemLocale;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+                systemLocale = android.content.res.Resources.getSystem()
+                        .getConfiguration().getLocales().get(0);
+            } else {
+                systemLocale = android.content.res.Resources.getSystem()
+                        .getConfiguration().locale;
+            }
+            android.content.res.Configuration sysConfig =
+                    new android.content.res.Configuration(getResources().getConfiguration());
+            sysConfig.setLocale(systemLocale);
+            android.content.Context sysCtx = createConfigurationContext(sysConfig);
+
+            CharSequence title = sysCtx.getText(R.string.epilepsy_warning_title);
+            CharSequence message = sysCtx.getText(R.string.epilepsy_warning_message);
+            CharSequence closeText = sysCtx.getText(R.string.epilepsy_warning_close);
+
+            final android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(this)
+                    .setTitle(title)
+                    .setMessage(message)
+                    .setCancelable(false)
+                    .setPositiveButton(closeText, (d, which) -> {
+                        photosensitiveDialog = null;
+                        d.dismiss();
+                    })
+                    .create();
+            // 浮于游戏 SurfaceView 之上；无按钮故不抢占焦点/触摸，避免干扰 Gdx 输入线程
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setType(WindowManager.LayoutParams.TYPE_APPLICATION_PANEL);
+                dialog.getWindow().addFlags(
+                        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
+            }
+            photosensitiveDialog = dialog;
+            dialog.show();
+        } catch (Throwable t) {
+            Log.w(TAG, "Failed to show photosensitive warning: " + t.getMessage());
+        }
     }
 
     private boolean pendingInitialization = false;

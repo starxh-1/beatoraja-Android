@@ -188,4 +188,8 @@
     <string name="gauge_auto_shift_help_title">게이지 자동 전환</string>
     <string name="gauge_auto_shift_help">자동 게이지 전환입니다. \"Best Clear\"가 이미 기본값입니다. 스릴을 원하신다면 \"None\"을 선택하고 HAZARD GAUGE를 활성화하여 플레이하십시오.</string>
     <string name="expand">클릭하여 확장/축소</string>
+
+    <string name="epilepsy_warning_title">광과민성 발작 주의</string>
+    <string name="epilepsy_warning_message">이 게임에는 깜빡이는 빛, 빠르게 변화하는 화면 패턴 및 시각 효과가 포함되어 있어, 간질 병력이 없는 일부 사용자에게도 발작이나 의식 소실을 유발할 수 있습니다. 본인이나 가족 중 간질 병력이 있는 경우 게임을 시작하기 전에 의사와 상담하세요. 어지러움, 시각 이상, 눈이나 근육의 경련, 방향 감각 상실 등의 증상이 나타나면 즉시 게임을 중단하고 의료진의 진료를 받으세요.</string>
+    <string name="epilepsy_warning_close">확인했습니다</string>
 </resources>
