@@ -773,6 +773,41 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         return bmsroot;
     }
 
+    /**
+     * 将当前配置的 bmsroot 目录注册到 folder 表（仅写入目录结构，不扫描歌曲）。
+     *
+     * 这样在设置页新增歌曲目录后进入游戏，目录会立即作为 [root] 的子项显示
+     * （例如 "songs 0"），用户再在游戏内手动刷新即可扫描其中的歌曲。
+     *
+     * 注意：该方法在 Gdx 初始化之前的 AndroidLauncher.onCreate 中调用，因此
+     * 使用 java.io.File 构造 FileHandle，不依赖 Gdx.files，避免 NPE 闪退。
+     */
+    public void registerBmsRootFolders() {
+        if (bmsroot == null || bmsroot.length == 0) return;
+        SQLiteDatabase db = null;
+        try {
+            db = helper.getWritableDatabase();
+            // 确保 folder 表存在（首次使用可能尚未建表，建表逻辑原本在 updateSongDatas 内）
+            db.execSQL("CREATE TABLE IF NOT EXISTS folder ("
+                    + "title TEXT, subtitle TEXT, command TEXT, path TEXT, banner TEXT, "
+                    + "parent TEXT, type INTEGER, date INTEGER, adddate INTEGER, max INTEGER"
+                    + ", PRIMARY KEY (path))");
+            for (String root : bmsroot) {
+                if (root == null || root.trim().isEmpty()) continue;
+                try {
+                    FileHandle rootDir = new FileHandle(new File(root.trim()));
+                    if (rootDir.exists() && rootDir.isDirectory()) {
+                        insertFolder(rootDir, db);
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "registerBmsRootFolders failed for: " + root, t);
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "registerBmsRootFolders failed", t);
+        }
+    }
+
     @Override
     public void updateSongDatas(String updatepath, String[] bmsroot, boolean updateAll) {
         updateSongDatas(updatepath, bmsroot, updateAll, (SongScanProgress) null);

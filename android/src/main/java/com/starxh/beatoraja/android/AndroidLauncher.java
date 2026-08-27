@@ -344,6 +344,10 @@ public class AndroidLauncher extends AndroidApplication {
             bms.player.beatoraja.song.AndroidSQLiteSongDatabaseAccessor androidAccessor =
                     new bms.player.beatoraja.song.AndroidSQLiteSongDatabaseAccessor(this, defaultDbPath, allBmsRoots);
             bms.player.beatoraja.MainLoader.setSongDatabaseAccessor(androidAccessor);
+            // 将设置页配置的 bmsroot 目录注册进 folder 表，使新增目录在进游戏后即可作为
+            // [root] 的子项显示（如 "songs 0"），再由游戏内手动刷新扫描歌曲。
+            // 必须在 Gdx.initialize() 之前调用，故 accessor 内部用 java.io.File 而非 Gdx.files。
+            androidAccessor.registerBmsRootFolders();
         } catch (Throwable t) { Log.e(TAG, "DB init fail", t); return; }
 
         setupHighRefreshRate();
