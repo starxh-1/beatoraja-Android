@@ -5,6 +5,7 @@ import static bms.player.beatoraja.skin.SkinProperty.*;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.utils.FloatArray;
 
 import bms.model.*;
@@ -129,6 +130,15 @@ public class JudgeManager {
     private int pressesSinceLastAutoadjust = 0;
 
     private MultiBadCollector multiBadCollector = new MultiBadCollector();
+
+    /**
+     * BAD/POOR 判定时的震动反馈（仅 Android 生效；core 通过 libGDX 平台接口调用，不依赖 Android SDK）。
+     */
+    private static final int VIBRATION_BAD_MS = 25;
+    private static final int VIBRATION_POOR_MS = 45;
+    private static final int VIBRATION_MISS_MS = 60;
+    private static final long VIBRATION_THROTTLE_MS = 45;
+    private long lastVibrationMs = 0;
 
     public JudgeManager(BMSPlayer main) {
         this.main = main;
@@ -751,6 +761,8 @@ public class JudgeManager {
             keysound.play(judge, mfast >= 0);
         }
 
+        vibrateOnBadPoorMiss(judge);
+
         final PlayerConfig player = main.main.getPlayerConfig();
         if(player.isNotesDisplayTimingAutoAdjust()) {
             final BMSPlayerMode autoplay = main.resource.getPlayMode();
@@ -766,6 +778,38 @@ public class JudgeManager {
                 }
             }           
         }
+    }
+
+    /**
+     * BAD(3)/POOR(4)/MISS(5) 判定时触发一次短震动。其余判定与自动播放不触发；并做节流避免连打时叠加。
+     */
+    private void vibrateOnBadPoorMiss(int judge) {
+        if (autoplay) {
+            return;
+        }
+        if (judge != 3 && judge != 4 && judge != 5) {
+            return;
+        }
+        if (!main.resource.getConfig().isVibrationOnBad()) {
+            return;
+        }
+        if (Gdx.input == null) {
+            return;
+        }
+        final long now = System.currentTimeMillis();
+        if (now - lastVibrationMs < VIBRATION_THROTTLE_MS) {
+            return;
+        }
+        lastVibrationMs = now;
+        final int durationMs;
+        if (judge == 5) {
+            durationMs = VIBRATION_MISS_MS;
+        } else if (judge == 4) {
+            durationMs = VIBRATION_POOR_MS;
+        } else {
+            durationMs = VIBRATION_BAD_MS;
+        }
+        Gdx.input.vibrate(durationMs);
     }
 
     public long[] getRecentJudges() {

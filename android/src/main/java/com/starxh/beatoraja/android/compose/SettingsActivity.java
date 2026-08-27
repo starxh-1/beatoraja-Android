@@ -82,6 +82,7 @@ public class SettingsActivity extends Activity {
     private int selectedFloatingMenuPosition = 0;
     private boolean selectedStretchFullscreen = false;
     private boolean selectedScanSongsOnLaunch = true;
+    private boolean selectedVibrationOnBad = true;
     private int selectedInputDuration = 16;
     private boolean selectedJkocHack = false;
     private boolean selectedAnalogScratch = false;
@@ -92,7 +93,7 @@ public class SettingsActivity extends Activity {
     private int selectedMouseScratchDistance = 12;
     private int selectedMouseScratchMode = 0;
 
-    private String[] targetScoreOptions = {"MAX", "RATE_MAX-", "RATE_AAA", "RATE_AA", "RATE_A"};
+    private String[] targetScoreOptions = {"RATE_A-", "RATE_A", "RATE_A+", "RATE_AA-", "RATE_AA", "RATE_AA+", "RATE_AAA-", "RATE_AAA", "RATE_AAA+", "RATE_MAX-", "MAX"};
 
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
@@ -352,6 +353,7 @@ public class SettingsActivity extends Activity {
                 selectedBgaExpand = findJsonIntValue(json, "bgaExpand", 1);
                 selectedStretchFullscreen = findJsonBooleanValue(json, "stretchFullscreen", false);
                 selectedScanSongsOnLaunch = findJsonBooleanValue(json, "updatesong", true);
+                selectedVibrationOnBad = findJsonBooleanValue(json, "vibrationOnBad", true);
                 tableUrls = findJsonArrayStrings(json, "tableURL");
                 if (tableUrls.isEmpty()) tableUrls.add("");
             } else {
@@ -950,6 +952,13 @@ public class SettingsActivity extends Activity {
         ((Switch) findViewById(R.id.enableLiftSwitch)).setChecked(selectedEnableLift);
         setupGamepadFocusable(findViewById(R.id.enableLiftSwitch));
 
+        Switch vibrationOnBadSwitch = findViewById(R.id.vibrationOnBadSwitch);
+        vibrationOnBadSwitch.setChecked(selectedVibrationOnBad);
+        setupGamepadFocusable(vibrationOnBadSwitch);
+        vibrationOnBadSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            selectedVibrationOnBad = isChecked;
+        });
+
         findViewById(R.id.saveButton).setOnClickListener(v -> {
             readAllOptionsFromUI();
             saveConfigToJson();
@@ -1197,6 +1206,7 @@ public class SettingsActivity extends Activity {
             config.put("bgaExpand", selectedBgaExpand);
             config.put("stretchFullscreen", selectedStretchFullscreen);
             config.put("updatesong", selectedScanSongsOnLaunch);
+            config.put("vibrationOnBad", selectedVibrationOnBad);
 
             // 自动同步当前系统语言给游戏内核
             String currentLang = Locale.getDefault().getLanguage();
@@ -1961,6 +1971,7 @@ public class SettingsActivity extends Activity {
         selectedBga = ((Spinner) findViewById(R.id.bgaDisplaySpinner)).getSelectedItemPosition();
         selectedBgaExpand = ((Spinner) findViewById(R.id.bgaExpandSpinner)).getSelectedItemPosition();
         selectedStretchFullscreen = ((Switch) findViewById(R.id.stretchFullscreenSwitch)).isChecked();
+        selectedVibrationOnBad = ((Switch) findViewById(R.id.vibrationOnBadSwitch)).isChecked();
         tableUrls.clear();
         for (int i = 0; i < tableUrlContainer.getChildCount(); i++) {
             View r = tableUrlContainer.getChildAt(i);
@@ -2040,6 +2051,7 @@ public class SettingsActivity extends Activity {
             ((Spinner) findViewById(R.id.noteModifierSpinner)).setSelection(selectedNoteModifier);
             ((Switch) findViewById(R.id.enableLanecoverSwitch)).setChecked(selectedEnableLanecover);
             ((Switch) findViewById(R.id.enableLiftSwitch)).setChecked(selectedEnableLift);
+            ((Switch) findViewById(R.id.vibrationOnBadSwitch)).setChecked(selectedVibrationOnBad);
         } catch (Exception ignored) {}
     }
 

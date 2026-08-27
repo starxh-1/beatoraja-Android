@@ -958,6 +958,30 @@
                 android:checked="false" />
         </LinearLayout>
 
+        <!-- 震动反馈（Bad/Poor/Miss 判定） -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="@dimen/item_padding_bottom">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/vibration_on_bad"
+                android:textColor="#FFFFFF"
+                android:textSize="@dimen/text_size_body"
+                android:gravity="center_vertical"/>
+
+            <Switch
+                android:id="@+id/vibrationOnBadSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/control_height"
+                android:checked="true" />
+        </LinearLayout>
+
         </LinearLayout>
 
         <View

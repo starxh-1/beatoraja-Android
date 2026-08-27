@@ -79,6 +79,10 @@ public class Config implements Validatable, Serializable {
 	 * Android 专用设置：Play 界面是否显示触摸按键
 	 */
 	private boolean showTouchKey = true;
+	/**
+	 * BAD/POOR 判定时是否触发震动反馈（仅 Android 生效）
+	 */
+	private boolean vibrationOnBad = true;
 
 	/**
 	 * Android 专用设置：拉伸渲染以去除黑边。
@@ -118,6 +122,14 @@ public class Config implements Validatable, Serializable {
 
 	public void setShowTouchKey(boolean showTouchKey) {
 		this.showTouchKey = showTouchKey;
+	}
+
+	public boolean isVibrationOnBad() {
+		return vibrationOnBad;
+	}
+
+	public void setVibrationOnBad(boolean vibrationOnBad) {
+		this.vibrationOnBad = vibrationOnBad;
 	}
 
 	public boolean isStretchFullscreen() {
@@ -848,6 +860,7 @@ public class Config implements Validatable, Serializable {
         c.irSendCount = this.irSendCount;
         c.androidUnlimitedFPS = this.androidUnlimitedFPS;
         c.showTouchKey = this.showTouchKey;
+        c.vibrationOnBad = this.vibrationOnBad;
         c.stretchFullscreen = this.stretchFullscreen;
         // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
@@ -901,6 +914,7 @@ public class Config implements Validatable, Serializable {
         c.irSendCount = changes.irSendCount;
         c.androidUnlimitedFPS = changes.androidUnlimitedFPS;
         c.showTouchKey = changes.showTouchKey;
+        c.vibrationOnBad = changes.vibrationOnBad;
         c.stretchFullscreen = changes.stretchFullscreen;
         // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;
