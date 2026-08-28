@@ -140,6 +140,7 @@ public class SettingsActivity extends Activity {
     /** 首次启动引导：SharedPreferences 持久化标记 */
     private static final String PREFS_NAME = "beatoraja_prefs";
     private static final String KEY_ONBOARDED = "first_launch_onboarded";
+    private static final String KEY_EPILEPSY_WARNED = "epilepsy_warning_shown";
     private android.app.AlertDialog onboardDialog;
     /** 引导第二步的内容由用户在第一步选择的角色决定 */
     private Boolean onboardIsNewbie = null;
@@ -2055,7 +2056,54 @@ public class SettingsActivity extends Activity {
         } catch (Exception ignored) {}
     }
 
+    /** 点击"开始游戏"：先弹光敏性癫痫警告，点"我已知晓"才真正启动游戏 */
     private void launchGame() {
+        showPhotosensitiveWarningThenLaunch();
+    }
+
+    /**
+     * 进入游戏前弹出光敏性癫痫警告（按系统语言显示），
+     * 仅当点击"我已知晓"按钮才继续启动 AndroidLauncher。
+     * 仅在首次启动时弹出，之后通过 SharedPreferences 标记记住。
+     */
+    private void showPhotosensitiveWarningThenLaunch() {
+        android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (prefs.getBoolean(KEY_EPILEPSY_WARNED, false)) {
+            startGameActivity();
+            return;
+        }
+
+        android.content.res.Configuration sysConfig =
+                new android.content.res.Configuration(getResources().getConfiguration());
+        java.util.Locale systemLocale;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+            systemLocale = android.content.res.Resources.getSystem()
+                    .getConfiguration().getLocales().get(0);
+        } else {
+            systemLocale = android.content.res.Resources.getSystem()
+                    .getConfiguration().locale;
+        }
+        sysConfig.setLocale(systemLocale);
+        android.content.Context sysCtx = createConfigurationContext(sysConfig);
+
+        CharSequence title = sysCtx.getText(R.string.epilepsy_warning_title);
+        CharSequence message = sysCtx.getText(R.string.epilepsy_warning_message);
+        CharSequence closeText = sysCtx.getText(R.string.epilepsy_warning_close);
+
+        new android.app.AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setCancelable(false)
+                .setPositiveButton(closeText, (d, which) -> {
+                    prefs.edit().putBoolean(KEY_EPILEPSY_WARNED, true).apply();
+                    startGameActivity();
+                })
+                .create()
+                .show();
+    }
+
+    /** 真正启动游戏：清理资源并切换到 AndroidLauncher */
+    private void startGameActivity() {
         // 在启动游戏前先清理所有资源，释放内存
         cleanupResources();
 
