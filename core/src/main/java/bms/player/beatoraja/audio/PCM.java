@@ -4,7 +4,9 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 
@@ -12,6 +14,15 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.utils.BufferUtils;
 import java.lang.reflect.Method;
+
+import com.jcraft.jogg.Page;
+import com.jcraft.jogg.Packet;
+import com.jcraft.jogg.StreamState;
+import com.jcraft.jogg.SyncState;
+import com.jcraft.jorbis.Block;
+import com.jcraft.jorbis.Comment;
+import com.jcraft.jorbis.DspState;
+import com.jcraft.jorbis.Info;
 
 
 /**
@@ -503,6 +514,139 @@ public abstract class PCM<T> {
 
         public PCMLoader(AudioDriver driver) { this.driver = driver; }
 
+        /**
+         * OGG Vorbis 解码结果（16-bit 交错 PCM）
+         */
+        private static class OggDecodeResult {
+            short[] data;
+            int channels;
+            int sampleRate;
+        }
+
+        /**
+         * 使用纯 Java 的 jorbis 解码器把 OGG Vorbis 解为 16-bit PCM。
+         * 不使用 Android MediaCodec：MediaCodec 对 ogg/vorbis 支持不可靠，
+         * 在部分 ROM 上解码会永久阻塞（该调用在主线程同步执行，曾导致 select 界面卡死）。
+         *
+         * @return 解码结果，失败返回 null
+         */
+        private static OggDecodeResult decodeOgg(FileHandle file) throws IOException {
+            SyncState oy = new SyncState();
+            StreamState os = new StreamState();
+            Page og = new Page();
+            Packet op = new Packet();
+            Info vi = new Info();
+            Comment vc = new Comment();
+            DspState vd = new DspState();
+            Block vb = new Block(vd);
+
+            oy.init();
+
+            List<short[]> chunks = new ArrayList<>();
+            int totalSamples = 0;
+            int channels = 0;
+            int sampleRate = 0;
+            // Vorbis 的 3 个 header 包（ID/Comment/Setup）常分布在不同的 Ogg 页中，
+            // 必须跨多轮文件读取保留状态：os/vi/vc 只初始化一次，已解析的 header 包数持续累加。
+            // 若在等待下一页时重复 init，会丢掉已解析的 header，导致解码失败。
+            boolean streamInitialized = false;
+            int headerPackets = 0;
+            boolean headerParsed = false;
+
+            try (InputStream input = new BufferedInputStream(file.read())) {
+                boolean eof = false;
+                while (!eof) {
+                    int index = oy.buffer(4096);
+                    int bytes = input.read(oy.data, index, 4096);
+                    if (bytes == -1) {
+                        eof = true;
+                        oy.wrote(0);
+                    } else if (bytes == 0) {
+                        continue;
+                    } else {
+                        oy.wrote(bytes);
+                    }
+
+                    while (oy.pageout(og) == 1) {
+                        if (!streamInitialized) {
+                            // 只能初始化一次，且必须用首页的 serial
+                            os.init(og.serialno());
+                            vi.init();
+                            vc.init();
+                            streamInitialized = true;
+                        }
+                        os.pagein(og);
+
+                        if (!headerParsed) {
+                            // 解析 header 包。若本页包数不足，packetout 返回 0，
+                            // while 自然结束并回到外层继续读文件取下一页，header 状态保留。
+                            while (os.packetout(op) == 1) {
+                                if (vi.synthesis_headerin(vc, op) < 0) {
+                                    throw new IOException(file.path() + " : 不是有效的 OGG Vorbis 文件");
+                                }
+                                headerPackets++;
+                                if (headerPackets == 3) {
+                                    headerParsed = true;
+                                    channels = vi.channels;
+                                    sampleRate = vi.rate;
+                                    vd.synthesis_init(vi);
+                                    vb.init(vd);
+                                    break;
+                                }
+                            }
+                            continue;
+                        }
+
+                        while (os.packetout(op) == 1) {
+                            if (vb.synthesis(op) != 0) {
+                                continue;
+                            }
+                            vd.synthesis_blockin(vb);
+                            float[][][] pcmOut = new float[1][channels][];
+                            int[] pcmIndex = new int[channels];
+                            int samples;
+                            while ((samples = vd.synthesis_pcmout(pcmOut, pcmIndex)) > 0) {
+                                short[] chunk = new short[samples * channels];
+                                for (int i = 0; i < channels; i++) {
+                                    float[] pcmChannel = pcmOut[0][i];
+                                    int offset = pcmIndex[i];
+                                    for (int j = 0; j < samples; j++) {
+                                        float v = pcmChannel[offset + j];
+                                        if (v > 1.0f) {
+                                            v = 1.0f;
+                                        } else if (v < -1.0f) {
+                                            v = -1.0f;
+                                        }
+                                        chunk[j * channels + i] = (short) (v * 32767f);
+                                    }
+                                }
+                                chunks.add(chunk);
+                                totalSamples += samples;
+                                vd.synthesis_read(samples);
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!headerParsed || totalSamples <= 0) {
+                return null;
+            }
+
+            short[] data = new short[totalSamples * channels];
+            int pos = 0;
+            for (short[] chunk : chunks) {
+                System.arraycopy(chunk, 0, data, pos, chunk.length);
+                pos += chunk.length;
+            }
+
+            OggDecodeResult result = new OggDecodeResult();
+            result.data = data;
+            result.channels = channels;
+            result.sampleRate = sampleRate;
+            return result;
+        }
+
         public void loadPCM(FileHandle file) throws IOException {
             pcm = null;
             final String ext = file.extension().toLowerCase();
@@ -523,7 +667,24 @@ public abstract class PCM<T> {
                     pcm.put(temp);
                     pcm.flip();
                 }
-            } else if (ext.equals("ogg") || ext.equals("mp3") || ext.equals("flac")) {
+            } else if (ext.equals("ogg")) {
+                // OGG Vorbis 改用纯 Java 的 jorbis 解码：
+                // Android MediaCodec 对 ogg/vorbis 支持不可靠，在部分 ROM 上解码会永久阻塞，
+                // 而该调用在主（渲染）线程同步执行，曾导致 select 界面加载 select.ogg 时卡死。
+                try {
+                    OggDecodeResult decoded = decodeOgg(file);
+                    if (decoded != null) {
+                        channels = decoded.channels;
+                        sampleRate = decoded.sampleRate;
+                        bitsPerSample = 16;
+                        pcm = getDirectByteBuffer(decoded.data.length * 2);
+                        pcm.asShortBuffer().put(decoded.data);
+                        pcm.flip();
+                    }
+                } catch (Exception e) {
+                    Logger.getGlobal().warning("OGG decode failed for " + file.path() + ": " + e.getMessage());
+                }
+            } else if (ext.equals("mp3") || ext.equals("flac")) {
                 try {
                     Method decodeMethod = Gdx.audio.getClass().getMethod("decodeToPCM", String.class);
                     short[] data = (short[]) decodeMethod.invoke(Gdx.audio, file.path());

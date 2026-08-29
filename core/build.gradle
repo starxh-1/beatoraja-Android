@@ -31,6 +31,9 @@ dependencies {
   implementation "commons-dbutils:commons-dbutils:1.8.1"
   implementation "org.apache.commons:commons-compress:1.28.0"
 
+  // 纯 Java OGG Vorbis 解码器（替代 Android MediaCodec，避免 ogg 在 select 等界面解码卡死）
+  implementation 'org.jcraft:jorbis:0.0.17'
+
   implementation "commons-dbutils:commons-dbutils:1.8.1"
   implementation 'org.luaj:luaj-jse:3.0.1'
 
