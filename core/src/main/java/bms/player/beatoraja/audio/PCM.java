@@ -4,6 +4,8 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import com.badlogic.gdx.Gdx;
@@ -99,6 +101,92 @@ public abstract class PCM<T> {
         if (dur > 0) return dur;
 
         return 0;
+    }
+
+    /**
+     * 谱面目录下的音频文件索引（惰性递归）。
+     *
+     * 性能考量：绝大多数谱面的音频都放在谱面同级目录，因此构造时只做一次平铺
+     * listFiles()，开销与改造前完全相同；只有当谱面确实引用了子目录（形如
+     * "audio/bgm.ogg"）时，才惰性触发一次有界深度的递归扫描，把子目录音频补进索引。
+     * 这样既避免了逐文件 File.exists() 带来的数千次系统调用，又能命中子目录里的音频。
+     *
+     * 查找语义与播放侧 AbstractAudioDriver 保持一致：只按"相对谱面目录的路径"查找，
+     * 裸文件名不去子目录里翻（播放侧用 new File(dpath, wav) 同样找不到）。
+     */
+    public static final class AudioFileIndex {
+
+        /** 递归深度上限，避免异常目录结构导致扫描失控 */
+        private static final int MAX_DEPTH = 3;
+
+        private static final String[] AUDIO_EXTS = {".wav", ".ogg", ".flac", ".mp3"};
+
+        private final File baseDir;
+        private final Map<String, File> map = new HashMap<>();
+        private boolean recursiveScanned = false;
+
+        public AudioFileIndex(File baseDir) {
+            this.baseDir = baseDir;
+            final File[] dirFiles = baseDir.listFiles();
+            if (dirFiles != null) {
+                for (File f : dirFiles) {
+                    if (f.isFile()) map.put(f.getName().toLowerCase(), f);
+                }
+            }
+        }
+
+        /**
+         * 解析 wavlist 声明（已由 BMSDecoder 归一化为 '/' 分隔），返回对应文件，找不到返回 null。
+         */
+        public File resolve(String wavName) {
+            final String name = wavName.toLowerCase();
+            File f = map.get(name);
+            if (f != null) return f;
+
+            // 首次遇到带子目录的声明时补一次递归扫描，之后仍是 O(1) 查表
+            if (name.indexOf('/') >= 0 && !recursiveScanned) {
+                collectSubdirectories(baseDir, "", 1);
+                recursiveScanned = true;
+                f = map.get(name);
+                if (f != null) return f;
+            }
+            return resolveByExtension(name);
+        }
+
+        /** 换扩展名重试：只认最后一个 '/' 之后的 '.'，避免 "audio.v2/bgm.ogg" 被截错 */
+        private File resolveByExtension(String name) {
+            final int slash = name.lastIndexOf('/');
+            int dot = name.lastIndexOf('.');
+            if (dot <= slash + 1) dot = -1;
+            final String base = dot < 0 ? name : name.substring(0, dot);
+            for (String ext : AUDIO_EXTS) {
+                File f = map.get(base + ext);
+                if (f != null) return f;
+            }
+            return null;
+        }
+
+        /** 只索引音频后缀，避免无关的大目录（如视频文件夹）撑大索引 */
+        private void collectSubdirectories(File dir, String prefix, int depth) {
+            if (depth > MAX_DEPTH) return;
+            final File[] files = dir.listFiles();
+            if (files == null) return;
+            for (File f : files) {
+                final String rel = prefix + f.getName().toLowerCase();
+                if (f.isDirectory()) {
+                    collectSubdirectories(f, rel + "/", depth + 1);
+                } else if (isAudio(rel)) {
+                    map.put(rel, f);
+                }
+            }
+        }
+
+        private static boolean isAudio(String lowerName) {
+            for (String ext : AUDIO_EXTS) {
+                if (lowerName.endsWith(ext)) return true;
+            }
+            return false;
+        }
     }
 
     private static int tryWavDuration(File file) {

@@ -24,6 +24,7 @@ import bms.player.beatoraja.MainController;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.PixmapResourcePool;
 import bms.player.beatoraja.audio.AudioDriver;
+import bms.player.beatoraja.audio.PCM;
 import bms.player.beatoraja.select.BarManager;
 import bms.player.beatoraja.select.bar.Bar;
 import bms.player.beatoraja.select.bar.SongBar;
@@ -824,13 +825,9 @@ public class MusicPlayer extends MainState {
 			}
 		}
 
-		final File[] dirFiles = bmsDir.listFiles();
-		final java.util.Map<String, File> fileCacheMap = new java.util.HashMap<>();
-		if (dirFiles != null) {
-			for (File f : dirFiles) {
-				fileCacheMap.put(f.getName().toLowerCase(), f);
-			}
-		}
+		// 一次性建立目录索引，避免数千次 File.exists() 系统调用导致 I/O 阻塞
+		// 音频位于子目录（如 audio/bgm.ogg）时才惰性补一次有界深度递归扫描
+		final PCM.AudioFileIndex audioFileIndex = new PCM.AudioFileIndex(bmsDir);
 
 		final List<int[]> sortedWavs = new ArrayList<>();
 		for (int wavid = 0; wavid < lastOccurrenceArray.length; wavid++) {
@@ -844,17 +841,7 @@ public class MusicPlayer extends MainState {
 			final int wavid = entry[0];
 			final int lastTime = entry[1];
 
-			String fileName = wavlist[wavid];
-			String lowerName = fileName.toLowerCase();
-			File audioFile = fileCacheMap.get(lowerName);
-			if (audioFile == null) {
-				int dotIdx = lowerName.lastIndexOf('.');
-				String baseName = dotIdx > 0 ? lowerName.substring(0, dotIdx) : lowerName;
-				for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
-					audioFile = fileCacheMap.get(baseName + ext);
-					if (audioFile != null) break;
-				}
-			}
+			File audioFile = audioFileIndex.resolve(wavlist[wavid]);
 
 			if (audioFile != null) {
 				long fileSize = audioFile.length();

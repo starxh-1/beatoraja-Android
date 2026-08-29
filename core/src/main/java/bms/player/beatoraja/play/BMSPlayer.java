@@ -19,6 +19,7 @@ import bms.player.beatoraja.AudioConfig.FrequencyType;
 import bms.player.beatoraja.input.*;
 import bms.player.beatoraja.pattern.*;
 import bms.player.beatoraja.pattern.LaneShuffleModifier.*;
+import bms.player.beatoraja.audio.PCM;
 import bms.player.beatoraja.play.PracticeConfiguration.PracticeProperty;
 import bms.player.beatoraja.play.bga.BGAProcessor;
 import bms.player.beatoraja.skin.Skin;
@@ -257,14 +258,9 @@ public class BMSPlayer extends MainState {
 				}
 			}
 
-			// 1. 一次性获取目录下所有文件，避免数千次 File.exists() 系统调用导致 I/O 阻塞
-			final java.io.File[] dirFiles = bmsDir.listFiles();
-			final java.util.Map<String, java.io.File> fileCacheMap = new java.util.HashMap<>();
-			if (dirFiles != null) {
-				for (java.io.File f : dirFiles) {
-					fileCacheMap.put(f.getName().toLowerCase(), f);
-				}
-			}
+			// 1. 一次性建立目录索引，避免数千次 File.exists() 系统调用导致 I/O 阻塞
+			//    音频位于子目录（如 audio/bgm.ogg）时才惰性补一次有界深度递归扫描
+			final PCM.AudioFileIndex audioFileIndex = new PCM.AudioFileIndex(bmsDir);
 
 			// 2. 收集所有唯一的音符及其最后出现时间，并按时间降序排列
 			// 优先检查结尾音符可以更早更新 maxTailMs，从而让后续音符触发启发式跳过
@@ -287,17 +283,8 @@ public class BMSPlayer extends MainState {
 				// 如果该音符即便按极低码率（8 bytes/ms，即 8KB/s）计算出的理论最大长度
 				// 都不足以超过当前的 maxTailMs 结束位置，则完全无需打开该文件。
 				// 这能过滤掉 3000 个 keysound 中 90% 以上的小文件。
-				String fileName = wavlist[wavid];
-				String lowerName = fileName.toLowerCase();
-				java.io.File audioFile = fileCacheMap.get(lowerName);
-				if (audioFile == null) {
-					int dotIdx = lowerName.lastIndexOf('.');
-					String baseName = dotIdx > 0 ? lowerName.substring(0, dotIdx) : lowerName;
-					for (String ext : new String[]{".wav", ".ogg", ".flac", ".mp3"}) {
-						audioFile = fileCacheMap.get(baseName + ext);
-						if (audioFile != null) break;
-					}
-				}
+				// wavlist 已由 BMSDecoder 归一化为相对路径（如 audio/bgm.ogg），交给索引解析
+				java.io.File audioFile = audioFileIndex.resolve(wavlist[wavid]);
 
 				if (audioFile != null) {
 					long fileSize = audioFile.length();
