@@ -77,7 +77,7 @@ public final class SkinTextBitmap extends SkinText {
 					shader.setUniformf("u_outlineDistance", Math.max(0.1f, 0.5f - getOutlineWidth()/2f));
 					shader.setUniformf("u_outlineColor", getOutlineColor());
 					shader.setUniformf("u_shadowColor", getShadowColor());
-					shader.setUniformf("u_shadowSmoothness", getShadowSmoothness() / 2f);
+					shader.setUniformf("u_shadowSmoothing", getShadowSmoothness() / 2f);
 					shader.setUniformf("u_shadowOffset",
 							new Vector2(getShadowOffset().x / source.getPageWidth(), getShadowOffset().y / source.getPageHeight()));
 				}, pivotX, pivotY, angle);
@@ -87,7 +87,7 @@ public final class SkinTextBitmap extends SkinText {
 					shader.setUniformf("u_outlineDistance", Math.max(0.1f, 0.5f - getOutlineWidth()/2f));
 					shader.setUniformf("u_outlineColor", getOutlineColor());
 					shader.setUniformf("u_shadowColor", getShadowColor());
-					shader.setUniformf("u_shadowSmoothness", getShadowSmoothness() / 2f);
+					shader.setUniformf("u_shadowSmoothing", getShadowSmoothness() / 2f);
 					shader.setUniformf("u_shadowOffset",
 							new Vector2(getShadowOffset().x / source.getPageWidth(), getShadowOffset().y / source.getPageHeight()));
 				});
