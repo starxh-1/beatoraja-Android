@@ -31,7 +31,7 @@ import bms.player.beatoraja.skin.SkinType;
  *
  * @author exch
  */
-public class BMSPlayer extends MainState {
+public class BMSPlayer extends MainState implements PlayStateValues {
 
 	private BMSModel model;
 
@@ -1261,6 +1261,25 @@ public class BMSPlayer extends MainState {
 
 	public GrooveGauge getGauge() {
 		return gauge;
+	}
+
+	// ── PlayStateValues 的其余三项：真游玩就是直接转发给 JudgeManager / GrooveGauge。
+	//    抽这层接口是为了让皮肤预览也能显示判定与量表（预览里没有真正的 play 会话），
+	//    取值与改动前完全一致。见 PlayStateValues 的说明。──
+
+	@Override
+	public PlayStateValues getPlayStateValues() {
+		return this;
+	}
+
+	@Override
+	public int getNowJudge(int player) {
+		return judge.getNowJudge(player);
+	}
+
+	@Override
+	public int getNowCombo(int player) {
+		return judge.getNowCombo(player);
 	}
 
 	public boolean isNoteEnd() {

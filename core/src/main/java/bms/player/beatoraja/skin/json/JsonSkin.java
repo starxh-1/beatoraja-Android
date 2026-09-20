@@ -48,6 +48,7 @@ public class JsonSkin {
 		public SongList songlist;
 		public PMchara[] pmchara = new PMchara[0];
 		public SkinConfigurationProperty skinSelect;
+		public SkinPreview skinpreview;
 		public CustomEvent[] customEvents = new CustomEvent[0];
 		public CustomTimer[] customTimers = new CustomTimer[0];
 
@@ -398,6 +399,14 @@ public class JsonSkin {
 	}
 
 	public static class BGA {
+		public String id;
+	}
+
+	/**
+	 * 皮肤选择界面上的实时预览。这里只声明 id，真正的行为在
+	 * {@code bms.player.beatoraja.config.SkinPreview}（一个 SkinObject）。
+	 */
+	public static class SkinPreview {
 		public String id;
 	}
 

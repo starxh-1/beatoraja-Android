@@ -1,7 +1,9 @@
 package bms.player.beatoraja.play;
 
 import bms.player.beatoraja.MainState;
+import bms.player.beatoraja.PlayStateValues;
 import bms.player.beatoraja.PlayerResource;
+import bms.model.BMSModel;
 import bms.player.beatoraja.play.GaugeProperty.GaugeElementProperty;
 import bms.player.beatoraja.result.AbstractResult;
 import bms.player.beatoraja.result.MusicResult;
@@ -100,8 +102,11 @@ public final class SkinGauge extends SkinObject {
 	public void prepare(long time, MainState state) {
 		super.prepare(time, state);
 		GrooveGauge gauge = null;
-		if(state instanceof BMSPlayer player) {
-			gauge = player.getGauge();
+		// 真游玩（BMSPlayer）与皮肤预览（SkinConfiguration）都从「游玩态数值」取量表；
+		// 结果界面的量表没有游玩态，仍旧从 resource 上拿（见 PlayStateValues）。
+		final PlayStateValues play = state != null ? state.getPlayStateValues() : null;
+		if (play != null) {
+			gauge = play.getGauge();
 		} else if(state instanceof AbstractResult) {
 			gauge = state.resource.getGrooveGauge();
 		}
@@ -137,7 +142,11 @@ public final class SkinGauge extends SkinObject {
 		//ボーダーが丁度割り切れるゲージ粒数に変更
 		// TODO できれば起動時にやりたい
 		if(!isCheckedModeChanged) {
-			if(state.resource.getOriginalMode() != state.resource.getBMSModel().getMode()) {
+			// 这一段只在「原模式 ≠ 游玩模式」时把量表颗粒数调到能整除 border。
+			// 预览环境里 resource 上没有正在游玩的谱面（getBMSModel() 可能是 null），
+			// 拿不到就跳过 —— 否则 NPE 会让整个量表对象被永久停用。
+			final BMSModel gaugeModel = state.resource.getBMSModel();
+			if(gaugeModel != null && state.resource.getOriginalMode() != gaugeModel.getMode()) {
 				int setParts = parts;
 				for(int type = 0; type < gauge.getGaugeTypeLength(); type++) {
 					final GaugeElementProperty element = gauge.getGauge(type).getProperty();

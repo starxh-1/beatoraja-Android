@@ -144,6 +144,18 @@ public abstract class MainState {
 		return main.getOffset(id);
 	}
 
+	/**
+	 * 当前界面能提供的「游玩态数值」（判定 / 连击 / 量表）。
+	 *
+	 * <p>默认没有 —— 只有真实游玩状态（{@code BMSPlayer}）和皮肤预览
+	 * （{@link bms.player.beatoraja.config.SkinConfiguration}）会覆盖它。
+	 * 调用方（{@code SkinJudge} / {@code SkinGauge}）**必须判空**，
+	 * 见 {@link PlayStateValues}。</p>
+	 */
+	public PlayStateValues getPlayStateValues() {
+		return null;
+	}
+
 	public TextureRegion getImage(int imageid) {
 		switch (imageid) {
 		case IMAGE_BACKBMP:

@@ -1,0 +1,391 @@
+# 皮肤选择界面的实时预览（Skin Preview）
+
+> 目标：SKIN SELECT 界面右上角那个 640×360 的灰块（皮肤里的 `preview-bg`），改成**当前选中皮肤的实时预览**。
+> 状态：已移植（2026-09-20），versionCode 15→16；预览内的**自绘演示音符**于同日补上（第六节）。
+
+## 一、这不是从零设计，是"补移植"
+
+上游 PC 版**早就有这个功能**：`beatoraja-master/src/bms/player/beatoraja/config/SkinPreview.java`（129 行，
+自带 FrameBuffer 离屏渲染）。Android 版在移植时整块没引入 —— `core/.../config/` 下没有这个文件，
+`Skin` 也没有配套的绘制入口。所以本次工作 = 把上游那 129 行搬过来 + 适配 Android 的渲染接口。
+
+那个灰块在皮肤里的定义：`skin.image.preview-bg`（`skinselectmain.lua:43`）+
+`skin.destination` 的 `{x=470, y=350, w=640, h=360}`。上游的 `skin-preview` 目的地位置**与它完全重合**，
+搬过来天然对齐。
+
+## 二、机制
+
+```
+SkinConfiguration.render()          ← 每帧：处理"参数调整后延迟重建"
+        │
+        │ selectSkin() / 参数变更
+        ▼
+SkinConfiguration.loadSelectedSkinPreview()
+   ├─ new SkinConfig(config.getPath())      ← 带上用户改过的 properties
+   ├─ SkinLoader.load(this, type, cfg)      ← 加载一份**独立的** Skin 实例
+   └─ preview.prepare(this)                 ← 剔除不满足条件的对象
+        │
+        ▼
+SkinPreview（SkinObject，由 skin.skinpreview 声明）
+   draw(renderer):
+     1. 外层 batch flush + end
+     2. FrameBuffer.begin() → 按预览皮肤自身分辨率清屏
+     3. previewBatch 用 setToOrtho2D(0,0,w,h) 重设投影
+     4. previewSkin.drawAllObjectsSafely(previewBatch, configuration)
+     5. FrameBuffer.end() → batch 矩阵还原
+     6. 外层 batch begin，再把 frameRegion 贴到自己的 dst
+```
+
+**"实时"体现在两处**：① 切皮肤立刻重新渲染；② 右侧自定义参数（Lane Size / Scratch Side / Layout…）
+一改，重载的皮肤实例就带上新 properties，轨道布局随之改变。
+
+## 三、改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `core/.../config/SkinPreview.java` | **新增**。上游实现的 Android 适配版 |
+| `core/.../skin/Skin.java` | 抽出 `ensureRenderer()`；**新增** `drawAllObjectsSafely()`、`insertSkinObjectAfter()`；`SkinObjectRenderer` 加 `getSpriteBatch()` 与静态 `setCurrentViewport()` |
+| `core/.../play/PreviewNoteLayer.java` | **新增**。预览用的自绘演示音符层（第六节） |
+| `core/.../config/SkinConfiguration.java` | `getSelectedSkin()`；`loadSelectedSkinPreview()` / `reloadSelectedSkinPreview()` / `setSelectedSkin()`；`selectSkin` 调用点；三个 `setCustom*` 挂重建请求；`dispose()` 释放 |
+| `core/.../skin/json/JsonSkin.java` | 加 `skinpreview` 字段 + `SkinPreview` 内部类（只声明 `id`） |
+| `core/.../skin/json/JsonSkinConfigurationSkinObjectLoader.java` | 覆写 `loadSkinObject`：基类未命中且 `dst.id == sk.skinpreview.id` 时返回 `new SkinPreview()` |
+| `android/assets/skin/default/skinselect/skinselectmain.lua` | 加 `skin.skinpreview = {id = "skin-preview"}` 与一条 destination |
+
+## 四、五个必须遵守的实现约束（都是踩过的）
+
+### 1. 每个对象单独容错，不能整张皮肤一起崩
+
+`drawAllObjects` 的 debug 分支虽然有 try-catch，但**非 debug 分支的 catch 只是打日志继续**，
+`prepare` 一次失败并不阻止后续帧重试。预览环境里这是灾难：预览是没有谱面 / 分数 / BPM 的环境，
+依赖它们的对象会**稳定地**每帧抛异常。
+
+`drawAllObjectsSafely` 的做法是 **prepare / draw 各自 try-catch 并把该对象的 `draw` 置 false** ——
+失败一次就永久跳过该对象。同时 `SkinPreview` 自己还有一层：整块渲染抛异常就 `disabled = true`
+（换皮肤时重置），不再每帧重试。
+
+### 2. viewport 是 ThreadLocal，必须保存/还原
+
+`SkinObject.checkViewport()` 读的是 `Skin.SkinObjectRenderer.getCurrentViewport()`（**ThreadLocal**），
+而 `setViewport()` 会同时写实例字段和 ThreadLocal。
+
+预览皮肤的尺寸常常和外层皮肤不同（外层往往 1280×720，预览可能是 1920×1080）。
+如果不还原，预览画完之后外层皮肤的裁剪矩形就残留在预览尺寸上，表现为**外层元素被错误裁掉**。
+所以 `drawAllObjectsSafely` 进入前 `new Rectangle(getCurrentViewport())` 留存、`finally` 里写回。
+
+### 3. 参数变更必须去抖，切皮肤不必
+
+`SkinLoader.load` 每次都全量解析皮肤 + 重建全部贴图引用 + `resource.disposeOld()`。
+在目标低端 32 位 ARM 上单次可能几百毫秒。
+
+- **切皮肤**（`selectSkin`）：用户主动操作，立即加载。
+- **改参数**（`setCustomOption` / `setFilePath` / `setCustomOffset`）：用户会连按、会长按，
+  每次点击都重建 = 界面卡死。所以只记 `previewReloadRequestTime`，由 `render()` 在
+  **停手 120ms 后**统一重建一次。
+
+另外 `selectSkin` 内部的 `updateCustom*` 会连续触发 `setCustom*`，若不抑制就会一次选择
+触发 3~4 次全量加载。用 `previewReloadSuppressed` 把这一段包起来，结束时统一加载一次。
+
+### 4. GL 视口必须自己存/还原 —— 否则整个界面被拉伸（**上线后立刻踩到**）
+
+这是移植完成后实机第一眼就暴露的问题：**只要预览一渲染（即"有选中皮肤"），皮肤选择界面
+立刻被粗暴拉伸到铺满整个 surface**，而其他界面正常。
+
+根因在 libGDX 的 `GLFrameBuffer`：
+
+```java
+// GLFrameBuffer.java:390
+public void end () {
+    end(0, 0, Gdx.graphics.getBackBufferWidth(), Gdx.graphics.getBackBufferHeight());
+}
+// GLFrameBuffer.java:400
+public void end (int x, int y, int width, int height) {
+    unbind();
+    Gdx.gl20.glViewport(x, y, width, height);   // ← 写死成"整个后缓冲"
+}
+```
+
+`begin()` 会把视口设成 FBO 尺寸、`end()` 会把视口设成**整个后缓冲**，两者都**不还原**调用前的
+值。而预览是在皮肤绘制**中途**插进去的（`Skin.drawAllObjects` 的对象循环里），
+`MainController.render()` 每帧算好的等比视口（pillarbox / letterbox，或 `stretchFullscreen`
+时的全屏）在这一步被冲掉 → 之后画的内容按全屏视口线性铺开 → 表现就是分辨率拉伸。
+
+项目里已有同类先例，照抄即可：
+
+- `BGAProcessor.renderBGAToFramebuffer()`（`:576-588`、`:650`）保存 `GL_VIEWPORT` 后还原，
+  注释写着 "fixes out of bounds issue"；
+- `MainController` 画触摸指针前也要重设视口，注释写着 stage.draw() 的 Viewport.apply() 会改写视口；
+- `KeyConfiguration.render()` 里那句重复的 `glClearColor(0,0,0,1)` —— 同样是被状态泄漏咬过。
+
+所以 `SkinPreview.renderPreview()` 在 `frameBuffer.begin()` 前用
+`glGetIntegerv(GL20.GL_VIEWPORT, buf)` / `glGetFloatv(GL20.GL_COLOR_CLEAR_VALUE, buf)` 留存，
+`frameBuffer.end()` 之后立刻还原。**clearColor 也要还**：预览把它改成 `(0,0,0,0)`，
+不还就等于给下一帧的整屏 clear（黑边颜色）改了值。
+
+顺带一个同源问题：预览用的是**另一个 SpriteBatch**，它直接改写 GL 的 blend 状态，
+而外层 `SkinObjectRenderer` 只在"自认为 blend 变了"时才调 `setBlendFunction`
+（`Skin.java:718` 的 `activeBlend` 缓存）。预览结束后外层缓存的 `activeBlend` 已失真，
+所以 `SkinPreview.draw()` 的 finally 里补一次 `renderer.reset()`，让后续对象按需重设。
+
+### 5. 预览皮肤是独立实例，必须自己负责释放
+
+它不在 `SkinConfiguration` 自己的皮肤对象树里，`Skin.dispose()` 管不到它。
+`SkinConfiguration.dispose()` 里显式 `setSelectedSkin(null)`，否则每进一次皮肤选择界面
+就泄漏一张皮肤的整套纹理引用。
+
+## 五、已知限制（上游也一样）
+
+1. **预览本来不会有音符下落、也没有判定 / 量表 —— 已分别补上（2026-09-20，见第六、七节）。**
+
+   原限制：渲染时 state 是 `SkinConfiguration`，没有谱面/分数/BPM，依赖它们的对象会被
+   `drawAllObjectsSafely` 静默跳过，能看到只有背景、轨道、判定线、装饰元素。
+
+   **为什么"放一张谱面"不能解决（2026-09-20 查证）**：
+
+   - `SkinNote.prepare()` 第一行就是 `final BMSPlayer player = (BMSPlayer) state;`
+     （`SkinNote.java:55`）—— 预览传进去的是 `SkinConfiguration`，这里直接
+     `ClassCastException`，被 `drawAllObjectsSafely` 捕获后把该对象 `draw=false`，
+     **音符永远不会被画**。
+   - 绕过这个 cast 也没用：`SkinNote.draw()` 把绘制整个委托给
+     `LaneRenderer.drawLane()`，而 `LaneRenderer` 是**绑在活着的 play 会话上的**：
+     构造需要 `BMSPlayer`（`main.main.getSystemFont18()`、`main.getSkin()`、
+     `main.resource.getPlayerConfig()`），运行时要 `main.timer`（判定时刻基线）、
+     `main.getState()`、`main.getJudgeManager()`（判定时区 / 判定表 / 长条处理）、
+     `main.getNowQuarterNoteTime()`（音符扩张动画）、`main.main.getOffset(...)`、
+     `main.getImage(IMAGE_WHITE)`、`main.resource.getBGAManager()`（触摸皮肤要取 BGA 帧）。
+
+   所以真正缺的不是"音符数据"，而是**一个不带音频 / 输入 / 判定的演示用 play 宿主**。
+   两条可行路线，选了成本低、不碰主路径的那条：
+
+   - ✅ **已实现 —— 自绘演示音符**：见第六节 `PreviewNoteLayer`。
+   - ✅ **已实现 —— 合成游玩态数值（判定 / 连击 / 量表）**：走窄接口 `PlayStateValues`，
+     预览侧给一份合成实现，用皮肤自己的美术渲染。见第七节 `PreviewPlayValues`。
+   - ❌ **未采纳 —— 在预览里造一个真 `BMSPlayer`**（依赖面已量化，见下）。
+     真实度最高（连音符都变成真的，还能顺手删掉自绘层），但**谱面不是障碍**，
+     障碍是全局副作用与依赖面宽度。
+
+   **真渲染路线的量化结论（2026-09-20 查证）**：
+
+   - **谱面可以不要。** `BMSModel` 能纯内存构造（`new BMSModel()` + `setMode` / `setBpm` /
+     `setAllTimeLine`），不需要往 assets 里塞 `.bms`。所以"需要谱面"是个误判。
+   - **真正的障碍是 `BMSPlayer.create()` 改全局单例**，第二个实例和真实游玩不能共存：
+     `input.setEnable(false)`（关掉全局输入处理器）、`FileCache.clear()`、
+     `loadSkin(getSkinType())`（覆盖主控制器的 play 皮肤）、
+     `main.getAudioProcessor().setAdditionalKeySound(...)`、写歌曲库
+     （`main.getSongDatabase().updateSongTail`）、`setContinuousRendering(true)`。
+     构造函数本身也重：`songdata.getTail() <= 0` 时会遍历所有 wav 算音频时长，
+     `model.getPath()` 为 null 还会 NPE。
+   - **需要"以为自己在游玩"的类比想象中多。** 除了 `SkinNote` / `SkinJudge` / `SkinGauge` /
+     `SkinBGA`，`skin/property/{Boolean,Float,Integer}PropertyFactory`（**皮肤属性系统**）与
+     `skin/lua/MainStateAccessor` 里到处是 `((BMSPlayer) state).getGauge()` /
+     `getScoreDataProperty()` —— 意味着预览皮肤里大量 `if=` / `value=` 表达式也走这条路。
+   - **但单个类的依赖面很窄，抽接口可行：**
+     `LaneRenderer` 对 `BMSPlayer` 只用了 **8 个成员**（`getSkin` / `getNowQuarterNoteTime` /
+     `main` / `timer` / `getState` / `getJudgeManager` / `resource` / `getPracticeConfiguration`），
+     其中 `main` / `timer` / `resource` / `getSkin` / `getImage` 在 `MainState` 上本来就有
+     （预览 state 也继承到了）。`SkinJudge` 只要 **3 个值**
+     （`getNowJudge` / `getNowCombo` / `getGauge`）。`SkinGauge` **已有非 BMSPlayer 的先例**
+     （`state.resource.getGrooveGauge()`，给 `AbstractResult` 用）。`GrooveGauge` 还能完全
+     脱离 resource 构造：`GrooveGauge.create(model, type, 0, null)`（内部走
+     `BMSPlayerRule.getBMSPlayerRule(mode).gauge`）。
+   - 所以折中路线（**抽一个"判定/连击/量表"的窄接口，预览给一份合成实现**）能以很低的改动
+     拿到血条 + 判定 + combo 的原生渲染，风险远低于造一个真 `BMSPlayer`；
+     代价是分数 / BPM / 属性表达式那一层仍然不显示。**这条路线已实现，见第七节。**
+
+2. **触摸屏皮肤可能偏空。** GenericTheme for Touchscreen 的 `play.lua` 依赖 `skin_config`、
+   触摸区、频谱等，跳过的对象可能比 PC 皮肤多。最坏情况是整块偏黑，需要实测。
+3. **每帧重绘一次预览。** 预览区域 640×360、FBO 按皮肤分辨率（1280×720 ≈ 3.6MB），
+   每帧把整张 play 皮肤画进 FBO。低端机上这是一笔固定开销；若实测掉帧，可考虑
+   ① 降低重绘频率（例如每 2~3 帧一次）；② 在 `SkinPreview` 里限制 FBO 分辨率上限。
+
+## 六、自绘演示音符：`PreviewNoteLayer`
+
+> 目标：预览里**看得见音符在落**，并反映这张皮肤的轨道宽度、音符贴图与厚度、判定线位置、
+> 下落速度；**不碰 `LaneRenderer` / `BMSPlayer`，不需要谱面**。
+> 文件：`core/.../play/PreviewNoteLayer.java`（新增，`extends SkinObject`）。
+
+### 1. 接入方式
+
+`SkinConfiguration.loadSelectedSkinPreview()` 里，**在 `preview.prepare(this)` 之前**调用
+`attachPreviewNoteLayer(preview)`：遍历预览皮肤的对象表找到第一个 `SkinNote`，用
+`Skin.insertSkinObjectAfter(skinNote, new PreviewNoteLayer(skinNote, preview, mode))`
+插到它**后面**（同一绘制层，层级与真实音符一致）。
+
+放在 `prepare()` **之前**是必须的：`preview.prepare()` 会走 `validate()`，没有合法 destination
+的对象会被直接删掉；放在之前才能像普通对象一样走 `load()` + 校验。
+
+### 2. 为什么画得出来（以及为什么类必须放在 `play` 包）
+
+`SkinNote.getLanes()` 给出 `SkinLane[]`：`region` 是 **public** 的 `Rectangle`（轨道矩形），
+而 `note`（`SkinSource`）与 `scale`（音符厚度）是**包内可见** —— 所以自绘类必须落在
+`bms.player.beatoraja.play` 包才能读到。`SkinSource.getImage(time, state)` 是 public，
+直接当音符贴图用（`SkinNote.prepare()` 那条路走不通，贴图只能自己取）。
+
+> ⚠️ **必须自己给每条轨道调 `lane.prepareRegion(time, state)`**（2026-09-20 实机踩到）。
+>
+> `SkinObject.region` 这 4 个值**只在 `prepareRegion()` 里被赋值**（`SkinObject.java:338-387`）；
+> 各个 `setDestination(...)` 重载只写 `dst[]` 和 `fixr`，**从不写 `region`**。
+> 而 `SkinNote.prepare()` 在第一行 `(BMSPlayer) state` 就抛异常 → 它后面那句
+> `for (SkinLane lane : lanes) lane.prepare(...)`（`SkinNote.java:66-68`）**永不执行**
+> → 每条 `SkinLane.region` 恒为 `(0,0,0,0)`。
+>
+> 于是 `hu - hl == 0`，`travel <= 1` 直接 return —— **一个音符都不画，且毫无报错**
+> （不像 `SkinNote` 那样会被 `drawAllObjectsSafely` 记为 `draw=false`，本层是"正常但画不出"）。
+> `scale` 不受影响：它是 `SkinNote.setLaneRegion()` 在加载期直接赋值的（`SkinNote.java:47`）。
+>
+> ⚠️ **同一陷阱还有第二处：`SkinNote` 自己的 `off[]` 也全是 null**（2026-09-20 二次实机踩到）。
+>
+> `SkinObject.off[]` 的初始值是 `EMPTY_OFF`（长度 0），加载期按 `offset[]` 长度重新申请成
+> `new SkinOffset[n]` —— 但这只是**申请，元素全为 null**（`SkinObject.java:781`），
+> 真正的值由 `prepareRegion()` 里的 `off[i] = state.getOffsetValue(offset[i])` 填
+> （`SkinObject.java:335`）。`SkinNote.prepare()` 挂在第一行的 cast 上 → 它自己的
+> `prepareRegion()` 也没跑 → `getOffsets()` 返回一个**长度正确、元素全 null** 的数组。
+>
+> 本层 `for (SkinOffset offset : offsets) { offsetX += offset.x; … }` 不判空 → NPE →
+> `draw()` 抛出 → 被 `drawAllObjectsSafely` 静默吞掉。症状极其误导：**几何全对
+> （`hu / hl / travel` 都正常打印）、`draw()` 也确实被调用了，但屏幕上零音符**。
+> 修法是遍历时 `if (offset == null) continue;`。
+>
+> **教训**：`SkinNote` 在预览环境里是"半死不活"的——对象自己没 prepare 完，凡是它派生出来的
+> 状态（`region`、`off[]`、`lane.noteImage`…）**都不可信**，要么自己重算，要么判空兜住。
+
+### 3. 几何：与 `LaneRenderer.drawLane()` 逐行同源
+
+| | 横屏 | 竖屏（option 1101） |
+|---|---|---|
+| 出生端 `hu` | `region.y + region.height` | `region.x + region.width` |
+| 判定线 `hl` | `enableLift ? region.y + region.height * lift : region.y` | `(region.x + 40) + (region.width - 40) * lift` |
+| 下落方向 | Y 递增（上→下） | X 递减（右→左） |
+| 音符矩形 | `x = region.x + offsetX`，`w = region.width + offsetW`，`h = scale + offsetH` | `w = region.height + offsetH`、`h = scale + offsetW`，**以 pos 为中心**、旋转 270° |
+
+> 竖屏的 `hl` **不**用 `enableLift` 把关 —— 这一点是照抄 `LaneRenderer.java:399`，
+> 那边就是这样写的，别"顺手修正"。
+
+一屏穿越时间用真实公式 `240000 / bpm / hispeed`（ms），演示 BPM 固定 **150**，
+结果钳到 **[300, 3000] ms** —— 防止用户极端的 hispeed 让预览变成瞬移或爬行。
+
+`SkinNote` 自己的 `dst` 偏移（`getOffsets()`）累加后套用，保证音符落在和真实渲染相同的位置。
+
+### 4. 用用户自己的设置，而不是默认值
+
+`resolveConfig()` 每实例只跑一次，从 `state.resource.getPlayerConfig().getPlayConfig(mode)` 读：
+
+- **hispeed** → 下落速度；
+- **lift** → 判定线位置；
+- **lane cover** → 遮挡区内的音符**直接不画**。本层画在罩子之后，若照画反而会浮在罩子上面。
+
+拿不到配置就退化成 hispeed 1.0 / 无 lanecover / 无 lift，不抛异常。
+
+### 5. 合成图案（明确不是谱面）
+
+16 槽 = 2 小节 4/4 的 8 分音符网格，循环播放。`PRIMARY` 给主音符（对键位数取模，`-1` = 空槽），
+`SECOND` 给和弦副音符的偏移，`SCRATCH` 标记皿的槽位。相位用 `state.timer.getNowTime()`
+对一个循环取模，**不依赖 `prepare()` 传进来的 `time`** —— 否则下落会和 prepare 节流耦合、看起来卡顿。
+
+只有普通音符（单点 / 和弦 / 皿）；**没有长条、地雷、判定特效、音符扩张动画**。
+
+### 6. 容错：任何异常都不能让本层被永久停用
+
+`prepare()` 里取贴图和 `super.prepare()` 各自 try-catch（预览环境没有 play 数据，
+`destination` 求值失败是预期的），最后强制 `draw = true`；`draw()` 里逐音符判空。
+这样 `drawAllObjectsSafely` **不会**把本对象 `draw` 置 false —— 与 `SkinNote` 的遭遇正相反。
+
+`draw()` 外层还留了一层 try-catch + **一次性**日志，这条别删：`drawAllObjectsSafely`
+吞掉异常后**只把 `draw` 置 false，不打印任何东西**，"几何算对了却零音符"这种症状
+只有靠它才能定位（`off[]` 全 null 那次的 NPE 就是它抓到的）。
+
+`dispose()` 只把 `noteImages` 数组清空：贴图归预览皮肤所有，这里**不释放任何纹理**
+（释放由 `SkinConfiguration.dispose()` → `setSelectedSkin(null)` 负责）。
+
+### 7. 两个设计细节（别改回去）
+
+- **`portrait` 判定延迟到 `prepare()`**：`Skin.prepare()` 会清空 option 表，构造函数里读
+  `skin.getOption()` 拿到的是空的。改为首次 `prepare()` 时判定一次（`portraitResolved` 标志），
+  路径与 `LaneRenderer` 一致：先看 header 的 `Layout` 自定义项，再看 option 表。
+- **构造函数必须调 `setDestination(...)`**：没有 destination 的对象会在 `validate()` 阶段被删掉。
+  给的那条只用于通过校验，真正的绘制坐标全部由轨道矩形算出来。
+
+## 七、合成游玩态数值：`PreviewPlayValues`
+
+> 目标：预览里**判定 / 连击 / 血条**也显示出来 —— 而且用皮肤自己的美术
+> （判定图、连击数字、量表条都是皮肤里定义的对象，这里只负责喂值）。
+> 文件：`core/.../play/PreviewPlayValues.java`（新增，`implements PlayStateValues`）。
+
+### 1. 为什么抽接口，而不是在预览里造一个真 `BMSPlayer`
+
+`SkinJudge` / `SkinGauge` 原本写的是 `(BMSPlayer) state` 强转，预览里 state 是
+`SkinConfiguration` → 异常被 `drawAllObjectsSafely` 吞掉 → 对象被永久置 `draw=false`。
+而造真 `BMSPlayer` 的代价与风险见第五节（`create()` 会动输入处理器 / `FileCache` /
+皮肤缓存等全局单例）。
+
+所以只把**这三个值**抽成最小契约：`bms.player.beatoraja.PlayStateValues`
+（`getNowJudge` / `getNowCombo` / `getGauge`）。
+
+| 角色 | 实现 |
+|---|---|
+| `MainState`（默认） | 返回 `null` —— 调用方判空后不画，等于「这个界面没有游玩态」 |
+| `BMSPlayer` | `implements PlayStateValues`，直接转发 `JudgeManager` / `GrooveGauge`，**取值与改动前一致** |
+| `SkinConfiguration` | 返回 `PreviewPlayValues`（合成），只在成功加载 play 皮肤预览时非空 |
+
+接口声明在 `bms.player.beatoraja`（`MainState` 所在包），因为它是「状态向 play 皮肤暴露的契约」；
+`BMSPlayer` 本来就有 `import bms.player.beatoraja.*`，零额外导入。
+
+> 结果界面（`AbstractResult`）不受影响：`getPlayStateValues()` 拿到 `null`，
+> 继续走原来的 `state.resource.getGrooveGauge()` 分支；`SkinJudge` 在那边本来就是 `draw=false`
+> （改动前是强转抛异常被吞掉，现在是显式判空返回，行为一致）。
+
+### 2. 合成方式（刻意不是真实得分）
+
+- **判定**：每 400ms 在 `{PERFECT, PERFECT, PERFECT, GREAT, PERFECT, PERFECT, GOOD, PERFECT}`
+  之间轮换 —— 大部分时间是 PERFECT，看着稳；
+- **连击**：随判定次数递增（1 起算、绕圈）；从 0 起会让皮肤里的数字看起来像「还没开始打」；
+- **量表**：20s 一个周期，从 20% 平滑涨到满，然后重来。
+
+### 3. 三个容易踩的点
+
+- **必须给量表一个非空 model。** `GrooveGauge` 的增减补正里
+  `GaugeModifier.TOTAL = f * model.getTotal() / model.getTotalNotes()` —— 总音符数为 0
+  会算出 Infinity / NaN 留在量表内部数组里。所以 `createDemoModel()` 造了一个**纯内存**的
+  极小谱面（1 个 `NormalNote` + `TOTAL = 1.0`）—— **不需要谱面文件**，
+  这也是"直接上 BMSPlayer 需要谱面"这个判断不成立的原因之一。
+- **量表的推进挂在 `getGauge()` 里。** `SkinGauge` 每帧 `prepare` 会取一次量表，
+  取用时按当前时间把值设到周期内的位置，因此不必额外加每帧钩子。
+  低点取 20% 而不是 0：`Gauge.setValue` 有 `if (this.value > 0f)` 前置判断，
+  HARD 系的 `min` 又是 0 —— 一旦掉到 0 就**再也写不进去**（量表永久死住）。
+- **`SkinGauge` 里 `state.resource.getBMSModel().getMode()` 必须判空。**
+  预览环境 resource 上没有正在游玩的谱面，`getBMSModel()` 可能是 null。
+  这一段只是在「原模式 ≠ 游玩模式」时调整量表颗粒数，拿不到跳过即可；
+  漏了的话 NPE 会让整个量表对象被永久停用。
+
+### 4. 接入顺序
+
+`SkinConfiguration.loadSelectedSkinPreview()` 里在 `preview.prepare(this)` **之前**调用
+`setupPreviewPlayValues(preview)` —— 因为 `SkinJudge` / `SkinGauge` 在首次 `prepare`
+就会向 `getPlayStateValues()` 取值。方法开头先把上一轮的 `previewPlayValues` 置 null，
+加载失败路径也置 null，保证「没有 play 预览」时一定返回 null。
+
+## 八、验证方法
+
+1. 进 SKIN SELECT，灰块位置应出现当前皮肤的画面；
+2. 左右切皮肤，画面应立刻跟着变；
+3. 改右侧 Lane Size / Scratch Side，停手约 0.12s 后预览应重新加载并反映变化；
+4. 退出界面再进，不应崩溃、不应越来越卡（泄漏的话第二次进入会明显变慢）；
+5. **预览里应有音符持续下落**（自绘循环图案），宽度贴合轨道、厚度来自皮肤；
+   改 hispeed / lane cover / lift 后下落速度与判定线位置应跟着变，开启 lane cover 时
+   遮挡区内不应有音符浮在罩子上；
+6. 竖屏皮肤（option `Layout = 1101`）里音符应**横向**从右往左落，且旋转方向正确；
+7. 想看日志要 `adb logcat -s beatoraja` —— core 用的是 `java.util.logging`，默认写 stderr，
+   在 Android 上等于黑洞；由 `AndroidLauncher.onCreate` 里的 `LogcatLogHandler.install()`
+   桥接到 logcat（tag `beatoraja`）。其中 `皮肤预览渲染失败，已停用本预览 : …` 属预期降级，
+   不影响界面本身。
+8. **预览里应有判定图、连击数字与血条**（第七节的合成值）：判定每 0.4s 在
+   PERFECT / GREAT / GOOD 之间轮换，连击递增，血条 20s 内从 20% 涨满再重来；
+   换 HARD / EASY 等量表类型时血条 border 位置应跟着变。某张皮肤看不到这三样，
+   先确认皮肤里确实定义了对应对象。
+9. 定位用的逐帧诊断日志已清掉；`draw()` 里那条**异常日志**保留（见第六节第 6 条）——
+   它是发现"几何算对了却零输出"的唯一手段。
+
+## 九、注意：必须提升 versionCode
+
+内置皮肤只在 **versionCode 变化**时从 APK assets 覆盖到 `filesDir/skin`
+（`AndroidLauncher.checkVersionAndCopyAssets`）。改了 `skinselectmain.lua` 却不动 versionCode，
+真机上跑的还是旧 lua —— 灰块依旧。本次已 15 → 16。

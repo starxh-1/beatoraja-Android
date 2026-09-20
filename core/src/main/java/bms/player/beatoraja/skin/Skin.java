@@ -171,6 +171,26 @@ public class Skin {
 		objects.removeValue(obj, true);
 	}
 
+	/**
+	 * 把一个对象插到指定对象之后（{@code objects} 的次序 = 绘制次序）。
+	 *
+	 * <p>用途：皮肤预览这类"需要在特定图层里额外画点东西"的场合 —— 例如
+	 * {@code play.PreviewNoteLayer} 要插在 {@code SkinNote} 后面，才能和真实音符
+	 * 处于同一层（不被 lane cover / 判定线覆盖，也不去盖住它们）。</p>
+	 *
+	 * <p>anchor 不存在时退化为追加到末尾；同时重建 {@code objectarray}，保证
+	 * 插入的对象参与后续的每帧绘制。</p>
+	 */
+	public void insertSkinObjectAfter(SkinObject anchor, SkinObject obj) {
+		final int index = objects.indexOf(anchor, true);
+		if (index < 0) {
+			objects.add(obj);
+		} else {
+			objects.insert(index + 1, obj);
+		}
+		objectarray = objects.toArray(SkinObject.class);
+	}
+
 	public void prepare(MainState state) {
 		for(SkinObject obj : objects) {
 			if(!obj.validate()) {
@@ -254,22 +274,31 @@ public class Skin {
 		return renderer;
 	}
 
-	public void drawAllObjects(SpriteBatch sprite, MainState state) {
-		if(renderer == null) {
-			SkinOffset offsetAll = getOffsetAll(state);
-			Matrix4 transform = new Matrix4();
-			if(offsetAll != null) {
-				transform.setToTranslation(width * offsetAll.x / 100, height * offsetAll.y / 100, 0).scale((offsetAll.w + 100) / 100f, (offsetAll.h + 100) / 100f, 1);
-			} else {
-				transform.idt();
-			}
-			sprite.setTransformMatrix(transform);
-			boolean isDefaultSkin = header != null && header.getPath() != null &&
-				(header.getPath().toString().contains("skin/default/") ||
-				 header.getPath().toString().contains("skin\\default\\"));
-			renderer = new SkinObjectRenderer(sprite, isDefaultSkin);
-			renderer.setViewport(0, 0, width, height);
+	/**
+	 * 延迟创建渲染器：首次绘制时按当前视口与变换矩阵生成。
+	 * {@link #drawAllObjects} 与 {@link #drawAllObjectsSafely} 共用。
+	 */
+	private void ensureRenderer(SpriteBatch sprite, MainState state) {
+		if(renderer != null) {
+			return;
 		}
+		SkinOffset offsetAll = getOffsetAll(state);
+		Matrix4 transform = new Matrix4();
+		if(offsetAll != null) {
+			transform.setToTranslation(width * offsetAll.x / 100, height * offsetAll.y / 100, 0).scale((offsetAll.w + 100) / 100f, (offsetAll.h + 100) / 100f, 1);
+		} else {
+			transform.idt();
+		}
+		sprite.setTransformMatrix(transform);
+		boolean isDefaultSkin = header != null && header.getPath() != null &&
+			(header.getPath().toString().contains("skin/default/") ||
+			 header.getPath().toString().contains("skin\\default\\"));
+		renderer = new SkinObjectRenderer(sprite, isDefaultSkin);
+		renderer.setViewport(0, 0, width, height);
+	}
+
+	public void drawAllObjects(SpriteBatch sprite, MainState state) {
+		ensureRenderer(sprite, state);
 
 		final long microtime = state.timer.getNowMicroTime();
 
@@ -349,6 +378,52 @@ public class Skin {
 		}
 		if (renderer != null) {
 			renderer.reset();
+		}
+	}
+
+	/**
+	 * 与 {@link #drawAllObjects} 相同的绘制流程，但**每个对象都单独容错**：
+	 * prepare / draw 抛异常时只把该对象的 draw 置 false 并继续，不中断整张皮肤。
+	 *
+	 * <p>供"在没有真实游戏数据的环境下绘制别的皮肤"的场合使用 —— 典型是皮肤选择界面的
+	 * 实时预览（{@code config.SkinPreview}）：预览时 state 是 {@code SkinConfiguration}，
+	 * 没有谱面、分数、BPM 等数据，依赖它们的对象必然在 prepare 阶段失败。此时沉默跳过并
+	 * 在后续帧不再重试，比整张皮肤崩掉合理得多。</p>
+	 */
+	public void drawAllObjectsSafely(SpriteBatch sprite, MainState state) {
+		// 预览皮肤的尺寸可能与当前皮肤不同，而 viewport 是 ThreadLocal 共享的
+		// （SkinObject.checkViewport 会读它做裁剪）。进入前先留存，退出时还原，
+		// 否则外层皮肤的裁剪矩阵会被预览皮肤覆盖。
+		final Rectangle savedViewport = new Rectangle(SkinObjectRenderer.getCurrentViewport());
+
+		ensureRenderer(sprite, state);
+		SkinObjectRenderer.setCurrentViewport(0, 0, width, height);
+
+		try {
+			final long microtime = state.timer.getNowMicroTime();
+			if (nextpreparetime <= microtime) {
+				final long time = state.timer.getNowTime();
+				for (SkinObject obj : objectarray) {
+					try {
+						obj.prepare(time, state);
+					} catch (Throwable e) {
+						obj.draw = false;
+					}
+				}
+				nextpreparetime += ((microtime - nextpreparetime) / prepareduration + 1) * prepareduration;
+			}
+
+			for (SkinObject obj : objectarray) {
+				if (obj.draw) {
+					try {
+						obj.draw(renderer);
+					} catch (Throwable e) {
+						obj.draw = false;
+					}
+				}
+			}
+		} finally {
+			SkinObjectRenderer.setCurrentViewport(savedViewport.x, savedViewport.y, savedViewport.width, savedViewport.height);
 		}
 	}
 
@@ -530,8 +605,18 @@ public class Skin {
 			currentViewport.get().set(viewport);
 		}
 
+		/** 该渲染器绑定的 SpriteBatch。离屏渲染（如皮肤预览）需要在它上面挂 FrameBuffer。 */
+		public SpriteBatch getSpriteBatch() {
+			return sprite;
+		}
+
 		public static Rectangle getCurrentViewport() {
 			return currentViewport.get();
+		}
+
+		/** 直接改写线程内共享的裁剪矩形。用于离屏渲染前后保存/还原外层视口。 */
+		public static void setCurrentViewport(float x, float y, float width, float height) {
+			currentViewport.get().set(x, y, width, height);
 		}
 
 		public void draw(BitmapFont font, String s, float x, float y, Color c) {

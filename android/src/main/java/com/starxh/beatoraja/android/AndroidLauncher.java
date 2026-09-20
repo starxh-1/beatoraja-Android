@@ -288,6 +288,9 @@ public class AndroidLauncher extends AndroidApplication {
         super.onCreate(savedInstanceState);
         instance = this;
 
+        // 把 core 模块的 java.util.logging 输出接到 logcat，否则真机上那条日志全丢进黑洞
+        LogcatLogHandler.install();
+
         // 检测设备架构并设置系统属性，供core模块使用
         boolean is64Bit = false;
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {

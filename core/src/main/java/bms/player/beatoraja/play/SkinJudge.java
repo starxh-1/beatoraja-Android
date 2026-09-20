@@ -1,6 +1,7 @@
 package bms.player.beatoraja.play;
 
 import bms.player.beatoraja.MainState;
+import bms.player.beatoraja.PlayStateValues;
 import bms.player.beatoraja.play.GrooveGauge.Gauge;
 import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
@@ -79,14 +80,26 @@ public final class SkinJudge extends SkinObject {
 
 	@Override
 	public void prepare(long time, MainState state) {
-        final int judgenow = ((BMSPlayer)state).getJudgeManager().getNowJudge(player) - 1;
+        // 判定 / 量表取自 state 提供的「游玩态数值」：真游玩是 BMSPlayer，
+        // 皮肤预览是合成实现（见 PlayStateValues）。拿不到就不画这个对象。
+        final PlayStateValues play = state != null ? state.getPlayStateValues() : null;
+        if (play == null) {
+        	draw = false;
+        	return;
+        }
+        final int judgenow = play.getNowJudge(player) - 1;
         if(judgenow < 0) {
         	draw = false;
             return;
         }
 		super.prepare(time, state);
 		
-        final Gauge gauge = ((BMSPlayer)state).getGauge().getGauge();
+        final GrooveGauge gaugeSource = play.getGauge();
+        final Gauge gauge = gaugeSource != null ? gaugeSource.getGauge() : null;
+        if (gauge == null) {
+        	draw = false;
+        	return;
+        }
         
         if(judgenow == 0 && gauge.isMax()) {
         	nowJudge = judge[6] != null ? judge[6] : judge[0];
@@ -105,7 +118,7 @@ public final class SkinJudge extends SkinObject {
         
     	if(nowJudge.draw) {
             if(nowCount != null) {
-            	nowCount.prepare(time, state, ((BMSPlayer)state).getJudgeManager().getNowCombo(player), nowJudge.region.x, nowJudge.region.y);
+            	nowCount.prepare(time, state, play.getNowCombo(player), nowJudge.region.x, nowJudge.region.y);
             	if (shift) {
             		if (nowJudge.angle == 270 || nowJudge.angle == 90) {
             			nowJudge.region.y += nowCount.getLength() / 2;
