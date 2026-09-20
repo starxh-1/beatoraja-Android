@@ -24,6 +24,19 @@ export JAVA_HOME="E:/LIBERICAJDK21"
 
 `./gradlew` 在本机用不了，一律用上面这个本地缓存里的 gradle 发行版。
 
+### 1.2 判断"用户手上跑的是哪一次构建"（别急着怀疑旧 APK）
+
+本机同时存在两份产物，**按时间取较新的那个**：
+
+| 路径 | 说明 |
+|---|---|
+| `android/build/outputs/apk/debug/android-debug.apk` | AGP 的正式输出位 |
+| `android/build/intermediates/apk/debug/android-debug.apk` | 中间产物，**用户自己构建时通常更新的是这个** |
+
+用 `find . -name "*.apk" -newermt "<时间>"` 与 `git log -1 --format=%ci HEAD` 对时间。
+2026-09-20 那轮就差点误判：`outputs/` 是 19:39（早于提交），而 `intermediates/` 是 20:44
+（晚于提交）→ 用户跑的确实是新构建，回归是真的。
+
 ### 1.1 起不来时的两种症状
 
 | 报错 | 原因 | 处理 |
