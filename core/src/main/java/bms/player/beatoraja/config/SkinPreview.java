@@ -56,6 +56,28 @@ public class SkinPreview extends SkinObject {
 	 */
 	private boolean disabled;
 
+	/**
+	 * 预览自己的动画时钟起点（{@link System#nanoTime()}）。
+	 *
+	 * <p>预览皮肤实例一变（切皮肤，或改 Layout / Lane Size 这类参数触发重建，
+	 * 见 {@code SkinConfiguration.loadSelectedSkinPreview()} 每次都会 new 一份）就重置 ——
+	 * 也就是"每换一张皮肤，入场动画重播一次"，与真机上刚切进这个界面时一样。</p>
+	 *
+	 * <p>不能直接用 {@code state.timer}：那是"进入皮肤选择界面以来的时长"，只会一直涨，
+	 * 而 select / decide / result 这类皮肤会在 {@code scene} 末尾播退场动画
+	 * （典型是 {@code id = -110} 的全屏黑图拉到 a=255），于是预览会被退场动画永久盖住。
+	 * 见 {@link #resolvePreviewTime}。</p>
+	 */
+	private long clockStartNanos;
+
+	/**
+	 * 钳制退场动画时至少给 {@code scene} 末尾留出多少毫秒。
+	 *
+	 * <p>皮肤声明的 {@code fadeout} 就是退场时长，正常情况下够用；但它可能缺失（= 0）而皮肤
+	 * 仍然有退场动画，所以再兜一个下限。</p>
+	 */
+	private static final long PREVIEW_TAIL_MARGIN_MS = 500;
+
 	@Override
 	public void prepare(long time, MainState state) {
 		if (configuration == null && state instanceof SkinConfiguration) {
@@ -77,6 +99,8 @@ public class SkinPreview extends SkinObject {
 		if (previewSkin != lastSkin) {
 			lastSkin = previewSkin;
 			disabled = false;
+			// 新皮肤从 0 开始播它自己的入场动画（和真机上刚切进这个界面时一样）
+			clockStartNanos = System.nanoTime();
 		}
 		if (disabled) {
 			return;
@@ -103,6 +127,43 @@ public class SkinPreview extends SkinObject {
 		}
 
 		draw(renderer, frameRegion);
+	}
+
+	/**
+	 * 预览的动画时钟：从本次加载起算，并**钳制在皮肤的"稳态显示窗口"内**。
+	 *
+	 * <p>为什么需要它（2026-09-20 实机踩到，症状是"预览只显示一次然后永久黑屏"）：
+	 * 预览的 state 是 {@code SkinConfiguration}，{@code TimerManager.getNowTime()} 返回
+	 * **"进入皮肤选择界面以来的毫秒数"**，只会一直涨。而 m-select / Luxe_Flat 这类皮肤的
+	 * 屏幕末尾有退场动画，典型写法是：</p>
+	 *
+	 * <pre>
+	 * {id = -110, loop = skin.scene, dst = {                          -- -110 = IMAGE_BLACK
+	 *     {time = skin.scene - 200, x = 0, y = 0, w = 1920, h = 1080, a = 0},
+	 *     {time = skin.scene, a = 255}}}
+	 * </pre>
+	 *
+	 * <p>{@code -110} 是全屏黑图，最后一帧 {@code a = 255}；又因为 {@code loop == 最后一帧的
+	 * time}，{@code SkinObject.prepareRegion()} 会走 {@code if (lasttime == dstloop) time = dstloop;}
+	 * 这条分支 —— 时间一旦超过它就是"钉在最后一帧"，所以进入界面约 2.5 秒后，预览被这张
+	 * 不透明黑图彻底盖住，切别的皮肤再切回来也不会恢复（计时器不会回退）。</p>
+	 *
+	 * <p>所以把时钟限制在 {@code [0, scene - max(fadeout, 500)]}：入场动画照播（切一次皮肤播一次），
+	 * 播完停在"皮肤正常显示时的样子"，永不进入退场动画。</p>
+	 *
+	 * <p>{@code scene} 未声明（= {@link Skin#SCENE_UNSPECIFIED}）的皮肤（play 系列大多如此）
+	 * **不做任何限制**，等于保持改动前的行为。</p>
+	 */
+	private long resolvePreviewTime(Skin previewSkin, long elapsedMs) {
+		final int scene = previewSkin.getScene();
+		if (scene <= 0 || scene >= Skin.SCENE_UNSPECIFIED) {
+			return elapsedMs;
+		}
+		long span = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
+		if (span <= 0) {
+			span = scene / 2;
+		}
+		return Math.min(elapsedMs, span);
 	}
 
 	private void renderPreview(Skin previewSkin) {
@@ -147,7 +208,9 @@ public class SkinPreview extends SkinObject {
 				// 自定义计时器/事件通常绑定具体游戏状态（谱面、分数…），在预览环境里失败是
 				// 预期内的；只跳过它们，别让静态元素（背景、轨道、判定线）跟着一起消失。
 			}
-			previewSkin.drawAllObjectsSafely(previewBatch, configuration);
+			// 用"本次加载起算"的时钟，并钳制在稳态显示窗口内（见 resolvePreviewTime）
+			final long elapsedMs = (System.nanoTime() - clockStartNanos) / 1000000L;
+			previewSkin.drawAllObjectsSafely(previewBatch, configuration, resolvePreviewTime(previewSkin, elapsedMs));
 		} finally {
 			previewBatch.end();
 			frameBuffer.end();

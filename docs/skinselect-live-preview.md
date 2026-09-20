@@ -44,11 +44,11 @@ SkinPreview（SkinObject，由 skin.skinpreview 声明）
 | 文件 | 改动 |
 |---|---|
 | `core/.../config/SkinPreview.java` | **新增**。上游实现的 Android 适配版 |
-| `core/.../skin/Skin.java` | 抽出 `ensureRenderer()`；**新增** `drawAllObjectsSafely()`、`insertSkinObjectAfter()`；`SkinObjectRenderer` 加 `getSpriteBatch()` 与静态 `setCurrentViewport()` |
+| `core/.../skin/Skin.java` | 抽出 `ensureRenderer()`；**新增** `drawAllObjectsSafely()`（含可指定动画时间的重载，第十节）、`insertSkinObjectAfter()`、`SCENE_UNSPECIFIED`；`SkinObjectRenderer` 加 `getSpriteBatch()` 与静态 `setCurrentViewport()` |
 | `core/.../play/PreviewNoteLayer.java` | **新增**。预览用的自绘演示音符层（第六节），并负责点亮 keybeam / bomb 的计时器（第六节第 8 条） |
 | `core/.../PlayStateValues.java` | **新增**。`getNowJudge` / `getNowCombo` / `getGauge` 三个值的窄契约（第七节） |
 | `core/.../play/PreviewPlayValues.java` | **新增**。上述契约的合成实现，并点亮判定 / 连击的显示计时器（第七节） |
-| `core/.../config/SkinConfiguration.java` | `getSelectedSkin()`；`loadSelectedSkinPreview()` / `reloadSelectedSkinPreview()` / `setSelectedSkin()`；`selectSkin` 调用点；三个 `setCustom*` 挂重建请求；`dispose()` 释放 |
+| `core/.../config/SkinConfiguration.java` | `getSelectedSkin()`；`loadSelectedSkinPreview()` / `reloadSelectedSkinPreview()` / `setSelectedSkin()`；`selectSkin` 调用点；三个 `setCustom*` 挂重建请求；`dispose()` 释放；**2026-09-20 放开 RESULT / COURSE_RESULT**（第十节第 4 条） |
 | `core/.../skin/json/JsonSkin.java` | 加 `skinpreview` 字段 + `SkinPreview` 内部类（只声明 `id`） |
 | `core/.../skin/json/JsonSkinConfigurationSkinObjectLoader.java` | 覆写 `loadSkinObject`：基类未命中且 `dst.id == sk.skinpreview.id` 时返回 `new SkinPreview()` |
 | `android/assets/skin/default/skinselect/skinselectmain.lua` | 加 `skin.skinpreview = {id = "skin-preview"}` 与一条 destination |
@@ -502,3 +502,97 @@ timer.setTimerOn(TIMER_COMBO_xP);
 内置皮肤只在 **versionCode 变化**时从 APK assets 覆盖到 `filesDir/skin`
 （`AndroidLauncher.checkVersionAndCopyAssets`）。改了 `skinselectmain.lua` 却不动 versionCode，
 真机上跑的还是旧 lua —— 灰块依旧。本次已 15 → 16。
+
+## 十、退场动画把预览变黑 + result / courseresult 预览解锁（2026-09-20 第三轮反馈）
+
+### 1. 症状与病根：decide 类皮肤"只显示一次，随后整块变黑，切走再切回仍是黑的"
+
+病根**不在预览层，在皮肤自己的"退场动画"**：
+
+```lua
+-- skin/m_select/decide/decidemain.lua:159（m-select decide 皮肤）
+{id = -110, loop = skin.scene, dst = {
+    {time = skin.scene - 200, x = 0, y = 0, w = 1920, h = 1080, a = 0},
+    {time = skin.scene, a = 255}}}
+```
+
+- `-110` = `IMAGE_BLACK`（全屏黑图），末帧 `a = 255` = 完全不透明；
+- 该皮肤 `scene = 2500`、`fadeout = 1000`；
+- `loop == 最后一帧的 time` → `SkinObject.prepareRegion()` 走
+  `if (lasttime == dstloop) time = dstloop;` —— **时间一超过它就"钉在末帧"**。
+
+而预览的 state 是 `SkinConfiguration`，`TimerManager.getNowTime()` 返回的是
+**"进入皮肤选择界面以来的毫秒数"**，只增不减，也不会因为换皮肤而回退。于是：
+
+进入界面约 2.5 秒 → 黑图淡入到 `a=255` 并被钉死 → 预览永久全黑；换别的皮肤再换回来，
+计时器仍在 2.5 秒之后 → 依旧全黑。**play 皮肤不受影响**（它们基本不声明 `scene`，
+= `Skin.SCENE_UNSPECIFIED`，时间无上限），这正是第一轮 note/judge/keybeam 预览能正常显示的原因。
+
+### 2. 修法：给预览一个自己的时钟，并钳制在"稳态显示窗口"内
+
+- `SkinPreview` 新增 `clockStartNanos`（`System.nanoTime()`），
+  **换皮肤时重置**（`previewSkin != lastSkin` 分支）—— 所以每切一次皮肤，入场动画重播一次。
+- `SkinPreview.resolvePreviewTime(skin, elapsedMs)` 把动画时间钳制到
+  **`scene - max(fadeout, 500)`** 为止，永不进入退场段：
+
+```java
+long span = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
+return Math.min(elapsedMs, span);
+```
+
+  `fadeout` 就是皮肤声明的退场时长（`MusicDecide:54` / `MusicResult:193` 等处
+  `if (timer.getNowTime(TIMER_FADEOUT) > getSkin().getFadeout())` 用它决定何时切界面），
+  正常皮肤够用；再兜一个 500ms 下限，防"有退场动画但没声明 fadeout"。
+- `scene > 0 && scene < SCENE_UNSPECIFIED` 才钳制；**未声明的皮肤行为与改动前完全一致**。
+
+对这个皮肤验算：`span = 2500 - 1000 = 1500` ms，而黑图第一帧在 `t = 2300`（`a = 0`），
+所以钳制后的 `t = 1500` 稳稳落在黑图之前 → 黑图恒为透明。
+
+### 3. 关键实现细节：**只覆盖"动画时间"，不覆盖 prepare 的节流门**
+
+`Skin.drawAllObjectsSafely(sprite, state, timeOverrideMs)` 里
+节流仍用真实计时器 `state.timer.getNowMicroTime()`，只有传给
+`obj.prepare(time, state)` 的 `time` 被覆盖。原因：覆盖值被钳制后**不再单调递增**，
+拿它去比 `nextpreparetime` 会让 prepare 被门挡住，对象就停在旧状态不再更新。
+
+### 4. result / courseresult 原本完全不预览 —— 确认是"上游就没做"，本分支已放开
+
+`SkinConfiguration.loadSelectedSkinPreview()` 里原本（与上游 `beatoraja-master` **逐字相同**）：
+
+```java
+if (selectedSkinHeader == null || config == null || type == SkinType.SKIN_SELECT
+        || type == SkinType.RESULT || type == SkinType.COURSE_RESULT) {
+```
+
+所以不是"忘了写"，是上游刻意排除。本分支 2026-09-20 去掉了 RESULT / COURSE_RESULT
+两个条件（只留 SKIN_SELECT —— 它是宿主界面，不预览自己）。放开是安全的：
+
+- **三条加载链都支持这两个类型**：`SkinLoader.load` 的 JSON / Lua 分支与
+  `LR2SkinCSVLoader.getSkinLoader(type, …)` 的 `case RESULT` / `case COURSE_RESULT` 都有；
+- **两条"play 专属补丁"本来就按类型跳过**：`attachPreviewNoteLayer()` 与
+  `setupPreviewPlayValues()` 开头都是 `if (!(preview instanceof PlaySkin)) return;`
+  → result 预览只是"少画音符/判定/量表"，背景与静态版式照画；
+- **失败路径不变**：加载抛异常 → `Logger.warning("皮肤预览加载失败 : …")` + `setSelectedSkin(null)`
+  → 退回"只有空预览框"，与放开前表现一致（日志经 `LogcatLogHandler` 进 logcat，tag `beatoraja`）。
+
+**实机数据（三张皮肤，2026-09-20 从设备拉取）**：`m_select/result/resultmain.lua`、
+`WMII_FHD_result_oraja_bmz_260830/result/resultMain.lua`、
+`…/resultMain_course.lua` 全都是 **`scene = 3600000`（1 小时）**、`fadeout = 1000`，
+且不含 `scene` 末帧的 `-110` 全屏退场 → 钳制后 `span ≈ 3.6e6 ms`，等于不生效，
+不会出现 decide 那种黑屏。（它们的 `-110` 都是局部装饰：分数条、被 `op` 门控的黑底、
+以及一个 `w=0,h=0` 的**副作用触发器**。）
+
+⚠️ 顺带记一个坑：**皮肤 lua 里的 `draw = function() … end` 回调会在预览里被执行**。
+`wmii_resultMain.lua:1980` 那个 `-110` 就挂着 `draw` 回调，里面调
+`saveCurrentCourseData()` 往 `skin/WMII_FHD/result/courseData.json` **写文件**。
+经查它开头是 `if isCourse == false then return end`，而 `isCourse` 来自
+`main_state.option(280..290)`（课程进行中才为真，预览下 `getCourseData()` 为 null → false），
+所以预览不会真的写盘。**但以后看到"皮肤里带 draw 回调 / io 操作"就要留意**：预览会执行它们。
+
+### 5. 验证
+
+改的是核心层，UI 上看不到新控件，只有"预览不再变黑 + result/courseresult 出画面"：
+进皮肤选择界面 → 切到 RESULT / COURSE_RESULT 分类 → 预览框应有画面；
+在 DECIDE 分类里选 m-select 并停留 10 秒以上，画面应**不再变黑**，
+切到别的皮肤再切回 m-select，仍应正常显示。
+

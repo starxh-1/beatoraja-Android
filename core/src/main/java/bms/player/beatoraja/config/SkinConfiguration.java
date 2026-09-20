@@ -142,7 +142,7 @@ public class SkinConfiguration extends MainState {
 
 	/**
 	 * 当前选中皮肤的实体，供实时预览（{@link SkinPreview}）渲染。
-	 * 只在 {@link SkinType#SKIN_SELECT} / RESULT / COURSE_RESULT 之外的类型下有值。
+	 * 只有 {@link SkinType#SKIN_SELECT}（宿主界面自身）恒为 null。
 	 */
 	public Skin getSelectedSkin() {
 		return selectedSkin;
@@ -588,8 +588,13 @@ public class SkinConfiguration extends MainState {
 	private void loadSelectedSkinPreview() {
 		// 每次重建都先清掉上一轮的合成取值：它只在「有 play 皮肤预览」时有效
 		previewPlayValues = null;
-		if (selectedSkinHeader == null || config == null || type == SkinType.SKIN_SELECT
-				|| type == SkinType.RESULT || type == SkinType.COURSE_RESULT) {
+		// SKIN_SELECT 自己就是宿主界面，不预览自己；
+		// RESULT / COURSE_RESULT 上游（beatoraja-master）原本也在此排除，本分支 2026-09-20 放开：
+		// 三条加载链（JSON / Lua / LR2，见 SkinLoader.load）都支持这两个类型，预览里拿不到
+		// 游玩数据也只是静默少画几件东西（音符层与合成判定/量表已按 instanceof PlaySkin 跳过），
+		// 加载失败同样落到 setSelectedSkin(null)。退场动画（-110 全屏黑图）由
+		// SkinPreview.resolvePreviewTime() 钳制，不会一进预览就变黑。
+		if (selectedSkinHeader == null || config == null || type == SkinType.SKIN_SELECT) {
 			setSelectedSkin(null);
 			return;
 		}

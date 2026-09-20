@@ -72,9 +72,17 @@ public class Skin {
 	 */
 	private int input;
 	/**
+	 * スキンが「シーンの時間」を宣言していない場合の既定値（= 24時間）。
+	 *
+	 * <p>実質的に「宣言なし」を意味する。皮膚選択のプレビューはこれを見て
+	 * 「この皮膚は明示的なシーン長を持つか」を判定する（{@link bms.player.beatoraja.config.SkinPreview}）。</p>
+	 */
+	public static final int SCENE_UNSPECIFIED = 3600000 * 24;
+
+	/**
 	 * シーンの時間(ms)
 	 */
-	private int scene = 3600000 * 24;
+	private int scene = SCENE_UNSPECIFIED;
 	/**
 	 * シーン以降準備開始からシーン移行までの時間(ms)
 	 */
@@ -391,6 +399,23 @@ public class Skin {
 	 * 在后续帧不再重试，比整张皮肤崩掉合理得多。</p>
 	 */
 	public void drawAllObjectsSafely(SpriteBatch sprite, MainState state) {
+		drawAllObjectsSafely(sprite, state, -1);
+	}
+
+	/**
+	 * 同上，但可以**指定动画时间基准**（毫秒）。
+	 *
+	 * <p>{@code timeOverrideMs < 0} 时用 {@code state.timer.getNowTime()}（真实时间）。皮肤预览
+	 * 用它来模拟"皮肤被正常显示时的那一刻"—— 因为预览的 state 是 {@code SkinConfiguration}，
+	 * 它的计时器是"进入皮肤选择界面以来的时长"，会一直涨；而 select/decide/result 这类皮肤
+	 * 会在 {@code scene} 的末尾播"退场动画"（典型是 {@code id = -110} 的全屏黑图拉到不透明），
+	 * 于是预览一进来就落到退场之后 → 恒黑。见 {@code docs/skinselect-live-preview.md} 第十节。</p>
+	 *
+	 * <p>注意只覆盖**动画时间**：每帧的 prepare 节流仍然用真实计时器，因为覆盖值在预览里会被
+	 * 钳制（不再单调递增），拿它去比 {@code nextpreparetime} 会让 prepare 被节流门挡住，
+	 * 对象就停在旧状态不动了。</p>
+	 */
+	public void drawAllObjectsSafely(SpriteBatch sprite, MainState state, long timeOverrideMs) {
 		// 预览皮肤的尺寸可能与当前皮肤不同，而 viewport 是 ThreadLocal 共享的
 		// （SkinObject.checkViewport 会读它做裁剪）。进入前先留存，退出时还原，
 		// 否则外层皮肤的裁剪矩阵会被预览皮肤覆盖。
@@ -402,7 +427,7 @@ public class Skin {
 		try {
 			final long microtime = state.timer.getNowMicroTime();
 			if (nextpreparetime <= microtime) {
-				final long time = state.timer.getNowTime();
+				final long time = timeOverrideMs >= 0 ? timeOverrideMs : state.timer.getNowTime();
 				for (SkinObject obj : objectarray) {
 					try {
 						obj.prepare(time, state);
