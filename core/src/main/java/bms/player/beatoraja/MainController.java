@@ -651,22 +651,7 @@ public class MainController {
 
         // 创建触摸指针纹理
         if (isAndroid) {
-            int pointerSize = 64;
-            Pixmap pointerPixmap = new Pixmap(pointerSize, pointerSize, Pixmap.Format.RGBA8888);
-            // 透明背景
-            pointerPixmap.setColor(0, 0, 0, 0);
-            pointerPixmap.fill();
-            // 白色外圈
-            pointerPixmap.setColor(1, 1, 1, 0.8f);
-            pointerPixmap.drawCircle(pointerSize / 2, pointerSize / 2, pointerSize / 2 - 2);
-            // 绿色内圈
-            pointerPixmap.setColor(0, 1, 0, 0.6f);
-            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, pointerSize / 4);
-            // 中心点
-            pointerPixmap.setColor(1, 1, 1, 1);
-            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
-            touchPointerTexture = new Texture(pointerPixmap);
-            pointerPixmap.dispose();
+            touchPointerTexture = createTouchPointerTexture();
         }
 
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -752,17 +737,6 @@ public class MainController {
     private int lastGameW = 0;
     private int lastGameH = 0;
 
-    /** GL_VIEWPORT 读取缓冲（诊断用） */
-    private final java.nio.IntBuffer viewportProbeBuf = java.nio.IntBuffer.allocate(4);
-    /** 视口诊断剩余打印次数；确认根因后连同 probeViewportDrift() 一起移除 */
-    private int viewportProbeBudget = 40;
-    /** 上一次诊断打印时的状态，用于标记"刚进入某界面" */
-    private MainState viewportProbeLastState;
-    /** 上一次诊断打印时的视口值，用于抓"同一界面内视口变了"（首帧 vs 后续帧） */
-    private int viewportProbeLastX = -1, viewportProbeLastY = -1, viewportProbeLastW = -1, viewportProbeLastH = -1;
-    /** 帧号（仅诊断用） */
-    private long frameCounter;
-
     // ─── 性能优化：预分配复用对象，避免每帧 GC ───
     /** 预分配的投影矩阵，每帧复用而非 new Matrix4() */
     private final Matrix4 projMatrix = new Matrix4();
@@ -806,49 +780,36 @@ public class MainController {
     }
 
     /**
-     * 临时诊断：打印"刚进入某界面"时的视口参数，以及 {@code current.render()} 是否改写了
-     * GL 视口。用于钉死"开启拉伸至全屏后第一帧仍按等比显示"的根因；确认后可连同
-     * {@link #viewportProbeBudget} 一起移除。
+     * 生成触摸指针纹理（64x64）：透明底 + 半透明白外圈 + 偏白内圆 + 实心白点。
+     *
+     * <p>内圆原本是绿色 {@code (0,1,0)}，按需求改成偏白（略偏冷，避免与纯白外圈糊成一片）。</p>
+     *
+     * <p>纹理会在 GL 上下文丢失后失效，所以 {@link #create()} 与 {@link #resume()} 都要重建；
+     * 两处统一走这里，免得配色只改一处、前后台切一次就变回旧色。</p>
      */
-    private void probeViewportDrift() {
-        final boolean stateChanged = current != viewportProbeLastState;
-        final boolean vpChanged = viewportX != viewportProbeLastX || viewportY != viewportProbeLastY
-                || viewportW != viewportProbeLastW || viewportH != viewportProbeLastH;
-        // glGetIntegerv 是同步读（会打断 GPU 流水线），所以只在 PLAY 状态下做漂移检查
-        boolean drift = false;
-        if (current instanceof BMSPlayer) {
-            Gdx.gl.glGetIntegerv(GL20.GL_VIEWPORT, viewportProbeBuf);
-            drift = viewportProbeBuf.get(0) != viewportX || viewportProbeBuf.get(1) != viewportY
-                    || viewportProbeBuf.get(2) != viewportW || viewportProbeBuf.get(3) != viewportH;
-        }
-        if (!drift && !stateChanged && !vpChanged) return;
-        if (viewportProbeBudget <= 0) return;
-
-        viewportProbeBudget--;
-        viewportProbeLastState = current;
-        viewportProbeLastX = viewportX;
-        viewportProbeLastY = viewportY;
-        viewportProbeLastW = viewportW;
-        viewportProbeLastH = viewportH;
-        final bms.player.beatoraja.skin.Skin skin = current.getSkin();
-        Gdx.app.log("VIEWPROBE", "f=" + frameCounter
-                + " state=" + current.getClass().getSimpleName()
-                + (stateChanged ? "(enter)" : "")
-                + " screen=" + Gdx.graphics.getWidth() + "x" + Gdx.graphics.getHeight()
-                + " backbuffer=" + Gdx.graphics.getBackBufferWidth() + "x" + Gdx.graphics.getBackBufferHeight()
-                + " skin=" + (skin != null ? (int) skin.getWidth() + "x" + (int) skin.getHeight() : "null")
-                + " stretch=" + (config != null && config.isStretchFullscreen())
-                + " want=" + viewportX + "," + viewportY + "," + viewportW + "," + viewportH
-                + (drift ? " GOT=" + viewportProbeBuf.get(0) + "," + viewportProbeBuf.get(1) + ","
-                        + viewportProbeBuf.get(2) + "," + viewportProbeBuf.get(3)
-                        + "  <== current.render() 改写了视口" : ""));
+    private Texture createTouchPointerTexture() {
+        final int pointerSize = 64;
+        Pixmap pointerPixmap = new Pixmap(pointerSize, pointerSize, Pixmap.Format.RGBA8888);
+        // 透明背景
+        pointerPixmap.setColor(0, 0, 0, 0);
+        pointerPixmap.fill();
+        // 白色外圈
+        pointerPixmap.setColor(1, 1, 1, 0.8f);
+        pointerPixmap.drawCircle(pointerSize / 2, pointerSize / 2, pointerSize / 2 - 2);
+        // 偏白内圈（原为绿色）
+        pointerPixmap.setColor(0.88f, 0.94f, 1.0f, 0.6f);
+        pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, pointerSize / 4);
+        // 中心点
+        pointerPixmap.setColor(1, 1, 1, 1);
+        pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
+        Texture texture = new Texture(pointerPixmap);
+        pointerPixmap.dispose();
+        return texture;
     }
 
     public void render() {
         // dispose 过程中跳过渲染，防止访问已释放的资源导致 NPE
         if (disposing) return;
-
-        frameCounter++;
 
         // 记录帧开始时间（用于帧率限制）
         final long frameStart = System.nanoTime();
@@ -907,7 +868,6 @@ public class MainController {
         // 刚设好的。不复原的话，本帧的皮肤 / 音符 / 判定就会画到错误矩形里 ——
         // 实测症状就是"开启拉伸至全屏后进入练习模式，第一帧仍按 1920x1080 等比显示
         // （带黑边），下一帧才铺满"。与下方触摸指针处的恢复同理。
-        probeViewportDrift();
         applyMainViewportAndProjection();
         // [DEBUG PROBE] 皮肤渲染耗时监控 — 每帧触发，正常运行时禁用
         // long drawStart = System.nanoTime();
@@ -1317,18 +1277,7 @@ public class MainController {
             if (touchPointerTexture != null) {
                 try { touchPointerTexture.dispose(); } catch (Throwable ignore) {}
             }
-            int pointerSize = 64;
-            com.badlogic.gdx.graphics.Pixmap pointerPixmap = new com.badlogic.gdx.graphics.Pixmap(pointerSize, pointerSize, com.badlogic.gdx.graphics.Pixmap.Format.RGBA8888);
-            pointerPixmap.setColor(0, 0, 0, 0);
-            pointerPixmap.fill();
-            pointerPixmap.setColor(1, 1, 1, 0.8f);
-            pointerPixmap.drawCircle(pointerSize / 2, pointerSize / 2, pointerSize / 2 - 2);
-            pointerPixmap.setColor(0, 1, 0, 0.6f);
-            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, pointerSize / 4);
-            pointerPixmap.setColor(1, 1, 1, 1);
-            pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
-            touchPointerTexture = new com.badlogic.gdx.graphics.Texture(pointerPixmap);
-            pointerPixmap.dispose();
+            touchPointerTexture = createTouchPointerTexture();
             Gdx.app.log("MainController", "resume(): touch pointer texture rebuilt");
 
             // 重建浮动菜单纹理

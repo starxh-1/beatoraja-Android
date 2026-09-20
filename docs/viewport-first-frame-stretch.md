@@ -63,15 +63,22 @@ sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, skinW, skinH));
    `glViewport(...)` + `sprite.setProjectionMatrix(...)` 合并成一处，并在两个位置调用：
    - `current.render()` **之前**（保持原行为）；
    - `current.render()` **之后、`sprite.begin()` 之前**（**新增**，本次修复的核心）。
-2. **新增临时诊断 `probeViewportDrift()`**（见下节），`viewportProbeBudget = 40` 次后自动停。
-3. `render()` 开头加 `frameCounter++`（仅诊断用）。
-
 改动是**幂等且无副作用的**：即使 `current.render()` 没有改写视口，多设一次视口与投影
 也只是同一组值再写一遍。
 
+**实机验证结果（2026-09-20）**：用户确认修复生效 —— 开启「拉伸至全屏」后进入练习模式，
+第一帧就是铺满的全屏，不再"第一帧等比带黑边、下一帧才铺满"。即"视口在
+`current.render()` 里被改写"这一判断成立。
+
+确认之后，本次为排查临时加的探针（`probeViewportDrift()` 方法 + `viewportProbeBuf` /
+`viewportProbeBudget` / `viewportProbeLastState` / `viewportProbeLastX..H` 字段 +
+`render()` 开头的 `frameCounter++`）**已全部移除** —— 它会在 PLAY 状态下每帧做一次
+同步 `glGetIntegerv`（打断 GPU 流水线），确认根因后留着纯属性能损耗。
+第四节保留其用法，供以后再遇到"某帧画面不对"类问题时复用。
+
 ---
 
-## 四、诊断日志：怎么确认 / 怎么证伪
+## 四、诊断日志：怎么确认 / 怎么证伪（临时探针已移除，保留备查）
 
 日志 tag：`VIEWPROBE`。触发条件是 **界面切换** 或 **视口值变化**（所以不会刷屏），
 且漂移检查只在 `BMSPlayer` 状态下做（`glGetIntegerv` 是同步读，会打断 GPU 流水线）。
