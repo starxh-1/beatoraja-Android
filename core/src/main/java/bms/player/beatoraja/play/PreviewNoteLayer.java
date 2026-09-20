@@ -7,11 +7,13 @@ import bms.model.Mode;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.PlayConfig;
 import bms.player.beatoraja.PlayerConfig;
+import bms.player.beatoraja.TimerManager;
 import bms.player.beatoraja.play.SkinNote.SkinLane;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
 import bms.player.beatoraja.skin.SkinHeader;
 import bms.player.beatoraja.skin.SkinObject;
 import bms.player.beatoraja.skin.SkinObject.SkinOffset;
+import bms.player.beatoraja.skin.SkinPropertyMapper;
 
 import java.util.logging.Logger;
 
@@ -33,9 +35,16 @@ import java.util.logging.Logger;
  * <h3>与真实渲染的差别（有意为之）</h3>
  * <ul>
  *   <li>没有真正的谱面：音符按固定的 16 槽（2 小节 8 分音符）图案合成、循环播放；</li>
- *   <li>只有普通音符（单点 + 和弦 + 皿），没有长条 / 地雷 / 判定特效 / 音符扩张动画；</li>
+ *   <li>只有普通音符（单点 + 和弦 + 皿），没有长条 / 地雷 / 音符扩张动画；</li>
  *   <li>BPM 固定 {@link #DEMO_BPM}，只用来决定下落速度量级。</li>
  * </ul>
+ *
+ * <h3>keybeam / bomb 也归本层管</h3>
+ * <p>这两类东西在皮肤里都不是特殊对象，就是普通 {@code SkinImage}，靠 destination 上的
+ * {@code timer}（keybeam = {@code TIMER_KEYON_*}、bomb = {@code TIMER_BOMB_*}）决定显隐 ——
+ * 计时器 off 时 {@code SkinObject.prepareRegion()} 会直接 {@code draw = false}。真游玩里由
+ * {@code KeyInputProccessor.input()} 与 {@code JudgeManager.updateMicro()} 点亮，
+ * 预览这两者都不存在，所以由本层按自己的音符图案点亮，见 {@link #pulseFeedback}。</p>
  *
  * <p>对象由 {@code SkinConfiguration.loadSelectedSkinPreview()} 插到预览皮肤的
  * {@code SkinNote} 之后（同一绘制层），因此层级与真实音符一致。</p>
@@ -47,6 +56,14 @@ public class PreviewNoteLayer extends SkinObject {
 	/** 一屏穿越时间的钳制范围，避免用户的极端 hispeed 让预览变成瞬移或爬行。 */
 	private static final double MIN_TRAVEL_MS = 300;
 	private static final double MAX_TRAVEL_MS = 3000;
+	/**
+	 * 合成按键的保持时长（ms）。**不能比 keybeam 自己的展开动画还短** —— 光柱一般
+	 * 0→100ms 展开（参考皮肤 play5 就是 {@code loop:100}），按太短会在展开到一半时被松开，
+	 * 看起来像闪一下。150ms 同时还能让 8 分音符（150BPM = 200ms 一个）之间留出间隙。
+	 */
+	private static final double KEY_HOLD_MS = 150;
+	/** 单个槽最多产生的 lane 数（主音符 + 和弦 + 皿）。 */
+	private static final int MAX_LANES_PER_SLOT = 3;
 
 	/** 皮肤选项里"竖屏布局"的 id（与 LaneRenderer / BMSPlayer 一致）。 */
 	private static final int OP_PORTRAIT = 1101;
@@ -66,6 +83,18 @@ public class PreviewNoteLayer extends SkinObject {
 	private final SkinOffset[] offsets;
 	private final PlaySkin skin;
 	private final Mode mode;
+	/**
+	 * lane → 皮肤的 key 编号 / player 编号映射。真游玩里由 {@code BMSPlayer} 用
+	 * {@code new LaneProperty(model.getMode())} 建，这里用同一个构造，保证 keybeam / bomb
+	 * 点亮的计时器编号与皮肤里写的 {@code timer} 对得上。
+	 */
+	private final LaneProperty laneProperty;
+	/** {@link #slotLanes} 的复用缓冲，避免每帧分配。 */
+	private final int[] laneBuf = new int[MAX_LANES_PER_SLOT];
+	/** 每个槽上一次已触发的"到达"序号，保证一次到达只炸一次。 */
+	private final long[] lastHitCycle = new long[STEPS];
+	/** 首帧只登记不触发，否则一进界面 16 个槽会一起炸。 */
+	private boolean inputSeeded;
 	/** 键位数（不含皿）。 */
 	private final int keys;
 	/** 皿所在的 lane 下标，-1 表示该 Mode 没有皿。 */
@@ -95,6 +124,7 @@ public class PreviewNoteLayer extends SkinObject {
 		this.offsets = source.getOffsets();
 		this.skin = skin;
 		this.mode = mode;
+		this.laneProperty = mode != null ? new LaneProperty(mode) : null;
 		this.noteImages = new TextureRegion[lanes.length];
 
 		final boolean hasScratch = mode == Mode.BEAT_5K || mode == Mode.BEAT_7K
@@ -199,6 +229,37 @@ public class PreviewNoteLayer extends SkinObject {
 	public void dispose() {
 		// 贴图都归预览皮肤所有（SkinSource / SkinLane），这里只放掉引用，不释放任何纹理
 		java.util.Arrays.fill(noteImages, null);
+		releaseTimers();
+	}
+
+	/**
+	 * 熄灭本层点亮过的按键光柱。这些计时器是 {@link TimerManager} 里的全局槽位，
+	 * 换皮肤时旧对象被 dispose、新对象的 {@link #pulseFeedback} 要到下一帧才跑，
+	 * 中间那一帧会残留一道光柱。（bomb 不用管：它的 dst 是 {@code loop:-1}，
+	 * 计时器一直不重置的话 {@code time} 只会越走越大，早就超过 endtime 不画了。）
+	 */
+	private void releaseTimers() {
+		final TimerManager timer = state != null ? state.timer : null;
+		if (timer == null || laneProperty == null) {
+			return;
+		}
+		try {
+			for (int lane = 0; lane < lanes.length; lane++) {
+				final int key = keyOf(lane);
+				final int player = playerOf(lane);
+				if (key < 0 || player < 0) {
+					continue;
+				}
+				final int on = SkinPropertyMapper.keyOnTimerId(player, key);
+				final int off = SkinPropertyMapper.keyOffTimerId(player, key);
+				if (on >= 0 && off >= 0 && timer.isTimerOn(on)) {
+					timer.setTimerOn(off);
+					timer.setTimerOff(on);
+				}
+			}
+		} catch (Throwable e) {
+			// 释放失败不影响换皮肤
+		}
 	}
 
 	@Override
@@ -226,6 +287,18 @@ public class PreviewNoteLayer extends SkinObject {
 	}
 
 	private void drawNotes(SkinObjectRenderer renderer) {
+		// 8 分音符网格，按经过时间循环播放（now 用当前时间而不是 prepare 传来的 time，
+		// 保证下落和帧率同步、不受 prepare 节流影响）
+		final double stepMs = 30000.0 / DEMO_BPM;
+		final double cycleMs = stepMs * STEPS;
+		final long now = state.timer.getNowTime();
+
+		// 合成按键 / 判定反馈（keybeam / bomb）。放在几何之前，因为"本层有没有音符画出来"
+		// 与"该不该有光柱"是两回事（极端 hispeed 下 travel 会退化，但不该连光柱一起没）。
+		// 这些是全局计时器：本层之后绘制的对象当帧就能看到，画在本层之前的（play5 的
+		// keybeam 就在 notes 之前）下一帧跟上，延迟 1 帧，肉眼看不出来。
+		pulseFeedback(now, stepMs, cycleMs);
+
 		// ── 下落几何：与 LaneRenderer.drawLane 同源 ──
 		// hu = 音符出生端（离判定线最远），hl = 判定线位置，两者之差就是一个"屏幕高"
 		final SkinLane lane0 = lanes[0];
@@ -269,11 +342,8 @@ public class PreviewNoteLayer extends SkinObject {
 			}
 		}
 
-		// 8 分音符网格，按经过时间循环播放（now 用当前时间而不是 prepare 传来的 time，
-		// 保证下落和帧率同步、不受 prepare 节流影响）
-		final double stepMs = 30000.0 / DEMO_BPM;
-		final double cycleMs = stepMs * STEPS;
-		final long now = state.timer.getNowTime();
+		// 音符相位：与上面的 pulseFeedback 用同一个 now / stepMs / cycleMs，
+		// 保证"光柱亮起的时刻"和"音符落到判定线的时刻"严格一致
 		final double phase = ((now % (long) cycleMs) + cycleMs) % cycleMs;
 
 		renderer.setColor(1f, 1f, 1f, 1f);
@@ -306,6 +376,121 @@ public class PreviewNoteLayer extends SkinObject {
 				drawNote(renderer, scratchLane, pos, offsetX, offsetY, offsetW, offsetH);
 			}
 		}
+	}
+
+	/**
+	 * 合成按键 / 判定反馈 —— 点亮 keybeam 与 bomb 的计时器。
+	 *
+	 * <p>皮肤里的 keybeam / bomb 都是普通 {@code SkinImage}，靠 destination 的
+	 * {@code timer}（{@code TIMER_KEYON_*} / {@code TIMER_BOMB_*}）取显隐：计时器 off 时
+	 * {@code SkinObject.prepareRegion()} 直接 {@code draw = false}。真游玩里分别是
+	 * {@code KeyInputProccessor.input()} 与 {@code JudgeManager.updateMicro()} 点亮的，
+	 * 预览两者都不存在，所以这里按本层自己的音符图案点亮。</p>
+	 *
+	 * <p>触发用"到达序号"判断，而不是"距判定线不足几 ms"：序号是
+	 * {@code floor((now - slot * stepMs) / cycleMs)}，每过一个循环 +1，因此掉帧也不会漏触发、
+	 * 同一个音符更不会连着两帧炸两次。</p>
+	 */
+	private void pulseFeedback(long now, double stepMs, double cycleMs) {
+		final TimerManager timer = state != null ? state.timer : null;
+		if (timer == null || laneProperty == null) {
+			return;
+		}
+		if (!inputSeeded) {
+			// 首帧只登记当前序号、不触发：否则 16 个槽会一起炸（表现为"一进界面闪一片"）。
+			// 登记之后本帧仍然照常刷按键状态，所以上一张皮肤残留的光柱也能被清掉。
+			inputSeeded = true;
+			for (int slot = 0; slot < STEPS; slot++) {
+				lastHitCycle[slot] = hitCycle(now, slot * stepMs, cycleMs);
+			}
+		}
+		for (int slot = 0; slot < STEPS; slot++) {
+			final double slotOffset = slot * stepMs;
+			final long cycle = hitCycle(now, slotOffset, cycleMs);
+			final boolean arrived = cycle != lastHitCycle[slot];
+			lastHitCycle[slot] = cycle;
+
+			final int count = slotLanes(slot);
+			if (count == 0) {
+				continue;
+			}
+			final boolean pressed = sinceArrival(now, slotOffset, cycleMs) < KEY_HOLD_MS;
+			for (int i = 0; i < count; i++) {
+				final int lane = laneBuf[i];
+				final int key = keyOf(lane);
+				final int player = playerOf(lane);
+				if (key < 0 || player < 0) {
+					continue;
+				}
+				if (arrived) {
+					final int bomb = SkinPropertyMapper.bombTimerId(player, key);
+					if (bomb >= 0) {
+						timer.setTimerOn(bomb);
+					}
+				}
+				final int on = SkinPropertyMapper.keyOnTimerId(player, key);
+				final int off = SkinPropertyMapper.keyOffTimerId(player, key);
+				if (on < 0 || off < 0) {
+					continue;
+				}
+				// 与 KeyInputProccessor.input() 同义：按下点亮 ON、熄灭 OFF，松开相反。
+				// OFF 计时器常常没有对象在用，但"把 ON 熄掉"才是光柱消失的原因。
+				if (pressed) {
+					if (!timer.isTimerOn(on)) {
+						timer.setTimerOn(on);
+						timer.setTimerOff(off);
+					}
+				} else if (timer.isTimerOn(on)) {
+					timer.setTimerOn(off);
+					timer.setTimerOff(on);
+				}
+			}
+		}
+	}
+
+	/**
+	 * 槽内的音符 lane 集合（主音符 / 和弦 / 皿），与 {@link #drawNotes} 的图案严格一致 ——
+	 * 不一致就会出现"音符在这一道落下、光柱却在另一道亮"。
+	 *
+	 * @return 写入 {@link #laneBuf} 的 lane 个数（有效下标为 {@code 0..返回值-1}）
+	 */
+	private int slotLanes(int slot) {
+		int n = 0;
+		final int primary = PRIMARY[slot];
+		if (primary >= 0) {
+			laneBuf[n++] = Math.floorMod(primary, keys);
+			final int second = SECOND[slot];
+			if (second >= 0 && n < laneBuf.length) {
+				laneBuf[n++] = Math.floorMod(primary + second, keys);
+			}
+		}
+		if (scratchLane >= 0 && SCRATCH[slot] && n < laneBuf.length) {
+			laneBuf[n++] = scratchLane;
+		}
+		return n;
+	}
+
+	/** lane → 皮肤的 key 编号（{@code laneToSkinOffset}），越界返回 -1。 */
+	private int keyOf(int lane) {
+		final int[] map = laneProperty.getLaneSkinOffset();
+		return lane >= 0 && lane < map.length ? map[lane] : -1;
+	}
+
+	/** lane → player 编号（1P = 0 / 2P = 1），越界返回 -1。 */
+	private int playerOf(int lane) {
+		final int[] map = laneProperty.getLanePlayer();
+		return lane >= 0 && lane < map.length ? map[lane] : -1;
+	}
+
+	/** 该槽已经"到达判定线"了多少次：每过一个循环 +1，用于判断本帧是否正好有一次到达。 */
+	private static long hitCycle(long now, double slotOffsetMs, double cycleMs) {
+		return (long) Math.floor((now - slotOffsetMs) / cycleMs);
+	}
+
+	/** 距最近一次到达过了多少 ms（取值恒在 {@code [0, cycleMs)}），用来判断按键是否还"按着"。 */
+	private static double sinceArrival(long now, double slotOffsetMs, double cycleMs) {
+		final double d = (now - slotOffsetMs) % cycleMs;
+		return d < 0 ? d + cycleMs : d;
 	}
 
 	/**

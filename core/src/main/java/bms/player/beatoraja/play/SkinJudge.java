@@ -7,6 +7,7 @@ import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
 
 import java.util.Arrays;
+import java.util.logging.Logger;
 
 /**
  * 判定オブジェクト
@@ -28,6 +29,32 @@ public final class SkinJudge extends SkinObject {
     
     private SkinImage nowJudge;
     private SkinNumber nowCount;
+
+    /** 失败探针的一次性开关：每个对象只打印第一次失败原因。 */
+    private boolean previewDiagLogged;
+
+    /**
+     * 失败探针：判定 / combo 在**非游玩状态**（皮肤选择界面的实时预览）里画不出来时，
+     * 打印一次原因。只在失败分支调用，成功路径零输出。
+     *
+     * <p>为什么需要它：{@code Skin.drawAllObjectsSafely} 会把出问题的对象静默置成
+     * {@code draw = false} 且不打印任何东西；而判定图还被 dst 上的 {@code timer}
+     * 掐着（`time`/`isOff` 判定，见 {@code docs/skinselect-live-preview.md} 第七节第 3 条）。
+     * 没有这条日志，"预览里没有判定"这件事从外部完全无从下手。</p>
+     *
+     * <p>真游玩（{@code BMSPlayer}）直接返回，不会有任何输出。</p>
+     */
+    private void previewDiag(MainState state, String msg) {
+        if (previewDiagLogged || state instanceof BMSPlayer) {
+            return;
+        }
+        previewDiagLogged = true;
+        final int side = player == 1 ? 1 : 0;
+        Logger.getGlobal().info("SkinJudge(预览) player=" + player + " " + msg
+                + " judgeTimerOn=" + (state != null && state.timer.isTimerOn(SkinProperty.TIMER_JUDGE_1P + side))
+                + " comboTimerOn=" + (state != null && state.timer.isTimerOn(SkinProperty.TIMER_COMBO_1P + side))
+                + " judgeTimerValue=" + (state != null ? state.timer.getTimer(SkinProperty.TIMER_JUDGE_1P + side) : -1));
+    }
 
     public SkinJudge(int index, boolean shift) {
         this(null, null, index, shift);
@@ -84,11 +111,13 @@ public final class SkinJudge extends SkinObject {
         // 皮肤预览是合成实现（见 PlayStateValues）。拿不到就不画这个对象。
         final PlayStateValues play = state != null ? state.getPlayStateValues() : null;
         if (play == null) {
+        	previewDiag(state, "play==null");
         	draw = false;
         	return;
         }
         final int judgenow = play.getNowJudge(player) - 1;
         if(judgenow < 0) {
+        	previewDiag(state, "judgenow=" + judgenow);
         	draw = false;
             return;
         }
@@ -97,6 +126,7 @@ public final class SkinJudge extends SkinObject {
         final GrooveGauge gaugeSource = play.getGauge();
         final Gauge gauge = gaugeSource != null ? gaugeSource.getGauge() : null;
         if (gauge == null) {
+        	previewDiag(state, "gauge==null");
         	draw = false;
         	return;
         }
@@ -112,6 +142,7 @@ public final class SkinJudge extends SkinObject {
         if(nowJudge != null) {
         	nowJudge.prepare(time, state);
         } else {
+        	previewDiag(state, "judgenow=" + judgenow + " nowJudge==null");
         	draw = false;
         	return;
         }
@@ -128,6 +159,7 @@ public final class SkinJudge extends SkinObject {
             	}
             }
     	} else {
+        	previewDiag(state, "judgenow=" + judgenow + " nowJudge.draw==false");
         	draw = false;
         	return;    		
     	}

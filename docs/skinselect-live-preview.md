@@ -45,7 +45,9 @@ SkinPreview（SkinObject，由 skin.skinpreview 声明）
 |---|---|
 | `core/.../config/SkinPreview.java` | **新增**。上游实现的 Android 适配版 |
 | `core/.../skin/Skin.java` | 抽出 `ensureRenderer()`；**新增** `drawAllObjectsSafely()`、`insertSkinObjectAfter()`；`SkinObjectRenderer` 加 `getSpriteBatch()` 与静态 `setCurrentViewport()` |
-| `core/.../play/PreviewNoteLayer.java` | **新增**。预览用的自绘演示音符层（第六节） |
+| `core/.../play/PreviewNoteLayer.java` | **新增**。预览用的自绘演示音符层（第六节），并负责点亮 keybeam / bomb 的计时器（第六节第 8 条） |
+| `core/.../PlayStateValues.java` | **新增**。`getNowJudge` / `getNowCombo` / `getGauge` 三个值的窄契约（第七节） |
+| `core/.../play/PreviewPlayValues.java` | **新增**。上述契约的合成实现，并点亮判定 / 连击的显示计时器（第七节） |
 | `core/.../config/SkinConfiguration.java` | `getSelectedSkin()`；`loadSelectedSkinPreview()` / `reloadSelectedSkinPreview()` / `setSelectedSkin()`；`selectSkin` 调用点；三个 `setCustom*` 挂重建请求；`dispose()` 释放 |
 | `core/.../skin/json/JsonSkin.java` | 加 `skinpreview` 字段 + `SkinPreview` 内部类（只声明 `id`） |
 | `core/.../skin/json/JsonSkinConfigurationSkinObjectLoader.java` | 覆写 `loadSkinObject`：基类未命中且 `dst.id == sk.skinpreview.id` 时返回 `new SkinPreview()` |
@@ -134,7 +136,8 @@ public void end (int x, int y, int width, int height) {
 
 ## 五、已知限制（上游也一样）
 
-1. **预览本来不会有音符下落、也没有判定 / 量表 —— 已分别补上（2026-09-20，见第六、七节）。**
+1. **预览本来不会有音符下落、也没有判定 / 量表 / 按键光柱 / 爆炸特效 —— 已分别补上
+   （2026-09-20，见第六、七节）。**
 
    原限制：渲染时 state 是 `SkinConfiguration`，没有谱面/分数/BPM，依赖它们的对象会被
    `drawAllObjectsSafely` 静默跳过，能看到只有背景、轨道、判定线、装饰元素。
@@ -281,7 +284,10 @@ public void end (int x, int y, int width, int height) {
 `SECOND` 给和弦副音符的偏移，`SCRATCH` 标记皿的槽位。相位用 `state.timer.getNowTime()`
 对一个循环取模，**不依赖 `prepare()` 传进来的 `time`** —— 否则下落会和 prepare 节流耦合、看起来卡顿。
 
-只有普通音符（单点 / 和弦 / 皿）；**没有长条、地雷、判定特效、音符扩张动画**。
+只有普通音符（单点 / 和弦 / 皿）；**没有长条、地雷、音符扩张动画**。长条缺席连带的后果是
+`TIMER_HOLD_*`（70~77，LN 按住时的轨道光）永远不会亮 —— 见 8 节末尾。
+
+同一套图案除了画音符，还负责点亮 keybeam / bomb 的计时器（见第 8 节）。
 
 ### 6. 容错：任何异常都不能让本层被永久停用
 
@@ -303,6 +309,52 @@ public void end (int x, int y, int width, int height) {
   路径与 `LaneRenderer` 一致：先看 header 的 `Layout` 自定义项，再看 option 表。
 - **构造函数必须调 `setDestination(...)`**：没有 destination 的对象会在 `validate()` 阶段被删掉。
   给的那条只用于通过校验，真正的绘制坐标全部由轨道矩形算出来。
+
+### 8. keybeam / bomb：与判定同一个病根，也由本层点亮（**第二轮反馈补上**）
+
+现象：音符、血条、判定图、combo 都有了，**按键光柱和爆炸特效还是没有**。
+
+根因与第七节判定 / 连击**完全一样**——这两类东西在皮肤里不是特殊对象：
+
+- `keybeam` 是普通 `SkinImage`，dst 挂 `timer = TIMER_KEYON_*`（100~107 / 110~119）；
+- `bomb` 也是普通 `SkinImage`（`bomb.png` 的 10 帧切片），dst 挂
+  `timer = TIMER_BOMB_*`（50~57 / 60~69）。
+
+计时器 off 时 `SkinObject.prepareRegion()` 直接
+`if (timer.isOff(state)) { draw = false; return; }` —— 所以它们不是"画错位置"，而是**压根不画**。
+真游玩里分别由 `KeyInputProccessor.input()`（按键）和
+`JudgeManager.updateMicro()`（判定，`judge <= skin.getJudgetimer()` 时）点亮。
+
+实现落在 `PreviewNoteLayer.pulseFeedback(now, stepMs, cycleMs)`：
+
+| 做什么 | 怎么做 | 依据 |
+|---|---|---|
+| lane → 皮肤 key / player 编号 | `new LaneProperty(mode)`，与 `BMSPlayer` 同一个构造 | `BMSPlayer.java:518` |
+| 按下的判定 | `sinceArrival < KEY_HOLD_MS` | 与 `KeyInputProccessor.input()` 的"按下/松开"同义 |
+| bomb 触发 | 每个槽的 `hitCycle` 变化时点一次 | 序号 = `floor((now - slot*stepMs) / cycleMs)`，每循环 +1 |
+| len 光柱显隐 | 按下 → `setTimerOn(on)` + `setTimerOff(off)`；松开 → 反过来 | `SkinPropertyMapper.keyOnTimerId/keyOffTimerId` |
+
+**四个必须遵守的点：**
+
+1. **`KEY_HOLD_MS` 不能小于 keybeam 自己的展开动画**。参考皮肤 play5 的 keybeam 是
+   `{"time":0, …narrow}, {"time":100, …wide}, "loop":100`，即 0→100ms 展开；松早了会在
+   展开到一半被掐掉，看起来像闪一下。现取 150ms（也刚好让 150BPM 的 8 分音符之间留出间隙）。
+2. **bomb 不需要考虑残留**：它的 dst 是 `loop:-1`，计时器一直不重置的话 `time` 只会越走越大，
+   早就超过 `endtime` 不画了（`prepareRegion` 把 `time` 置 -1 → `starttime > time` → `draw=false`）。
+   但 **keybeam 会残留** —— `loop:100` 且 `lasttime == dstloop` 时 `time` 被钉在 `dstloop`，
+   计时器亮着就一直显示。所以换皮肤时在 `dispose()` 里走一遍 `releaseTimers()` 把 ON 熄掉
+   （新皮肤的 `pulseFeedback` 下一帧也会纠正，两道都留）。
+3. **首帧只登记不触发**（`inputSeeded`）。否则 16 个槽的 `hitCycle` 从默认值一起跳变，
+   一进界面 16 道槽同时炸。登记之后本帧仍然照常刷按键状态，所以上一张皮肤残留的光柱当帧就被清掉。
+4. **触发用"到达序号"而不是"距判定线不足几 ms"**。序号每过一个循环 +1，掉帧不漏触发、
+   同一个音符也不会连着两帧炸两次；用"距离窗口"则会随帧率抖。（同理见第七节第 3 条。）
+5. **`keyOnTimerId` / `bombTimerId` 都可能返回 -1**（player ≥ 2 或 key ≥ 100），
+   必须先判 `>= 0` 再 `setTimerOn` —— `TimerManager.setMicroTimer(-1, …)` 会走到
+   `current.getSkin().setMicroCustomTimer(-1, …)` 那条自定义计时器分支上去。
+
+**已知未覆盖**：`TIMER_HOLD_*`（70~77，长条按住时的轨道光）不会亮。它要求图案里有长条，
+而本层只合成单点 / 和弦 / 皿。要做就得给 `PreviewNoteLayer` 加一段 LN 绘制，比点亮计时器
+复杂得多（`LaneRenderer.drawLongNote` 里还有 CN / HCN 的 bodyIdx/headIdx/tailIdx 分支）。
 
 ## 七、合成游玩态数值：`PreviewPlayValues`
 
@@ -340,7 +392,60 @@ public void end (int x, int y, int width, int height) {
 - **连击**：随判定次数递增（1 起算、绕圈）；从 0 起会让皮肤里的数字看起来像「还没开始打」；
 - **量表**：20s 一个周期，从 20% 平滑涨到满，然后重来。
 
-### 3. 三个容易踩的点
+### 3. 判定 / 连击的 dst 挂着「显示计时器」，必须自己点亮（**上线后立刻踩到**）
+
+症状：血条出来了，但**判定图与 combo 数字一个都不显示**。
+
+判定图的 destination 长这样（默认皮肤 `play5.json:329`）：
+
+```json
+{"id":"judgef-pg", "loop":-1, "timer":46, "offset":3, "dst":[
+  {"if": [920], "value": {"time":0, "x":70,   "y":240, "w":180, "h":40}},
+  {"if": [921], "value": {"time":0, "x":1010, "y":240, "w":180, "h":40}},
+  {"time":500}
+]}
+```
+
+- `timer: 46` = `SkinProperty.TIMER_JUDGE_1P`。2P 是 47、3P 是 **247** —— 别写成
+  `TIMER_JUDGE_1P + player`，48 是 `TIMER_FULLCOMBO_1P`。combo 数字是
+  `TIMER_COMBO_1P/2P/3P = 446/447/448`（本例里的 combo 数字也挂 46）。
+- `if: [920] / [921]` 是**皮肤选项**（`play5.json:14` 把 `1P/2P` 定义成 op 920/921），
+  由 `JsonSkinSerializer.ArraySerializer` 在加载时按选项裁剪 —— 和 timer 无关。
+  默认选项是列表第一个，所以预览里能拿到 1P 那一支，不是这里的问题。
+
+`SkinObject.prepareRegion()` 开头就是：
+
+```java
+if (timer != null) {
+    if (timer.isOff(state)) { draw = false; return; }   // ← 判定图在这里就没了
+    time -= timer.get(state);
+}
+```
+
+而 `TimerManager.setMainState()`（`MainController` 切状态时调用，`MainController:380`）
+会把**全部计时器**清成 `INVALID_TIMER`。所以进 SKIN SELECT 后 timer 46 恒为 off →
+判定图 `draw = false` 直接返回、连 region 都不计算；combo 数字则因为
+`SkinJudge` 要先有 `nowJudge.draw` 才去 prepare 它，跟着一起消失。
+**血条没事**是因为 `SkinGauge` 的 dst 不挂计时器。
+
+修法就是照抄真游玩语义：`JudgeManager` 每次判定成功做两步
+（`JUDGE_TIMER` / `COMBO_TIMER` 的 `setTimerOn`，见 `JudgeManager:746` 与 `753`）：
+
+```java
+timer.setTimerOn(TIMER_JUDGE_xP);
+timer.setTimerOn(TIMER_COMBO_xP);
+```
+
+`PreviewPlayValues.getNowJudge()` 在判定序号变化时（每 400ms）执行同样两步，
+判定动画因此能正常跑一轮而不是冻在第 0 帧。只点亮、不清除：dst 自己在
+`time > endtime`（本例 500ms）后就 `draw = false`，下一轮再点。这些计时器是全局槽位，
+但离开 SKIN SELECT 时会被 `setMainState()` 统一清掉，**不会漏进真实游玩**。
+
+> **推论**：任何 dst 挂 `timer:` 的元素在预览里都画不出来 —— 炸弹特效
+> `TIMER_BOMB_*`、全连 `TIMER_FULLCOMBO_*`、以及 `TIMER_PLAY` 系的分数 / 游玩时间等。
+> 每补一个都要自己合成「什么时候该亮、亮多久」。
+
+### 4. 三个容易踩的点
 
 - **必须给量表一个非空 model。** `GrooveGauge` 的增减补正里
   `GaugeModifier.TOTAL = f * model.getTotal() / model.getTotalNotes()` —— 总音符数为 0
@@ -356,7 +461,7 @@ public void end (int x, int y, int width, int height) {
   这一段只是在「原模式 ≠ 游玩模式」时调整量表颗粒数，拿不到跳过即可；
   漏了的话 NPE 会让整个量表对象被永久停用。
 
-### 4. 接入顺序
+### 5. 接入顺序
 
 `SkinConfiguration.loadSelectedSkinPreview()` 里在 `preview.prepare(this)` **之前**调用
 `setupPreviewPlayValues(preview)` —— 因为 `SkinJudge` / `SkinGauge` 在首次 `prepare`
@@ -379,10 +484,18 @@ public void end (int x, int y, int width, int height) {
    不影响界面本身。
 8. **预览里应有判定图、连击数字与血条**（第七节的合成值）：判定每 0.4s 在
    PERFECT / GREAT / GOOD 之间轮换，连击递增，血条 20s 内从 20% 涨满再重来；
-   换 HARD / EASY 等量表类型时血条 border 位置应跟着变。某张皮肤看不到这三样，
-   先确认皮肤里确实定义了对应对象。
-9. 定位用的逐帧诊断日志已清掉；`draw()` 里那条**异常日志**保留（见第六节第 6 条）——
-   它是发现"几何算对了却零输出"的唯一手段。
+   换 HARD / EASY 等量表类型时血条 border 位置应跟着变。
+9. **预览里应有按键光柱（keybeam）与爆炸特效（bomb）**：音符落到判定线的那一帧，
+   对应轨道的 keybeam 应亮起约 150ms 后消失（第六节第 8 条）；判定图 / combo 画不出来时，
+   会打印一次原因。注意 keybeam 在 play5 里的绘制顺序在 `notes` **之前**，所以它比音符
+   晚一帧反应，属正常。
+10. **换皮肤时不该残留光柱**：在光柱正亮着的时候左右切皮肤，新皮肤的预览里不该有
+   一道不动的光柱（`dispose()` → `releaseTimers()` + 新层首帧刷新两道保险）。
+11. 保留的**诊断日志**只有两处，都只在出问题时输出：
+   - `PreviewNoteLayer` 里 `draw()` 的异常日志（见第六节第 6 条）——发现"几何算对了却
+     零输出"的唯一手段；
+   - `SkinJudge.previewDiag()` —— 判定 / combo 在预览里画不出来时打印一次原因
+     （`judgenow` / `nowJudge.draw` / 计时器状态），真游玩不输出。判定消失时先看它。
 
 ## 九、注意：必须提升 versionCode
 

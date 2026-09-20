@@ -6,6 +6,8 @@ import bms.model.NormalNote;
 import bms.model.TimeLine;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.PlayStateValues;
+import bms.player.beatoraja.TimerManager;
+import bms.player.beatoraja.skin.SkinProperty;
 
 /**
  * 皮肤预览用的合成「游玩态数值」：让判定 / 连击 / 量表在预览里也显示出来，
@@ -35,10 +37,22 @@ public final class PreviewPlayValues implements PlayStateValues {
 	private static final long GAUGE_PERIOD = 20000;
 	/** 量表周期的最低点（占最大值的比例）：别掉到 0，否则再也涨不回来（见下）。 */
 	private static final float GAUGE_MIN_RATE = 0.2f;
+	/**
+	 * 判定 / 连击的显示计时器，顺序与 {@code JudgeManager.JUDGE_TIMER} / {@code COMBO_TIMER} 相同。
+	 *
+	 * <p>注意 {@code TIMER_JUDGE_3P} 是 247 而不是 48 —— 不能写成 {@code TIMER_JUDGE_1P + player}，
+	 * 48 是 {@code TIMER_FULLCOMBO_1P}。</p>
+	 */
+	private static final int[] JUDGE_TIMERS = {
+			SkinProperty.TIMER_JUDGE_1P, SkinProperty.TIMER_JUDGE_2P, SkinProperty.TIMER_JUDGE_3P };
+	private static final int[] COMBO_TIMERS = {
+			SkinProperty.TIMER_COMBO_1P, SkinProperty.TIMER_COMBO_2P, SkinProperty.TIMER_COMBO_3P };
 
 	private final MainState state;
 	private final GrooveGauge gauge;
 	private final float gaugeMax;
+	/** 每个 player 上一次点亮的判定序号：只在序号变化（= 一次新判定）时点亮计时器。 */
+	private final long[] lastJudgeStep = { Long.MIN_VALUE, Long.MIN_VALUE, Long.MIN_VALUE };
 
 	/**
 	 * @param state     预览所在的界面状态，只用来取时钟
@@ -82,8 +96,32 @@ public final class PreviewPlayValues implements PlayStateValues {
 
 	@Override
 	public int getNowJudge(int player) {
-		final int index = (int) ((now() / JUDGE_INTERVAL) % JUDGE_SEQUENCE.length);
-		return JUDGE_SEQUENCE[index];
+		final long step = now() / JUDGE_INTERVAL;
+		// 「判定发生」的那一下要点亮判定 / 连击计时器 —— 判定图与 combo 数字的 dst 都挂着
+		// timer = TIMER_JUDGE_xP / TIMER_COMBO_xP，而 TimerManager 在进入任何一个状态时都会把
+		// 全部计时器清成 off（MainController 切状态 → TimerManager.setMainState），所以不点亮
+		// 就永远画不出来。真游玩里由 JudgeManager 在每次判定成功时执行同样两步
+		// （JUDGE_TIMER / COMBO_TIMER 的 setTimerOn）。
+		// 只在序号变化时点，是为了让判定动画能正常播完一轮（dst 的 0 → 500ms）而不是冻在第 0 帧。
+		if (step != lastJudgeStep[Math.floorMod(player, lastJudgeStep.length)]) {
+			lastJudgeStep[Math.floorMod(player, lastJudgeStep.length)] = step;
+			pulseJudgeTimers(player);
+		}
+		return JUDGE_SEQUENCE[(int) (step % JUDGE_SEQUENCE.length)];
+	}
+
+	/**
+	 * 点亮判定 / 连击的显示计时器。这些计时器是全局单例（{@code TimerManager}）里的槽位，
+	 * 但离开本状态时会被 {@code TimerManager.setMainState()} 统一清掉，所以不会漏进真实游玩。
+	 */
+	private void pulseJudgeTimers(int player) {
+		final TimerManager timer = state != null ? state.timer : null;
+		if (timer == null) {
+			return;
+		}
+		final int index = Math.floorMod(player, JUDGE_TIMERS.length);
+		timer.setTimerOn(JUDGE_TIMERS[index]);
+		timer.setTimerOn(COMBO_TIMERS[index]);
 	}
 
 	@Override
