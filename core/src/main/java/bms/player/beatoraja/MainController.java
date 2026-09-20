@@ -752,6 +752,17 @@ public class MainController {
     private int lastGameW = 0;
     private int lastGameH = 0;
 
+    /** GL_VIEWPORT 读取缓冲（诊断用） */
+    private final java.nio.IntBuffer viewportProbeBuf = java.nio.IntBuffer.allocate(4);
+    /** 视口诊断剩余打印次数；确认根因后连同 probeViewportDrift() 一起移除 */
+    private int viewportProbeBudget = 40;
+    /** 上一次诊断打印时的状态，用于标记"刚进入某界面" */
+    private MainState viewportProbeLastState;
+    /** 上一次诊断打印时的视口值，用于抓"同一界面内视口变了"（首帧 vs 后续帧） */
+    private int viewportProbeLastX = -1, viewportProbeLastY = -1, viewportProbeLastW = -1, viewportProbeLastH = -1;
+    /** 帧号（仅诊断用） */
+    private long frameCounter;
+
     // ─── 性能优化：预分配复用对象，避免每帧 GC ───
     /** 预分配的投影矩阵，每帧复用而非 new Matrix4() */
     private final Matrix4 projMatrix = new Matrix4();
@@ -777,9 +788,67 @@ public class MainController {
     public int getViewportW() { return viewportW; }
     public int getViewportH() { return viewportH; }
 
+    /**
+     * 设定主渲染的 GL 视口与皮肤投影矩阵。
+     *
+     * <p>必须在两处调用：{@code current.render()} <b>之前</b>（它内部可能依赖当前投影），
+     * 以及渲染之后、画皮肤之前 —— 因为 {@code current.render()} 里的 BGA FBO 渲染、
+     * {@code Stage.Viewport.apply()}、LaneRenderer 首次初始化等都会改写 GL 视口或
+     * SpriteBatch 的投影矩阵；不复原的话，本帧的皮肤 / 音符 / 判定就会画到错误矩形里。</p>
+     */
+    private void applyMainViewportAndProjection() {
+        Gdx.gl.glViewport(viewportX, viewportY, viewportW, viewportH);
+        if (current.getSkin() != null) {
+            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, current.getSkin().getWidth(), current.getSkin().getHeight()));
+        } else {
+            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, config.getResolution().width, config.getResolution().height));
+        }
+    }
+
+    /**
+     * 临时诊断：打印"刚进入某界面"时的视口参数，以及 {@code current.render()} 是否改写了
+     * GL 视口。用于钉死"开启拉伸至全屏后第一帧仍按等比显示"的根因；确认后可连同
+     * {@link #viewportProbeBudget} 一起移除。
+     */
+    private void probeViewportDrift() {
+        final boolean stateChanged = current != viewportProbeLastState;
+        final boolean vpChanged = viewportX != viewportProbeLastX || viewportY != viewportProbeLastY
+                || viewportW != viewportProbeLastW || viewportH != viewportProbeLastH;
+        // glGetIntegerv 是同步读（会打断 GPU 流水线），所以只在 PLAY 状态下做漂移检查
+        boolean drift = false;
+        if (current instanceof BMSPlayer) {
+            Gdx.gl.glGetIntegerv(GL20.GL_VIEWPORT, viewportProbeBuf);
+            drift = viewportProbeBuf.get(0) != viewportX || viewportProbeBuf.get(1) != viewportY
+                    || viewportProbeBuf.get(2) != viewportW || viewportProbeBuf.get(3) != viewportH;
+        }
+        if (!drift && !stateChanged && !vpChanged) return;
+        if (viewportProbeBudget <= 0) return;
+
+        viewportProbeBudget--;
+        viewportProbeLastState = current;
+        viewportProbeLastX = viewportX;
+        viewportProbeLastY = viewportY;
+        viewportProbeLastW = viewportW;
+        viewportProbeLastH = viewportH;
+        final bms.player.beatoraja.skin.Skin skin = current.getSkin();
+        Gdx.app.log("VIEWPROBE", "f=" + frameCounter
+                + " state=" + current.getClass().getSimpleName()
+                + (stateChanged ? "(enter)" : "")
+                + " screen=" + Gdx.graphics.getWidth() + "x" + Gdx.graphics.getHeight()
+                + " backbuffer=" + Gdx.graphics.getBackBufferWidth() + "x" + Gdx.graphics.getBackBufferHeight()
+                + " skin=" + (skin != null ? (int) skin.getWidth() + "x" + (int) skin.getHeight() : "null")
+                + " stretch=" + (config != null && config.isStretchFullscreen())
+                + " want=" + viewportX + "," + viewportY + "," + viewportW + "," + viewportH
+                + (drift ? " GOT=" + viewportProbeBuf.get(0) + "," + viewportProbeBuf.get(1) + ","
+                        + viewportProbeBuf.get(2) + "," + viewportProbeBuf.get(3)
+                        + "  <== current.render() 改写了视口" : ""));
+    }
+
     public void render() {
         // dispose 过程中跳过渲染，防止访问已释放的资源导致 NPE
         if (disposing) return;
+
+        frameCounter++;
 
         // 记录帧开始时间（用于帧率限制）
         final long frameStart = System.nanoTime();
@@ -828,16 +897,18 @@ public class MainController {
         Gdx.gl.glViewport(0, 0, screenW, screenH);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        // 设置等比视口
-        Gdx.gl.glViewport(viewportX, viewportY, viewportW, viewportH);
-
-        if (current.getSkin() != null) {
-            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, current.getSkin().getWidth(), current.getSkin().getHeight()));
-        } else {
-            sprite.setProjectionMatrix(projMatrix.setToOrtho2D(0, 0, config.getResolution().width, config.getResolution().height));
-        }
+        // 设置视口 + 皮肤投影（抽出为方法：current.render() 之后还要再 apply 一次，见下）
+        applyMainViewportAndProjection();
 
         current.render();
+
+        // current.render() 内部会改写 GL 视口 / SpriteBatch 的投影矩阵：BGA 的 FBO 渲染、
+        // LaneRenderer 首次初始化、Stage 的 Viewport.apply() 都会碰这两样，而它们是上面
+        // 刚设好的。不复原的话，本帧的皮肤 / 音符 / 判定就会画到错误矩形里 ——
+        // 实测症状就是"开启拉伸至全屏后进入练习模式，第一帧仍按 1920x1080 等比显示
+        // （带黑边），下一帧才铺满"。与下方触摸指针处的恢复同理。
+        probeViewportDrift();
+        applyMainViewportAndProjection();
         // [DEBUG PROBE] 皮肤渲染耗时监控 — 每帧触发，正常运行时禁用
         // long drawStart = System.nanoTime();
         sprite.begin();
