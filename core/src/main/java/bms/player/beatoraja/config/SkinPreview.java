@@ -57,24 +57,11 @@ public class SkinPreview extends SkinObject {
 	private boolean disabled;
 
 	/**
-	 * 预览自己的动画时钟起点（{@link System#nanoTime()}）。
+	 * 钳制退场动画时，{@code scene} 末尾至少留出多少毫秒。
 	 *
-	 * <p>预览皮肤实例一变（切皮肤，或改 Layout / Lane Size 这类参数触发重建，
-	 * 见 {@code SkinConfiguration.loadSelectedSkinPreview()} 每次都会 new 一份）就重置 ——
-	 * 也就是"每换一张皮肤，入场动画重播一次"，与真机上刚切进这个界面时一样。</p>
-	 *
-	 * <p>不能直接用 {@code state.timer}：那是"进入皮肤选择界面以来的时长"，只会一直涨，
-	 * 而 select / decide / result 这类皮肤会在 {@code scene} 末尾播退场动画
-	 * （典型是 {@code id = -110} 的全屏黑图拉到 a=255），于是预览会被退场动画永久盖住。
-	 * 见 {@link #resolvePreviewTime}。</p>
-	 */
-	private long clockStartNanos;
-
-	/**
-	 * 钳制退场动画时至少给 {@code scene} 末尾留出多少毫秒。
-	 *
-	 * <p>皮肤声明的 {@code fadeout} 就是退场时长，正常情况下够用；但它可能缺失（= 0）而皮肤
-	 * 仍然有退场动画，所以再兜一个下限。</p>
+	 * <p>两个用途：① 皮肤声明的 {@code fadeout} 就是退场时长，正常情况下够用，但它可能缺失
+	 * （= 0）而皮肤仍然有退场动画，所以再兜一个下限；② 在算出"退场开始时刻"之后再多让出
+	 * 这一段，因为实测皮肤常把退场动画的首帧放在声明值之前 200ms 左右。</p>
 	 */
 	private static final long PREVIEW_TAIL_MARGIN_MS = 500;
 
@@ -99,8 +86,6 @@ public class SkinPreview extends SkinObject {
 		if (previewSkin != lastSkin) {
 			lastSkin = previewSkin;
 			disabled = false;
-			// 新皮肤从 0 开始播它自己的入场动画（和真机上刚切进这个界面时一样）
-			clockStartNanos = System.nanoTime();
 		}
 		if (disabled) {
 			return;
@@ -130,9 +115,9 @@ public class SkinPreview extends SkinObject {
 	}
 
 	/**
-	 * 预览的动画时钟：从本次加载起算，并**钳制在皮肤的"稳态显示窗口"内**。
+	 * 预览的动画时间：用 **state 自己的时钟**，但钳制在皮肤的"稳态显示窗口"内。
 	 *
-	 * <p>为什么需要它（2026-09-20 实机踩到，症状是"预览只显示一次然后永久黑屏"）：
+	 * <p>为什么需要钳制（2026-09-20 实机踩到，症状是"预览只显示一次然后永久黑屏"）：
 	 * 预览的 state 是 {@code SkinConfiguration}，{@code TimerManager.getNowTime()} 返回
 	 * **"进入皮肤选择界面以来的毫秒数"**，只会一直涨。而 m-select / Luxe_Flat 这类皮肤的
 	 * 屏幕末尾有退场动画，典型写法是：</p>
@@ -148,22 +133,26 @@ public class SkinPreview extends SkinObject {
 	 * 这条分支 —— 时间一旦超过它就是"钉在最后一帧"，所以进入界面约 2.5 秒后，预览被这张
 	 * 不透明黑图彻底盖住，切别的皮肤再切回来也不会恢复（计时器不会回退）。</p>
 	 *
-	 * <p>所以把时钟限制在 {@code [0, scene - max(fadeout, 500)]}：入场动画照播（切一次皮肤播一次），
-	 * 播完停在"皮肤正常显示时的样子"，永不进入退场动画。</p>
+	 * <p><b>为什么不能改用"从 0 重新计时"的独立时钟</b>（2026-09-20 的另一半教训）：
+	 * 判定图 / combo 数字的 dst 挂着 {@code timer}（{@code TIMER_JUDGE_xP} / {@code TIMER_COMBO_xP}），
+	 * {@code prepareRegion()} 里做的是 {@code time -= timer.get(state)}，而 timer 值也是在
+	 * state 时钟的时基上打的时间戳。独立时钟比 state 时钟小，差值就成了负数，对象被判成
+	 * "还没开始"（{@code starttime > time}）而整帧不画 —— 实测症状是"判定跟 combo 都不见了"。
+	 * 所以这里只做**钳制**（= 同一个时基上取 min），绝不换时基。</p>
 	 *
-	 * <p>{@code scene} 未声明（= {@link Skin#SCENE_UNSPECIFIED}）的皮肤（play 系列大多如此）
-	 * **不做任何限制**，等于保持改动前的行为。</p>
+	 * <p>钳制点是"退场动画开始之前"：{@code scene - max(fadeout, 500) - 500}。
+	 * 对 play / result 皮肤没有影响 —— 它们的 {@code scene = 3600000}（1 小时，约定俗成的
+	 * "没有退场动画"），钳制点约 3599000ms，进界面后一小时才会碰到。</p>
 	 */
-	private long resolvePreviewTime(Skin previewSkin, long elapsedMs) {
+	private long resolvePreviewTime(Skin previewSkin, long stateTimeMs) {
 		final int scene = previewSkin.getScene();
-		if (scene <= 0 || scene >= Skin.SCENE_UNSPECIFIED) {
-			return elapsedMs;
+		if (scene <= 0 || scene == Skin.SCENE_UNSPECIFIED) {
+			return stateTimeMs;
 		}
-		long span = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
-		if (span <= 0) {
-			span = scene / 2;
-		}
-		return Math.min(elapsedMs, span);
+		// 退场动画由皮肤自己声明在 scene 末尾（fadeout 就是它声明的时长），再留一段余量
+		final long exitStart = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
+		final long span = Math.max(1, exitStart - PREVIEW_TAIL_MARGIN_MS);
+		return Math.min(stateTimeMs, span);
 	}
 
 	private void renderPreview(Skin previewSkin) {
@@ -208,9 +197,11 @@ public class SkinPreview extends SkinObject {
 				// 自定义计时器/事件通常绑定具体游戏状态（谱面、分数…），在预览环境里失败是
 				// 预期内的；只跳过它们，别让静态元素（背景、轨道、判定线）跟着一起消失。
 			}
-			// 用"本次加载起算"的时钟，并钳制在稳态显示窗口内（见 resolvePreviewTime）
-			final long elapsedMs = (System.nanoTime() - clockStartNanos) / 1000000L;
-			previewSkin.drawAllObjectsSafely(previewBatch, configuration, resolvePreviewTime(previewSkin, elapsedMs));
+			// 用 state 时钟、并钳制在稳态显示窗口内（见 resolvePreviewTime）。
+			// 这里只能传"同一时基上的 min"，不能换成从 0 起的独立时钟：
+			// dst 挂 timer 的判定 / combo 会因差值为负而整帧不画。
+			final long stateTime = configuration.timer.getNowTime();
+			previewSkin.drawAllObjectsSafely(previewBatch, configuration, resolvePreviewTime(previewSkin, stateTime));
 		} finally {
 			previewBatch.end();
 			frameBuffer.end();

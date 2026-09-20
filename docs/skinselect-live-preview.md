@@ -503,7 +503,7 @@ timer.setTimerOn(TIMER_COMBO_xP);
 （`AndroidLauncher.checkVersionAndCopyAssets`）。改了 `skinselectmain.lua` 却不动 versionCode，
 真机上跑的还是旧 lua —— 灰块依旧。本次已 15 → 16。
 
-## 十、退场动画把预览变黑 + result / courseresult 预览解锁（2026-09-20 第三轮反馈）
+## 十、退场动画把预览变黑 + result / courseresult 预览解锁（2026-09-20 第三、四轮反馈）
 
 ### 1. 症状与病根：decide 类皮肤"只显示一次，随后整块变黑，切走再切回仍是黑的"
 
@@ -525,35 +525,74 @@ timer.setTimerOn(TIMER_COMBO_xP);
 **"进入皮肤选择界面以来的毫秒数"**，只增不减，也不会因为换皮肤而回退。于是：
 
 进入界面约 2.5 秒 → 黑图淡入到 `a=255` 并被钉死 → 预览永久全黑；换别的皮肤再换回来，
-计时器仍在 2.5 秒之后 → 依旧全黑。**play 皮肤不受影响**（它们基本不声明 `scene`，
-= `Skin.SCENE_UNSPECIFIED`，时间无上限），这正是第一轮 note/judge/keybeam 预览能正常显示的原因。
+计时器仍在 2.5 秒之后 → 依旧全黑。
 
-### 2. 修法：给预览一个自己的时钟，并钳制在"稳态显示窗口"内
+> ⚠️ **勘误（第四轮反馈时发现）**：本节第一版写的"play 皮肤基本不声明 `scene`"是**错的**。
+> `default/play/play7main.lua:120` 与 `GenericTheme/play/play.lua:357` 都写着 `scene = 3600000`，
+> `default/result/resultmain.lua:20` 同样是 `3600000`。**声明了 `scene`，只是数值大到等于"没有退场"**
+> （1 小时）。所以"是否声明 scene"不能当作"有没有退场动画"的判据 —— 真正的判据是
+> **声明值够不够小**（菜单类皮肤 2500~3000 是真的会退场）。
 
-- `SkinPreview` 新增 `clockStartNanos`（`System.nanoTime()`），
-  **换皮肤时重置**（`previewSkin != lastSkin` 分支）—— 所以每切一次皮肤，入场动画重播一次。
-- `SkinPreview.resolvePreviewTime(skin, elapsedMs)` 把动画时间钳制到
-  **`scene - max(fadeout, 500)`** 为止，永不进入退场段：
+### 2. 修法：**钳制**动画时间（在同一时基上取 min），**不换时基**
+
+- `SkinPreview.resolvePreviewTime(skin, stateTimeMs)`：`stateTimeMs` 来自
+  `configuration.timer.getNowTime()`（state 自己的时钟），钳到
+  **`scene - max(fadeout, 500) - 500`** 为止，永不进入退场段：
 
 ```java
-long span = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
-return Math.min(elapsedMs, span);
+final long exitStart = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
+final long span = Math.max(1, exitStart - PREVIEW_TAIL_MARGIN_MS);
+return Math.min(stateTimeMs, span);
 ```
 
   `fadeout` 就是皮肤声明的退场时长（`MusicDecide:54` / `MusicResult:193` 等处
   `if (timer.getNowTime(TIMER_FADEOUT) > getSkin().getFadeout())` 用它决定何时切界面），
   正常皮肤够用；再兜一个 500ms 下限，防"有退场动画但没声明 fadeout"。
-- `scene > 0 && scene < SCENE_UNSPECIFIED` 才钳制；**未声明的皮肤行为与改动前完全一致**。
+  最后再让出 500ms 余量，因为实测皮肤会把退场动画的首帧放在声明值**之前**约 200ms
+  （m-select decide：`fadeout = 1000`，但黑图首帧在 `scene - 200`）。
+- 对 m-select decide 验算：`scene = 2500` → `span = 2500 - 1000 - 500 = 1000` ms，
+  而黑图第一帧在 `t = 2300`（`a = 0`）→ 钳制后的 `t = 1000` 稳稳落在黑图之前，黑图恒为透明。
+- **对 play / result 皮肤等于没改**：它们的 `scene = 3600000`，钳制点 ≈ 3 598 500ms，
+  进界面后要一小时才碰到 —— 与改动前逐帧一致（这正是"只钳制、不换时基"的价值）。
 
-对这个皮肤验算：`span = 2500 - 1000 = 1500` ms，而黑图第一帧在 `t = 2300`（`a = 0`），
-所以钳制后的 `t = 1500` 稳稳落在黑图之前 → 黑图恒为透明。
+代价（可接受）：菜单类皮肤（`scene` 很小）在 `span` 之后预览**定格**在"稳态那一刻"，
+不再往下播；而不是像第一版那样一直在动但 2.5 秒后变黑。定格图恰好就是"这张皮肤正常显示时的样子"。
 
-### 3. 关键实现细节：**只覆盖"动画时间"，不覆盖 prepare 的节流门**
+### 3. 硬约束：动画时间**必须与 state 时钟同一时基**（第一版在这里翻车）
 
-`Skin.drawAllObjectsSafely(sprite, state, timeOverrideMs)` 里
-节流仍用真实计时器 `state.timer.getNowMicroTime()`，只有传给
-`obj.prepare(time, state)` 的 `time` 被覆盖。原因：覆盖值被钳制后**不再单调递增**，
-拿它去比 `nextpreparetime` 会让 prepare 被门挡住，对象就停在旧状态不再更新。
+第一版修法是"给预览一个自己的时钟"：`SkinPreview` 记 `clockStartNanos = System.nanoTime()`，
+换皮肤时重置，动画时间 = `(now - clockStartNanos)`，即**从 0 重新计时**。
+实机反馈：**"skinselect 里看不到 judge 跟 combo 了"**。原因：
+
+```
+判定图 / combo 数字的 dst 挂着 timer（TIMER_JUDGE_xP / TIMER_COMBO_xP），
+SkinObject.prepareRegion() 里是：  time -= timer.get(state)
+  → timer 值 = setTimerOn 时打的戳，也是在**同一个 state 时钟时基**上的毫秒数
+  → 独立时钟（从 0 起）比 state 时钟小，差值变成负数
+  → if (starttime > time) { draw = false; return; }   // starttime 是 dst 首帧时间，通常 0
+  → 判定图 / combo 数字整帧不画 = "消失"
+```
+
+而 `PreviewPlayValues` 每 400ms 用 `setTimerOn()` 重新打戳（`TimerManager.setTimerOn` =
+`setMicroTimer(id, getNowMicroTime())`，戳的是 state 时钟），所以这个差值在真游玩里恒为
+`0 ~ 400ms` 的小正数 —— **一旦把动画时间换成另一个时基，这套机制整体失效**。
+
+因此 `Skin.drawAllObjectsSafely(sprite, state, timeOverrideMs)` 的这个参数**只能用来钳制**
+（同基取 min），不能用来换时基；`SkinPreview` 里也照此写了注释。
+
+**为什么 play 皮肤也会中招**：`scene = 3600000 < SCENE_UNSPECIFIED`，第一版的判定
+（`scene < SCENE_UNSPECIFIED` 才钳制）挡不住它，于是 play 预览也拿到了独立时钟。
+现在钳制点远在 1 小时之后，等于不生效。
+
+其它仍然成立的两个细节：
+
+- prepare 的**节流门**不参与覆盖：`Skin.drawAllObjectsSafely` 里
+  `if (nextpreparetime <= microtime)` 仍用真实计时器 `state.timer.getNowMicroTime()`。
+  原因：覆盖值被钳制后**不再单调递增**，拿它去比 `nextpreparetime` 会让 prepare 被门挡住，
+  对象就停在旧状态不再更新（这条在改用 state 时钟后依然有效 —— 冻结期同样不递增）。
+- 排查入口：`play.SkinJudge.previewDiag()` 在非 `BMSPlayer` 状态下打印一次
+  `nowJudge.draw==false` 之类的失败原因（经 `LogcatLogHandler` 进 logcat，tag `beatoraja`），
+  "预览里没有判定"这类问题靠它定位。
 
 ### 4. result / courseresult 原本完全不预览 —— 确认是"上游就没做"，本分支已放开
 
@@ -591,8 +630,15 @@ if (selectedSkinHeader == null || config == null || type == SkinType.SKIN_SELECT
 
 ### 5. 验证
 
-改的是核心层，UI 上看不到新控件，只有"预览不再变黑 + result/courseresult 出画面"：
-进皮肤选择界面 → 切到 RESULT / COURSE_RESULT 分类 → 预览框应有画面；
-在 DECIDE 分类里选 m-select 并停留 10 秒以上，画面应**不再变黑**，
-切到别的皮肤再切回 m-select，仍应正常显示。
+改的是核心层，UI 上看不到新控件。四轮下来要同时满足：
+
+1. **判定 / combo 必须看得见**（第四轮的回归点）：在 SKIN SELECT 里预览一张 play 皮肤，
+   判定图与 combo 数字应按 `PreviewPlayValues` 的节奏出现（判定每 400ms 换一次，
+   combo 数字递增）。判定/连击的显示计时器没点亮就不会画，见第七节第 3 条。
+2. **decide 类皮肤不再变黑**：在 DECIDE 分类里选 m-select 并停留 10 秒以上，
+   画面应不再变黑（定格在稳态那一刻），切到别的皮肤再切回 m-select 仍正常显示。
+3. **result / courseresult 出画面**：切到 RESULT / COURSE_RESULT 分类，预览框应有画面
+   （早于本轮的构建里是完全空白的）。
+4. 若 `debug` 构建里发现某个元素不见了，先看 logcat 的 `beatoraja` tag：
+   `SkinJudge(预览) … nowJudge.draw==false` 会直接说明是"计时器没点亮"还是"时间被换时基"。
 

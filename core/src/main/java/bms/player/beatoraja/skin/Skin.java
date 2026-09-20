@@ -403,17 +403,23 @@ public class Skin {
 	}
 
 	/**
-	 * 同上，但可以**指定动画时间基准**（毫秒）。
+	 * 同上，但可以**指定动画时间基准**（毫秒）。{@code timeOverrideMs < 0} 时用
+	 * {@code state.timer.getNowTime()}。
 	 *
-	 * <p>{@code timeOverrideMs < 0} 时用 {@code state.timer.getNowTime()}（真实时间）。皮肤预览
-	 * 用它来模拟"皮肤被正常显示时的那一刻"—— 因为预览的 state 是 {@code SkinConfiguration}，
-	 * 它的计时器是"进入皮肤选择界面以来的时长"，会一直涨；而 select/decide/result 这类皮肤
-	 * 会在 {@code scene} 的末尾播"退场动画"（典型是 {@code id = -110} 的全屏黑图拉到不透明），
-	 * 于是预览一进来就落到退场之后 → 恒黑。见 {@code docs/skinselect-live-preview.md} 第十节。</p>
+	 * <p><b>传进来的值必须与 state 自己的时钟同一时基</b>（= "本 state 开始以来的毫秒数"）：
+	 * 对象 dst 上若挂了 {@code timer}，{@link SkinObject#prepareRegion} 里做的是
+	 * {@code time -= timer.get(state)}，而那个 timer 值也是在同一个时基上打的时间戳。
+	 * 若传一个"从 0 重新计时"的独立时钟（比 state 时钟小），差值变负，对象会被判成"还没开始"
+	 * （{@code starttime > time}）而整帧不画 —— 实测症状是预览里判定图 / combo 数字直接消失。
+	 * 所以这个参数只能用来"钳制"（同一时基上取 min），不能用来换时基。</p>
 	 *
-	 * <p>注意只覆盖**动画时间**：每帧的 prepare 节流仍然用真实计时器，因为覆盖值在预览里会被
-	 * 钳制（不再单调递增），拿它去比 {@code nextpreparetime} 会让 prepare 被节流门挡住，
-	 * 对象就停在旧状态不动了。</p>
+	 * <p>皮肤预览（{@code config.SkinPreview}）用它把动画时间钉在皮肤的"稳态显示窗口"内，
+	 * 免得 {@code scene} 末尾的退场动画（典型是 {@code id = -110} 的全屏黑图）把预览永久盖住。
+	 * 见 {@code docs/skinselect-live-preview.md} 第十节。</p>
+	 *
+	 * <p>覆盖的只是**传给 {@code obj.prepare()} 的动画时间**：每帧的 prepare 节流门
+	 * （{@code nextpreparetime <= microtime}）仍用真实计时器 —— 钳制后的值不再单调递增，
+	 * 拿它去比门会把 prepare 挡死，对象就停在旧状态不动了。</p>
 	 */
 	public void drawAllObjectsSafely(SpriteBatch sprite, MainState state, long timeOverrideMs) {
 		// 预览皮肤的尺寸可能与当前皮肤不同，而 viewport 是 ThreadLocal 共享的
