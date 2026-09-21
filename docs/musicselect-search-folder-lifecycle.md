@@ -13,8 +13,7 @@
   `dir.clear()`，所以即使玩家正停在刚删的搜索结果里，也会自然回到根目录，不会留悬空层级。
 - **`SearchTextField`（enter 分支的 `else`）**：搜索框里**什么都不输入直接回车** = 删掉光标当前
   停着的那个搜索 folder。搜索成功后代码本来就会 `setText("")`，所以"再按一次回车"天然是空输入，
-  正好当删除手势。删完（`removeSearch` 返回 `true`）调 `updateBar(null)` 重建并提示
-  `search folder removed`；光标不在搜索 folder 上则 no-op 并提示 `no search folder here`。
+  正好当删除手势。删完（`removeSearch` 返回 `true`）调 `updateBar(null)` 重建；光标不在搜索 folder 上则 no-op 并提示 `no search folder here`。
   **无论删没删成，都必须 `isControlKeyPressed(ControlKeys.ENTER)` 吞掉这次回车** —— 理由见下。
 
 ### 为什么必须吞掉 ENTER
