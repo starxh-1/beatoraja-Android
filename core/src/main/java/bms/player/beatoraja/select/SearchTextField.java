@@ -139,9 +139,13 @@ public class SearchTextField extends Stage {
 							// （别的搜索 folder 不动）。空输入本来就搜不出结果，正好拿来当删除。
 							final BarManager barmanager = selector.getBarManager();
 							final Bar selected = barmanager.getSelected();
-							if (barmanager.removeSearch(selected)) {
-								barmanager.updateBar(null);
-							} else {
+						if (barmanager.removeSearch(selected)) {
+							barmanager.updateBar(null);
+							// 删成功后把搜索框复位回默认的 "search song" 待输入状态
+							// （文案 + 颜色都回到初始态，而不是停在上一回搜索留下的旧文案上）
+							textField.setMessageText("search song");
+							textFieldStyle.messageFontColor = Color.GRAY;
+						} else {
 								textField.setMessageText("no search folder here");
 								textFieldStyle.messageFontColor = Color.DARK_GRAY;
 							}
