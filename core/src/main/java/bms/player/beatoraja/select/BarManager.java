@@ -645,6 +645,44 @@ public final class BarManager {
 		search.add(bar);
 	}
 
+	/**
+	 * 列表里当前有没有搜索条目（{@link SearchWordBar}）。
+	 */
+	public boolean hasSearch() {
+		return search.size > 0;
+	}
+
+	/**
+	 * 清掉搜索条目，并把玩家正停留的搜索 folder 从目录路径里弹出。
+	 *
+	 * <p>搜索结果是**临时视图**：离开选曲界面进 play 之后就不该继续挂在根目录列表里
+	 * （2026-09-21 反馈：搜索后进 play 再返回，那条 {@code Search : 'xxx'} 一直挂着）。
+	 * 若玩家当时正停在某个 {@link SearchWordBar} 里看结果，这一层以及它之后压入的层级
+	 * 也要一起弹出 —— 否则列表重建后还会停在一个已经没有入口的 folder 里。</p>
+	 *
+	 * <p>调用方负责在返回值 true 时重建列表（{@code updateBar(null)}），本方法只改状态。</p>
+	 *
+	 * @return 是否真的清掉了东西（false = 本来就没有搜索状态，调用方不必重建）
+	 */
+	public boolean resetSearch() {
+		if (search.size == 0) {
+			return false;
+		}
+		search.clear();
+		for (int i = 0; i < dir.size; i++) {
+			if (dir.get(i) instanceof SearchWordBar) {
+				while (dir.size > i) {
+					dir.removeLast();
+					if (sourcebars.size > 0) {
+						sourcebars.removeLast();
+					}
+				}
+				break;
+			}
+		}
+		return true;
+	}
+
 	public void addRandomCourse(GradeBar bar, String dirString) {
 		if (randomCourseResult.size >= 100) {
 			randomCourseResult.removeIndex(0);

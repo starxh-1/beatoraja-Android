@@ -74,6 +74,11 @@ public final class MusicSelector extends MainState {
 	private MusicSelectInputProcessor musicinput;
 
 	private SearchTextField search;
+	/**
+	 * 离开选曲界面时列表里若还挂着搜索条目就置 true，返回时由 {@link #prepare()} 归零。
+	 * 搜索结果是临时视图，不该跨 play 存活（见 {@link BarManager#resetSearch}）。
+	 */
+	private boolean searchResetPending;
 
 	/**
 	 * 搜索框（原生 EditText）是按哪个皮肤实例创建的。{@code loadSkin()} 每次都会
@@ -287,6 +292,16 @@ public final class MusicSelector extends MainState {
 			playedcourse = null;
 		}
 
+		// 归零上次离开选曲界面时留下的搜索结果。必须放在最后 —— 上面按 playedsong
+		// 刷新 EX Score 时依赖当前列表（从搜索结果里打完的那首歌就在旧列表里），
+		// 先重建列表会找不到它，分数就刷不上了。
+		if (searchResetPending) {
+			searchResetPending = false;
+			if (manager.resetSearch()) {
+				manager.updateBar(null);
+			}
+		}
+
 		final BMSPlayerInputProcessor input = main.getInputProcessor();
 		PlayModeConfig pc = (config.getMusicselectinput() == 0 ? config.getMode7()
 				: (config.getMusicselectinput() == 1 ? config.getMode9() : config.getMode14()));
@@ -423,6 +438,11 @@ public final class MusicSelector extends MainState {
 		if (search != null) {
 			search.unfocus(this);
 		}
+
+		// 搜索结果是临时视图：离开选曲界面（进 play、打开设置等）后就不该继续挂在列表里。
+		// 这里不能直接改列表 —— 返回选曲界面时 MainController 会跳过 create()，列表要等
+		// prepare() 才重建，所以只记标记，真正的归零放到 prepare() 末尾（见 BarManager#resetSearch）。
+		searchResetPending = manager.hasSearch();
 
 		// 进入 play 前立即清空 select 阶段的皮肤纹理 Pixmap,
 		// 避免长时间浏览选曲界面后 SkinLoader.resource 堆积大量 banner / stagefile / 皮肤图片。
