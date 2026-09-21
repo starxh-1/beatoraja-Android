@@ -633,20 +633,48 @@ public final class BarManager {
 	}
 
 	/**
-	 * 検索バーを登録する。**同時に 1 件のみ**を保持し、新しい検索は古い検索結果を置き換える。
+	 * 検索バーを登録する。
 	 *
-	 * <p>根目录列表（{@code updateBar(null)} 的 root 分支）会把整个 {@code search} 追加进去，
-	 * 所以这里维持"至多一条"就等价于"根目录里最多只有一个 {@code Search : 'xxx'} folder"。
-	 * 旧实现只做同名去重 + {@code maxSearchBarCount}（默认 10）限条数，不清旧结果 ——
-	 * 反复搜不同关键词时搜索 folder 会在根目录里堆叠（2026-09-21 反馈）。
-	 * 有意义的只有最新一次搜索结果，所以改为整体替换。</p>
+	 * <p>**複数保持できる**（同名タイトルは置き換え、{@code maxSearchBarCount} で上限）。
+	 * 根目录列表（{@code updateBar(null)} 的 root 分支）会把整个 {@code search} 追加进去，
+	 * 所以这里有几条、根目录里就有几个 {@code Search : 'xxx'} folder。</p>
 	 *
-	 * <p>调用方随后会 {@code updateBar(null)}：root 分支本来就会 {@code dir.clear()}，
-	 * 所以就算玩家此刻正停在上一条搜索结果里，重建后也自然回到根目录，不会有悬空层级。</p>
+	 * <p>搜索结果会一直留在根目录里（这是有意的 —— 看过一次还想再看），所以不需要的
+	 * 搜索 folder 由玩家自己删：搜索框里「什么都不输入直接回车」= 删掉光标当前停着的
+	 * 那一条（见 {@link #removeSearch(Bar)}）。</p>
 	 */
 	public void addSearch(SearchWordBar bar) {
-		search.clear();
+		for (SearchWordBar s : search) {
+			if (s.getTitle().equals(bar.getTitle())) {
+				search.removeValue(s, true);
+				break;
+			}
+		}
+		if (search.size >= select.resource.getConfig().getMaxSearchBarCount()) {
+			search.removeIndex(0);
+		}
 		search.add(bar);
+	}
+
+	/**
+	 * 指定の検索バーをリストから削除する。
+	 *
+	 * <p>2026-09-21 反馈：搜索 folder 会一直挂在根目录里，需要一个删除手势 ——
+	 * 滑到某个 {@code Search : 'love'} 上、打开搜索框什么都不输入直接回车，就删这一条
+	 * （别的搜索 folder 不动）。调用方是 {@code SearchTextField}。</p>
+	 *
+	 * <p>本方法只从 {@code search} 里移除，**不重建列表** —— 调用方删完要自己
+	 * {@code updateBar(null)}。届时 root 分支开头就会 {@code dir.clear()}，
+	 * 所以就算玩家正停在刚删掉的那条搜索结果里，也会自然回到根目录，不会留悬空层级。</p>
+	 *
+	 * @param bar 目标 bar（通常直接传 {@link #getSelected()}，非搜索 folder 时返回 false）
+	 * @return 真的删掉了才返回 true；调用方据此决定要不要重建列表、以及界面提示
+	 */
+	public boolean removeSearch(Bar bar) {
+		if (!(bar instanceof SearchWordBar)) {
+			return false;
+		}
+		return search.removeValue((SearchWordBar) bar, true);
 	}
 
 	public void addRandomCourse(GradeBar bar, String dirString) {

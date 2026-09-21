@@ -2,6 +2,7 @@ package bms.player.beatoraja.select;
 
 import bms.player.beatoraja.Resolution;
 import bms.player.beatoraja.input.KeyBoardInputProcesseor.ControlKeys;
+import bms.player.beatoraja.select.bar.Bar;
 import bms.player.beatoraja.select.bar.SearchWordBar;
 import bms.player.beatoraja.skin.Skin;
 
@@ -131,6 +132,26 @@ public class SearchTextField extends Stage {
 								textFieldStyle.messageFontColor = Color.DARK_GRAY;
 								selector.main.getInputProcessor().isControlKeyPressed(ControlKeys.ENTER);
 							}
+						} else {
+							// 空输入回车 = 删除光标当前停着的那个搜索 folder。
+							// 搜索结果会一直挂在根目录里（看过一次还想再看），所以需要一个删除手势：
+							// 滑到 `Search : 'love'` 上，打开搜索框不输入任何东西直接回车，就删掉这一条
+							// （别的搜索 folder 不动）。空输入本来就搜不出结果，正好拿来当删除。
+							final BarManager barmanager = selector.getBarManager();
+							final Bar selected = barmanager.getSelected();
+							if (barmanager.removeSearch(selected)) {
+								barmanager.updateBar(null);
+								textField.setMessageText("search folder removed");
+								textFieldStyle.messageFontColor = Color.valueOf("00c0c0");
+							} else {
+								textField.setMessageText("no search folder here");
+								textFieldStyle.messageFontColor = Color.DARK_GRAY;
+							}
+							// 必须吞掉这次 ENTER：上面删完会重建列表、光标落到别的 bar 上，
+							// 若这次按下漏给 MusicSelectInputProcessor，会被当成「打开 folder /
+							// 开始游戏」（ControlKeys.ENTER 的 text=false，文本输入态下照样被记录）。
+							// 既有的 "no song found" 分支出于同样原因也在吞。
+							selector.main.getInputProcessor().isControlKeyPressed(ControlKeys.ENTER);
 						}
 
 						Gdx.app.log("SearchTextField", "Deactivating text mode: Enter/Newline pressed");
