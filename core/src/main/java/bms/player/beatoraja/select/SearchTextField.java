@@ -141,8 +141,6 @@ public class SearchTextField extends Stage {
 							final Bar selected = barmanager.getSelected();
 							if (barmanager.removeSearch(selected)) {
 								barmanager.updateBar(null);
-								textField.setMessageText("search folder removed");
-								textFieldStyle.messageFontColor = Color.valueOf("00c0c0");
 							} else {
 								textField.setMessageText("no search folder here");
 								textFieldStyle.messageFontColor = Color.DARK_GRAY;
