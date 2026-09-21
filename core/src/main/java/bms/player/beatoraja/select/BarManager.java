@@ -632,55 +632,21 @@ public final class BarManager {
 			new CommandBar(select, folder.getName(), folder.getSql(), folder.isShowall());
 	}
 
+	/**
+	 * 検索バーを登録する。**同時に 1 件のみ**を保持し、新しい検索は古い検索結果を置き換える。
+	 *
+	 * <p>根目录列表（{@code updateBar(null)} 的 root 分支）会把整个 {@code search} 追加进去，
+	 * 所以这里维持"至多一条"就等价于"根目录里最多只有一个 {@code Search : 'xxx'} folder"。
+	 * 旧实现只做同名去重 + {@code maxSearchBarCount}（默认 10）限条数，不清旧结果 ——
+	 * 反复搜不同关键词时搜索 folder 会在根目录里堆叠（2026-09-21 反馈）。
+	 * 搜索结果本就是一次性视图，保留多条没有意义，因此改为整体替换。</p>
+	 *
+	 * <p>调用方随后会 {@code updateBar(null)}：root 分支本来就会 {@code dir.clear()}，
+	 * 所以就算玩家此刻正停在上一条搜索结果里，重建后也自然回到根目录，不会有悬空层级。</p>
+	 */
 	public void addSearch(SearchWordBar bar) {
-		for (SearchWordBar s : search) {
-			if (s.getTitle().equals(bar.getTitle())) {
-				search.removeValue(s, true);
-				break;
-			}
-		}
-		if (search.size >= select.resource.getConfig().getMaxSearchBarCount()) {
-			search.removeIndex(0);
-		}
-		search.add(bar);
-	}
-
-	/**
-	 * 列表里当前有没有搜索条目（{@link SearchWordBar}）。
-	 */
-	public boolean hasSearch() {
-		return search.size > 0;
-	}
-
-	/**
-	 * 清掉搜索条目，并把玩家正停留的搜索 folder 从目录路径里弹出。
-	 *
-	 * <p>搜索结果是**临时视图**：离开选曲界面进 play 之后就不该继续挂在根目录列表里
-	 * （2026-09-21 反馈：搜索后进 play 再返回，那条 {@code Search : 'xxx'} 一直挂着）。
-	 * 若玩家当时正停在某个 {@link SearchWordBar} 里看结果，这一层以及它之后压入的层级
-	 * 也要一起弹出 —— 否则列表重建后还会停在一个已经没有入口的 folder 里。</p>
-	 *
-	 * <p>调用方负责在返回值 true 时重建列表（{@code updateBar(null)}），本方法只改状态。</p>
-	 *
-	 * @return 是否真的清掉了东西（false = 本来就没有搜索状态，调用方不必重建）
-	 */
-	public boolean resetSearch() {
-		if (search.size == 0) {
-			return false;
-		}
 		search.clear();
-		for (int i = 0; i < dir.size; i++) {
-			if (dir.get(i) instanceof SearchWordBar) {
-				while (dir.size > i) {
-					dir.removeLast();
-					if (sourcebars.size > 0) {
-						sourcebars.removeLast();
-					}
-				}
-				break;
-			}
-		}
-		return true;
+		search.add(bar);
 	}
 
 	public void addRandomCourse(GradeBar bar, String dirString) {
