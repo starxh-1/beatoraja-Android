@@ -16,13 +16,18 @@ import java.util.Comparator;
  * <p>タイトル比較は「曲名の本体」だけを見る。難度違いの同一曲
  * (例: "Inochi [SP NORMAL]" / "Inochi [SP HYPER]" / "Inochi ~ANOTHER~")は
  * 同じ曲とみなされ、難易度の低い順(NORMAL → HYPER → ANOTHER)に並ぶ。
- * 本体の切り出しは 3 段階:
+ * 本体の切り出しは 2 段階:
  * <ol>
- * <li>括弧類・記号 ({@link #TITLE_BREAK_CHARS}) 以降を捨てる
- * <li>空白区切りのトークンが難度/譜面種別ラベル ({@link #TITLE_VARIANT_TOKENS}) なら、
- * そこから後ろを捨てる
- * <li>それでも決着しない場合だけ括弧内の難度名・完全なタイトル文字列で決着させる
+ * <li>括弧類・記号 ({@link #TITLE_BREAK_CHARS}) と、空白直後のダッシュ
+ * ({@link #TITLE_BREAK_DASH_CHARS}) 以降を捨てる。
+ * "Finixe [NORMAL]" も "Finixe -Eclipse-" も本体は "Finixe" になる</li>
+ * <li>残った文字列から、空白区切りのトークンが難度/譜面種別ラベル
+ * ({@link #TITLE_VARIANT_TOKENS}) なら、そこから後ろを捨てる</li>
  * </ol>
+ *
+ * <p>本体・難易度・レベル・難度名まで同じ場合だけ、記号を無視した文字列比較
+ * ({@link #compareIgnorePunctuation}) で決着させる。括弧で囲ったかダッシュで囲ったかで
+ * 並びが偏らないようにするため。
  *
  * @author exch
  */
@@ -266,6 +271,29 @@ public enum BarSorter {
 	private static final String TITLE_BREAK_DIGIT_CHARS = "★☆";
 
 	/**
+	 * 直前が空白/アンダースコアのときだけ区切りとみなすダッシュ類。
+	 * "Finixe -Eclipse-" や "omega iii - beyond the flare" を "Finixe" / "omega iii" にする。
+	 *
+	 * <p>空白を条件にしているのが要点。"X-DEN" や "A.B.C" のように空白なしで繋がった
+	 * ハイフンは曲名の一部なので切らない。難度ラベルを書く人は必ず空白で区切る。
+	 */
+	private static final String TITLE_BREAK_DASH_CHARS = "-–—―";
+
+	/**
+	 * {@link #TITLE_BREAK_DASH_CHARS} を区切りとみなすために、その手前に必要な文字。
+	 */
+	private static final String TITLE_BREAK_DASH_LEAD_CHARS = " _\u3000";
+
+	/**
+	 * 最終決着でだけ無視する文字。曲名本体・難易度・レベルまで同じ場合、
+	 * "Finixe [Akasha]" と "Finixe -Luna-" を "Finixe Akasha" / "Finixe Luna" として比べ、
+	 * 括弧で囲ったかダッシュで囲ったかで並びが偏らないようにする。
+	 */
+	private static final String TITLE_IGNORE_CHARS =
+			TITLE_BREAK_CHARS + TITLE_BREAK_DIGIT_CHARS + TITLE_BREAK_DASH_CHARS
+					+ "_]})】）〕〉》」』］｝・";
+
+	/**
 	 * 切り出した曲名本体の末尾から落とす文字。("Air -★10-" を "Air"、"AIR 鳥の詩　[EASY]" を
 	 * "AIR 鳥の詩" にするため。U+3000 は全角スペース)
 	 */
@@ -368,14 +396,15 @@ public enum BarSorter {
 		if (compare != 0) {
 			return compare;
 		}
-		return compareIgnoreCase(title1, title2);
+		return compareIgnorePunctuation(title1, title2);
 	}
 
 	/**
 	 * タイトル比較用の「曲名本体」を返す。難度・譜面種別のラベルを 2 段階で落とす。
 	 * <ol>
-	 * <li>括弧類・記号 ({@link #TITLE_BREAK_CHARS}) 以降を捨てる
-	 * <li>残った文字列から、空白/アンダースコア区切りの難度トークン以降を捨てる
+	 * <li>括弧類・記号 ({@link #TITLE_BREAK_CHARS}) と、空白直後のダッシュ
+	 * ({@link #TITLE_BREAK_DASH_CHARS}) 以降を捨てる</li>
+	 * <li>残った文字列から、空白/アンダースコア区切りの難度トークン以降を捨てる</li>
 	 * </ol>
 	 * 2 段階目を必ず走らせるのが要点。"ERIS MX [EX HARD]" のように 1 段階目だけで
 	 * "ERIS MX" で止まってしまうと、"ERIS" 本体のグループに入らないため。
@@ -392,7 +421,9 @@ public enum BarSorter {
 			final char c = title.charAt(i);
 			final boolean breakHere = TITLE_BREAK_CHARS.indexOf(c) >= 0
 					|| (TITLE_BREAK_DIGIT_CHARS.indexOf(c) >= 0
-							&& i + 1 < title.length() && Character.isDigit(title.charAt(i + 1)));
+							&& i + 1 < title.length() && Character.isDigit(title.charAt(i + 1)))
+					|| (TITLE_BREAK_DASH_CHARS.indexOf(c) >= 0
+							&& i > 0 && TITLE_BREAK_DASH_LEAD_CHARS.indexOf(title.charAt(i - 1)) >= 0);
 			if (breakHere) {
 				final String cut = trimTail(title.substring(0, i));
 				if (cut.length() > 0) {
@@ -510,5 +541,46 @@ public enum BarSorter {
 			return s2 == null ? 0 : -1;
 		}
 		return s2 == null ? 1 : s1.compareToIgnoreCase(s2);
+	}
+
+	/**
+	 * {@link #TITLE_IGNORE_CHARS} を無視した文字列比較。
+	 * 曲名本体・難易度・レベル・難度名まで同じ場合の最終決着にだけ使う。
+	 *
+	 * <p>括弧で囲うか、ダッシュで囲うか、という「書き方の違い」で並びが決まらないようにする。
+	 * ソート中に何度も呼ばれるため、整形した文字列を作らず添字を進めながら比較する(無割り当て)。
+	 */
+	private static int compareIgnorePunctuation(String s1, String s2) {
+		if (s1 == null) {
+			return s2 == null ? 0 : -1;
+		}
+		if (s2 == null) {
+			return 1;
+		}
+		int i1 = 0;
+		int i2 = 0;
+		while (true) {
+			i1 = skipIgnoreChars(s1, i1);
+			i2 = skipIgnoreChars(s2, i2);
+			final boolean end1 = i1 >= s1.length();
+			final boolean end2 = i2 >= s2.length();
+			if (end1 || end2) {
+				return end1 == end2 ? 0 : (end1 ? -1 : 1);
+			}
+			final char c1 = Character.toLowerCase(s1.charAt(i1));
+			final char c2 = Character.toLowerCase(s2.charAt(i2));
+			if (c1 != c2) {
+				return c1 < c2 ? -1 : 1;
+			}
+			i1++;
+			i2++;
+		}
+	}
+
+	private static int skipIgnoreChars(String value, int index) {
+		while (index < value.length() && TITLE_IGNORE_CHARS.indexOf(value.charAt(index)) >= 0) {
+			index++;
+		}
+		return index;
 	}
 }
