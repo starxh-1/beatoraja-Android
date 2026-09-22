@@ -169,6 +169,9 @@ libgdx-oboe.zip
 /android/assets/inochi_ogg/
 /android/assets/sound/*.ogg
 
+# ローカルの作業メモ/分析ドキュメントはコミット対象外
+/docs/
+
 # Ignore upstream libs and debug files (before /*.txt so they stay ignored)
 upstream-libgdx-oboe/
 endlessdream-upstream-src/
