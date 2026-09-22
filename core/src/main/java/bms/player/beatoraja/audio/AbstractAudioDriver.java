@@ -70,6 +70,41 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 	 */
 	private String lastModelMD5 = "";
 
+	/**
+	 * 復帰再生(オフセット再生)用の音源パス。WAV ID を添字とする。{@link #setModel} で構築する。
+	 *
+	 * <p>volatile なのは {@link #getSoundLengthMicros} が事前生成スレッドから
+	 * <b>モニタを取らずに</b>読むため。書き込み側は setModel の synchronized 区間。
+	 */
+	private volatile String[] wavPaths = new String[0];
+
+	/**
+	 * 音源の長さ(us)のキャッシュ。WAV ID をキーとする。
+	 */
+	private final java.util.Map<Integer, Long> wavLengthCache = new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * 同時に復帰再生を追跡できる最大数。これを超えた分は追跡しない(再生自体は継続する)。
+	 * 練習モードの開始位置を跨ぐ長いBG音は通常0〜数個なので十分。
+	 */
+	private static final int RESUME_TRACK_MAX = 16;
+
+	/**
+	 * 現在復帰再生(オフセット再生)中の音の数。通常0。
+	 * 0の間は {@link #play0} / {@link #stop0} が配列を一切触らないので、
+	 * 毎ノート呼ばれる経路にオーバーヘッドが乗らない(キーのオートボクシングも無し)。
+	 */
+	private int resumeCount = 0;
+	/**
+	 * 復帰再生中の音のWAV ID。{@link #resumeWavs} と同じ添字。
+	 */
+	private final int[] resumeIds = new int[RESUME_TRACK_MAX];
+	/**
+	 * 復帰再生中の音。{@link #resumeIds} と同じ添字。
+	 */
+	@SuppressWarnings("unchecked")
+	private final T[] resumeWavs = (T[]) new Object[RESUME_TRACK_MAX];
+
 	public AbstractAudioDriver(int maxgen) {
 		cache = new AudioCache(Math.max(maxgen, 1));
 	}
@@ -369,6 +404,8 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		final T[] newWavmap = (T[]) new Object[size];
 		@SuppressWarnings("unchecked")
 		final Array<SliceWav<T>>[] newSlicesound = (Array<SliceWav<T>>[]) new Array[size];
+		// 復帰再生(オフセット再生)用に、WAV ID -> 解決済みパス を控えておく
+		final String[] newWavPaths = new String[size];
 		noteMapSize = notemap.size;
 		Map<Integer, List<Note>> map = new HashMap<>();
 		notemap.iterator().forEachRemaining(m -> map.put(m.key, m.value));
@@ -402,6 +439,9 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 					}
 				} else {
 					p = new File("defaultsound/landmine.wav").getAbsolutePath();
+				}
+				if (wavid < newWavPaths.length) {
+					newWavPaths[wavid] = p;
 				}
 				for (Note note : waventry.getValue()) {
 					// 音切りあり・なし両方のデータが必要になるケースがある
@@ -452,6 +492,9 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		synchronized (this) {
 			wavmap = newWavmap;
 			slicesound = newSlicesoundArray;
+			wavPaths = newWavPaths;
+			wavLengthCache.clear();
+			clearResumeSounds();
 		}
 
 		final int prevsize = cache.size();
@@ -514,6 +557,251 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		}
 	}
 
+	/**
+	 * キー音再生(音源の途中から)。練習モードで開始位置を跨ぐ長いBGMを復帰させる用途。
+	 * synchronized の理由は {@link #play(Note, float, int)} と同じ。
+	 */
+	@Override
+	public synchronized boolean play(Note n, float volume, int pitch, long offsetMicros) {
+		if (n == null) {
+			return false;
+		}
+		if (offsetMicros <= 0) {
+			// オフセットなしは通常再生に委譲
+			play0(n, this.volume * volume, pitch);
+			for (Note ln : n.getLayeredNotes()) {
+				play0(ln, this.volume * volume, pitch);
+			}
+			return true;
+		}
+		// レイヤー音も含めて1つでも鳴らせたかを返す(診断ログの resumed 数を実際に合わせるため)
+		boolean played = playFromOffset(n, this.volume * volume, pitch, offsetMicros);
+		for (Note ln : n.getLayeredNotes()) {
+			played |= playFromOffset(ln, this.volume * volume, pitch, offsetMicros);
+		}
+		return played;
+	}
+
+	/**
+	 * 指定したNoteの音源の長さ(us)を返す。判定できない場合は0以下。
+	 *
+	 * <p>音切りNoteはその指定長、それ以外はファイル全体の長さ。ファイル長は
+	 * {@link PCM#getWavDurationMs(String)} でヘッダのみ解析して求める(デコードしない)。
+	 * 結果は WAV ID 単位でキャッシュする。
+	 */
+	@Override
+	public long getSoundLengthMicros(Note n) {
+		if (n == null) {
+			return -1;
+		}
+		if (n.getMicroDuration() > 0) {
+			return n.getMicroDuration();
+		}
+		final int id = n.getWav();
+		final String[] paths = wavPaths;
+		if (id < 0) {
+			// WAV 未割り当て(レイヤー/地雷など)。頻出するので警告は出さない
+			return -1;
+		}
+		if (id >= paths.length) {
+			// [BGRESUME] 診断: wavPaths の構築漏れ(本来起きない)
+			if (lenDiagCount < 8) {
+				lenDiagCount++;
+				Logger.getGlobal().warning("[BGRESUME] getSoundLengthMicros: wav=" + id
+						+ " out of range (wavPaths.length=" + paths.length + ") -> -1");
+			}
+			return -1;
+		}
+		final Long cached = wavLengthCache.get(id);
+		if (cached != null) {
+			return cached;
+		}
+		final String path = paths[id];
+		final long length = path != null ? PCM.getWavDurationMs(path) * 1000L : -1;
+		if (length <= 0 && lenDiagCount < 8) {
+			lenDiagCount++;
+			Logger.getGlobal().warning("[BGRESUME] getSoundLengthMicros: wav=" + id + " path=" + path
+					+ " -> length=" + length + "us (ヘッダ解析失敗 or パス解決失敗)");
+		}
+		wavLengthCache.put(id, length);
+		return length;
+	}
+
+	/** [BGRESUME] 診断ログの出力回数を抑えるためのカウンタ(復帰再生の調査用)。 */
+	private int lenDiagCount = 0;
+
+	/**
+	 * 音源の途中からキー音を鳴らす。
+	 *
+	 * <p>wavmap のSoundは先頭からしか鳴らせない(libGDXのSoundにseekが無い)ため、
+	 * PCMをスライスして「offsetMicros 以降」だけのSoundを生成し、それを鳴らす。
+	 * 生成物は (path, start, duration) をキーに {@link AudioCache} へ載るので、
+	 * 同じ位置からの復帰再生は2回目以降デコード済みのものが使い回される。
+	 *
+	 * @return 実際に再生を開始できた場合はtrue。音源の生成に失敗した場合はfalse
+	 */
+	private final boolean playFromOffset(Note n, float volume, int pitchShift, long offsetMicros) {
+		try {
+			final int id = n.getWav();
+			final T sound = getOffsetSound(n, offsetMicros);
+			if (sound == null) {
+				return false;
+			}
+			final int channel = channel(id, pitchShift);
+			final float pitch = pitchShift != 0 ? (float) Math.pow(2.0, pitchShift / 12.0) : 1.0f;
+			// 通常再生と同じく「同じチャンネルの前の音を止めてから鳴らす」
+			stop(sound, channel);
+			// 同じWAV IDの復帰再生が残っていれば止める。
+			// 起点前に同じ長いBGMが複数回発音されている場合、後の発音が前の発音を止めるのが
+			// 通常再生(play0)の挙動なので、それに合わせて二重再生を防ぐ。
+			if (resumeCount > 0) {
+				stopResumeSound(id);
+			}
+			// 通常再生が同じWAV IDを鳴らした時に重ならないよう記録しておく
+			addResumeSound(id, sound);
+			Logger.getGlobal().info("[BGRESUME] playFromOffset: wav=" + id + " offset=" + offsetMicros
+					+ "us channel=" + channel);
+			play(sound, channel, volume, pitch);
+			return true;
+		} catch (Exception e) {
+			// stderr はログに出ないので logcat へ流す(復帰再生は失敗しても無音になるだけで気付きにくい)
+			Logger.getGlobal().warning("[BGRESUME] playFromOffset failed: " + e);
+			e.printStackTrace();
+			return false;
+		}
+	}
+
+	/**
+	 * 「offsetMicros 以降」の音源(Sound)を取得する。キャッシュに無ければ生成する。
+	 *
+	 * <p>再生はしないので、{@link #prepareOffsetSound} からも使える。
+	 * 呼び出し元はこのドライバのモニタを保持していること
+	 * ({@link #play(Note, float, int, long)} / {@link #prepareOffsetSound} は synchronized)。
+	 *
+	 * @return 音源。生成できない場合(音源がオフセット位置より短い、パス解決失敗など)はnull
+	 */
+	private T getOffsetSound(Note n, long offsetMicros) {
+		final int id = n.getWav();
+		final String[] paths = wavPaths;
+		if (id < 0) {
+			return null;
+		}
+		if (id >= paths.length) {
+			Logger.getGlobal().warning("[BGRESUME] offset sound: wav=" + id + " out of range");
+			return null;
+		}
+		final String path = paths[id];
+		if (path == null) {
+			Logger.getGlobal().warning("[BGRESUME] offset sound: wav=" + id + " path is null");
+			return null;
+		}
+		// 音切りNoteはスライス済み音源を鳴らすので、その先頭からの相対位置に読み替える
+		final long noteStart = n.getMicroStarttime();
+		final long noteDuration = n.getMicroDuration();
+		final long sliceStart = noteStart + offsetMicros;
+		final long sliceDuration = noteDuration > 0 ? Math.max(noteDuration - offsetMicros, 0) : 0;
+		if (noteDuration > 0 && sliceDuration <= 0) {
+			return null; // 既に鳴り終わっている
+		}
+		final AudioKey key = new AudioKey(path, sliceStart, sliceDuration);
+		final boolean cached = cache.exists(key);
+		final T sound = cache.get(key);
+		if (sound == null) {
+			Logger.getGlobal().warning("[BGRESUME] offset sound: slice(" + sliceStart + "," + sliceDuration
+					+ ") の生成に失敗 wav=" + id + " path=" + path);
+			return null; // 音源がオフセット位置より短い(既に鳴り終わっている)
+		}
+		if (!cached) {
+			// 生成は重い処理なので、どの音源をどの位置で生成したかだけ残す(キャッシュヒット時は出さない)
+			Logger.getGlobal().info("[BGRESUME] offset sound generated: wav=" + id + " sliceStart=" + sliceStart
+					+ "us sliceDuration=" + sliceDuration + "us");
+		}
+		return sound;
+	}
+
+	/**
+	 * 「offsetMicros 以降」の音源を事前に生成する(再生はしない)。
+	 *
+	 * <p>練習モードで開始位置を跨ぐ長いBGMを、プレイ開始と同時に正しい位置で鳴らすために使う。
+	 * 生成をプレイ開始後に初めて行うと、生成が終わった時点でようやく鳴り始めるため
+	 * BGMが譜面から遅れて鳴る(2回目以降はキャッシュが効くので遅れない)。
+	 * synchronized の理由は {@link #play(Note, float, int, long)} と同じ。
+	 */
+	@Override
+	public synchronized boolean prepareOffsetSound(Note n, long offsetMicros) {
+		if (n == null || offsetMicros <= 0) {
+			return false;
+		}
+		final boolean prepared = getOffsetSound(n, offsetMicros) != null;
+		for (Note ln : n.getLayeredNotes()) {
+			getOffsetSound(ln, offsetMicros);
+		}
+		return prepared;
+	}
+
+	/**
+	 * 復帰再生中の音を登録する。呼び出し元は synchronized 文脈。
+	 */
+	private void addResumeSound(int id, T sound) {
+		for (int i = 0; i < resumeCount; i++) {
+			if (resumeIds[i] == id) {
+				resumeWavs[i] = sound;
+				return;
+			}
+		}
+		if (resumeCount < RESUME_TRACK_MAX) {
+			resumeIds[resumeCount] = id;
+			resumeWavs[resumeCount] = sound;
+			resumeCount++;
+		}
+	}
+
+	/**
+	 * 指定WAV IDの復帰再生中の音を止める。呼び出し元は synchronized 文脈。
+	 */
+	private void stopResumeSound(int id) {
+		for (int i = 0; i < resumeCount; i++) {
+			if (resumeIds[i] == id) {
+				final T sound = resumeWavs[i];
+				resumeCount--;
+				resumeIds[i] = resumeIds[resumeCount];
+				resumeWavs[i] = resumeWavs[resumeCount];
+				resumeIds[resumeCount] = -1;
+				resumeWavs[resumeCount] = null;
+				if (sound != null) {
+					stop(sound);
+				}
+				return;
+			}
+		}
+	}
+
+	/**
+	 * 復帰再生中の音を全て止める。呼び出し元は synchronized 文脈。
+	 */
+	private void stopAllResumeSounds() {
+		for (int i = 0; i < resumeCount; i++) {
+			final T sound = resumeWavs[i];
+			if (sound != null) {
+				stop(sound);
+			}
+			resumeWavs[i] = null;
+			resumeIds[i] = -1;
+		}
+		resumeCount = 0;
+	}
+
+	/**
+	 * 復帰再生中の追跡情報を捨てる(音は止めない)。呼び出し元は synchronized 文脈。
+	 */
+	private void clearResumeSounds() {
+		for (int i = 0; i < resumeCount; i++) {
+			resumeWavs[i] = null;
+			resumeIds[i] = -1;
+		}
+		resumeCount = 0;
+	}
+
 	public void play(int judge, boolean fast) {
 		if(judge < 0 || judge >= additionalKeySounds.length) {
 			return;
@@ -539,6 +827,10 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 				return;
 			}
 			final int channel = channel(id, pitchShift);
+			// 同じWAV IDの復帰再生が残っていれば止める(通常再生と重ならないように)
+			if (resumeCount > 0) {
+				stopResumeSound(id);
+			}
 			final float pitch = pitchShift != 0 ? (float)Math.pow(2.0, pitchShift / 12.0) : 1.0f;
 			final long starttime = n.getMicroStarttime();
 			final long duration = n.getMicroDuration();
@@ -582,6 +874,8 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 						stop(slice.wav);
 					}
 				}
+				// 復帰再生中の音も止める(練習をやり直す時に長いBGMが鳴り続けないように)
+				stopAllResumeSounds();
 			} else {
 				stop0(n);
 				for (Note ln : n.getLayeredNotes()) {
@@ -598,6 +892,10 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		final int channel = channel(id, 0);
 		if (id < 0) {
 			return;
+		}
+		// 復帰再生中の音もWAV IDで止める
+		if (resumeCount > 0) {
+			stopResumeSound(id);
 		}
 		final long starttime = n.getMicroStarttime();
 		final long duration = n.getMicroDuration();
@@ -666,8 +964,18 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 		return (float)progress.get() / (float)noteMapSize;
 	}
 
-	public void disposeOld() {
+	/**
+	 * 古い音源を解放する。
+	 *
+	 * <p>synchronized なのは {@link #clearResumeSounds} のため。復帰再生の追跡配列
+	 * ({@code resumeIds}/{@code resumeWavs}/{@code resumeCount})は
+	 * {@link #play0}/{@link #stop0} から<b>モニタ保持下で</b>読まれるので、
+	 * ここも同じモニタを取らないと「解放済みSoundを stop する」窓ができる。
+	 */
+	public synchronized void disposeOld() {
 		cache.disposeOld();
+		// 復帰再生中の参照は、プール側の解放に合わせて手放す(古いSoundを掴み続けない)
+		clearResumeSounds();
 	}
 	/**
 	 * リソースを開放する
@@ -679,6 +987,7 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			}
 		}
 		soundmap.clear();
+		clearResumeSounds();
 	}
 
 	/**
@@ -802,6 +1111,15 @@ public abstract class AbstractAudioDriver<T> implements AudioDriver {
 			this.path = path;
 			this.start = n.getMicroStarttime();
 			this.duration = n.getMicroDuration();
+		}
+
+		/**
+		 * 復帰再生(オフセット再生)用。Note を介さずに位置を直接指定する。
+		 */
+		public AudioKey(String path, long start, long duration) {
+			this.path = path;
+			this.start = start;
+			this.duration = duration;
 		}
 
 		public boolean equals(Object o) {

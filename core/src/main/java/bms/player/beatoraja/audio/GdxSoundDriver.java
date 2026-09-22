@@ -17,7 +17,6 @@ import bms.player.beatoraja.Config;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.files.FileHandleStream;
 import com.badlogic.gdx.utils.GdxRuntimeException;
 
 /**
@@ -45,6 +44,9 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 		}
 		if (sampleRate == 0) sampleRate = 44100;
 		setSampleRate(sampleRate);
+
+		// 前回起動時の一時WAV(スライスPCM用)が残っていれば消す
+		cleanupTempWavDir();
 
 		for (int i = 0; i < sounds.length; i++) {
 			sounds[i] = new SoundInstance();
@@ -95,19 +97,85 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 		return null;
 	}
 
+	/**
+	 * スライス済みPCM(音切り・音源の途中再生)から Sound を生成する。
+	 *
+	 * <p><b>Oboe バックエンドでは仮想ファイルが使えない。</b> {@code OboeAudio.newSound(FileHandle)} は
+	 * {@code handle.read()} を一切見ず、{@code handle.path()} をそのままネイティブの
+	 * {@code createSoundpoolFromPath()} に渡す(OpenAL ならストリームを読むので動いていた)。
+	 * 旧実装の {@code FileHandleStream("tempwav.wav")} は相対パスなので、
+	 * {@code Could not open file:tempwav.wav: No such file or directory} で必ず失敗していた
+	 * → 音切り(BMSONのslice)が全滅し、練習開始位置を跨ぐ長いBGMの復帰再生も無音になっていた。</p>
+	 *
+	 * <p>ここでは PCM を実ファイル(WAV)に書き出してから渡す。ネイティブ側は
+	 * {@code createSoundpoolFromPath} の中でファイル全体をデコードし終えてから
+	 * メモリ上の soundpool(「fully loaded 16Bit PCM」)を作るため、戻った時点で実ファイルは不要。
+	 * よって成否に関わらずその場で削除する(音切りが多い譜面でディスクを圧迫しない)。</p>
+	 */
 	@Override
 	protected Sound getKeySound(final PCM pcm) {
-		return Gdx.audio.newSound(new FileHandleStream("tempwav.wav") {
-			@Override
-			public InputStream read() {
-				return new WavFileInputStream(pcm);
-			}
+		final FileHandle wav = writeTempWav(pcm);
+		if (wav == null) {
+			return null;
+		}
+		try {
+			return Gdx.audio.newSound(Gdx.files.absolute(wav.file().getAbsolutePath()));
+		} catch (GdxRuntimeException e) {
+			Logger.getGlobal().warning("音源ファイル読み込み失敗" + e.getMessage());
+			return null;
+		} finally {
+			wav.delete();
+		}
+	}
 
-			@Override
-			public OutputStream write(boolean overwrite) {
-				return null;
+	/** 一時WAVの連番。並列デコード中に名前が衝突しないよう分ける。 */
+	private final java.util.concurrent.atomic.AtomicInteger tempWavSeq = new java.util.concurrent.atomic.AtomicInteger();
+
+	/** 一時WAVを置くディレクトリ({@code Gdx.files.local} 相対)。 */
+	private static final String TEMP_WAV_DIR = "tempwav";
+
+	/**
+	 * 前回起動時の一時WAVが残っていたら消す(プロセスが落ちると dispose されず残るため)。
+	 */
+	private void cleanupTempWavDir() {
+		try {
+			final FileHandle dir = Gdx.files.local(TEMP_WAV_DIR);
+			if (dir.exists()) {
+				dir.deleteDirectory();
 			}
-		});
+		} catch (Throwable e) {
+			Logger.getGlobal().warning("一時WAVディレクトリの削除に失敗: " + e);
+		}
+	}
+
+	/**
+	 * PCM(スライス済み)を 16bit WAV として実ファイルに書き出す。
+	 *
+	 * @return 書き出したファイル。失敗時は null
+	 */
+	private FileHandle writeTempWav(PCM pcm) {
+		FileHandle handle = null;
+		try {
+			handle = Gdx.files.local(TEMP_WAV_DIR + "/" + tempWavSeq.incrementAndGet() + ".wav");
+			final WavFileInputStream in = new WavFileInputStream(pcm);
+			final OutputStream os = handle.write(false);
+			try {
+				final byte[] buf = new byte[32 * 1024];
+				int read;
+				while ((read = in.read(buf, 0, buf.length)) > 0) {
+					os.write(buf, 0, read);
+				}
+			} finally {
+				os.close();
+			}
+			return handle;
+		} catch (Throwable e) {
+			Logger.getGlobal().warning("音源(wav)ファイルスライシング失敗。" + e);
+			if (handle != null) {
+				handle.delete();
+			}
+			return null;
+		}
 	}
 
 	private Object lock = new Object();
@@ -433,34 +501,91 @@ public class GdxSoundDriver extends AbstractAudioDriver<Sound> {
 
 		@Override
 		public int read() {
-			int result = -1;
-			if (pos < 44) {
-				result = 0x00ff & header[pos];
+			final int result = byteAt(pos);
+			if (result >= 0) {
 				pos++;
-			} else if (pos < 44 + pcm.len * 2) {
+			}
+			return result;
+		}
+
+		/**
+		 * 指定バイト位置の値を返す(範囲外は -1)。{@link #read()} と
+		 * {@link #read(byte[], int, int)} の共通ロジック。
+		 */
+		private int byteAt(int p) {
+			if (p < 44) {
+				return 0x00ff & header[p];
+			}
+			if (p < 44 + pcm.len * 2) {
+				int result = -1;
 				if(pcm instanceof ShortPCM) {
-					short s = ((short[])pcm.sample)[(pos - 44) / 2 + pcm.start];
-					if (pos % 2 == 0) {
+					short s = ((short[])pcm.sample)[(p - 44) / 2 + pcm.start];
+					if (p % 2 == 0) {
 						result = (s & 0x00ff);
 					} else {
 						result = ((s & 0xff00) >>> 8);
 					}
 				} else if(pcm instanceof ShortDirectPCM) {
-					result = ((ByteBuffer)pcm.sample).get(pos - 44 + pcm.start * 2) & 0xff;
+					result = ((ByteBuffer)pcm.sample).get(p - 44 + pcm.start * 2) & 0xff;
 				} else if(pcm instanceof FloatPCM) {
-					short s = (short) (((float[])pcm.sample)[(pos - 44) / 2 + pcm.start] * Short.MAX_VALUE);
-					if (pos % 2 == 0) {
+					short s = (short) (((float[])pcm.sample)[(p - 44) / 2 + pcm.start] * Short.MAX_VALUE);
+					if (p % 2 == 0) {
 						result = (s & 0x00ff);
 					} else {
 						result = ((s & 0xff00) >>> 8);
 					}
 				} else if(pcm instanceof BytePCM) {
-					result = pos % 2 != 0 ? (((byte[])pcm.sample)[(pos - 44) / 2 + pcm.start]) & 0x000000ff : 0;
+					result = p % 2 != 0 ? (((byte[])pcm.sample)[(p - 44) / 2 + pcm.start]) & 0x000000ff : 0;
 				}
-				pos++;
+				return result;
 			}
-			// System.out.println("read : " + pos + " data : " + result);
-			return result;
+			return -1;
+		}
+
+		/**
+		 * まとめ読み。{@link java.io.InputStream} の既定実装は 1 バイトずつ read() を呼ぶため、
+		 * 数MBの音源をファイルに書き出す時に極端に遅い。ここでは同じ規則で直接バッファへ書く。
+		 */
+		@Override
+		public synchronized int read(byte[] b, int off, int len) {
+			if (b == null) {
+				throw new NullPointerException();
+			}
+			if (off < 0 || len < 0 || len > b.length - off) {
+				throw new IndexOutOfBoundsException();
+			}
+			final int total = 44 + pcm.len * 2;
+			if (pos >= total) {
+				return -1;
+			}
+			if (len == 0) {
+				return 0;
+			}
+			final int n = Math.min(len, total - pos);
+			final int end = pos + n;
+			int i = pos;
+			int o = off;
+			// WAVヘッダ部
+			while (i < end && i < 44) {
+				b[o++] = header[i++];
+			}
+			// サンプルデータ部。ShortPCM が最も一般的なので配列から直接 2 バイトずつ書く。
+			int d = i - 44;
+			if (i < end && pcm instanceof ShortPCM) {
+				final short[] sample = (short[]) pcm.sample;
+				while (i < end) {
+					final short s = sample[pcm.start + (d >> 1)];
+					b[o++] = (d & 1) == 0 ? (byte) s : (byte) (s >> 8);
+					d++;
+					i++;
+				}
+			} else {
+				while (i < end) {
+					b[o++] = (byte) byteAt(i++);
+				}
+			}
+			pos = end;
+			return n;
 		}
 	}
 }

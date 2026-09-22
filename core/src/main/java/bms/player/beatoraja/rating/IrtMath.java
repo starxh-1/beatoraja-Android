@@ -9,25 +9,31 @@ public class IrtMath {
 
     public static double findZeroByBisection(java.util.function.DoubleUnaryOperator f,
                                                double min, double max, double epsilon) {
+        // walkure-offline の irt-math.js と同一の「素の二分法」。f は単調減少で、
+        // 呼び出し側が f(min) >= 0、f(max) <= 0 を保証する前提で、[min, max] を狭めて upper を返す。
+        //
+        // Java 移植時に `if (f(min) == 0.0) return min; if (f(max) == 0.0) return max;` の短絡と
+        // `return mid;` が足されていたが、前者が ★40.55 という異常値の原因だった:
+        //   θ=+20 では sigmoid(a*(20-閾値)) が double で厳密に 1.0 へ飽和し、
+        //   GRM のカテゴリ確率が 0 に潰れて logLikelihoodDerivative がその観測を skip するため、
+        //   f(+20) が厳密に 0.0 になる。これを「上端が根」と誤判定して θ=THETA_MAX=20 を返し、
+        //   star はマッピング上限を超えて線形外挿されるので ★40.55 になる。
+        //   本当の根(実例では θ≈1.52)は範囲内にあるので短絡してはいけない。
+        //   「上端が既に根」の場合(f(x) = -x を [-5, 0] で解く等)は、短絡が無くても
+        //   二分法が upper を 0 に収束させるので、upstream のテストと同じ 0.0 が返る。
         double fMin = f.applyAsDouble(min);
-        double fMax = f.applyAsDouble(max);
-        if (fMin == 0.0) return min;
-        if (fMax == 0.0) return max;
 
-        double mid = 0;
         while (max - min > epsilon) {
-            mid = (min + max) * 0.5;
+            double mid = (min + max) * 0.5;
             double fMid = f.applyAsDouble(mid);
-            if (fMid == 0.0) return mid;
             if (Math.signum(fMin) != Math.signum(fMid)) {
                 max = mid;
-                fMax = fMid;
             } else {
                 min = mid;
                 fMin = fMid;
             }
         }
-        return mid;
+        return max;
     }
 
     public static double interpolatePiecewiseLinear(double x, double[] xPoints, double[] yPoints) {

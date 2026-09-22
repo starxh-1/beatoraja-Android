@@ -109,6 +109,28 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 	private PracticeConfiguration practice = new PracticeConfiguration();
 	private long starttimeoffset;
 
+	/**
+	 * 練習メニュー中の復帰再生用音源の事前生成: 直前フレームで見ていた開始位置(ms)。
+	 * 右/左キーを押しっぱなしにすると連続で変わるため、「変化が止まった」の判定に使う。
+	 */
+	private int practicePregenWatched = Integer.MIN_VALUE;
+	/**
+	 * 練習メニュー中の復帰再生用音源の事前生成: 開始位置が最後に変化した時刻(us)。
+	 */
+	private long practicePregenChangedMicro = 0;
+	/**
+	 * 練習メニュー中の復帰再生用音源の事前生成: 既に生成を開始した開始位置(ms)。
+	 * 同じ位置で何度も起動しないための目印。
+	 */
+	private int practicePregenDoneFor = Integer.MIN_VALUE;
+
+	/**
+	 * 練習メニューで開始位置の変化が止まったと見なすまでの時間(us)。
+	 * 押しっぱなしで連続して変わる間は生成を始めない(生成は数秒かかるため、
+	 * 途中の位置で走らせても捨てるだけになる)。
+	 */
+	private static final long PRACTICE_PREGEN_SETTLE_US = 500000;
+
 	private float adjustedVolume = -1.f;
 
 	private RhythmTimerProcessor rhythm;
@@ -622,6 +644,8 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 		if (autoplay.mode == BMSPlayerMode.Mode.PRACTICE) {
 			getScoreDataProperty().setTargetScore(0, null, 0, null, model.getTotalNotes());
 			practice.create(model, this.main);
+			// 新しい練習セッションなので事前生成の状態を捨てる
+			resetPracticePregen();
 			state = STATE_PRACTICE;
 		} else {
 
@@ -633,6 +657,57 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 			}
 			getScoreDataProperty().setTargetScore(score.getExscore(), score.decodeGhost(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0 , null, model.getTotalNotes());
 		}
+	}
+
+	/**
+	 * 練習メニュー中の復帰再生用音源の事前生成を進める。
+	 *
+	 * <p>練習では開始位置を跨いでまだ鳴っている長いBGM(例: 0:40 から 0:58 まで鳴る音源を
+	 * 0:50 から練習するケース)の復帰再生用音源を作る必要がある。この生成は
+	 * 「PCMデコード → 一時WAV書き出し → nativeでの再デコード」で、長い曲では2〜4秒かかる。
+	 * 開始(READY)と同時に始めると、その間 STATE_PLAY に入れない(＝開始が待たされる)。
+	 * ここで開始位置が確定した時点で先に作り始めておき、開始時は生成済みのものを鳴らす。
+	 *
+	 * <p>開始位置は右/左キーの押しっぱなしで連続して変わるので、変化が
+	 * {@link #PRACTICE_PREGEN_SETTLE_US} 止まってから起動する(途中の位置で走らせても
+	 * 捨てるだけ)。また再生速度(freq)を変えると model の時間軸そのものが変わるため、
+	 * その時は事前生成しない(開始時に作り直す)。
+	 */
+	private void updatePracticePregen(long micronow) {
+		final PracticeProperty property = practice.getPracticeProperty();
+		if (!resource.mediaLoadFinished() || property.freq != 100) {
+			return;
+		}
+		if (property.starttime != practicePregenWatched) {
+			practicePregenWatched = property.starttime;
+			practicePregenChangedMicro = micronow;
+			return;
+		}
+		// practicePregenChangedMicro == 0 は「この練習セッションでまだ一度も開始位置を
+		// いじっていない」＝復元された既定値のまま。この場合は調整中ではないので即座に始める
+		if ((practicePregenChangedMicro != 0
+				&& micronow - practicePregenChangedMicro < PRACTICE_PREGEN_SETTLE_US)
+				|| practicePregenDoneFor == practicePregenWatched) {
+			return;
+		}
+		practicePregenDoneFor = practicePregenWatched;
+		// 開始位置の計算は STATE_PRACTICE の開始処理と揃えること
+		final long pregenStarttime = (practicePregenWatched > 1000 ? practicePregenWatched - 1000 : 0) * 1000L;
+		Logger.getGlobal().info("[BGRESUME] practice menu pregen. starttime=" + pregenStarttime + "us");
+		keysound.prepareBGPlayInPracticeMenu(model, pregenStarttime);
+	}
+
+	/**
+	 * 練習メニューの事前生成状態を捨てる(新しい曲・新しい練習セッション用)。
+	 *
+	 * <p>「まだ一度も開始位置をいじっていない」状態として現在値を引き継ぐ。
+	 * 練習設定ファイルから復元された既定の開始位置はそのまま使われることが多く、
+	 * その場合に 500ms 待ってから作り始める理由が無いため。
+	 */
+	private void resetPracticePregen() {
+		practicePregenWatched = practice.getPracticeProperty().starttime;
+		practicePregenChangedMicro = 0;
+		practicePregenDoneFor = Integer.MIN_VALUE;
 	}
 
 	@Override
@@ -703,6 +778,10 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 					resource.getSongdata().setBMSModel(model);
 					lanerender.init(model);
 					keyinput.setKeyBeamStop(false);
+					// 曲を読み直すと model が別インスタンスになる。事前生成中の復帰再生音源は
+					// その model 前提なので捨てて、新しい model で作り直させる
+					keysound.stopBGPlay();
+					resetPracticePregen();
 					timer.setTimerOff(TIMER_PLAY);
 					timer.setTimerOff(TIMER_RHYTHM);
 					timer.setTimerOff(TIMER_FAILED);
@@ -718,6 +797,10 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 				control.setEnableControl(false);
 				control.setEnableCursor(false);
 				practice.processInput(input);
+				// 開始位置を跨ぐ長いBGMの復帰再生用音源は、ここで先に作り始めておく。
+				// 開始(READY)と同時に作り始めると、長い曲では生成に2〜4秒かかり、
+				// その間 STATE_PLAY に入れない(＝開始が待たされる)。
+				updatePracticePregen(micronow);
 
 				if (input.getKeyState(0) && resource.mediaLoadFinished() &&  micronow > (skin.getLoadstart() + skin.getLoadend()) * 1000
 						&& micronow - startpressedtime > 1000000) {
@@ -752,6 +835,10 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 					int practiceTail = Math.max(5000, maxTailMs);
 					playtime = (property.endtime + practiceTail) * 100 / property.freq;
 					bga.prepare(this);
+					// 開始位置を跨ぐ長いBGMの復帰再生用音源を、プレイ開始前に生成しておく。
+					// 生成には1秒以上かかることがあり、プレイ開始後にやるとBGMが譜面から遅れて鳴る。
+					// STATE_READY はこの生成が終わるまで STATE_PLAY へ進まない。
+					keysound.prepareBGPlay(model, starttimeoffset * 1000);
 					state = STATE_READY;
 					timer.setTimerOn(TIMER_READY);
 					play(PLAY_READY);
@@ -760,6 +847,9 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 			}
 			// practice終了
 			case STATE_PRACTICE_FINISHED -> {
+				// 練習メニューから抜ける経路(STARTせずにESCAPEした場合もここへ来る)。
+				// 事前生成スレッドが再生開始の合図待ちのまま残らないよう止める
+				keysound.stopBGPlay();
 				if (timer.getNowTime(TIMER_FADEOUT) > skin.getFadeout()) {
 					input.setEnable(true);
 					input.setStartTime(0);
@@ -769,6 +859,11 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 			// GET READY
 			case STATE_READY -> {
 				if (timer.getNowTime(TIMER_READY) > skin.getPlaystart()) {
+					// 練習モードの復帰再生用音源の生成が終わるまではプレイを始めない。生成は開始位置が
+					// 確定した時点(prepareBGPlay)から並行して走っているので、通常ここでは待たない。
+					if (!keysound.isBGResumePrepared()) {
+						break;
+					}
 					replayConfig = lanerender.getPlayConfig().clone();
 					state = STATE_PLAY;
 					timer.setMicroTimer(TIMER_PLAY, micronow - starttimeoffset * 1000);
@@ -804,6 +899,12 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 				// System.out.println("playing time : " + time);
 				if (playtime < ptime) {
 					state = STATE_FINISHED;
+					if (autoplay.mode == BMSPlayerMode.Mode.PRACTICE && resource.mediaLoadFinished()) {
+						// 練習はここから STATE_PRACTICE へ戻る経路で stop((Note)null) を通らない。
+						// 復帰再生した長いBGMはスライス音源で wavmap/soundmap に無いため、
+						// ここで止めないと練習メニューに戻っても鳴り続ける(音源ファイル末尾まで)。
+						main.getAudioProcessor().stop((Note) null);
+					}
 					if (resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY) {
 						timer.setTimerOn(TIMER_FADEOUT);
 					} else {
@@ -1153,6 +1254,10 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 	@Override
 	public void dispose() {
 		super.dispose();
+		// BGレーン再生スレッドを止める(復帰再生用音源の生成待ちのまま残さない)
+		if (keysound != null) {
+			keysound.stopBGPlay();
+		}
 		lanerender.dispose();
 		practice.dispose();
 		// 释放触摸按键映射资源

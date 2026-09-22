@@ -678,8 +678,7 @@ public abstract class PCM<T> {
                         sampleRate = decoded.sampleRate;
                         bitsPerSample = 16;
                         pcm = getDirectByteBuffer(decoded.data.length * 2);
-                        pcm.asShortBuffer().put(decoded.data);
-                        pcm.flip();
+                        putSamplesLittleEndian(pcm, decoded.data);
                     }
                 } catch (Exception e) {
                     Logger.getGlobal().warning("OGG decode failed for " + file.path() + ": " + e.getMessage());
@@ -693,8 +692,7 @@ public abstract class PCM<T> {
                         sampleRate = 44100; // Native decoder outputs at 44100Hz
                         bitsPerSample = 16;
                         pcm = getDirectByteBuffer(data.length * 2);
-                        pcm.asShortBuffer().put(data);
-                        pcm.flip();
+                        putSamplesLittleEndian(pcm, data);
                     }
                 } catch (Exception e) {
                     Logger.getGlobal().warning("Native decode failed for " + file.path() + ": " + e.getMessage());
@@ -705,6 +703,25 @@ public abstract class PCM<T> {
 
             // 加载完成后立即就地转换到 driver 目标格式,避免 typed PCM 再分配一次 sample[]
             convertToDriverFormat();
+        }
+
+        /**
+         * 16bit PCM(short[])をリトルエンディアンで書き込み、position を末尾へ進めて flip する。
+         *
+         * <p>{@code pcm.asShortBuffer().put(data)} は使えない。ビューへの put では親の
+         * position が進まず、そのまま flip() すると limit=0(中身が空)になるため
+         * {@code ShortDirectPCM.validate()} が false になり「音源読み込み失敗」で
+         * ogg/mp3/flac の音源が丸ごと使えなくなる(音切り・練習モードのBGM復帰再生が無音になる原因)。
+         * さらにビューのバイトオーダーは環境依存で、親のオーダーを継承する保証もない。
+         * このPCMは生バイトのままWAVへ書き出されるため、ここで揃えないと雑音になる。</p>
+         */
+        private static void putSamplesLittleEndian(ByteBuffer pcm, short[] data) {
+            // getDirectByteBuffer() が LITTLE_ENDIAN を設定済み。絶対 putShort はそのオーダーに従う
+            for (int i = 0, off = 0; i < data.length; i++, off += 2) {
+                pcm.putShort(off, data[i]);
+            }
+            pcm.position(data.length * 2);
+            pcm.flip();
         }
 
         private void convertToDriverFormat() {

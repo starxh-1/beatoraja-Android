@@ -111,6 +111,51 @@ public interface AudioDriver extends Disposable {
 	 */
 	public void play(Note n, float volume, int pitch);
 
+	/**
+	 * 指定したNoteの音を、音源の途中から鳴らす。
+	 *
+	 * <p>練習モードで開始位置を跨ぐ長いBGMを復帰させる用途を想定している。
+	 * {@code offsetMicros} は「そのNoteが本来鳴り始めた位置」からの経過時間(us)。
+	 * {@code offsetMicros <= 0} の場合は {@link #play(Note, float, int)} と同じ。
+	 *
+	 * @param n
+	 *            Note
+	 * @param volume
+	 *            ボリューム(0.0 - 1.0)
+	 * @param pitch
+	 *            ピッチ変化(-12 - 12)
+	 * @param offsetMicros
+	 *            音源先頭からのオフセット(us)
+	 * @return 途中からの再生を実際に開始できた場合はtrue。false の場合は無音になる
+	 *         (音源の生成に失敗した、オフセット位置が音源の長さを超えている等)
+	 */
+	public boolean play(Note n, float volume, int pitch, long offsetMicros);
+
+	/**
+	 * 指定したNoteの音源の長さ(us)を返す。判定できない場合は0以下を返す。
+	 *
+	 * @param n
+	 *            Note
+	 * @return 音源の長さ(us)。不明な場合は0以下
+	 */
+	public long getSoundLengthMicros(Note n);
+
+	/**
+	 * 指定したNoteの「offsetMicros 以降」の音源を事前に生成する。再生はしない。
+	 *
+	 * <p>{@link #play(Note, float, int, long)} は音源の生成が終わってから鳴り始めるため、
+	 * 長いBGMでは生成(PCMデコード + スライス音源の作成)に1秒以上かかることがあり、
+	 * その分だけ鳴り始めが遅れる。プレイ開始前にこれを呼んで生成だけ済ませておけば、
+	 * {@link #play(Note, float, int, long)} は即座に鳴り始める。
+	 *
+	 * @param n
+	 *            Note
+	 * @param offsetMicros
+	 *            音源先頭からのオフセット(us)
+	 * @return 音源が生成できた(または既に生成済みだった)場合はtrue
+	 */
+	public boolean prepareOffsetSound(Note n, long offsetMicros);
+
 	public void play(int judge, boolean fast);
 	/**
 	 * 指定したNoteの音を止める。nullの場合は再生されている音を全て止める
