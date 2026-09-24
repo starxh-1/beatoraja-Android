@@ -57,6 +57,24 @@ public class SettingsActivity extends Activity {
     private static final int REQUEST_CODE_EXPORT_SCORE = 1236;
     private static final int REQUEST_CODE_IMPORT_PLAYER = 1237;
     private static final int REQUEST_CODE_IMPORT_SCORE = 1238;
+    /**
+     * 「すべてのファイルへのアクセス」（MANAGE_EXTERNAL_STORAGE）要求の requestCode。
+     * <p>
+     * 🔴 許可与否は resultCode では判定できない（Settings の許可ページは RESULT_CANCELED を返す）ので、
+     * 戻ってきたら {@link #onResume()} で権限状態を読み直して判断する。
+     */
+    private static final int REQUEST_CODE_STORAGE_PERMISSION = 1239;
+
+    /**
+     * 権限ページを開いたあと、許可されたらそのままゲームを起動するためのフラグ。
+     * <p>
+     * 🔴 AndroidLauncher 側にも同じ権限ゲートがあるが、あちらは「権限が無い状態で
+     * initialize() してしまう」ため、許可後に {@code recreate()} で onCreate をもう一度
+     * 走らせる必要がある（LEGION Y700 で Input dispatching timed out の ANR になった経路）。
+     * SettingsActivity は素の Activity なので、ここで先に許可を取ってしまえば
+     * AndroidLauncher は最初から権限ありで起動し、recreate() が発生しない。
+     */
+    private boolean pendingGameLaunch = false;
     private int selectedVolume = 100;
     private int selectedKeyVolume = 100;
     private int selectedBgmVolume = 100;
@@ -1375,6 +1393,10 @@ public class SettingsActivity extends Activity {
             Log.e("SettingsActivity", "Error in super.onActivityResult", e);
         }
 
+        // ストレージ権限ページは RESULT_CANCELED / data=null で戻ってくるので、
+        // 下の早期 return より前に置く。実際の付与判定は onResume 側で行う。
+        if (requestCode == REQUEST_CODE_STORAGE_PERMISSION) return;
+
         if (resultCode != RESULT_OK || data == null) {
             Log.w("SettingsActivity", "onActivityResult: resultCode not OK or data is null");
             return;
@@ -1411,6 +1433,26 @@ public class SettingsActivity extends Activity {
             importScoreFromUri(uri);
         } else if (requestCode == REQUEST_CODE_IMPORT_PLAYER) {
             importPlayerFromUri(uri);
+        }
+    }
+
+    /**
+     * API 29 以下用：権限ダイアログの結果。
+     * ダイアログ表示中も Activity は resumed のままなので onResume が来ない。続きはここで回す。
+     */
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != REQUEST_CODE_STORAGE_PERMISSION) return;
+        if (isStoragePermissionGranted()) {
+            if (pendingGameLaunch) {
+                pendingGameLaunch = false;
+                startGameActivity();
+            }
+        } else {
+            // 拒否された。次に「开始游戏」を押したらまた要求する
+            Log.w("SettingsActivity", "Storage permission denied by user");
+            pendingGameLaunch = false;
         }
     }
 
@@ -1706,6 +1748,17 @@ public class SettingsActivity extends Activity {
         adjustingSeekBar = null;
         readAllOptionsFromUI();
         saveConfigToJson();
+
+        // 🔴 権限ページから戻ってきた直後：許可されていれば、そのままゲーム起動へ進む。
+        // これがあるおかげで AndroidLauncher は「最初から権限あり」で起動でき、
+        // recreate()（onCreate のやり直し）が走らない。
+        // 未許可で戻ってきたらフラグを落とすだけ（次に「开始游戏」を押せばまた開くので、
+        // ボタンが無反応になることはない）。
+        if (pendingGameLaunch) {
+            final boolean granted = isStoragePermissionGranted();
+            pendingGameLaunch = false;
+            if (granted) startGameActivity();
+        }
     }
 
     @Override protected void onPause() {
@@ -2439,6 +2492,12 @@ public class SettingsActivity extends Activity {
 
     /** 真正启动游戏：清理资源并切换到 AndroidLauncher */
     private void startGameActivity() {
+        // 🔴 先确保存储权限已经拿到，再进 AndroidLauncher。
+        // 権限が無いまま AndroidLauncher に入ると、あちらは「空のリスナーで initialize() 済み」
+        // の状態で許可ページへ飛び、戻ってきたときに recreate()（= onCreate のやり直し）が走る
+        // —— これが LEGION Y700 の ANR 経路。ここで先に許可を取っておけば発生しない。
+        if (!ensureStoragePermission()) return;
+
         // 在启动游戏前先清理所有资源，释放内存
         cleanupResources();
 
@@ -2450,6 +2509,65 @@ public class SettingsActivity extends Activity {
         // 改为同任务内标准 Activity 切换，finish() 会关闭 SettingsActivity。
         startActivity(intent);
         finish();
+    }
+
+    /**
+     * ゲーム起動前にストレージ権限を確保する。
+     * <p>
+     * 🔴 許可されたかどうかは戻り値の resultCode では分からない（Settings の許可ページは
+     * RESULT_CANCELED を返す）ので、戻ってきたら {@link #onResume()} で状態を読み直す。
+     *
+     * @return true = 権限あり（そのまま起動してよい）/ false = 権限ページを開いた（後で再開）
+     */
+    private boolean ensureStoragePermission() {
+        if (isStoragePermissionGranted()) return true;
+        if (pendingGameLaunch) return false;   // すでに要求中。二重に開かない
+        pendingGameLaunch = true;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            try {
+                startActivityForResult(new Intent(
+                                android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION,
+                                Uri.parse("package:" + getPackageName())),
+                        REQUEST_CODE_STORAGE_PERMISSION);
+            } catch (Exception e) {
+                // 一部の ROM は package 付き ACTION を解決できない → 一覧ページへフォールバック
+                Log.w("SettingsActivity", "App-specific all-files page unavailable, falling back", e);
+                try {
+                    startActivityForResult(new Intent(
+                                    android.provider.Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+                            REQUEST_CODE_STORAGE_PERMISSION);
+                } catch (Exception e2) {
+                    // どちらも開けないなら、AndroidLauncher 側の既存ゲートに任せる（従来動作）
+                    Log.w("SettingsActivity", "Cannot open all-files access page; deferring to AndroidLauncher", e2);
+                    pendingGameLaunch = false;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // 旧 API は権限ダイアログ。Activity を一時停止させないので onResume は来ない
+            // → 続きは onRequestPermissionsResult で回す。
+            requestPermissions(new String[]{
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_CODE_STORAGE_PERMISSION);
+            return false;
+        }
+        return true;   // API 21/22 はインストール時に付与される
+    }
+
+    /** 「すべてのファイルへのアクセス」（または旧 READ_EXTERNAL_STORAGE）が付与済みか。 */
+    private boolean isStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            return Environment.isExternalStorageManager();
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                    == android.content.pm.PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
     }
 
     /** 提前清理资源，用于 launchGame 时释放内存 */

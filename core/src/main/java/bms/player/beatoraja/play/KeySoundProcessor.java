@@ -33,6 +33,16 @@ public class KeySoundProcessor {
 	 */
 	private static final long BG_RESUME_PREPARE_TIMEOUT_MS = 5000;
 
+	/**
+	 * BGノートを鳴らし終えたあと lasttime までの待機を sleep で行う際の単位(ms)。
+	 *
+	 * <p>この区間は鳴らす対象が既に無いので、sleep 中に新しい音が来ることはない
+	 * (タイムラインは開始時のスナップショット)。短くする必要も無いが、stop の反映が
+	 * 遅れ過ぎない程度にしておく。鳴っている Sound はドライバが保持するため、
+	 * この待ちが音に影響することはない。
+	 */
+	private static final long BG_TAIL_IDLE_SLEEP_MS = 50;
+
 	public KeySoundProcessor(BMSPlayer player) {
 		this.player = player;
 		audio = player.main.getAudioProcessor();
@@ -281,6 +291,15 @@ public class KeySoundProcessor {
 						if (sleeptime > 0) {
 							sleep(sleeptime / 1000);
 						}
+					} catch (InterruptedException e) {
+					}
+				} else {
+					// p == tls.length ＝ 鳴らす対象を全部鳴らし終えた。ここから lasttime までは
+					// 下の判定だけが残るので、sleep が無いと 1 コアを占有する空回りになる
+					// (TIME_MARGIN が固定 5000 だった上流では末尾で 5 秒間そのまま回っていた)。
+					// この区間は鳴らす音がもう無いので、待っても音は欠けない。
+					try {
+						sleep(BG_TAIL_IDLE_SLEEP_MS);
 					} catch (InterruptedException e) {
 					}
 				}

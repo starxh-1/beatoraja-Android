@@ -72,6 +72,45 @@ public class AndroidLauncher extends AndroidApplication {
 	 */
 	private volatile boolean forceAssetsOverwrite;
 
+	/**
+	 * assets 由来の重い資産（内蔵曲パック inochi_ogg = 1082 ファイル / 26MB、
+	 * 内蔵フォールバックフォント 4MB）を落とす背景スレッド。
+	 * <p>
+	 * 🔴 これを主スレッド（onCreate）でやると、ストレージ権限を許可した直後の
+	 * {@code recreate()} で走る 2 回目の onCreate が 5 秒を超え、
+	 * {@code Input dispatching timed out (Waited 5000ms for FocusEvent(hasFocus=true))}
+	 * の ANR になる（LEGION Y700 / Android 15 で実測 6.8 秒）。
+	 * 曲スキャンの直前に {@link #awaitAssetSeed()} で待ち合わせる。
+	 */
+	private static volatile Thread assetSeedThread;
+
+	/** 内蔵曲パックの落盤完了マーカー（SharedPreferences のキー）。 */
+	private static final String KEY_INOCHI_SEEDED = "inochi_ogg_seeded";
+
+	/** {@link #awaitAssetSeed()} の待ち上限。超えたら諦めてスキャンへ進む（マーカー未書き込みなので次回補完される）。 */
+	private static final long ASSET_SEED_JOIN_TIMEOUT_MS = 120_000L;
+
+	/** {@link #awaitAssetSeed()} のポーリング間隔。 */
+	private static final long ASSET_SEED_POLL_MS = 250L;
+
+	/**
+	 * 「進捗が止まった」と見なして待つのをやめるまでの時間。
+	 * <p>
+	 * 🔴 上限 120 秒をそのまま使うと、極端に遅いストレージで曲スキャンが 2 分間
+	 * 固まって見える。コピー済みファイル数がこの時間まったく増えなければ
+	 * 「もう進みそうにない」と判断して先へ進む（マーカーは立っていないので
+	 * 次回起動時に差分が埋まる）。
+	 */
+	private static final long ASSET_SEED_STALL_TIMEOUT_MS = 20_000L;
+
+	/** {@link #awaitAssetSeed()} が進捗をログに出す間隔。 */
+	private static final long ASSET_SEED_PROGRESS_LOG_MS = 3_000L;
+
+	/** AssetSeeder がコピーし終えたファイル数。書くのは AssetSeeder スレッドだけ。 */
+	private static volatile int assetSeedCopied;
+	/** AssetSeeder がコピーすべき総ファイル数（判明するまで 0）。 */
+	private static volatile int assetSeedTotal;
+
 	/** 硬件最大刷新率，MainController 通过反射读取 */
 	public static float maxRefreshRate = 60f;
     private static final String TAG = "AndroidLauncher";
@@ -512,7 +551,12 @@ public class AndroidLauncher extends AndroidApplication {
     private static final String SOUND_FOLDER = "sound";
 
     /**
-     * 首次启动时创建必要的目录
+     * 首次启动时创建必要的目录。
+     * <p>
+     * 🔴 这里**只做 mkdirs 之类的轻量操作**。内蔵曲パック(inochi_ogg)や内蔵フォントの
+     * コピーは {@link #startAssetSeed(File, File)} で背景スレッドに逃がす。
+     * onCreate で 1082 ファイルを書くと、権限許可後の recreate() で走る 2 回目の
+     * onCreate が 5 秒を超えて ANR になる（LEGION Y700 / Android 15 で実測 6.8 秒）。
      */
     private void createDefaultDirectories() {
         File downloadBase = new File(getDownloadPath(), BEATORAJA_BASE);
@@ -524,15 +568,6 @@ public class AndroidLauncher extends AndroidApplication {
         if (!songsDir.exists()) {
             songsDir.mkdirs();
             Log.i(TAG, "Created songs directory: " + songsDir.getAbsolutePath());
-        }
-
-        // 第一次启动时，将 assets 中的 inochi_ogg 复制到默认歌曲目录。
-        // 保持补缺语义不随版本覆盖：用户可能对默认歌曲目录做过整理
-        File inochiDir = new File(songsDir, "inochi_ogg");
-        if (!inochiDir.exists()) {
-            Log.i(TAG, "First run: Copying inochi_ogg from assets to " + inochiDir.getAbsolutePath());
-            inochiDir.mkdirs();
-            copyAssetFolder(getAssets(), "inochi_ogg", inochiDir);
         }
 
         if (!skinsDir.exists()) {
@@ -559,18 +594,157 @@ public class AndroidLauncher extends AndroidApplication {
                     Log.i(TAG, "Created internal directory: " + d.getAbsolutePath());
                 }
             }
+        }
 
-            // 首次启动时将内置字体 VL-Gothic-Regular.ttf 复制到 beatoraja.root/font/，
-            // 作为 skin / 系统的字体兜底（确保 resolveFontFileHandle 链的 absolute 分支能找到）
-            File fallbackFont = new File(filesDir, "font/VL-Gothic-Regular.ttf");
-            if (!fallbackFont.exists()) {
-                try {
-                    copyAssetFile(getAssets(), "font/VL-Gothic-Regular.ttf", fallbackFont);
-                    Log.i(TAG, "Seeded fallback font: " + fallbackFont.getAbsolutePath());
-                } catch (Exception e) {
-                    Log.w(TAG, "Failed to seed fallback font: " + e.getMessage());
+        // 重い assets コピー（inochi_ogg 1082 ファイル / 内蔵フォント）は背景スレッドへ。
+        // 曲スキャンは MainController 側が checkAndExtractSongZips() 経由で待ち合わせる。
+        startAssetSeed(songsDir, filesDir);
+    }
+
+    /**
+     * assets 由来の重い資産を背景スレッドで落とす。
+     * <ul>
+     * <li>内蔵曲パック {@code assets/inochi_ogg}（1082 ファイル / 26MB）→ songs/inochi_ogg/
+     * <li>内蔵フォールバックフォント {@code assets/font/VL-Gothic-Regular.ttf} → filesDir/font/
+     * </ul>
+     * 落とす条件は「前回未完了（marker 無し）」または「ディレクトリごと消えた」のいずれか。
+     * 中身の一部だけ消した場合は触らない — ユーザーが既定曲フォルダを整理する余地を残す
+     * 既存セマンティク（copyAssetFolder 自体も既存ファイルはスキップする）。
+     */
+    private void startAssetSeed(File songsDir, File filesDir) {
+        // 一度きり。recreate() や構成変更で onCreate が再走しても二重コピーしない
+        // （onCreate は常にメインスレッドなので、この null チェックに競合は無い）。
+        if (assetSeedThread != null) {
+            return;
+        }
+        // Activity をスレッドに持ち込まないよう、必要なものはここで取り出しておく
+        final AssetManager am = getAssets();
+        final SharedPreferences sp = getApplicationContext()
+                .getSharedPreferences(PREFS_ASSET_VERSION, Context.MODE_PRIVATE);
+
+        Thread t = new Thread(() -> {
+            try {
+                long start = System.currentTimeMillis();
+
+                File inochiDir = new File(songsDir, "inochi_ogg");
+                // 落盘が必要なのは「前回が未完了」or「ディレクトリごと消えた」とき。
+                // 旧実装は後者だけを見ていたので、mkdirs 直後に中断すると
+                // 「ディレクトリは在るが中身が欠けたまま二度と補完されない」状態になった。
+                // 逆に、一部のファイルだけ消した場合は marker が真なので触らない
+                // （ユーザーが既定曲フォルダを整理する余地を残す既存セマンティク）。
+                final boolean seeded = sp.getBoolean(KEY_INOCHI_SEEDED, false);
+                if (!seeded || !inochiDir.exists()) {
+                    Log.i(TAG, "Seeding inochi_ogg from assets to " + inochiDir.getAbsolutePath()
+                            + " (marker=" + seeded + ", dirExists=" + inochiDir.exists() + ")");
+                    inochiDir.mkdirs();
+                    // 総数を先に公開する（awaitAssetSeed の進捗表示用。失敗しても 0 のまま）
+                    try {
+                        String[] entries = am.list("inochi_ogg");
+                        assetSeedTotal = entries != null ? entries.length : 0;
+                    } catch (IOException e) {
+                        assetSeedTotal = 0;
+                    }
+                    final int failed = copyAssetFolder(am, "inochi_ogg", inochiDir, false);
+                    final long elapsed = System.currentTimeMillis() - start;
+                    if (failed == 0) {
+                        sp.edit().putBoolean(KEY_INOCHI_SEEDED, true).apply();
+                        Log.i(TAG, "Seeded inochi_ogg in " + elapsed + "ms ("
+                                + assetSeedCopied + " files)");
+                    } else {
+                        // 🔴 1 ファイルでも失敗したらマーカーを立てない。立てると
+                        // 「欠けたまま二度と補完されない」状態に固定される。
+                        // 失敗したファイルは copyAssetFile 側で削除済みなので、
+                        // 次回起動の copyAssetFolder が差分としてコピーし直す。
+                        Log.w(TAG, "Seeding inochi_ogg finished with " + failed + " failure(s) in "
+                                + elapsed + "ms; marker NOT set (diff will be filled next launch)");
+                    }
+                }
+
+                if (filesDir != null) {
+                    File fallbackFont = new File(filesDir, "font/VL-Gothic-Regular.ttf");
+                    if (!fallbackFont.exists()) {
+                        // 失败时 copyAssetFile 会删掉半端文件,下次启动自然会重试
+                        if (copyAssetFile(am, "font/VL-Gothic-Regular.ttf", fallbackFont)) {
+                            Log.i(TAG, "Seeded fallback font: " + fallbackFont.getAbsolutePath());
+                        } else {
+                            Log.w(TAG, "Failed to seed fallback font (will retry next launch)");
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                // 普通の Thread なので未捕捉例外はプロセスを殺す。資産の補完失敗は
+                // 「今回入らなかった」だけで済ませる（曲スキャンは待ち合わせを諦めて進む）。
+                Log.e(TAG, "Asset seeding failed", e);
+            }
+        }, "AssetSeeder");
+        assetSeedThread = t;
+        t.start();
+    }
+
+    /**
+     * 内蔵資産の落盤完了を待つ。MainController の曲スキャン（SongUpdateThread）が
+     * {@link #checkAndExtractSongZips()} を通じて呼ぶ。初回起動でも内蔵曲パックが
+     * スキャンに間に合うようにするための待ち合わせ。
+     * <p>
+     * 待ち方は 3 段構え:
+     * <ol>
+     * <li>{@link #ASSET_SEED_POLL_MS} ごとにコピー済みファイル数を見て進捗をログに出す
+     * <li>{@link #ASSET_SEED_STALL_TIMEOUT_MS} のあいだ 1 ファイルも増えなければ諦める
+     *     （極端に遅いストレージで 2 分間スキャンが固まって見えるのを避ける）
+     * <li>それでも進み続ける場合は {@link #ASSET_SEED_JOIN_TIMEOUT_MS} で打ち切る
+     * </ol>
+     * いずれの打ち切りでもマーカーは立っていないので、次回起動時に差分が埋まる。
+     * <p>
+     * 🔴 主スレッドから呼ばれたら待たない（ANR を作らないため）。
+     */
+    private static void awaitAssetSeed() {
+        final Thread t = assetSeedThread;
+        if (t == null || t == Thread.currentThread()) {
+            return;
+        }
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            Log.w(TAG, "awaitAssetSeed() called on main thread - skipping wait");
+            return;
+        }
+        if (!t.isAlive()) {
+            // すでに落盤が終わっている（2 回目以降の曲スキャン）。ログも出さずに素通り
+            return;
+        }
+        final long start = System.currentTimeMillis();
+        long lastProgressAt = start;
+        long lastLoggedAt = start;
+        int lastCopied = assetSeedCopied;
+        try {
+            while (t.isAlive()) {
+                t.join(ASSET_SEED_POLL_MS);
+                final long now = System.currentTimeMillis();
+                final int copied = assetSeedCopied;
+                if (copied != lastCopied) {
+                    lastCopied = copied;
+                    lastProgressAt = now;
+                    if (now - lastLoggedAt >= ASSET_SEED_PROGRESS_LOG_MS) {
+                        lastLoggedAt = now;
+                        Log.i(TAG, "AssetSeeder progress: " + copied + "/" + assetSeedTotal + " files");
+                    }
+                    continue;
+                }
+                if (now - lastProgressAt >= ASSET_SEED_STALL_TIMEOUT_MS) {
+                    Log.w(TAG, "awaitAssetSeed() stalled: no new file for "
+                            + (now - lastProgressAt) + "ms (copied " + copied + "/" + assetSeedTotal
+                            + "); proceeding - remaining files will be filled next launch");
+                    return;
+                }
+                if (now - start >= ASSET_SEED_JOIN_TIMEOUT_MS) {
+                    Log.w(TAG, "awaitAssetSeed() timed out after " + (now - start) + "ms (copied "
+                            + copied + "/" + assetSeedTotal
+                            + "); proceeding - remaining files will be filled next launch");
+                    return;
                 }
             }
+            Log.i(TAG, "AssetSeeder finished in " + (System.currentTimeMillis() - start)
+                    + "ms; scan proceeds (copied " + assetSeedCopied + "/" + assetSeedTotal + ")");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
@@ -794,6 +968,10 @@ public class AndroidLauncher extends AndroidApplication {
 
     public static void checkAndExtractSongZips() {
         if (instance != null) {
+            // 初回起動では、内蔵曲パック(inochi_ogg)の背景コピーが終わるのを待ってから
+            // スキャンに入る。これが無いと初回だけ内蔵曲が曲リストに出てこない。
+            // MainController からは SongUpdateThread（背景スレッド）経由で呼ばれる。
+            awaitAssetSeed();
             instance.ensureExternalSongZip();
         }
     }
@@ -938,17 +1116,23 @@ public class AndroidLauncher extends AndroidApplication {
         return changed;
     }
 
-    /** 兼容旧调用：不覆盖已存在文件（补缺语义） */
+    /** 兼容旧调用：不覆盖已存在文件（补缺语义）。戻り値を使わない呼び出し元のための入口。 */
     private void copyAssetFolder(AssetManager am, String srcPath, File destDir) {
         copyAssetFolder(am, srcPath, destDir, false);
     }
 
-    private void copyAssetFolder(AssetManager am, String srcPath, File destDir, boolean overwrite) {
+    /**
+     * assets のフォルダを丸ごとコピーする。
+     *
+     * @return 失敗したファイル数（0 = 全部成功）。ディレクトリ内の一部だけ失敗した場合も
+     *         その数を返すので、呼び出し元は「完走したか」を判定できる。
+     */
+    private int copyAssetFolder(AssetManager am, String srcPath, File destDir, boolean overwrite) {
+        int failed = 0;
         try {
             String[] assets = am.list(srcPath);
             if (assets == null || assets.length == 0) {
-                copyAssetFile(am, srcPath, new File(destDir, new File(srcPath).getName()), overwrite);
-                return;
+                return copyAssetFile(am, srcPath, new File(destDir, new File(srcPath).getName()), overwrite) ? 0 : 1;
             }
             for (String asset : assets) {
                 String src = srcPath + "/" + asset;
@@ -956,27 +1140,53 @@ public class AndroidLauncher extends AndroidApplication {
                 boolean isDir = !(asset.contains(".") && !asset.endsWith("/"));
                 if (isDir) {
                     destSub.mkdirs();
-                    copyAssetFolder(am, src, destSub, overwrite);
+                    failed += copyAssetFolder(am, src, destSub, overwrite);
                 } else if (overwrite || !destSub.exists()) {
-                    copyAssetFile(am, src, destSub, overwrite);
+                    if (!copyAssetFile(am, src, destSub, overwrite)) failed++;
                 }
             }
-        } catch (IOException e) { Log.w(TAG, "Asset copy fail: " + srcPath + " - " + e.getMessage()); }
+        } catch (IOException e) {
+            failed++;
+            Log.w(TAG, "Asset copy fail: " + srcPath + " - " + e.getMessage());
+        }
+        return failed;
     }
 
-    /** 兼容旧调用：不覆盖已存在文件（补缺语义） */
-    private void copyAssetFile(AssetManager am, String srcPath, File destFile) {
-        copyAssetFile(am, srcPath, destFile, false);
+    /** 兼容旧调用：不覆盖已存在文件（补缺语义）。 */
+    private boolean copyAssetFile(AssetManager am, String srcPath, File destFile) {
+        return copyAssetFile(am, srcPath, destFile, false);
     }
 
-    private void copyAssetFile(AssetManager am, String srcPath, File destFile, boolean overwrite) {
+    /**
+     * assets の 1 ファイルをコピーする。失敗は投げず戻り値で返す
+     * （単一ファイルの失敗で残りを巻き添えにしない）。
+     *
+     * @return true = 成功
+     */
+    private boolean copyAssetFile(AssetManager am, String srcPath, File destFile, boolean overwrite) {
         // 覆盖模式下源文件缺失仍会抛 IOException，但逐文件 try-catch 保证单个失败不影响其余文件
         try (InputStream is = am.open(srcPath);
              FileOutputStream fos = new FileOutputStream(destFile)) {
-            byte[] buf = new byte[8192];
+            // 32KB: 内蔵曲パックの平均ファイルは約 24KB なので 1 read でほぼ収まる。
+            // 8KB だと 3 回の FUSE 往復になり、1082 ファイルでは差が効く
+            // （旧実装は主スレッドでこれをやっていて ANR になった）。
+            byte[] buf = new byte[32768];
             int len;
             while ((len = is.read(buf)) > 0) fos.write(buf, 0, len);
-        } catch (IOException e) { Log.w(TAG, "Asset file copy fail: " + srcPath + " - " + e.getMessage()); }
+            // 進捗カウンタは AssetSeeder スレッドだけが書く（他スレッドのコピーは数えない）。
+            // これを awaitAssetSeed が読んで「止まっていないか」を判定する。
+            if (Thread.currentThread() == assetSeedThread) assetSeedCopied++;
+            return true;
+        } catch (IOException e) {
+            Log.w(TAG, "Asset file copy fail: " + srcPath + " - " + e.getMessage());
+            // 🔴 半端なファイルを残してはいけない。copyAssetFolder は「既存ファイルはスキップ」
+            // なので、壊れたファイルが残ると二度とコピーし直されない。消しておけば
+            // 次回起動時に差分として拾われる。
+            if (destFile.exists() && !destFile.delete()) {
+                Log.w(TAG, "Failed to delete partial file: " + destFile.getAbsolutePath());
+            }
+            return false;
+        }
     }
 
     @Override
