@@ -34,6 +34,7 @@ import bms.player.beatoraja.result.CourseResult;
 import bms.player.beatoraja.result.MusicResult;
 import bms.player.beatoraja.select.MusicSelector;
 import bms.player.beatoraja.select.bar.TableBar;
+import bms.player.beatoraja.skin.SkinAdjustModel;
 import bms.player.beatoraja.skin.SkinLoader;
 import bms.player.beatoraja.skin.SkinObject.SkinOffset;
 import bms.player.beatoraja.skin.SkinProperty;
@@ -64,6 +65,13 @@ public class MainController {
     private CourseResult gresult;
     private KeyConfiguration keyconfig;
     private SkinConfiguration skinconfig;
+    /**
+     * 皮肤清单与参数清单的唯一实现 —— SKINCONFIG 界面与 AUTOPLAY 的皮肤调整窗口
+     * （FloatingMenu）共用同一个实例。
+     * <p>🔴 不要在别处 new 第二个：{@link SkinAdjustModel#ensureScanned()} 会执行
+     * Lua 皮肤脚本，且扫描结果没有跨实例缓存。</p>
+     */
+    private SkinAdjustModel skinAdjustModel;
 
     private AudioDriver audio;
     private PlayerResource resource;
@@ -219,6 +227,8 @@ public class MainController {
     public bms.player.beatoraja.select.MusicSelector getMusicSelector() { return selector; }
     public Config getConfig() { return config; }
     public PlayerConfig getPlayerConfig() { return player; }
+    /** 皮肤清单与参数清单的唯一实现（SKINCONFIG 界面 / AUTOPLAY 皮肤调整窗口共用） */
+    public SkinAdjustModel getSkinAdjustModel() { return skinAdjustModel; }
     public BitmapFont getSystemFont18() { return systemfont18; }
     public Object getBeatorajaGame() { return beatorajaGame; }
     public void setBeatorajaGame(Object game) { this.beatorajaGame = game; }
@@ -430,6 +440,7 @@ public class MainController {
                 floatingMenu.setSkinSelectMode(false);
                 floatingMenu.setPlayMode(false);
                 floatingMenu.setPracticeMode(false);
+                floatingMenu.setAutoplayMode(false);
                 floatingMenu.setResultMode(true);
                 Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, escapeMapper));
             } else {
@@ -447,6 +458,17 @@ public class MainController {
                 if (practicePlay) {
                     menuVisible = true;
                 }
+                // AUTOPLAY 模式：浮动图标同样常驻 —— 它是皮肤调整窗口的唯一入口
+                // （见 FloatingMenu#setAutoplayMode / SKIN_ADJUST_KEYCODE）。
+                // 🔴 判定只能用 resource.getPlayMode().mode：BMSPlayer.getMode() 返回的是
+                //    谱面类型（7KEYS 等），而且 resource 是长命对象 —— 不 gate 在 PLAY
+                //    状态的话，在选曲界面读到的还是上一次的 mode。
+                final boolean autoplayPlay = state == MainStateType.PLAY
+                        && resource != null && resource.getPlayMode() != null
+                        && resource.getPlayMode().mode == BMSPlayerMode.Mode.AUTOPLAY;
+                if (autoplayPlay) {
+                    menuVisible = true;
+                }
                 if (state == MainStateType.PLAY && config != null && config.isShowFloatingMenuInPlay()) {
                     menuVisible = true;
                 }
@@ -460,23 +482,12 @@ public class MainController {
                 floatingMenu.setSkinSelectMode(state == MainStateType.SKINCONFIG);
                 floatingMenu.setPlayMode(state == MainStateType.PLAY);
                 floatingMenu.setPracticeMode(practicePlay);
+                floatingMenu.setAutoplayMode(autoplayPlay);
                 // 非 RESULT 状态：确保结果界面的"图标直出按键覆盖层"模式已退出
                 floatingMenu.setResultMode(false);
             }
             // 将 FloatingMenu 作为最高优先级处理器加入 InputMultiplexer
-            if (current != null && current.getStage() != null) {
-                if (floatingMenu != null) {
-                    Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, current.getStage(), input.getKeyBoardInputProcesseor()));
-                } else {
-                    Gdx.input.setInputProcessor(new InputMultiplexer(current.getStage(), input.getKeyBoardInputProcesseor()));
-                }
-            } else if (input != null) {
-                if (floatingMenu != null) {
-                    Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, input.getKeyBoardInputProcesseor()));
-                } else {
-                    Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
-                }
-            }
+            refreshInputProcessor();
         }
 
         // 在PLAY界面，将PlayTouchKeyMapper添加到InputMultiplexer
@@ -505,6 +516,35 @@ public class MainController {
                 }
             } catch (Exception e) {
                 Gdx.app.log("MainController", "Failed to register PlayTouchKeyMapper: " + e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * 重建主 InputMultiplexer（浮动菜单 → 当前状态的 Stage → 键盘）。
+     *
+     * <p>状态切换时自动调用一次。此外必须手动调用的场景：{@code MusicSelector}
+     * 换皮肤 —— 它覆写的 {@code setSkin()} 会重建原生搜索框并 {@code setStage()}，
+     * 而 {@code InputMultiplexer} 里持有的是<b>旧</b> {@code Stage} 对象。
+     * 不刷新的话新的搜索框收不到任何触摸（表现为「换完皮肤后点搜索框没反应」，
+     * 要等下一次状态切换才恢复）。</p>
+     *
+     * <p>🔴 本方法只覆盖「非 PLAY」的形态。PLAY 界面在 {@link #changeState} 里还会把
+     * {@code PlayTouchKeyMapper} 插进 multiplexer，那一层不在这里处理 ——
+     * 所以别在 PLAY 状态下拿它当「重建快捷键」用。</p>
+     */
+    public void refreshInputProcessor() {
+        if (current != null && current.getStage() != null) {
+            if (floatingMenu != null) {
+                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, current.getStage(), input.getKeyBoardInputProcesseor()));
+            } else {
+                Gdx.input.setInputProcessor(new InputMultiplexer(current.getStage(), input.getKeyBoardInputProcesseor()));
+            }
+        } else if (input != null) {
+            if (floatingMenu != null) {
+                Gdx.input.setInputProcessor(new InputMultiplexer(floatingMenu, input.getKeyBoardInputProcesseor()));
+            } else {
+                Gdx.input.setInputProcessor(input.getKeyBoardInputProcesseor());
             }
         }
     }
@@ -575,7 +615,9 @@ public class MainController {
         result = new MusicResult(this);
         gresult = new CourseResult(this);
         keyconfig = new KeyConfiguration(this);
-        skinconfig = new SkinConfiguration(this, player);
+        // 皮肤调整模型：SKINCONFIG 界面与 AUTOPLAY 的皮肤调整窗口共用一个实例
+        skinAdjustModel = new SkinAdjustModel(this, player);
+        skinconfig = new SkinConfiguration(this, skinAdjustModel);
         musicPlayer = new MusicPlayer(this);
 
         // 初始化浮动快捷键菜单（必须在 changeState 之前，确保 InputMultiplexer 包含它）

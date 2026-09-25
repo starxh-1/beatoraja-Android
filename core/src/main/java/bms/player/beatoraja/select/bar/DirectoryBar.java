@@ -76,6 +76,10 @@ public abstract class DirectoryBar extends Bar {
 
 	public int getLamp(boolean isPlayer) {
 		final int[] lamps = isPlayer ? this.lamps : rlamps;
+		// フォルダ内で最も達成度の低い（= index の小さい）清関状態を返す。
+		//   0 = NO PLAY / 1 = FAILED / 2 = ASSIST EASY CLEAR / … / 10 = MAX
+		// i = 0 から走査するのは意図的: NO PLAY も「そのフォルダの状態」として報告する。
+		// ここは上游 beatoraja と同一。PC 版と挙動を合わせるため触らない。
 		for (int i = 0; i < lamps.length; i++) {
 			if (lamps[i] > 0) {
 				return i;

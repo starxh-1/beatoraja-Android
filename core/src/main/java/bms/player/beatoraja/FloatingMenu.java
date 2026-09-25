@@ -14,6 +14,11 @@ import java.util.ArrayList;
 import bms.player.beatoraja.input.KeyBoardInputProcesseor;
 import bms.player.beatoraja.input.BMSPlayerInputProcessor;
 import bms.player.beatoraja.rating.PlayerRatingService;
+import bms.player.beatoraja.skin.Skin;
+import bms.player.beatoraja.skin.SkinAdjustModel;
+import bms.player.beatoraja.skin.SkinHeader;
+import bms.player.beatoraja.skin.SkinLoader;
+import bms.player.beatoraja.skin.SkinType;
 import com.starxh.beatoraja.InGameSpectrumConfig;
 
 /**
@@ -52,11 +57,20 @@ public class FloatingMenu implements InputProcessor {
     private boolean isPlayMode = false; // 是否为 Play 界面
     /** 是否为 Practice 模式（PLAY 界面且 resource.getPlayMode()==PRACTICE）。
      *  Practice 下浮动图标<b>常驻显示</b>（不参与 PLAY 的自动隐藏），
-     *  并以 {@link #PRACTICE_ICON_ALPHA} 的不透明度绘制 —— 仅对 practice 生效，
+     *  并以 {@link #RESIDENT_ICON_ALPHA} 的不透明度绘制 —— 仅对 practice 生效，
      *  普通游玩 / AUTOPLAY / REPLAY 不受影响。 */
     private boolean practiceMode = false;
-    /** Practice 模式下浮动图标的绘制不透明度（30%，常驻但不抢视线） */
-    private static final float PRACTICE_ICON_ALPHA = 0.3f;
+    /**
+     * 是否为 AUTOPLAY 模式（PLAY 界面且 resource.getPlayMode().mode == AUTOPLAY）。
+     * 与 Practice 同属「图标常驻」模式（见 {@link #iconResident()}）——
+     * AUTOPLAY 下皮肤调整窗口是唯一的额外操作入口，图标必须常驻可点。
+     * <p>🔴 判定只能用 {@code resource.getPlayMode().mode}：{@code BMSPlayer.getMode()}
+     * 返回的是谱面类型（7KEYS/5KEYS），且 {@code resource} 是长命对象 —— 在非 PLAY
+     * 状态读到的还是上一次的 mode，所以必须同时 gate 在 PLAY 状态。</p>
+     */
+    private boolean autoplayMode = false;
+    /** 常驻模式（Practice / AUTOPLAY）下浮动图标的绘制不透明度（30%，常驻但不抢视线） */
+    private static final float RESIDENT_ICON_ALPHA = 0.3f;
     /**
      * RESULT / COURSERESULT 界面模式：浮动图标点击后<b>不展开菜单面板</b>，
      * 而是直接弹出 7K 键位覆盖层（{@link #openDirectKeyOverlay()}），
@@ -91,6 +105,12 @@ public class FloatingMenu implements InputProcessor {
     private static final int SPECTRUM_HOLD_MAX_MULT = 64;
     /** In-Game Spectrum 调整页入口项的 keycode（isItemVisible 用它做"仅 PLAY"判定） */
     private static final int SPECTRUM_ENTRY_KEYCODE = -135;
+    /**
+     * 皮肤调整窗口入口项的 keycode。
+     * <p>{@link #isItemVisible} 用「仅 PLAY 且 AUTOPLAY」把它锁在自动演奏界面 ——
+     * 手动游玩时调皮肤没有意义（而且窗口会挡视线）。</p>
+     */
+    private static final int SKIN_ADJUST_KEYCODE = -136;
     /** Walkure（玩家实力表）按钮的 keycode —— 也作为 Show FPS 在 PLAY 界面的占位锚点 */
     private static final int WALKURE_KEYCODE = -140;
     /** 每个指针当前按下的频谱单元格编码（row*10+col，-1 = 无），仅用于按下高亮 */
@@ -104,6 +124,145 @@ public class FloatingMenu implements InputProcessor {
     private static final int SPECTRUM_HIT_NONE = -1;    // 面板内但没点到按钮
     private static final int SPECTRUM_HIT_OUTSIDE = -2; // 面板外
     private static final int SPECTRUM_HIT_BACK = -3;    // 标题栏返回
+
+    // ─── 皮肤调整窗口（AUTOPLAY 中叠加在游玩界面上，<b>不切状态</b>）───
+    /**
+     * 皮肤调整窗口是否打开。宿主界面为 PLAY（仅 AUTOPLAY）或 MUSICSELECT
+     * （入口 keycode 为 {@link #SKIN_ADJUST_KEYCODE}，被 {@link #isItemVisible} 限制）。
+     * <p>与频谱页同构的独立模态页：打开期间 {@link #expanded} 保持 true，
+     * 窗口内绘制与命中判定共用同一套矩形（见 {@link #hitTestSkinAdjustPage}）。</p>
+     */
+    private boolean skinAdjustOpen = false;
+
+    /**
+     * 开窗时宿主界面的皮肤类型（= 那一刻 {@link #skinAdjustType()} 的结果）。
+     * <p>🔴 关窗补做重载时必须比对它 —— 不能只看 {@code skinAdjustType() != null}：
+     * {@code MainController.changeState} 在 :389 就把 {@code current} 换成新状态，
+     * 而窗口收尾是 :480 的 {@code setSelectMode(false)} 触发的 —— 那一刻
+     * {@code getCurrentState()} 已经是新界面，「选曲开着窗口直接进 PLAY」会让
+     * {@code skinAdjustType()} 返回 PLAY 的类型，于是白加载一整张 PLAY 皮肤、
+     * 还把 {@code BMSPlayer} 刚 {@code create()/prepare()} 好的皮肤换掉。</p>
+     * <p>用<b>类型</b>而非状态对象做同一性判断：PLAY→PLAY（重开 / 重试，见
+     * {@code BMSPlayer:978}、{@code MusicResult:228}）会重建 {@code BMSPlayer}，
+     * 那时窗口仍开着、宿主类型也没变，补做重载是对的。</p>
+     */
+    private SkinType skinAdjustHostType;
+
+    /** 窗口宽（逻辑像素）—— 固定，不随内容/项数变化，否则换皮肤时面板会跳高度 */
+    private static final float SKIN_PANEL_W = 620;
+    /** 窗口高（逻辑像素）—— 固定 */
+    private static final float SKIN_PANEL_H = 696;
+    /** 标题栏高度（与 SPECTRUM_TITLE_H 同值） */
+    private static final float SKIN_TITLE_H = 44;
+    /** 标题栏右侧关闭按钮宽度（高度 = 标题栏高度，即 64×44） */
+    private static final float SKIN_CLOSE_W = 64;
+    /** 皮肤行高度（显示 `< 皮肤名 >`，见设计稿 §3） */
+    private static final float SKIN_ROW_H = 72;
+    /** 皮肤行内左右翻页按钮宽度 */
+    private static final float SKIN_ROW_NAV_W = 64;
+    /** 参数行高度 / 行间距 / 每页行数 */
+    private static final float SKIN_PARAM_ROW_H = 72;
+    private static final float SKIN_PARAM_ROW_GAP = 8;
+    private static final int SKIN_PARAM_ROWS = 6;
+    /** 参数区总高：6×72 + 5×8 = 472（设计稿 §3 的竖排验算） */
+    private static final float SKIN_PARAM_AREA_H =
+            SKIN_PARAM_ROWS * SKIN_PARAM_ROW_H + (SKIN_PARAM_ROWS - 1) * SKIN_PARAM_ROW_GAP;
+    /** 页码栏高度 */
+    private static final float SKIN_PAGE_BAR_H = 36;
+    /** 参数行的列宽（名称 / 值 / [-] / [+]）与列间距，合计 = 内容宽 572 */
+    private static final float SKIN_COL_NAME_W = 280;
+    private static final float SKIN_COL_VALUE_W = 140;
+    private static final float SKIN_COL_BTN_W = 64;
+    private static final float SKIN_COL_GAP = 8;
+    /** 参数行 {@code [−]} / {@code [+]} 的按钮高度（比整行矮一点，留出按压反馈的呼吸空间） */
+    private static final float SKIN_BTN_H = 48;
+    /** 参数改动后等待多久才真正重载皮肤（与皮肤预览的 PREVIEW_RELOAD_DELAY_MS 同值） */
+    private static final long SKIN_RELOAD_DELAY_MS = 120;
+    /**
+     * 参数行长按连发的步长阶梯。
+     * <p>不能复用频谱页那套「每 400ms 倍速」：60ms 间隔 × 最大 64 倍，走完 offset 的
+     * ±9999 要约 9.4 秒。这里改成按<b>按住总时长</b>直接跳档 —— 密集微调用 1，
+     * 粗调用 10 / 100，极端值一步到位用 1000。</p>
+     */
+    private static final long SKIN_HOLD_DELAY_NS = 400_000_000L;    // 按住 400ms 后开始连发
+    private static final long SKIN_HOLD_REPEAT_NS = 60_000_000L;   // 连发间隔
+    private static final long SKIN_STEP_TIER1_NS = 1_000_000_000L; // 1s 起，步长 10
+    private static final long SKIN_STEP_TIER2_NS = 2_000_000_000L; // 2s 起，步长 100
+    private static final long SKIN_STEP_TIER3_NS = 4_000_000_000L; // 4s 起，步长 1000
+    /**
+     * 窗口左上角（逻辑像素）—— <b>窗口自己的位置</b>，与浮动图标/菜单面板完全无关。
+     * <p>独立浮窗语义：首次打开居中，之后拖动到哪就停在哪（关闭再开仍回原位），
+     * 位置持久化留给阶段 3。三个字段一起用：{@link #skinPanelPlaced}=false 表示
+     * 还没定过位，此时按屏幕居中初始化。</p>
+     */
+    private float skinPanelX = 0f, skinPanelY = 0f;
+    private boolean skinPanelPlaced = false;
+    /** 贴边留白：窗口可以拖到接近屏幕边缘，但完全不贴边（否则边框看不见） */
+    private static final float SKIN_PANEL_MARGIN = 10;
+    /**
+     * 窗口最多占逻辑画布的比例 —— 这是「能自由拖动」的硬前提。
+     * <p>🔴 逻辑坐标不是固定的 1080p，而是<b>当前皮肤自身的宽高</b>（内置皮肤就是
+     * 1280×720）。按设计尺寸 620×696 直接摆上去会顶满 720 的高度，纵向只剩几像素可拖，
+     * 表现就是「窗口拖不动」。所以超过这两个比例时整体等比缩小
+     * （1080p 及以上画布不受影响，仍是 1 倍）。</p>
+     */
+    private static final float SKIN_MAX_W_RATIO = 0.60f;
+    private static final float SKIN_MAX_H_RATIO = 0.80f;
+    /**
+     * 拖动中：窗口位置 = {@link #skinDragStartX} + (当前手指 - {@link #skinDragAnchorX})。
+     * <p>用「拖动起点 + 本次位移」而非逐帧累加位移 —— 位移被屏幕边界夹住之后，
+     * 手指回到原处仍能精确还原，不会产生累积漂移。</p>
+     */
+    private boolean skinDragging = false;
+    private int skinDragPointer = -1;
+    private float skinDragAnchorX = 0f, skinDragAnchorY = 0f;
+    private float skinDragStartX = 0f, skinDragStartY = 0f;
+
+    /** 参数清单当前页（0 起） */
+    private int skinPage = 0;
+    /**
+     * 皮肤重载请求：参数改动走去抖（{@link #SKIN_RELOAD_DELAY_MS}），
+     * 换皮肤走 {@link #skinReloadImmediate} 立即重载 —— 换皮肤是显式操作，不该等。
+     */
+    private long skinReloadRequestTime = -1;
+    private boolean skinReloadImmediate = false;
+    /**
+     * 参数行连发状态（{@code skinHoldSlot < 0} = 没有连发）。
+     * <p>同一时刻只认一个：面板上多指同时按两个 {@code [+]} 没有实际意义，
+     * 按下高亮也只需要这一处状态就够。</p>
+     */
+    private int skinHoldSlot = -1;
+    private int skinHoldCol = 0;
+    private int skinHoldPointer = -1;
+    private long skinHoldStartNs = 0;
+    private long skinHoldLastRepeatNs = 0;
+    /**
+     * 参数行<b>名称</b>列的裁剪缓存（只在「页 + 皮肤」变化时失效）。
+     * <p>值列故意不缓存 —— 本窗口会就地改它，缓存就需要额外维护一批失效点，
+     * 而数值字符串很短，每帧重新测量几乎无开销。</p>
+     */
+    private final String[] skinRowNameCache = new String[SKIN_PARAM_ROWS];
+    private final boolean[] skinRowTextReady = new boolean[SKIN_PARAM_ROWS];
+    private int skinTextCachePage = Integer.MIN_VALUE;
+    private SkinHeader skinTextCacheHeader;
+    /** 名称列裁剪缓存生效时的窗口缩放 —— 缩放变了（换分辨率）裁剪宽度也得重算 */
+    private float skinTextCacheScale = -1f;
+    /**
+     * 模型变化监听器：只在窗口打开期间注册（{@link #enterSkinAdjust} /
+     * {@link #exitSkinAdjust}）。注册早于 {@code model.setType()} 的话，
+     * 开窗时重建清单写入的默认值会白白触发一次全量皮肤重载。
+     */
+    private final SkinAdjustModel.ChangeListener skinModelListener = this::onSkinModelChanged;
+
+    /** 皮肤调整窗口命中判定编码（>=0 预留给后续阶段的参数行 slot*10+col） */
+    private static final int SKIN_HIT_NONE = -1;      // 面板内空白
+    private static final int SKIN_HIT_OUTSIDE = -2;   // 面板外
+    private static final int SKIN_HIT_CLOSE = -4;     // 标题栏右侧关闭
+    private static final int SKIN_HIT_TITLE = -5;     // 标题栏空白 → 拖动
+    private static final int SKIN_HIT_PREV_SKIN = -6; // 皮肤行左翻
+    private static final int SKIN_HIT_NEXT_SKIN = -7; // 皮肤行右翻
+    private static final int SKIN_HIT_PREV_PAGE = -8; // 页码栏左翻
+    private static final int SKIN_HIT_NEXT_PAGE = -9; // 页码栏右翻
 
     // ─── 分页 ───
     private static final int ITEMS_PER_PAGE = 12;  // 每页12个：2列×6行普通，或3列×4行频谱调整页
@@ -179,6 +338,13 @@ public class FloatingMenu implements InputProcessor {
         // "数组索引"，导致列错位、按 Y 的 ± 会把 X 的 + 覆盖掉。
         // showOnSelect=false + isItemVisible 的"仅 PLAY"硬规则共同把它限制在游玩界面。
         new MenuItem("In-Game Spectrum", SPECTRUM_ENTRY_KEYCODE, false, false, false, true, false),
+        // ── 皮肤调整窗口入口（仅 PLAY + AUTOPLAY；见 isItemVisible）──
+        // 与 In-Game Spectrum 同构：独立模态页 + 可拖动标题栏 + 关闭时统一落盘。
+        // 打开期间不切状态，热重载直接换掉宿主界面上的 Skin 引用
+        // （docs/autoplay-skin-window-design.md §7）。
+        // showOnSelect = true：选曲界面也能调（调的是 MUSIC SELECT 皮肤）；
+        // PLAY 那一侧由 isItemVisible 的硬规则再收紧成「仅 AUTOPLAY」。
+        new MenuItem("Skin Adjust", SKIN_ADJUST_KEYCODE, false, true, false, true, false),
 
         // ── Controller Reset（仅KeyConfig模式）──
         new MenuItem("NUM 8", Keys.NUM_8, false, false, true, false, false),
@@ -352,6 +518,11 @@ public class FloatingMenu implements InputProcessor {
         // 覆盖层按着没抬起的 PLAYOPTION 按键就会一路带进 play（某个 lane 常亮）。
         if (this.selectMode && !selectMode) {
             releaseStuckPresses();
+            // 选曲界面的皮肤调整窗口（调 MUSIC SELECT 皮肤）也必须在这里收掉。
+            // 🔴 不能只靠 setPlayMode(false)：从选曲进 PLAY 时 setPlayMode(true) 走的是
+            //    另一条分支，不会关窗；窗口残留下去的话 model 的 type 还是 MUSIC_SELECT，
+            //    下一次重载会把选曲皮肤装到 BMSPlayer 上。
+            if (skinAdjustOpen) exitSkinAdjust();
         }
         this.selectMode = selectMode;
         currentPage = 0; // 切换模式时重置页码
@@ -377,10 +548,11 @@ public class FloatingMenu implements InputProcessor {
         if (playMode) {
             sinceLastInteraction = 0f;
             playIconHidden = false;
-        } else if (spectrumAdjustOpen) {
-            // 离开 PLAY（进结果、回选曲等）时强制收起调整页并落盘，
+        } else {
+            // 离开 PLAY（进结果、回选曲等）时强制收起模态页并落盘，
             // 否则模态页会残留在其他界面。MainController 只在状态切换时调用本方法。
-            exitSpectrumAdjust();
+            if (spectrumAdjustOpen) exitSpectrumAdjust();
+            if (skinAdjustOpen) exitSkinAdjust();
         }
     }
 
@@ -394,6 +566,26 @@ public class FloatingMenu implements InputProcessor {
         }
     }
 
+    /** 设置是否为 AUTOPLAY 模式（图标常驻显示 + 30% 不透明度，仅对 autoplay 生效） */
+    public void setAutoplayMode(boolean autoplayMode) {
+        this.autoplayMode = autoplayMode;
+        if (autoplayMode) {
+            // 常驻显示：清掉 PLAY 模式的超时隐藏状态（HIDE_DELAY=0 会立刻把图标标成隐藏）
+            sinceLastInteraction = 0f;
+            playIconHidden = false;
+        }
+    }
+
+    /**
+     * 是否为「图标常驻」模式（Practice / AUTOPLAY）。
+     * <p>这两类游玩下浮动图标不参与 PLAY 的自动隐藏，并以
+     * {@link #RESIDENT_ICON_ALPHA} 的不透明度绘制 —— 因为它们都依赖浮动菜单作为
+     * 唯一的额外操作入口（Practice：练习菜单；AUTOPLAY：皮肤调整窗口）。</p>
+     */
+    private boolean iconResident() {
+        return practiceMode || autoplayMode;
+    }
+
     /**
      * 设置是否为 RESULT / COURSERESULT 界面。
      * <p>为 true 时：图标点击<b>不展开菜单面板</b>，直接弹出按键覆盖层
@@ -404,8 +596,9 @@ public class FloatingMenu implements InputProcessor {
     public void setResultMode(boolean resultMode) {
         this.resultMode = resultMode;
         if (resultMode) {
-            // 结果界面不显示菜单面板：收起残留的展开状态与频谱调整页
+            // 结果界面不显示菜单面板：收起残留的展开状态与两个模态页
             if (spectrumAdjustOpen) exitSpectrumAdjust();
+            if (skinAdjustOpen) exitSkinAdjust();
             expanded = false;
         } else if (holdKeyType == HoldKeyType.DIRECT) {
             releaseHoldKey();
@@ -433,6 +626,11 @@ public class FloatingMenu implements InputProcessor {
         // 上面四条是"某模式生效时要求对应标记"，未设置任何模式的状态（RESULT 等）
         // 会全部放行，所以"仅 PLAY"必须是一条独立硬规则。
         if (item.keycode == SPECTRUM_ENTRY_KEYCODE && !isPlayMode) return false;
+        // 皮肤调整窗口入口：只有两个宿主界面放行 ——
+        // ① PLAY 且 AUTOPLAY：手动游玩时调皮肤没有意义，而且窗口会挡住谱面；
+        // ② 选曲界面：调的是 MUSIC SELECT 皮肤，与 PLAY 侧互不干扰。
+        // 同样是一条独立硬规则（理由同上）。
+        if (item.keycode == SKIN_ADJUST_KEYCODE && !((isPlayMode && autoplayMode) || selectMode)) return false;
         return true;
     }
 
@@ -546,8 +744,8 @@ public class FloatingMenu implements InputProcessor {
             }
         }
 
-        // Play 模式：无操作则自动隐藏图标（Practice 模式常驻显示，不参与自动隐藏）
-        if (isPlayMode && !practiceMode && visible && !expanded) {
+        // Play 模式：无操作则自动隐藏图标（Practice / AUTOPLAY 常驻显示，不参与自动隐藏）
+        if (isPlayMode && !iconResident() && visible && !expanded) {
             sinceLastInteraction += delta;
             if (sinceLastInteraction >= HIDE_DELAY) {
                 playIconHidden = true;
@@ -573,6 +771,37 @@ public class FloatingMenu implements InputProcessor {
         if (spectrumHoldField >= 0 && !Gdx.input.isTouched()) {
             stopSpectrumHold(true);
         }
+        // 指针异常丢失（切后台等）：结束窗口拖动，避免窗口卡在半路
+        if (skinDragging && (skinDragPointer < 0 || skinDragPointer >= pointerConsuming.length
+                || !Gdx.input.isTouched(skinDragPointer))) {
+            skinDragging = false;
+            skinDragPointer = -1;
+        }
+        // 皮肤调整窗口：参数行 [-] / [+] 长按连发
+        // （按住 400ms 后开始，每 60ms 一次；步长按按住总时长跳档，见 skinStepForElapsed）
+        if (skinAdjustOpen && skinHoldSlot >= 0) {
+            long now = System.nanoTime();
+            long elapsed = now - skinHoldStartNs;
+            if (elapsed >= SKIN_HOLD_DELAY_NS
+                    && now - skinHoldLastRepeatNs >= SKIN_HOLD_REPEAT_NS) {
+                skinHoldLastRepeatNs = now;
+                skinStep(itemAt(skinModel(), skinHoldSlot), skinDirOf(skinHoldCol),
+                        skinStepForElapsed(elapsed));
+            }
+        }
+        // 指针异常丢失（切后台等）：停掉连发，避免一直改值
+        if (skinHoldSlot >= 0 && !Gdx.input.isTouched()) {
+            stopSkinHold();
+        }
+        // 皮肤调整窗口：皮肤重载。换皮肤立即（显式操作），改参数去抖 120ms
+        // —— 连按时每帧重载整张皮肤会把界面拖死。
+        if (skinAdjustOpen && (skinReloadImmediate
+                || (skinReloadRequestTime > 0
+                    && System.currentTimeMillis() - skinReloadRequestTime >= SKIN_RELOAD_DELAY_MS))) {
+            skinReloadImmediate = false;
+            skinReloadRequestTime = -1;
+            reloadCurrentSkin();
+        }
 
         // ─── 设置投影矩阵到逻辑坐标 ───
         sprite.setProjectionMatrix(menuProj.setToOrtho2D(0, 0, logicW, logicH));
@@ -582,11 +811,12 @@ public class FloatingMenu implements InputProcessor {
         sprite.setBlendFunction(GL20.GL_SRC_ALPHA, GL20.GL_ONE_MINUS_SRC_ALPHA);
 
         // Play 模式超时隐藏：图标不绘制，但仍响应触摸
-        boolean showIcon = !(isPlayMode && playIconHidden);
+        // 皮肤调整窗口打开时同样不绘制 —— 视觉上只剩这一个独立浮窗（命中判定见 touchDown）
+        boolean showIcon = !(isPlayMode && playIconHidden) && !skinAdjustOpen;
 
         if (showIcon) {
-            // 绘制浮动图标（Practice 模式用 30% 不透明度常驻显示）
-            sprite.setColor(1, 1, 1, practiceMode ? PRACTICE_ICON_ALPHA : 0.55f);
+            // 绘制浮动图标（Practice / AUTOPLAY 用 30% 不透明度常驻显示）
+            sprite.setColor(1, 1, 1, iconResident() ? RESIDENT_ICON_ALPHA : 0.55f);
             sprite.draw(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE);
         }
 
@@ -605,9 +835,13 @@ public class FloatingMenu implements InputProcessor {
     }
 
     private void drawPanel(SpriteBatch sprite, BitmapFont font) {
-        // 0. 频谱调整页是独立模态页（自己的布局与命中判定），不参与通用分页列表
+        // 0. 独立模态页（各自的布局与命中判定），不参与通用分页列表
         if (spectrumAdjustOpen) {
             drawSpectrumPage(sprite, font);
+            return;
+        }
+        if (skinAdjustOpen) {
+            drawSkinAdjustPage(sprite, font);
             return;
         }
 
@@ -1128,6 +1362,11 @@ public class FloatingMenu implements InputProcessor {
         int totalPages;
         int startIdx, endIdx;
         int cols;
+        /**
+         * 等比缩放（1 = 设计尺寸）。只有皮肤调整窗口会用到 —— 它的设计尺寸按 1080p 画布定，
+         * 而逻辑坐标是「皮肤自身的宽高」（内置皮肤只有 1280×720），必须整体缩小。
+         */
+        float scale = 1f;
     }
 
     private PanelLayout calculatePanelLayout() {
@@ -1217,6 +1456,799 @@ public class FloatingMenu implements InputProcessor {
         out[3] = SPECTRUM_TITLE_H;
     }
 
+    // ─────────────────── 皮肤调整窗口（AUTOPLAY 中叠加，不切状态）───────────────────
+
+    /** 窗口是否打开 */
+    public boolean isSkinAdjustOpen() {
+        return skinAdjustOpen;
+    }
+
+    /**
+     * 当前界面可调皮肤的类型；不可调时返回 {@code null}。
+     *
+     * <p>两个宿主界面（详见设计稿 §7）：</p>
+     * <ul>
+     *   <li><b>PLAY</b>（{@code BMSPlayer}）→ 谱面类型对应的皮肤（7KEYS / 5KEYS / …）。</li>
+     *   <li><b>MUSICSELECT</b>（{@code MusicSelector}）→ {@code SkinType.MUSIC_SELECT}。</li>
+     * </ul>
+     *
+     * <p>判定读 {@code MainController.getCurrentState()}，<b>不读</b> {@link #isPlayMode} /
+     * {@link #selectMode}：那两个是渲染循环写进来的模式标志，状态切换的时序上可能晚一拍。</p>
+     */
+    private SkinType skinAdjustType() {
+        MainController mc = mainControllerOrNull();
+        if (mc == null) {
+            return null;
+        }
+        MainState state = mc.getCurrentState();
+        if (state instanceof bms.player.beatoraja.play.BMSPlayer) {
+            return ((bms.player.beatoraja.play.BMSPlayer) state).getSkinType();
+        }
+        if (state instanceof bms.player.beatoraja.select.MusicSelector) {
+            return SkinType.MUSIC_SELECT;
+        }
+        return null;
+    }
+
+    /**
+     * 打开皮肤调整窗口。
+     * <p>🔴 <b>不切状态</b>：窗口直接叠加在宿主界面（{@code BMSPlayer} 或
+     * {@code MusicSelector}）上，热重载走 {@code SkinLoader.load} +
+     * {@code MainState.setSkin}（见设计稿 §7）。</p>
+     */
+    private void enterSkinAdjust() {
+        MainController mc = mainControllerOrNull();
+        SkinAdjustModel model = (mc != null) ? mc.getSkinAdjustModel() : null;
+        SkinType type = skinAdjustType();
+        if (model == null || type == null) {
+            Gdx.app.log("FloatingMenu", "skin adjust: current state has no adjustable skin, ignored");
+            return;
+        }
+
+        skinDragging = false;
+        skinDragPointer = -1;
+        // 位置故意不重置：独立浮窗关掉再打开应回到用户摆好的位置（持久化见设计稿阶段 3）
+        stopSkinHold();
+        skinPage = 0;
+        skinReloadRequestTime = -1;
+        skinReloadImmediate = false;
+        resetSkinTextCache();
+
+        // 皮肤清单只扫一次/进程。🔴 会执行 Lua 皮肤脚本（LuaSkinLoader.loadHeader），
+        // 只能在渲染线程 —— 这与 SKINCONFIG 界面 create() 做的完全是同一件事。
+        model.ensureScanned();
+        // 按宿主界面正在用的那张皮肤重建参数清单
+        model.selectCurrent(type);
+        // 🔴 注册必须放在 selectCurrent 之后：重建清单会写入缺失的默认值并派发变更，
+        //    提前注册的话开窗就白白触发一次全量皮肤重载。
+        model.addChangeListener(skinModelListener);
+
+        // 记下宿主类型：关窗补做重载时要靠它判断「宿主还是不是同一个」
+        skinAdjustHostType = type;
+        skinAdjustOpen = true;
+        Gdx.app.log("FloatingMenu", "skin adjust window: open (type=" + model.getType()
+                + ", skins=" + model.getSkins().size() + ", items=" + model.getItemCount() + ")");
+    }
+
+    /**
+     * 关闭皮肤调整窗口并落盘。
+     * <p>🔴 必须走 {@code MainController.saveConfig()} —— 它同时写
+     * {@code Config} 与 {@code PlayerConfig}；皮肤参数在 PlayerConfig 的
+     * {@code skin[type.getId()]} 里，只写 Config 会丢。</p>
+     */
+    private void exitSkinAdjust() {
+        // 关窗时若还有没跑完的参数重载，必须先补做一次 —— 值早就写进 SkinConfig 了，
+        // 只有「重载」还压在去抖里。不补的话「改完立刻关窗」看到的是旧皮肤，
+        // 要等下一首歌才生效。
+        boolean pendingReload = skinReloadImmediate || skinReloadRequestTime > 0;
+        SkinType hostType = skinAdjustHostType;
+        skinAdjustHostType = null;
+        skinAdjustOpen = false;
+        stopSkinHold();
+        skinDragging = false;
+        skinDragPointer = -1;
+        skinReloadRequestTime = -1;
+        skinReloadImmediate = false;
+        SkinAdjustModel model = skinModel();
+        if (model != null) {
+            model.removeChangeListener(skinModelListener);
+        }
+        if (pendingReload && hostType != null && skinAdjustType() == hostType) {
+            // 🔴 只在「宿主还是开窗时那一个界面」时补做。不能写成 skinAdjustType() != null：
+            //    changeState 里 current 在 :389 就换掉了，而本方法是 :480 的
+            //    setSelectMode(false) 触发的 —— 那一刻读到的已经是新界面的类型，
+            //    「选曲开着窗口直接进 PLAY」会白加载一整张 PLAY 皮肤，还会把 BMSPlayer
+            //    刚 create()/prepare() 好的皮肤顶掉。那种情况下值已写进 config，
+            //    下次进入该界面自然生效。
+            reloadCurrentSkin();
+        }
+        MainController mc = mainControllerOrNull();
+        if (mc != null) {
+            mc.saveConfig();
+        }
+        Gdx.app.log("FloatingMenu", "skin adjust window: closed (config saved)");
+    }
+
+    /** 共用的皮肤调整模型（由 MainController 持有，与 SKINCONFIG 界面是同一个实例） */
+    private SkinAdjustModel skinModel() {
+        MainController mc = mainControllerOrNull();
+        return (mc != null) ? mc.getSkinAdjustModel() : null;
+    }
+
+    /** 模型侧有参数被写入了：记下时刻，由 {@link #render} 去抖后统一重载一次 */
+    private void onSkinModelChanged() {
+        if (!skinAdjustOpen) {
+            return;
+        }
+        skinReloadRequestTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 重载宿主界面正在用的皮肤 —— 不切状态，直接换掉 {@code MainState} 上的 Skin 引用。
+     *
+     * <p>四条硬约束（详见设计稿 §7）：</p>
+     * <ol>
+     *   <li><b>先 {@code load} 新、再 {@code setSkin}</b>：{@code PixmapResourcePool} 是
+     *       maxgen=1 的世代池，{@code load} 内部会 disposeOld；顺序反过来会让旧皮肤
+     *       被释放两次 / 新皮肤引用到已释放纹理。</li>
+     *   <li>{@code skin == null} 时<b>保留旧皮肤</b>，绝不能 {@code setSkin(null)} ——
+     *       {@code MainState.setSkin} 会先 {@code dispose()} 掉旧皮肤，而
+     *       {@code BMSPlayer.render()} 见 null 就 {@code changeState(MUSICSELECT)}、
+     *       {@code MusicSelector.render()} 见 null 直接 NPE。</li>
+     *   <li>宿主界面不在「可调皮肤状态」时（{@link #skinAdjustType()} 返回 null）直接放弃：
+     *       那说明状态已经切走了，再加载只会白花一次全量 load，正好卡在切换上。
+     *       值已经写进 config，下次进入该界面自然会用上。
+     *       🔴 但「宿主被换成了<b>另一个</b>可调界面」这件事它测不出来 ——
+     *       {@code changeState} 会先换掉 {@code current} 再回调关窗，所以调用方
+     *       （关窗补做）必须自己比对 {@link #skinAdjustHostType}，见 {@code exitSkinAdjust}。</li>
+     *   <li>{@code MusicSelector} 覆写了 {@code setSkin()}、会按新皮肤重建原生搜索框，
+     *       调用方不需要额外处理 —— 但顺序仍是 load → setSkin → prepare。</li>
+     * </ol>
+     */
+    private void reloadCurrentSkin() {
+        MainController mc = mainControllerOrNull();
+        SkinType type = (mc != null) ? skinAdjustType() : null;
+        if (type == null) {
+            return;
+        }
+        MainState state = mc.getCurrentState();
+        if (state == null) {
+            return;
+        }
+        SkinConfig cfg = mc.getPlayerConfig().getSkin()[type.getId()];
+        if (cfg == null) {
+            return;
+        }
+        Skin skin = SkinLoader.load(state, type, cfg);
+        if (skin != null) {
+            state.setSkin(skin);
+            skin.prepare(state);
+            Gdx.app.log("FloatingMenu", "skin adjust: skin reloaded (" + type + ")");
+        } else {
+            Gdx.app.log("FloatingMenu", "skin adjust: skin load failed, keeping current skin");
+        }
+    }
+
+    /** 换皮肤（同类型内循环）：立即重载，不走去抖 */
+    private void skinCycle(int diff) {
+        SkinAdjustModel model = skinModel();
+        if (model == null || !model.cycleSkin(diff)) {
+            return;
+        }
+        // 清单整个重建了，按住的那个 ItemBase 已经作废（槽位含义也变了）
+        stopSkinHold();
+        skinPage = 0;
+        resetSkinTextCache();
+        skinReloadRequestTime = -1;
+        skinReloadImmediate = true;
+        SkinHeader header = model.getSelectedSkinHeader();
+        Gdx.app.log("FloatingMenu", "skin adjust: switched to "
+                + (header != null ? header.getName() : "(none)"));
+    }
+
+    /** 翻页：槽位 → 清单项的对应关系变了，按住的那个必须停掉 */
+    private void skinSetPage(int page) {
+        if (page == skinPage) {
+            return;
+        }
+        stopSkinHold();
+        skinPage = page;
+    }
+
+    /** 参数清单总页数（至少 1 页，便于页码栏画 `1/1`） */
+    private int skinTotalPages(SkinAdjustModel model) {
+        int n = (model != null) ? model.getItemCount() : 0;
+        return Math.max(1, (n + SKIN_PARAM_ROWS - 1) / SKIN_PARAM_ROWS);
+    }
+
+    // ─────────────────── 参数改值（阶段 2） ───────────────────
+
+    /** {@code col} 1 = {@code [−]}（-1），2 = {@code [+]}（+1） */
+    private static int skinDirOf(int col) {
+        return (col == 1) ? -1 : 1;
+    }
+
+    /**
+     * 按住越久步长越大：&lt;1s 走 1、1s 起走 10、2s 起走 100、4s 起走 1000。
+     * <p>做成阶梯而不是频谱页那种倍速，是因为 offset 的用处很分明 ——
+     * 精细对齐用 1，粗调画布用 100，±9999 的极端值一步到位用 1000。
+     * 倍速会在手一抖时直接跳过目标值，阶梯每档都有一个稳定的停留区间。</p>
+     */
+    private static int skinStepForElapsed(long elapsedNs) {
+        if (elapsedNs >= SKIN_STEP_TIER3_NS) return 1000;
+        if (elapsedNs >= SKIN_STEP_TIER2_NS) return 100;
+        if (elapsedNs >= SKIN_STEP_TIER1_NS) return 10;
+        return 1;
+    }
+
+    /**
+     * 按下 {@code [−]} / {@code [+]}：先立刻走一步（所以点按就是精确的 ±1），
+     * 之后由 {@link #render()} 在按住满 {@link #SKIN_HOLD_DELAY_NS} 后接管连发。
+     */
+    private void startSkinHold(int pointer, int slot, int col) {
+        stopSkinHold();
+        skinHoldPointer = pointer;
+        skinHoldSlot = slot;
+        skinHoldCol = col;
+        skinHoldStartNs = System.nanoTime();
+        skinHoldLastRepeatNs = skinHoldStartNs;
+        skinStep(itemAt(skinModel(), slot), skinDirOf(col), 1);
+    }
+
+    private void stopSkinHold() {
+        skinHoldSlot = -1;
+        skinHoldCol = 0;
+        skinHoldPointer = -1;
+        skinHoldStartNs = 0;
+        skinHoldLastRepeatNs = 0;
+    }
+
+    /**
+     * 改一步参数值。
+     * <p>{@link SkinAdjustModel.ItemBase#isWrapAround()} 决定到边界后的行为：
+     * option / file 循环，offset 夹住不动。</p>
+     * <p>值没变就<b>不</b>调用 {@code setValue} —— 它内部会无条件通知模型，
+     * 在边界上一直按住 {@code [+]} 会白排一次皮肤重载。</p>
+     */
+    private void skinStep(SkinAdjustModel.ItemBase item, int dir, int magnitude) {
+        if (item == null) {
+            return;
+        }
+        int min = item.getMin();
+        int max = item.getMax();
+        int next = item.getvalue() + dir * magnitude;
+        if (item.isWrapAround()) {
+            int span = max - min + 1;
+            if (span <= 0) {
+                return;
+            }
+            // 用手写取模而不是 Math.floorMod：本项目 minSdk 21，那要靠
+            // coreLibraryDesugaring 兜（android/build.gradle 已开，PreviewNoteLayer /
+            // PreviewPlayValues 也在用），这里不必再引入这层依赖
+            next = min + (((next - min) % span) + span) % span;
+        } else {
+            if (next < min) next = min;
+            if (next > max) next = max;
+        }
+        if (next != item.getvalue()) {
+            item.setValue(next);
+        }
+    }
+
+    /**
+     * 点值区 = 归零。
+     * <p>只有 offset 有中性值（0）。option / file 是枚举列表，「归零」等于替你静默
+     * 选了第一项 —— 比不响应更糟，所以对它们直接忽略（见
+     * {@link SkinAdjustModel.ItemBase#hasNeutralValue()}）。</p>
+     */
+    private void skinResetValue(SkinAdjustModel.ItemBase item) {
+        if (item == null || !item.hasNeutralValue()) {
+            return;
+        }
+        if (item.getvalue() != 0) {
+            item.setValue(0);
+        }
+    }
+
+    /** 参数行文字缓存作废（换皮肤 / 翻页 / 参数变化 / 窗口缩放变化后调用） */
+    private void resetSkinTextCache() {
+        skinTextCachePage = Integer.MIN_VALUE;
+        skinTextCacheHeader = null;
+        skinTextCacheScale = -1f;
+        for (int i = 0; i < SKIN_PARAM_ROWS; i++) {
+            skinRowTextReady[i] = false;
+        }
+    }
+
+    /**
+     * 按像素宽度裁剪文本（超出用 {@code ..} 结尾）。
+     * <p>参数名与文件名都可能很长，不裁剪会压到值列 / 越出面板。
+     * 二分而不是线性试长度，减少每帧 GlyphLayout 的次数。</p>
+     */
+    private String fitText(BitmapFont font, GlyphLayout glyph, String text, float maxW) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        glyph.setText(font, text);
+        if (glyph.width <= maxW) {
+            return text;
+        }
+        int lo = 1, hi = text.length();
+        String best = "";
+        while (lo <= hi) {
+            int mid = (lo + hi) / 2;
+            String cut = text.substring(0, mid) + "..";
+            glyph.setText(font, cut);
+            if (glyph.width <= maxW) {
+                best = cut;
+                lo = mid + 1;
+            } else {
+                hi = mid - 1;
+            }
+        }
+        return best;
+    }
+
+    /** 皮肤目录名 —— 皮肤名可能重名，用小字给目录名做区分（设计稿 §5.2） */
+    private String skinDirLabel(SkinAdjustModel model) {
+        if (model == null || model.getConfig() == null || model.getConfig().getPath() == null) {
+            return "";
+        }
+        String p = model.getConfig().getPath().replace('\\', '/');
+        int last = p.lastIndexOf('/');
+        if (last <= 0) {
+            return "";
+        }
+        String parent = p.substring(0, last);
+        int prev = parent.lastIndexOf('/');
+        String dir = (prev >= 0) ? parent.substring(prev + 1) : parent;
+        return dir.isEmpty() ? "" : "(" + dir + ")";
+    }
+
+    /**
+     * 窗口布局：固定设计尺寸 × {@link #skinPanelScale()} + <b>窗口自己的位置</b>
+     * （不锚定浮动图标、不锚定菜单面板）。
+     * <p>这是「独立浮窗」的关键 —— 位置只由 {@link #skinPanelX}/{@link #skinPanelY}
+     * 决定，可拖到屏幕任意位置；{@link #anchorPanel} 那套锚定只服务于菜单列表页与频谱页。</p>
+     */
+    private PanelLayout calculateSkinAdjustLayout() {
+        PanelLayout res = new PanelLayout();
+        res.cols = 1;
+        res.scale = skinPanelScale();
+        res.w = SKIN_PANEL_W * res.scale;
+        res.h = SKIN_PANEL_H * res.scale;
+        if (!skinPanelPlaced) {
+            // 首次打开：屏幕居中（独立弹窗的自然默认位置）
+            skinPanelX = (logicW - res.w) / 2f;
+            skinPanelY = (logicH - res.h) / 2f;
+            skinPanelPlaced = true;
+        }
+        clampSkinPanel(res.w, res.h);
+        res.x = skinPanelX;
+        res.y = skinPanelY;
+        return res;
+    }
+
+    /**
+     * 窗口的等比缩放系数。
+     * <p>设计尺寸 620×696 是按 1080p 皮肤画布定的，但逻辑坐标是「皮肤自身的宽高」。
+     * 在 1280×720 的画布上，0.80 的高度上限会把窗口压到 ~576 高，上下各留出可拖的余量；
+     * 1080p 及以上封顶为 1（不放大）。</p>
+     */
+    private float skinPanelScale() {
+        if (logicW <= 0 || logicH <= 0) {
+            return 1f;
+        }
+        float s = Math.min(logicW * SKIN_MAX_W_RATIO / SKIN_PANEL_W,
+                logicH * SKIN_MAX_H_RATIO / SKIN_PANEL_H);
+        return Math.min(1f, s);
+    }
+
+    /**
+     * 把窗口位置夹进屏幕。回写 {@link #skinPanelX}/{@link #skinPanelY}，
+     * 所以拖动时即使手指跑到屏幕外，窗口也只停在边上；手指回退到界内即精确跟回。
+     * <p>窗口比屏幕还大时（极窄的逻辑分辨率）居中且不可拖 —— 此时没有合法位置。</p>
+     */
+    private void clampSkinPanel(float w, float h) {
+        if (w + SKIN_PANEL_MARGIN * 2 >= logicW) {
+            skinPanelX = (logicW - w) / 2f;
+        } else {
+            skinPanelX = Math.max(SKIN_PANEL_MARGIN,
+                    Math.min(skinPanelX, logicW - w - SKIN_PANEL_MARGIN));
+        }
+        if (h + SKIN_PANEL_MARGIN * 2 >= logicH) {
+            skinPanelY = (logicH - h) / 2f;
+        } else {
+            skinPanelY = Math.max(SKIN_PANEL_MARGIN,
+                    Math.min(skinPanelY, logicH - h - SKIN_PANEL_MARGIN));
+        }
+    }
+
+    // ─── 皮肤窗口的几何：全部按 info.scale 等比缩放（设计尺寸 620×696，见 skinPanelScale）───
+
+    /** 标题栏整条矩形（= 拖动命中区，绘制与命中判定共用；右侧关闭按钮除外） */
+    private void skinTitleBarRect(PanelLayout info, float[] out) {
+        final float u = info.scale;
+        out[0] = info.x + PANEL_PAD * u;
+        out[1] = info.y + info.h - (PANEL_PAD + SKIN_TITLE_H) * u;
+        out[2] = info.w - PANEL_PAD * u * 2;
+        out[3] = SKIN_TITLE_H * u;
+    }
+
+    /** 标题栏右侧关闭按钮（绘制与命中判定共用） */
+    private void skinCloseRect(PanelLayout info, float[] out) {
+        skinTitleBarRect(info, out);
+        final float w = SKIN_CLOSE_W * info.scale;
+        out[0] = out[0] + out[2] - w;
+        out[2] = w;
+    }
+
+    /** 参数区顶边（= 皮肤行下沿再让开一个行间距），逐行向下排 */
+    private float skinParamAreaTop(PanelLayout info) {
+        final float u = info.scale;
+        return info.y + info.h - (PANEL_PAD + SKIN_TITLE_H + SKIN_PARAM_ROW_GAP
+                + SKIN_ROW_H + SKIN_PARAM_ROW_GAP) * u;
+    }
+
+    /** 皮肤行整条矩形（绘制与命中判定共用） */
+    private void skinRowRect(PanelLayout info, float[] out) {
+        skinTitleBarRect(info, out);
+        out[1] = out[1] - (SKIN_PARAM_ROW_GAP + SKIN_ROW_H) * info.scale;
+        out[3] = SKIN_ROW_H * info.scale;
+    }
+
+    /** 皮肤行左侧翻页按钮 */
+    private void skinRowPrevRect(PanelLayout info, float[] out) {
+        skinRowRect(info, out);
+        out[2] = SKIN_ROW_NAV_W * info.scale;
+    }
+
+    /** 皮肤行右侧翻页按钮 */
+    private void skinRowNextRect(PanelLayout info, float[] out) {
+        skinRowRect(info, out);
+        final float w = SKIN_ROW_NAV_W * info.scale;
+        out[0] = out[0] + out[2] - w;
+        out[2] = w;
+    }
+
+    /** 参数行 slot（0..SKIN_PARAM_ROWS-1）整条矩形 */
+    private void skinParamRowRect(PanelLayout info, int slot, float[] out) {
+        final float u = info.scale;
+        out[0] = info.x + PANEL_PAD * u;
+        out[1] = skinParamAreaTop(info)
+                - ((slot + 1) * SKIN_PARAM_ROW_H + slot * SKIN_PARAM_ROW_GAP) * u;
+        out[2] = info.w - PANEL_PAD * u * 2;
+        out[3] = SKIN_PARAM_ROW_H * u;
+    }
+
+    /**
+     * 参数行内某一列的矩形，绘制与命中判定共用。
+     *
+     * <p>列宽取自 §3 的固定规格：面板内宽 572 = 名称 280 + 间隙 8 + 值 140 + 间隙 8
+     * + {@code [−]} 64 + 间隙 8 + {@code [+]} 64，正好铺满。</p>
+     *
+     * <p>{@code col}：0 = 值区（含名称列，点击归零），1 = {@code [−]}，2 = {@code [+]}。
+     * 两个按钮在垂直方向内缩到 {@link #SKIN_BTN_H}，与频谱页的做法一致。</p>
+     */
+    private void skinParamCellRect(PanelLayout info, int slot, int col, float[] out) {
+        final float u = info.scale;
+        skinParamRowRect(info, slot, out);
+        if (col == 1 || col == 2) {
+            float btnX = out[0] + (SKIN_COL_NAME_W + SKIN_COL_GAP + SKIN_COL_VALUE_W + SKIN_COL_GAP
+                    + (col == 2 ? SKIN_COL_BTN_W + SKIN_COL_GAP : 0f)) * u;
+            float inset = (SKIN_PARAM_ROW_H - SKIN_BTN_H) / 2f * u;
+            out[0] = btnX;
+            out[1] = out[1] + inset;
+            out[2] = SKIN_COL_BTN_W * u;
+            out[3] = SKIN_BTN_H * u;
+        } else {
+            out[2] = (SKIN_COL_NAME_W + SKIN_COL_GAP + SKIN_COL_VALUE_W) * u;
+        }
+    }
+
+    /** 参数槽位 slot 对应的清单项（按 {@link #skinPage} 折算；空槽或越界返回 null） */
+    private SkinAdjustModel.ItemBase itemAt(SkinAdjustModel model, int slot) {
+        if (model == null) {
+            return null;
+        }
+        return model.getItem(skinPage * SKIN_PARAM_ROWS + slot);
+    }
+
+    /** 页码栏整条矩形 */
+    private void skinPageBarRect(PanelLayout info, float[] out) {
+        skinParamRowRect(info, SKIN_PARAM_ROWS - 1, out);
+        out[1] = out[1] - (SKIN_PARAM_ROW_GAP + SKIN_PAGE_BAR_H) * info.scale;
+        out[3] = SKIN_PAGE_BAR_H * info.scale;
+    }
+
+    /** 页码栏左翻区（左 1/3） */
+    private void skinPagePrevRect(PanelLayout info, float[] out) {
+        skinPageBarRect(info, out);
+        out[2] = out[2] / 3f;
+    }
+
+    /** 页码栏右翻区（右 1/3） */
+    private void skinPageNextRect(PanelLayout info, float[] out) {
+        skinPageBarRect(info, out);
+        out[0] = out[0] + out[2] - out[2] / 3f;
+        out[2] = out[2] / 3f;
+    }
+
+    /** 点是否落在矩形内（命中判定统一入口，避免每处重复写四个比较） */
+    private static boolean inRect(float tx, float ty, float[] r) {
+        return tx >= r[0] && tx <= r[0] + r[2] && ty >= r[1] && ty <= r[1] + r[3];
+    }
+
+    /**
+     * 窗口命中判定。返回 SKIN_HIT_* 之一；参数行返回 {@code slot*10+col}
+     * （col: 0 = 值区，1 = {@code [−]}，2 = {@code [+]}，与频谱页同一套编码）。
+     */
+    private int hitTestSkinAdjustPage(float tx, float ty) {
+        PanelLayout info = calculateSkinAdjustLayout();
+        if (tx < info.x || tx > info.x + info.w || ty < info.y || ty > info.y + info.h) {
+            return SKIN_HIT_OUTSIDE;
+        }
+        float[] r = new float[4];
+        skinCloseRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_CLOSE;
+        skinRowPrevRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_PREV_SKIN;
+        skinRowNextRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_NEXT_SKIN;
+        skinPagePrevRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_PREV_PAGE;
+        skinPageNextRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_NEXT_PAGE;
+        // 参数行：空槽位不参与命中（点空行只被消费，不产生动作）
+        SkinAdjustModel model = skinModel();
+        for (int slot = 0; slot < SKIN_PARAM_ROWS; slot++) {
+            if (itemAt(model, slot) == null) {
+                continue;
+            }
+            for (int col = 0; col < 3; col++) {
+                skinParamCellRect(info, slot, col, r);
+                if (inRect(tx, ty, r)) return slot * 10 + col;
+            }
+        }
+        // 标题栏放在最后：它在皮肤行/页码栏上方，互不重叠，但拖动命中必须让位给按钮
+        skinTitleBarRect(info, r);
+        if (inRect(tx, ty, r)) return SKIN_HIT_TITLE;
+        return SKIN_HIT_NONE;
+    }
+
+    private void drawSkinAdjustPage(SpriteBatch sprite, BitmapFont font) {
+        PanelLayout info = calculateSkinAdjustLayout();
+        final float u = info.scale;
+        final float border = 2 * u;
+        float[] r = new float[4];
+        GlyphLayout glyph = new GlyphLayout();
+        float barY = info.y + info.h - (PANEL_PAD + SKIN_TITLE_H) * u;
+        SkinAdjustModel model = skinModel();
+
+        // 窗口按逻辑画布等比缩过，字体必须跟着缩（720p 画布上不缩的话文字会溢出行框）。
+        // 🔴 末尾必须恢复 1f —— systemfont 是全局共享的，菜单页/频谱页都按 1 倍排版。
+        font.getData().setScale(u);
+
+        // 面板背景 + 边框（与频谱页同色系）
+        sprite.setColor(0.1f, 0.1f, 0.15f, 0.85f);
+        sprite.draw(whitePixel, info.x, info.y, info.w, info.h);
+        sprite.setColor(0.4f, 0.6f, 1f, 0.6f);
+        sprite.draw(whitePixel, info.x, info.y, info.w, border);
+        sprite.draw(whitePixel, info.x, info.y + info.h - border, info.w, border);
+        sprite.draw(whitePixel, info.x, info.y, border, info.h);
+        sprite.draw(whitePixel, info.x + info.w - border, info.y, border, info.h);
+
+        // 标题栏底（整条，比标题按钮浅一层 —— 暗示"这里可以拖"）
+        skinTitleBarRect(info, r);
+        sprite.setColor(0.14f, 0.16f, 0.24f, 0.75f);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+
+        // 居中标题（左侧不再放返回按钮：`<` 这个字形留给下面皮肤行的翻页，
+        // 免得「想翻皮肤却把窗口关了」。关闭走 X / ESC·BACK / 点面板外。）
+        // 带上皮肤类型名：同一个窗口现在有两个宿主界面（PLAY / 选曲界面），
+        // 标题得能自证「我在调哪一张」。
+        SkinType adjustType = (model != null) ? model.getType() : null;
+        String title = (adjustType != null) ? ("Skin Adjust · " + adjustType.getName()) : "Skin Adjust";
+        // 宽度预算要避开右侧关闭按钮，否则长类型名（MUSIC SELECT）会压到 X 上
+        title = fitText(font, glyph, title, info.w - (PANEL_PAD * 2 + SKIN_CLOSE_W + 8) * u);
+        font.setColor(0.85f, 0.85f, 0.9f, 0.95f);
+        glyph.setText(font, title);
+        font.draw(sprite, title, info.x + (info.w - glyph.width) / 2,
+                barY + (SKIN_TITLE_H * u + glyph.height) / 2);
+
+        // 右侧关闭按钮
+        skinCloseRect(info, r);
+        sprite.setColor(0.45f, 0.18f, 0.18f, 0.9f);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+        font.setColor(1f, 0.9f, 0.9f, 0.95f);
+        glyph.setText(font, "X");
+        font.draw(sprite, "X", r[0] + (r[2] - glyph.width) / 2, r[1] + (r[3] + glyph.height) / 2);
+
+        // 皮肤行（`< 皮肤名 >`）
+        drawSkinRow(sprite, font, info, model, glyph);
+
+        // 参数区：固定 6 行/页
+        int totalPages = skinTotalPages(model);
+        if (skinPage >= totalPages) skinPage = totalPages - 1;
+        if (skinPage < 0) skinPage = 0;
+        SkinHeader header = (model != null) ? model.getSelectedSkinHeader() : null;
+        if (skinTextCachePage != skinPage || skinTextCacheHeader != header
+                || skinTextCacheScale != u) {
+            resetSkinTextCache();
+            skinTextCachePage = skinPage;
+            skinTextCacheHeader = header;
+            skinTextCacheScale = u;
+        }
+        for (int slot = 0; slot < SKIN_PARAM_ROWS; slot++) {
+            drawSkinParamRow(sprite, font, info, model, slot, glyph);
+        }
+
+        // 页码栏
+        int itemCount = (model != null) ? model.getItemCount() : 0;
+        drawSkinPageBar(sprite, font, info, itemCount, totalPages, glyph);
+
+        // 🔴 还原全局字体缩放：systemfont 由 MainController 持有并共享给菜单页等
+        font.getData().setScale(1f);
+    }
+
+    private void drawSkinRow(SpriteBatch sprite, BitmapFont font, PanelLayout info,
+                             SkinAdjustModel model, GlyphLayout glyph) {
+        float[] r = new float[4];
+        skinRowRect(info, r);
+        sprite.setColor(0.16f, 0.18f, 0.24f, 0.8f);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+
+        // 只有一个候选时箭头照样灰掉：按下去只会重载同一张皮肤，白花一次全量 load。
+        // 选曲界面（MUSIC SELECT）常常只有一张皮肤，这条主要就是为它加的。
+        // 模型侧 SkinAdjustModel.cycleSkin 同样会直接返回 false，视觉与行为一致。
+        boolean hasList = model != null && model.getSkins().size() > 1;
+        float navR = hasList ? 0.25f : 0.15f;
+        float navG = hasList ? 0.35f : 0.16f;
+        float navB = hasList ? 0.55f : 0.22f;
+        float navA = hasList ? 0.9f : 0.5f;
+        float glyphA = hasList ? 0.95f : 0.4f;
+
+        skinRowPrevRect(info, r);
+        sprite.setColor(navR, navG, navB, navA);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+        font.setColor(0.6f, 0.85f, 1f, glyphA);
+        glyph.setText(font, "<");
+        font.draw(sprite, "<", r[0] + (r[2] - glyph.width) / 2, r[1] + (r[3] + glyph.height) / 2);
+
+        skinRowNextRect(info, r);
+        sprite.setColor(navR, navG, navB, navA);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+        font.setColor(0.6f, 0.85f, 1f, glyphA);
+        glyph.setText(font, ">");
+        font.draw(sprite, ">", r[0] + (r[2] - glyph.width) / 2, r[1] + (r[3] + glyph.height) / 2);
+
+        // 中间两行：皮肤名 + 目录名（皮肤名可能重名）
+        final float u = info.scale;
+        float textLeft = info.x + (PANEL_PAD + SKIN_ROW_NAV_W + SKIN_COL_GAP) * u;
+        float maxW = info.w - (PANEL_PAD * 2 + SKIN_ROW_NAV_W * 2 + SKIN_COL_GAP * 2) * u;
+        skinRowRect(info, r);
+
+        SkinHeader header = (model != null) ? model.getSelectedSkinHeader() : null;
+        String name = (header != null) ? header.getName() : "(no skin in this type)";
+        name = fitText(font, glyph, name, maxW);
+        font.setColor(0.9f, 0.93f, 1f, 0.95f);
+        glyph.setText(font, name);
+        font.draw(sprite, name, textLeft + (maxW - glyph.width) / 2, r[1] + r[3] * 0.68f);
+
+        String dir = skinDirLabel(model);
+        if (!dir.isEmpty()) {
+            dir = fitText(font, glyph, dir, maxW);
+            font.setColor(0.55f, 0.62f, 0.75f, 0.9f);
+            glyph.setText(font, dir);
+            font.draw(sprite, dir, textLeft + (maxW - glyph.width) / 2, r[1] + r[3] * 0.28f);
+        }
+    }
+
+    private void drawSkinParamRow(SpriteBatch sprite, BitmapFont font, PanelLayout info,
+                                  SkinAdjustModel model, int slot, GlyphLayout glyph) {
+        float[] r = new float[4];
+        skinParamRowRect(info, slot, r);
+        SkinAdjustModel.ItemBase item = itemAt(model, slot);
+
+        if (item == null) {
+            // 空行也画一块暗底：面板高度固定，不随项数变化
+            sprite.setColor(0.13f, 0.145f, 0.19f, 0.6f);
+            sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+            return;
+        }
+
+        // 整行底
+        sprite.setColor(0.09f, 0.11f, 0.16f, 0.8f);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+
+        // 值区底色比按钮暗一档，暗示「这里不是按钮」
+        skinParamCellRect(info, slot, 0, r);
+        sprite.setColor(0.12f, 0.14f, 0.2f, 0.7f);
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+
+        drawSkinStepButton(sprite, font, info, slot, 1,
+                skinHoldSlot == slot && skinHoldCol == 1, glyph);
+        drawSkinStepButton(sprite, font, info, slot, 2,
+                skinHoldSlot == slot && skinHoldCol == 2, glyph);
+
+        // 名称随「页 + 皮肤」变，可以缓存；值会被本窗口改掉，每帧重新测量
+        // （短字符串不会触发 fitText 里的二分，开销可忽略）
+        final float u = info.scale;
+        if (!skinRowTextReady[slot]) {
+            skinRowNameCache[slot] = fitText(font, glyph, item.getCategoryName(),
+                    (SKIN_COL_NAME_W - 16) * u);
+            skinRowTextReady[slot] = true;
+        }
+
+        skinParamRowRect(info, slot, r);
+        String name = skinRowNameCache[slot];
+        font.setColor(0.85f, 0.88f, 0.95f, 0.95f);
+        glyph.setText(font, name);
+        font.draw(sprite, name, r[0] + 8 * u, r[1] + (r[3] + glyph.height) / 2);
+
+        String value = fitText(font, glyph, item.getDisplayValue(), (SKIN_COL_VALUE_W - 8) * u);
+        font.setColor(0.6f, 0.85f, 1f, 0.95f);
+        glyph.setText(font, value);
+        float valueRight = r[0] + (SKIN_COL_NAME_W + SKIN_COL_GAP + SKIN_COL_VALUE_W) * u;
+        font.draw(sprite, value, valueRight - glyph.width, r[1] + (r[3] + glyph.height) / 2);
+    }
+
+    /** 参数行的 {@code [−]} / {@code [+]} 按钮（{@code col} 1 = −，2 = +） */
+    private void drawSkinStepButton(SpriteBatch sprite, BitmapFont font, PanelLayout info,
+                                    int slot, int col, boolean pressed, GlyphLayout glyph) {
+        float[] r = new float[4];
+        skinParamCellRect(info, slot, col, r);
+        if (pressed) {
+            sprite.setColor(0.3f, 0.5f, 0.8f, 0.95f);
+        } else {
+            sprite.setColor(0.2f, 0.2f, 0.3f, 0.7f);
+        }
+        sprite.draw(whitePixel, r[0], r[1], r[2], r[3]);
+        String label = (col == 1) ? "[-]" : "[+]";
+        font.setColor(1f, 1f, 1f, 0.95f);
+        glyph.setText(font, label);
+        font.draw(sprite, label, r[0] + (r[2] - glyph.width) / 2, r[1] + (r[3] + glyph.height) / 2);
+    }
+
+    private void drawSkinPageBar(SpriteBatch sprite, BitmapFont font, PanelLayout info,
+                                 int itemCount, int totalPages, GlyphLayout glyph) {
+        final float u = info.scale;
+        float[] bar = new float[4];
+        float[] r = new float[4];
+        skinPageBarRect(info, bar);
+        sprite.setColor(0.15f, 0.15f, 0.2f, 0.5f);
+        sprite.draw(whitePixel, bar[0], bar[1], bar[2], bar[3]);
+
+        boolean canPrev = skinPage > 0;
+        boolean canNext = skinPage < totalPages - 1;
+
+        skinPagePrevRect(info, r);
+        font.setColor(0.5f, 0.8f, 1f, canPrev ? 0.9f : 0.25f);
+        glyph.setText(font, "<");
+        font.draw(sprite, "<", r[0] + 12 * u, r[1] + (r[3] + glyph.height) / 2);
+
+        skinPageNextRect(info, r);
+        font.setColor(0.5f, 0.8f, 1f, canNext ? 0.9f : 0.25f);
+        glyph.setText(font, ">");
+        font.draw(sprite, ">", r[0] + r[2] - 12 * u - glyph.width,
+                r[1] + (r[3] + glyph.height) / 2);
+
+        String text;
+        if (itemCount <= 0) {
+            text = "no parameters - skin header not loaded";
+        } else {
+            int from = skinPage * SKIN_PARAM_ROWS + 1;
+            int to = Math.min(itemCount, from + SKIN_PARAM_ROWS - 1);
+            // 显示「项数」而不只是页码：一个 offset 名最多产出 6 条，条数≠参数个数
+            text = "Page " + (skinPage + 1) + "/" + totalPages
+                    + "    " + from + "-" + to + " / " + itemCount;
+        }
+        font.setColor(0.7f, 0.7f, 0.7f, 0.9f);
+        glyph.setText(font, text);
+        font.draw(sprite, text, bar[0] + (bar[2] - glyph.width) / 2,
+                bar[1] + (bar[3] + glyph.height) / 2);
+    }
+
     // ─────────────────── InputProcessor 事件驱动触摸处理 ───────────────────
 
     @Override
@@ -1270,7 +2302,9 @@ public class FloatingMenu implements InputProcessor {
 
         if (expanded) {
             // 展开状态：检查是否点击了图标（关闭菜单）
-            if (hitTestIcon(tx, ty)) {
+            // 🔴 皮肤窗口打开时图标不绘制（视觉上只剩这一个独立窗口），所以此时也必须
+            //    屏蔽图标命中 —— 否则窗口外的空白处会藏着一个看不见的「收起菜单」按钮。
+            if (!skinAdjustOpen && hitTestIcon(tx, ty)) {
                 if (spectrumAdjustOpen) exitSpectrumAdjust();
                 expanded = false;
                 pointerConsuming[pointer] = true;
@@ -1307,6 +2341,70 @@ public class FloatingMenu implements InputProcessor {
                         spectrumStep(row, spectrumHoldDir);
                     }
                 }
+                pointerConsuming[pointer] = true;
+                pointerPressedIndex[pointer] = -1;
+                return true;
+            }
+
+            // 皮肤调整窗口：独立模态，命中判定与绘制共用同一套矩形
+            if (skinAdjustOpen) {
+                int hit = hitTestSkinAdjustPage(tx, ty);
+                if (hit == SKIN_HIT_OUTSIDE) {
+                    // 点面板外：只关窗口、不关整个菜单（与频谱页同语义，避免误触把菜单一起收掉）
+                    exitSkinAdjust();
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_CLOSE) {
+                    exitSkinAdjust();
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_PREV_SKIN) {
+                    skinCycle(-1);
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_NEXT_SKIN) {
+                    skinCycle(1);
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_PREV_PAGE) {
+                    if (skinPage > 0) skinSetPage(skinPage - 1);
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_NEXT_PAGE) {
+                    if (skinPage < skinTotalPages(skinModel()) - 1) skinSetPage(skinPage + 1);
+                    pointerConsuming[pointer] = true;
+                    pointerPressedIndex[pointer] = -1;
+                    return true;
+                }
+                if (hit == SKIN_HIT_TITLE) {
+                    // 标题栏空白：开始拖动（直接改窗口自己的位置）
+                    skinDragging = true;
+                    skinDragPointer = pointer;
+                    skinDragAnchorX = tx;
+                    skinDragAnchorY = ty;
+                    skinDragStartX = skinPanelX;
+                    skinDragStartY = skinPanelY;
+                } else if (hit >= 0) {
+                    // 参数行：col 0 = 值区（点一下归零），1 / 2 = [−] / [+]
+                    int slot = hit / 10;
+                    int col = hit % 10;
+                    if (col == 0) {
+                        skinResetValue(itemAt(skinModel(), slot));
+                    } else {
+                        startSkinHold(pointer, slot, col);
+                    }
+                }
+                // 面板内其余区域一律模态消费，穿透不到游戏
                 pointerConsuming[pointer] = true;
                 pointerPressedIndex[pointer] = -1;
                 return true;
@@ -1393,6 +2491,14 @@ public class FloatingMenu implements InputProcessor {
                 pointerSpectrumCell[pointer] = -1;
                 stopSpectrumHold(true);
             }
+            // 皮肤调整窗口：抬手即结束拖动（窗口停在原地，不回弹）；参数连发同理
+            if (skinAdjustOpen && pointer == skinDragPointer) {
+                skinDragging = false;
+                skinDragPointer = -1;
+            }
+            if (skinAdjustOpen && pointer == skinHoldPointer) {
+                stopSkinHold();
+            }
             // 检查是否抬起了手指在按钮上
             int pressedIdx = pointerPressedIndex[pointer];
             if (expanded && pressedIdx >= 0) {
@@ -1431,6 +2537,16 @@ public class FloatingMenu implements InputProcessor {
             if (expanded) {
                 float tx = screenToLogicX(screenX);
                 float ty = screenToLogicY(screenY);
+                // 皮肤调整窗口：拖动标题栏移动窗口；其他命中一律不处理（模态）
+                if (skinAdjustOpen) {
+                    if (skinDragging && pointer == skinDragPointer) {
+                        // 边界夹取交给 clampSkinPanel（每帧在 calculateSkinAdjustLayout 里跑），
+                        // 这里只按「起点 + 本次位移」记原始意图，被夹住后手指回位才能精确还原
+                        skinPanelX = skinDragStartX + (tx - skinDragAnchorX);
+                        skinPanelY = skinDragStartY + (ty - skinDragAnchorY);
+                    }
+                    return true;
+                }
                 int hit = hitTestPanel(tx, ty);
                 int currentIdx = pointerPressedIndex[pointer];
                 if (hit != currentIdx) {
@@ -1458,6 +2574,16 @@ public class FloatingMenu implements InputProcessor {
                 return true;
             }
         }
+        // 皮肤调整窗口：ESC / BACK 关闭并落盘。
+        // 🔴 必须把它吃掉：FloatingMenu 是 InputMultiplexer 的第一位，返回 false 的话
+        // ESCAPE 会落到 ControlInputProcessor:205 的无条件 stopPlay()——
+        // AUTOPLAY 下那等于直接中止演奏回选曲。
+        if (skinAdjustOpen) {
+            if (keycode == Keys.ESCAPE || keycode == Keys.BACK) {
+                exitSkinAdjust();
+                return true;
+            }
+        }
         return false;
     }
 
@@ -1478,6 +2604,13 @@ public class FloatingMenu implements InputProcessor {
             pointer7KKey[pointer] = -1;
             pointerPressedIndex[pointer] = -1;
             pointerConsuming[pointer] = false;
+            if (pointer == skinDragPointer) {
+                skinDragging = false;
+                skinDragPointer = -1;
+            }
+            if (pointer == skinHoldPointer) {
+                stopSkinHold();
+            }
         }
         return false;
     }
@@ -1602,8 +2735,8 @@ public class FloatingMenu implements InputProcessor {
         }
 
         if (item.keycode == -100 || item.keycode == -130 || item.keycode == WALKURE_KEYCODE
-                || item.keycode == SPECTRUM_ENTRY_KEYCODE) {
-            return; // Toggle/action 类型（含 In-Game Spectrum 入口）在 touchUp 处理
+                || item.keycode == SPECTRUM_ENTRY_KEYCODE || item.keycode == SKIN_ADJUST_KEYCODE) {
+            return; // Toggle/action 类型（含两个模态页入口）在 touchUp 处理
         }
 
         if (kbInput != null) {
@@ -1618,7 +2751,7 @@ public class FloatingMenu implements InputProcessor {
         MenuItem item = items[index];
 
         if (item.keycode == -100 || item.keycode == -130 || item.keycode == WALKURE_KEYCODE
-                || item.keycode == SPECTRUM_ENTRY_KEYCODE) {
+                || item.keycode == SPECTRUM_ENTRY_KEYCODE || item.keycode == SKIN_ADJUST_KEYCODE) {
             handleToggle(item);
             return;
         }
@@ -1672,6 +2805,9 @@ public class FloatingMenu implements InputProcessor {
                 } else if (item.keycode == SPECTRUM_ENTRY_KEYCODE) {
                     // In-Game Spectrum 调整页（仅 PLAY 界面可见）
                     enterSpectrumAdjust();
+                } else if (item.keycode == SKIN_ADJUST_KEYCODE) {
+                    // 皮肤调整窗口（仅 PLAY + AUTOPLAY 可见）
+                    enterSkinAdjust();
                 }
             }
         }

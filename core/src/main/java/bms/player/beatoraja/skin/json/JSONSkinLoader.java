@@ -411,10 +411,14 @@ public class JSONSkinLoader extends SkinLoader {
 						}
 					}
 
-					if (obj != null) {
-						setDestination(skin, obj, dst);
-						skin.add(obj);
-					}
+				if (obj != null) {
+					setDestination(skin, obj, dst);
+					// 纹理过滤策略（image id 白名单 / 黑名单）。
+					// 必须在 setDestination 之后：dst.filter 声明此时已写入 dstfilter，
+					// 黑名单才能真正覆盖它。详见 SkinTextureFilterPolicy 类注释。
+					SkinTextureFilterPolicy.apply(obj, dst.id);
+					skin.add(obj);
+				}
 				}
 			}
 

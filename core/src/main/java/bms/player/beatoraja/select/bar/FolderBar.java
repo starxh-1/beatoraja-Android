@@ -140,38 +140,36 @@ public class FolderBar extends DirectoryBar {
         return cachedChildren;
     }
 
+    /**
+     * フォルダ内の全譜面を DB から直接引き、クリアランプ集計（lamps[]）を更新する。
+     *
+     * <p>🔴 <b>必ず DB に問い合わせること。</b>以前は「{@code cachedChildren} から曲を集めて
+     * {@code updateFolderStatus(songs)} を呼ぶ」実装だったが、集計が不完全になる:</p>
+     * <ul>
+     *   <li>キャッシュ済みの子からしか集めないので、<b>未ロードの子フォルダの曲が丸ごと落ちる</b>
+     *       （このメソッドは {@code BarManager} が<b>別スレッド</b>から呼ぶので、
+     *       その時点で子が {@code UNLOADED}/{@code LOADING} なのは普通に起きる）。</li>
+     *   <li>しかも子フォルダは<b>1 階層しか</b>掘らない → 孫以降の曲が全部落ちる。</li>
+     *   <li>{@code if (!songs.isEmpty())} なので空集合のとき {@code lamps[]} が
+     *       <b>全 0 のまま</b>残る。</li>
+     * </ul>
+     * <p>上游 beatoraja は {@code songdb.getSongDatas("parent", ccrc)} で<b>全曲を直接取る</b>。
+     * そちらに合わせる（キャッシュは {@code getChildren()} の表示用であって、
+     * lamp 集計の入力ではない）。</p>
+     *
+     * <p>注: これは「表示中の folder lamp の色が違う」という症状の<b>原因ではなかった</b>
+     * （原因は描画側の話で、当該フォルダのスコアが無い場合はどのみち集計は空になる）。
+     * 純粋に<b>集計の網羅性</b>の修正として独立に成立する。</p>
+     */
     public void updateFolderStatus() {
-        // 对于根文件夹或子节点已加载的文件夹，从缓存的子节点中提取歌曲数据
-        if (childrenLoadState == ChildrenLoadState.LOADED || childrenLoadState == ChildrenLoadState.LOADED_EMPTY) {
-            if (cachedChildren == null) return;
-            // 从缓存的子节点中提取歌曲数据
-            List<SongData> songs = new ArrayList<>();
-            for (Bar b : cachedChildren) {
-                if (b instanceof SongBar) {
-                    songs.add(((SongBar) b).getSongData());
-                } else if (b instanceof FolderBar) {
-                    // 对于子文件夹，递归获取其歌曲
-                    FolderBar subFolder = (FolderBar) b;
-                    if (subFolder.childrenLoadState == ChildrenLoadState.LOADED) {
-                        for (Bar subBar : subFolder.cachedChildren) {
-                            if (subBar instanceof SongBar) {
-                                songs.add(((SongBar) subBar).getSongData());
-                            }
-                        }
-                    }
-                }
-            }
-            if (!songs.isEmpty()) {
-                updateFolderStatus(songs.toArray(SongData.EMPTY));
-            }
-        } else {
-            // 如果子节点还没加载，先加载子节点
-            getChildren();
-            // 然后重试更新
-            if (childrenLoadState == ChildrenLoadState.LOADED) {
-                updateFolderStatus();
-            }
+        final SongDatabaseAccessor songdb = selector.getSongDatabase();
+        String path = folder.getPath();
+        if (path.endsWith(String.valueOf(File.separatorChar))) {
+            path = path.substring(0, path.length() - 1);
         }
+        final String ccrc = SongUtils.crc32(path, new String[0], new File(".").getAbsolutePath());
+
+        updateFolderStatus(songdb.getSongDatas("parent", ccrc));
     }
 
     /**

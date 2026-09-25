@@ -255,6 +255,12 @@ public final class MusicSelector extends MainState {
 			search = new SearchTextField(this, resource.getConfig().getResolution());
 			setStage(search);
 		}
+
+		// 🔴 InputMultiplexer 只在 MainController.changeState 里构建，而这里换上的是
+		// 一个全新的 Stage 对象 —— 不刷新的话新搜索框收不到任何触摸（表现为
+		// 「换完皮肤后点搜索框没反应」，要等下一次状态切换才恢复）。
+		// 在状态切换路径上会多刷一次，幂等、无副作用。
+		main.refreshInputProcessor();
 	}
 
 	public void prepare() {
