@@ -8,6 +8,7 @@ import java.util.logging.Logger;
 import com.badlogic.gdx.*;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator;
 import com.badlogic.gdx.graphics.g2d.freetype.FreeTypeFontGenerator.FreeTypeFontParameter;
@@ -845,6 +846,9 @@ public class MainController {
         pointerPixmap.setColor(1, 1, 1, 1);
         pointerPixmap.fillCircle(pointerSize / 2, pointerSize / 2, 4);
         Texture texture = new Texture(pointerPixmap);
+        // 圆环 / 圆点由 Pixmap 无 AA 画出（本身就是硬边）；纹理与绘制同为 64px，但触摸坐标是
+        // 亚像素的 —— Nearest 下圆环边缘会随亚像素抖动出台阶，显式 Linear 平滑一档。
+        texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pointerPixmap.dispose();
         return texture;
     }

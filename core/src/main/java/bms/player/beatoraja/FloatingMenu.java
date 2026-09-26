@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.InputProcessor;
 import com.badlogic.gdx.graphics.*;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
@@ -698,6 +699,10 @@ public class FloatingMenu implements InputProcessor {
         pm.fillRectangle(barX, cy - gap - barH - barH / 2, barW, barH);
         pm.fillRectangle(barX, cy + gap + barH / 2, barW, barH);
         iconTexture = new Texture(pm);
+        // 该纹理 96×96，绘制到 ICON_SIZE=77 → 【缩小】绘制。libGDX 的 Texture 默认 Nearest，
+        // 缩小时会丢像素、圆角边缘抖动；显式 Linear（缩小走 minFilter，这里两个都设）。
+        // 注意：本纹理是 app 自绘 UI，不经过 SkinObjectRenderer，SkinTextureFilterPolicy 管不到。
+        iconTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
         pm.dispose();
 
         // 1×1 白色像素

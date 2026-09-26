@@ -93,7 +93,11 @@ public final class SkinTextBitmap extends SkinText {
 				});
 			}
 		} else {
-			sprite.setType(SkinObjectRenderer.TYPE_BILINEAR);
+			// 🔴 上游在这里硬编码 TYPE_BILINEAR，而 bilinear shader 是纯透传 ——
+			// 等于「什么都不做」，纹理会停在 libGDX 默认的 Nearest（过滤策略也救不了）。
+			// 2026-09-25：改成按 getFilter() 走 LINEAR，与 SkinTextFont 一致
+			// （SkinTextureFilterPolicy 会给非黑名单文字 setFilter(1)）。
+			sprite.setType(getFilter() != 0 ? SkinObjectRenderer.TYPE_LINEAR : SkinObjectRenderer.TYPE_BILINEAR);
 			if (hasAngle) {
 				if (!getShadowOffset().isZero()) {
 					setLayout(new Color(color.r / 2, color.g / 2, color.b / 2, color.a), region);
@@ -114,6 +118,9 @@ public final class SkinTextBitmap extends SkinText {
 			}
 		}
 		font.getData().setScale(1);
+		// 防线（同 SkinTextFont.draw 末尾）：把 renderer type 还原 NORMAL，避免升成
+		// LINEAR 的 type 泄漏给下一个「继承 type」的对象（如选曲的 SkinDistributionGraph）。
+		sprite.setType(SkinObjectRenderer.TYPE_NORMAL);
 	}
 
 	private void setLayout(Color c, Rectangle r) {

@@ -370,6 +370,14 @@ public final class SkinTextFont extends SkinText {
                 setLayout(color, region);
                 sprite.draw(font, layout, x + offsetX, region.y + offsetY + region.getHeight());
             }
+
+            // 防线：绘制完毕后把 renderer type 还原为 NORMAL。SkinDistributionGraph
+            // （graph-lamp / graph-rank）等对象绕过 SkinObject.draw() 不自设 type，
+            // 会继承「前一个对象」留下的 type —— 在选曲 destination 顺序里 graph-lamp
+            // 的直接前驱正是 text（default 皮肤是 'search'）。本类按 filter 升
+            // TYPE_LINEAR 后若不还原，folder lamp 渗色会结构性回归
+            // （2026-09-25 起 bar-* 已放 Linear，这道还原是目前 text 侧唯一的兜底）。
+            sprite.setType(SkinObjectRenderer.TYPE_NORMAL);
         }
     }
 

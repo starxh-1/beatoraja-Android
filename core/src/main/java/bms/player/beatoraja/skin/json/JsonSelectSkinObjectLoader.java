@@ -52,6 +52,10 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 								if (img.id.equals(imgs.images[j])) {
 									Texture tex = getTexture(img.src, p);
 									if(tex != null) {
+										// 选曲条行背景（liston/listoff）→ 整组钉 Nearest。
+										// 通用规则，与 id 命名 / 素材文件名都无关：见
+										// SkinTextureFilterPolicy ④ PIN_SELECT_SONGLIST
+										SkinTextureFilterPolicy.pinSonglist(tex, "bar:" + img.id);
 										tr[j] = getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx,
 												img.divy);
 										if (timer == null) {
@@ -85,6 +89,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 					if (sk.songlist.lamp[i].id.equals(img.id)) {
 						Texture tex = getTexture(img.src, p);
 						if(tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "lamp:" + img.id);
 							SkinImage lamp = new SkinImage(
 									getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx, img.divy),
 									img.timer, img.cycle);
@@ -102,6 +107,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 					if (sk.songlist.playerlamp[i].id.equals(img.id)) {
 						Texture tex = getTexture(img.src, p);
 						if(tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "playerlamp:" + img.id);
 							SkinImage playerlamp = new SkinImage(
 									getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx, img.divy),
 									img.timer, img.cycle);
@@ -118,6 +124,9 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 				for (JsonSkin.Image img : sk.image) {
 					if (sk.songlist.rivallamp[i].id.equals(img.id)) {
 						Texture tex = getTexture(img.src, p);
+						if (tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "rivallamp:" + img.id);
+						}
 						SkinImage rivallamp = new SkinImage(
 								getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx, img.divy),
 								img.timer, img.cycle);
@@ -134,6 +143,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 					if (sk.songlist.trophy[i].id.equals(img.id)) {
 						Texture tex = getTexture(img.src, p);
 						if(tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "trophy:" + img.id);
 							SkinImage trophy = new SkinImage(
 									getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx, img.divy),
 									img.timer, img.cycle);
@@ -151,6 +161,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 					if (sk.songlist.label[i].id.equals(img.id)) {
 						Texture tex = getTexture(img.src, p);
 						if(tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "label:" + img.id);
 							SkinImage label = new SkinImage(
 									getSourceImage(tex, img.x, img.y, img.w, img.h, img.divx, img.divy),
 									img.timer, img.cycle);
@@ -208,6 +219,7 @@ public class JsonSelectSkinObjectLoader extends JsonSkinObjectLoader<MusicSelect
 					if (img.type < 0) {
 						Texture tex = getTexture(img.src, p);
 						if(tex != null) {
+							SkinTextureFilterPolicy.pinSonglist(tex, "graph:" + img.id);
 							TextureRegion[][] imgs = null;
 							if(tex != null) {
 								TextureRegion[] images = getSourceImage(tex, img.x, img.y, img.w, img.h,

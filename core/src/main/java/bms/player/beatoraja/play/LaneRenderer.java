@@ -8,6 +8,7 @@ import bms.player.beatoraja.play.SkinNote.SkinLane;
 
 import bms.model.*;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
+import bms.player.beatoraja.skin.Skin;
 import bms.player.beatoraja.skin.SkinObject.SkinOffset;
 import bms.player.beatoraja.skin.SkinImage;
 
@@ -344,10 +345,14 @@ public class LaneRenderer {
 		final boolean showTimeline = (main.getState() == BMSPlayer.STATE_PRACTICE);
 
 		final float hispeed = main.getState() != BMSPlayer.STATE_PRACTICE ? playconfig.getHispeed() : 1.0f;
-		if (skin == null) {
-			if (main.getSkin() instanceof PlaySkin) {
-				skin = (PlaySkin) main.getSkin();
-			}
+		// 🔴 皮肤热重载（skin adjust 窗口）会在**不切 state** 的前提下换掉 MainState 上的 Skin，
+		// 这里必须跟着换。此前写成「只在 skin == null 时取」→ 换皮肤后 LaneRenderer 会一直
+		// 拿着**旧 PlaySkin** 画判定线 / BPM 线 / 秒线 / 小节线：旧 SkinImage 引用的是已被
+		// dispose 的纹理（GL 纹理名还可能被新纹理复用）→ 采到错误内容，且**必须重进 PLAY 才恢复**。
+		// 每帧一次 getSkin() 很便宜（BMSPlayer 那边本来也不缓存）。
+		final Skin currentSkin = main.getSkin();
+		if (currentSkin instanceof PlaySkin && currentSkin != skin) {
+			skin = (PlaySkin) currentSkin;
 		}
 		if (skin == null) return;
 		// Detect portrait mode from skin configuration (op 1101 = portrait)
@@ -571,27 +576,12 @@ public class LaneRenderer {
 
 				notePos += computeNotePosDelta(tl, i > 0 ? timelines[i - 1] : null, microtime, rxhs);
 
-				// 可见性裁剪：跳过视口外的时间线和文字
-				boolean isVisible;
-				if (isPortrait) {
-					float visualX = (float) (hu - notePos);
-					isVisible = visualX >= visibleViewport.x - 100 && visualX <= visibleViewport.x + visibleViewport.width + 100;
-				} else {
-					float visualY = (float) notePos;
-					isVisible = visualY >= visibleViewport.y - 100 && visualY <= visibleViewport.y + visibleViewport.height + 100;
-				}
-
-				if (!isVisible) {
-					nbpm = tl.getBPM();
-					continue;
-				}
-
 				if (showTimeline && (i > 0 && (tl.getTime() / 1000) > (timelines[i - 1].getTime() / 1000))) {
 					for (SkinImage line : skin.getTimeLine()) {
 						if (isPortrait) {
-							line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
+							line.draw(sprite, jtime, main, (int) (notePos - hl), 0);
 						} else {
-							line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
+							line.draw(sprite, jtime, main, 0, (int) (notePos - hl - 80));
 						}
 					}
 					for (Rectangle r : playerr) {
@@ -610,9 +600,9 @@ public class LaneRenderer {
 					if (tl.getBPM() != nbpm) {
 						for (SkinImage line : skin.getBPMLine()) {
 							if (isPortrait) {
-								line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
+								line.draw(sprite, jtime, main, (int) (notePos - hl), 0);
 							} else {
-								line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
+								line.draw(sprite, jtime, main, 0, (int) (notePos - hl));
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -630,9 +620,9 @@ public class LaneRenderer {
 					if (tl.getStop() > 0) {
 						for (SkinImage line : skin.getStopLine()) {
 							if (isPortrait) {
-								line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
+								line.draw(sprite, jtime, main, (int) (notePos - hl), 0);
 							} else {
-								line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
+								line.draw(sprite, jtime, main, 0, (int) (notePos - hl));
 							}
 						}
 						for (Rectangle r : playerr) {
@@ -651,9 +641,9 @@ public class LaneRenderer {
 				if (tl.getSectionLine()) {
 					for (SkinImage line : skin.getLine()) {
 						if (isPortrait) {
-							line.draw(sprite, jtime, main, (float) (notePos - hl) + 0.01f, 0);
+							line.draw(sprite, jtime, main, (int) (notePos - hl), 0);
 						} else {
-							line.draw(sprite, jtime, main, 0, (float) (notePos - hl) + 0.01f);
+							line.draw(sprite, jtime, main, 0, (int) (notePos - hl));
 						}
 					}
 				}

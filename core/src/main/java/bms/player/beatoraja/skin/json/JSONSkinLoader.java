@@ -413,9 +413,9 @@ public class JSONSkinLoader extends SkinLoader {
 
 				if (obj != null) {
 					setDestination(skin, obj, dst);
-					// 纹理过滤策略（image id 白名单 / 黑名单）。
+					// 纹理过滤策略（默认 Linear；NEAREST_*_PREFIXES 名单里的钉 Nearest）。
 					// 必须在 setDestination 之后：dst.filter 声明此时已写入 dstfilter，
-					// 黑名单才能真正覆盖它。详见 SkinTextureFilterPolicy 类注释。
+					// 名单里的 Nearest 才能真正覆盖它。详见 SkinTextureFilterPolicy 类注释。
 					SkinTextureFilterPolicy.apply(obj, dst.id);
 					skin.add(obj);
 				}
@@ -603,6 +603,9 @@ public class JSONSkinLoader extends SkinLoader {
 
 			if (!isMovie) {
 				data.data = getTexture(imagefile.getPath());
+				// 纹理级过滤策略（SkinTextureFilterPolicy v4.6）：命中「按源图钉 Nearest」
+				// 名单的图在这里登记 —— 之后任何 LINEAR 对象都不会把它升回 Linear。
+				SkinTextureFilterPolicy.onTextureLoaded(imagefile.getPath(), data.data);
 			}
 		}
 		data.loaded = true;
