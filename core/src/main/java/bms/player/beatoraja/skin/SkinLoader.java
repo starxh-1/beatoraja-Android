@@ -70,6 +70,17 @@ public abstract class SkinLoader {
                 header.setSourceResolution(dloader.src);
                 header.setDestinationResolution(dloader.dst);
                 Skin skin = dloader.loadSkin(state, header, loader.getOption());
+                // 🔴 LR2 皮肤的对象不走 JSONSkinLoader 里那个调 SkinTextureFilterPolicy.apply 的
+                //    destination 循环（见本方法的三分支），所以此前每个对象都停在 libGDX 默认的
+                //    Nearest —— 一个都没被升过 Linear。这里补做一次「默认 = Linear」。
+                //    必须在 loadSkin() 返回【之后】：此时所有 setDestination 都已执行完，
+                //    策略写下的 imageType 才是最终生效的那个。
+                //    开关 = SkinTextureFilterPolicy.APPLY_POLICY_TO_LR2；撤销 = 改回 false。
+                final int filtered = SkinTextureFilterPolicy.applyAll(skin);
+                if (filtered > 0) {
+                    System.out.println("[SkinFilter] LR2 skin: applied default policy (Linear) to " + filtered
+                            + " / " + skin.getAllSkinObjects().length + " objects");
+                }
                 SkinLoader.resource.disposeOld();
                 return skin;
             }

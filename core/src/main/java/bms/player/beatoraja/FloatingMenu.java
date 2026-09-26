@@ -1628,6 +1628,12 @@ public class FloatingMenu implements InputProcessor {
         if (skin != null) {
             state.setSkin(skin);
             skin.prepare(state);
+            // 🔴 补做「从皮肤派生、但存在皮肤之外」的状态同步（BGA 的竖屏标志 / 触摸按键区域…）。
+            //    setSkin() 与 skin.prepare() 都不碰它们，而本路径又不经过 MainState.create()。
+            //    不补这一下，把 Layout 从 landscape 切到 portrait 后，那部分会继续按旧布局渲染
+            //    —— 最明显的是 LaneRenderer 在触摸皮肤上按轨道区域采样 BGA 帧当轨道背景，
+            //    BGA 没转 270° 就整块错位（见 BMSPlayer#onSkinReloaded）。
+            state.onSkinReloaded();
             Gdx.app.log("FloatingMenu", "skin adjust: skin reloaded (" + type + ")");
         } else {
             Gdx.app.log("FloatingMenu", "skin adjust: skin load failed, keeping current skin");

@@ -24,6 +24,7 @@ public class SideSpectrumRenderer {
     private static final Color COLOR_BAR_INACTIVE = new Color(0.4f, 0.6f, 1f, 0.4f);
     private static final Color COLOR_LIVE_ACTIVE = new Color(0.4f, 0.8f, 1f, 0.9f);
     private static final Color COLOR_LIVE_INACTIVE = new Color(0.4f, 0.6f, 1f, 0.45f);
+    /** 中线颜色。⚠️ 当前**未被使用** —— in-game waveform 的中线已于 2026-09-26 去掉；恢复时见 renderWaveformInGameArea。 */
     private static final Color COLOR_BASELINE = new Color(0.5f, 0.5f, 0.5f, 0.3f);
 
     private float testTimer = 0;
@@ -387,16 +388,19 @@ public class SideSpectrumRenderer {
         shapeRenderer.rect(anchorX + topX, y, 4, barH - 2);
     }
 
-    // 在游戏内区域渲染波形（频谱换成波形形状）— 64 个频段值连接成 polyline，以 0.5 为中线做上下偏移
+    // 在游戏内区域渲染波形（频谱换成波形形状）— 32 个 mono 频段值连接成 polyline，以 0.5 为中线做上下偏移
     private void renderWaveformInGameArea(float[] spectrum, boolean hasRealData, float screenW, float screenH) {
-        int n = 64; // 32 L + 32 R
+        // 🔴 n = mono 频段数（32），不是 spectrum.length（64 = 32 L + 32 R）：
+        // 循环里同时取 spectrum[i] 与 spectrum[32 + i]，n 写 64 会在 i=32 时越界。
+        int n = 32;
         float midY = screenH * 0.5f;
         float halfH = screenH * 0.45f;
         Color live = hasRealData ? COLOR_LIVE_ACTIVE : COLOR_LIVE_INACTIVE;
 
-        // Baseline
-        shapeRenderer.setColor(COLOR_BASELINE);
-        shapeRenderer.rect(0, midY - 0.5f, screenW, 1f);
+        // 中线（Baseline）已去掉（2026-09-26，LIAO 要求「waveform 中间那条横线去掉」）。
+        // 原来这里画的是：shapeRenderer.setColor(COLOR_BASELINE);
+        //                shapeRenderer.rect(0, midY - 0.5f, screenW, 1f);
+        // 恢复时把上面两行取消注释即可（midY 仍被下面 polyline 用作基线起点，不用改）。
 
         shapeRenderer.setColor(live);
         float prevX = 0;
@@ -407,7 +411,9 @@ public class SideSpectrumRenderer {
             float avg = (spectrum[i] + spectrum[32 + i]) * 0.5f;
             float v = (float) Math.sqrt(avg) - 0.5f;
             if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-            float y = midY - v * halfH * 3.5f;
+            // 方向：响度越大越往上（+y = 屏幕向上，与同区域的频谱柱「从底往上长」一致）。
+            // 用减号会把整条线翻成从上往下垂 → 别改回去。
+            float y = midY + v * halfH * 3.5f;
             if (i > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
             prevX = x; prevY = y;
         }

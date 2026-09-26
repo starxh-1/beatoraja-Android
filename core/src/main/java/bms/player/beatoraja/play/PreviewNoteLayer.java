@@ -106,7 +106,6 @@ public class PreviewNoteLayer extends SkinObject {
 	private MainState state;
 	private long time;
 
-	private boolean portraitResolved;
 	private boolean portrait;
 
 	/** `draw()` 抛异常时只记一次，避免刷屏。 */
@@ -139,8 +138,9 @@ public class PreviewNoteLayer extends SkinObject {
 
 	/**
 	 * 竖屏布局判定：与 {@link LaneRenderer} 里那套完全一致（先看皮肤自定义选项 Layout，
-	 * 再看皮肤 option 里有没有 1101）。延迟到 prepare 时才判定，是为了和游玩时同一条路径
-	 * —— {@code Skin.prepare()} 会把 option 表清空，所以游玩时真正生效的是 header 里那条。
+	 * 再看皮肤 option 里有没有 1101）。<b>在 prepare 里每帧调用</b>，因为
+	 * {@code Skin.prepare()} 会把 option 表清空（所以真正生效的几乎总是 header 里那条），
+	 * 而 header 的选择项会被皮肤调整窗口就地改掉 —— 钉一次就会停在旧布局上。
 	 * 没有抽取共用方法是为了不碰游玩主路径的渲染代码。
 	 */
 	private static boolean detectPortrait(PlaySkin skin) {
@@ -172,10 +172,10 @@ public class PreviewNoteLayer extends SkinObject {
 	public void prepare(long time, MainState state) {
 		this.state = state;
 		this.time = time;
-		if (!portraitResolved) {
-			portraitResolved = true;
-			portrait = detectPortrait(skin);
-		}
+		// 竖屏判定：每帧重判，不缓存。切换 Layout（landscape ↔ portrait）后判定值必须立刻跟上，
+		// 否则预览里的音符会继续按旧方向下落。成本 = header 里十来次 name 比较（option 表已被
+		// Skin.prepare() 清空，那条循环基本空转）。
+		portrait = detectPortrait(skin);
 		resolveConfig(state);
 
 		for (int i = 0; i < lanes.length; i++) {

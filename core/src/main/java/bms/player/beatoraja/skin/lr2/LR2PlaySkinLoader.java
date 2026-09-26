@@ -842,7 +842,7 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 		final int[] OFFSET_JUDGE = { OFFSET_JUDGE_1P, OFFSET_JUDGE_2P, OFFSET_JUDGE_3P };
 		final int[] OFFSET_JUDGE_DETAIL = { OFFSET_JUDGEDETAIL_1P, OFFSET_JUDGEDETAIL_2P, OFFSET_JUDGEDETAIL_3P };
 
-		SkinImage early = new SkinImage(new TextureRegion(tex, 0, 0, 50,20));
+		SkinImage early = new SkinImage(SkinTextureFilterPolicy.slice(tex, 0, 0, 50,20));
 		early.setDestination(0, (values[3] + values[5] / 2) * dstw / srcw,
 				dsth - (values[4] - 5) * dsth / srch, 40 * dw, 16 * dh, 0, 255,
 				255, 255, 255, 0, 0, 0, 0, -1, JUDGE_TIMER[side], 1998, 0, OPTION_EARLY[side], new int[]{OFFSET_JUDGE_DETAIL[side], OFFSET_LIFT});
@@ -850,7 +850,7 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 				dsth - (values[4] - 5) * dsth / srch, 40 * dw, 16 * dh, 0, 255,
 				255, 255, 255, 0, 0, 0, 0, -1, JUDGE_TIMER[side], 1998, 0, OPTION_EARLY[side], new int[]{OFFSET_JUDGE_DETAIL[side], OFFSET_LIFT});
 		skin.add(early);
-		SkinImage late = new SkinImage(new TextureRegion(tex, 50, 0, 50,20));
+		SkinImage late = new SkinImage(SkinTextureFilterPolicy.slice(tex, 50, 0, 50,20));
 		late.setDestination(0, (values[3] + values[5] / 2) * dstw / srcw,
 				dsth - (values[4] - 5) * dsth / srch, 40 * dw, 16 * dh, 0, 255,
 				255, 255, 255, 0, 0, 0, 0, -1, JUDGE_TIMER[side], 1998, 0, OPTION_LATE[side], new int[]{OFFSET_JUDGE_DETAIL[side], OFFSET_LIFT});
@@ -997,7 +997,7 @@ public class LR2PlaySkinLoader extends LR2SkinCSVLoader<PlaySkin> {
 	private void makeDefaultLines(int index, int h, int r, int g, int b) {
 		Texture tex = new Texture("skin/default/system.png");
 		int[] values = parseInt(linevalues[index % 2]);
-		SkinImage li = new SkinImage(new TextureRegion(tex, 0, 0, 1,1));
+		SkinImage li = new SkinImage(SkinTextureFilterPolicy.slice(tex, 0, 0, 1,1));
 		lines[index] = li;
 		lines[index].setDestination(values[2], values[3] * dstw / srcw, dsth - (values[4] + values[6]) * dsth / srch,
 				values[5] * dstw / srcw, values[6] * dsth / srch * h, values[7], 255, r, g,

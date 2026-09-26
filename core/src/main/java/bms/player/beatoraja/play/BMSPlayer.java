@@ -578,35 +578,7 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 		}
 
 		loadSkin(getSkinType());
-
-		// 根据皮肤配置检测是否为竖屏模式，并同步给 BGA 处理器
-		if (resource.getBGAManager() != null) {
-			boolean isPortrait = false;
-			Skin currentSkin = getSkin();
-			if (currentSkin != null && currentSkin.header != null) {
-				for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : currentSkin.header.getCustomOptions()) {
-					if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
-						isPortrait = true;
-						break;
-					}
-				}
-			}
-			if (!isPortrait && currentSkin != null && currentSkin.getOption() != null) {
-				for (com.badlogic.gdx.utils.IntIntMap.Entry e : currentSkin.getOption()) {
-					if (e.value == 1101) {
-						isPortrait = true;
-						break;
-					}
-				}
-			}
-			Gdx.app.log("BMSPlayer", "Portrait detection: isPortrait=" + isPortrait);
-			resource.getBGAManager().setPortrait(isPortrait);
-		}
-
-		// 根据 skin 的 laneregion 更新触摸按键区域（仅 Android 平台）
-		if (touchKeyMapper != null) {
-			touchKeyMapper.updateRegionsFromSkin();
-		}
+		syncSkinDerivedState();
 
 		final SystemSoundManager.SoundType[] guideses = {GUIDESE_PG,GUIDESE_GR,GUIDESE_GD,GUIDESE_BD,GUIDESE_PR,GUIDESE_MS};
 		for(int i = 0;i < 6;i++) {
@@ -656,6 +628,68 @@ public class BMSPlayer extends MainState implements PlayStateValues {
 				resource.setTargetScoreData(resource.getRivalScoreData());
 			}
 			getScoreDataProperty().setTargetScore(score.getExscore(), score.decodeGhost(), resource.getTargetScoreData() != null ? resource.getTargetScoreData().getExscore() : 0 , null, model.getTotalNotes());
+		}
+	}
+
+	/**
+	 * 皮肤被「不切状态地热替换」之后的补做（{@link MainState#onSkinReloaded()}，
+	 * 调用方 = 皮肤调整窗口 {@code FloatingMenu.reloadCurrentSkin()}）。
+	 *
+	 * <p>🔴 存在的理由：下面的状态都是<b>从皮肤派生、但存在皮肤之外</b>的对象里，
+	 * {@code setSkin()} / {@code skin.prepare()} 一个都不会碰，所以「换皮肤」时能自动跟上，
+	 * 「切 Layout」时就会留在旧布局上 —— 必须显式再同步一次。</p>
+	 */
+	@Override
+	public void onSkinReloaded() {
+		syncSkinDerivedState();
+	}
+
+	/**
+	 * 把「当前皮肤」里派生出来的游玩态设置同步给持有它们的对象。
+	 *
+	 * <p>{@link #create()} 里加载完皮肤后会调一次；皮肤热重载（skin adjust）后还要再调一次。</p>
+	 *
+	 * <ul>
+	 *   <li><b>{@code BGAProcessor.isPortrait}</b>：竖屏下 BGA 要旋转 270°。而
+	 *       {@code LaneRenderer} 在触摸皮肤上会把 BGA 帧<b>按轨道区域裁一块当轨道背景</b>
+	 *       （lane_darkness）→ 这个标志不同步，表现就是「lane 那一块显示错乱」，
+	 *       且必须重进 PLAY 才恢复。</li>
+	 *   <li><b>{@code PlayTouchKeyMapper} 的按键区域</b>：它的 render 每帧会重算，
+	 *       这里只是让它立刻按新皮肤重算一次（换 Layout 时轨道方向整个变了）。</li>
+	 * </ul>
+	 *
+	 * <p>⚠️ 故意<b>不</b>重建 {@code rhythm}：音符扩张率确实也是皮肤参数，但
+	 * {@link RhythmTimerProcessor} 内部带着正在跑的推进状态（sections / rhythmtimer），
+	 * 重建会把节拍计时重置；而扩张率跟 Layout 无关，换皮肤时它本来就是新文件、无影响。</p>
+	 */
+	private void syncSkinDerivedState() {
+		// 根据皮肤配置检测是否为竖屏模式，并同步给 BGA 处理器
+		if (resource.getBGAManager() != null) {
+			boolean isPortrait = false;
+			Skin currentSkin = getSkin();
+			if (currentSkin != null && currentSkin.header != null) {
+				for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : currentSkin.header.getCustomOptions()) {
+					if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
+						isPortrait = true;
+						break;
+					}
+				}
+			}
+			if (!isPortrait && currentSkin != null && currentSkin.getOption() != null) {
+				for (com.badlogic.gdx.utils.IntIntMap.Entry e : currentSkin.getOption()) {
+					if (e.value == 1101) {
+						isPortrait = true;
+						break;
+					}
+				}
+			}
+			Gdx.app.log("BMSPlayer", "Portrait detection: isPortrait=" + isPortrait);
+			resource.getBGAManager().setPortrait(isPortrait);
+		}
+
+		// 根据 skin 的 laneregion 更新触摸按键区域（仅 Android 平台）
+		if (touchKeyMapper != null) {
+			touchKeyMapper.updateRegionsFromSkin();
 		}
 	}
 

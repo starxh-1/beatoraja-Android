@@ -135,6 +135,21 @@ public abstract class MainState {
 		setSkin(SkinLoader.load(this, skinType));
 	}
 
+	/**
+	 * 皮肤被「<b>不切状态</b>地热替换」之后的补做钩子。
+	 *
+	 * <p>调用方只有一处：皮肤调整窗口 {@code FloatingMenu.reloadCurrentSkin()} —— 它走
+	 * {@code SkinLoader.load()} → {@code setSkin()} → {@code skin.prepare()}，<b>不经过本类的
+	 * create()</b>。所以「从皮肤派生、但存在皮肤之外」的状态（典型：BGA 的竖屏标志、
+	 * 触摸按键区域）必须由本钩子补做，否则切 Layout（landscape ↔ portrait）之后那部分会
+	 * 继续按旧布局渲染 —— 表现为 lane 那块显示错乱，且要重进该界面才恢复。</p>
+	 *
+	 * <p>默认空实现：只有真的持有这种派生状态的子类才覆写
+	 * （见 {@code play.BMSPlayer#onSkinReloaded()}）。</p>
+	 */
+	public void onSkinReloaded() {
+	}
+
 	public int getJudgeCount(int judge, boolean fast) {
 		ScoreData sd = score.getScoreData();
 		return sd != null ? sd.getJudgeCount(judge, fast) : 0;

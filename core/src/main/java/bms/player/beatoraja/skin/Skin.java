@@ -740,13 +740,6 @@ public class Skin {
 		}
 
 		private void setFilter(Texture image) {
-			// 纹理级钉子（SkinTextureFilterPolicy v4.6）：按【源图】登记为 Nearest 的纹理永不升级。
-			// 必须放在 type 判断之前 —— 纹理 filter 是纹理级唯一状态，同图的 LINEAR 兄弟
-			// 每帧都会把整张图升回 Linear，只靠加载期设一次 Nearest 会被覆盖。
-			// 名单为空时（PINNED 恒空）这里只是 O(1) 查表，对现有行为零影响。
-			if (SkinTextureFilterPolicy.isPinned(image)) {
-				return;
-			}
 			// 优化：仅在需要 Linear 过滤且尚未设置时才调用 setFilter
 			// 跳过冗余的 bind() + glTexParameteri() GL 调用
 			if(type == TYPE_LINEAR || type == TYPE_DISTANCE_FIELD) {

@@ -59,9 +59,6 @@ public class LaneRenderer {
 
 	// Portrait mode: notes fall horizontally instead of vertically
 	private boolean isPortrait = false;
-	// Cached portrait detection - only recompute when skin changes
-	private PlaySkin cachedSkinForPortrait = null;
-	private boolean cachedPortraitValue = false;
 	public boolean isPortrait() { return isPortrait; }
 	// Portrait op value from skin (1101 = portrait, 1100 = landscape)
 	private static final int OP_PORTRAIT = 1101;
@@ -355,29 +352,30 @@ public class LaneRenderer {
 			skin = (PlaySkin) currentSkin;
 		}
 		if (skin == null) return;
-		// Detect portrait mode from skin configuration (op 1101 = portrait)
-		// Cache result - only recompute when skin instance changes
-		if (skin != cachedSkinForPortrait) {
-			cachedSkinForPortrait = skin;
-			cachedPortraitValue = false;
-			if (main.getSkin() != null && main.getSkin().header != null) {
-				for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : main.getSkin().header.getCustomOptions()) {
-					if (co.name.equals("Layout") && co.getSelectedOption() == 1101) {
-						cachedPortraitValue = true;
-						break;
-					}
-				}
-			}
-			if (!cachedPortraitValue && skin.getOption() != null) {
-				for (com.badlogic.gdx.utils.IntIntMap.Entry e : skin.getOption()) {
-					if (e.value == OP_PORTRAIT) {
-						cachedPortraitValue = true;
-						break;
-					}
+		// 竖屏判定：与 PreviewNoteLayer.detectPortrait 同一套（先看 header 的 Layout 自定义项，
+		// 再看皮肤 option 表里有没有 1101）。判定必须在 skin 取好之后 —— 本方法每帧都跑。
+		// 🔴 故意**不做缓存**（历史上曾按「皮肤实例变了才重算」缓存）：皮肤调整窗口切 Layout
+		//    （landscape ↔ portrait）时，判定位可能来自「同一实例被改过的 option」，
+		//    按实例缓存挡不住 → lane 那一块会继续按旧布局画，且要重进 PLAY 才恢复。
+		//    每帧重算的成本只是 header 里十来个 CustomOption 的 name 比较
+		//    （skin.getOption() 已被 Skin.prepare() 清空，那条循环基本空转），可以忽略。
+		isPortrait = false;
+		if (main.getSkin() != null && main.getSkin().header != null) {
+			for (bms.player.beatoraja.skin.SkinHeader.CustomOption co : main.getSkin().header.getCustomOptions()) {
+				if (co.name.equals("Layout") && co.getSelectedOption() == OP_PORTRAIT) {
+					isPortrait = true;
+					break;
 				}
 			}
 		}
-		isPortrait = cachedPortraitValue;
+		if (!isPortrait && skin.getOption() != null) {
+			for (com.badlogic.gdx.utils.IntIntMap.Entry e : skin.getOption()) {
+				if (e.value == OP_PORTRAIT) {
+					isPortrait = true;
+					break;
+				}
+			}
+		}
 		final Rectangle[] playerr = skin.getLaneGroupRegion();
 		double nbpm = model.getBpm();
 		double nscroll = 1.0;

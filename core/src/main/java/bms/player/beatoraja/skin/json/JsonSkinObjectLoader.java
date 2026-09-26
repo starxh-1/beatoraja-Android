@@ -714,7 +714,9 @@ public abstract class JsonSkinObjectLoader<S extends Skin> {
 		TextureRegion[] images = new TextureRegion[divx * divy];
 		for (int i = 0; i < divx; i++) {
 			for (int j = 0; j < divy; j++) {
-				images[divx * j + i] = new TextureRegion(image, x + w / divx * i, y + h / divy * j, w / divx, h / divy);
+				// 统一走 SkinTextureFilterPolicy.slice —— 关掉 INSET_HALF_TEXEL 时与
+				// new TextureRegion(...) 完全等价；打开时对 UV 做半 texel 内缩以消图集渗色。
+				images[divx * j + i] = SkinTextureFilterPolicy.slice(image, x + w / divx * i, y + h / divy * j, w / divx, h / divy);
 			}
 		}
 		return images;

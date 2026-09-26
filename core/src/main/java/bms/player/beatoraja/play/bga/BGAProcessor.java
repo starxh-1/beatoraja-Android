@@ -99,6 +99,13 @@ public class BGAProcessor {
 
 	public void setPortrait(boolean portrait) {
 		Gdx.app.log("BGAProcessor", "setPortrait(" + portrait + ")");
+		// 🔴 值真的变了才置脏：isPortrait 决定 FBO 里 BGA 的旋转与落位（见 renderBGAToFramebuffer），
+		// 而 FBO 只在「脏 或 尺寸变了」时重画（getCurrentBGAFrame）。皮肤调整窗口切 Layout 时
+		// 尺寸不一定变（两种布局可能声明同一分辨率），不置脏就会继续拿旧朝向的帧，
+		// 于是 LaneRenderer 按轨道区域采到的轨道背景整块是错的。
+		if (this.isPortrait != portrait) {
+			bgaFramebufferDirty = true;
+		}
 		this.isPortrait = portrait;
 	}
 

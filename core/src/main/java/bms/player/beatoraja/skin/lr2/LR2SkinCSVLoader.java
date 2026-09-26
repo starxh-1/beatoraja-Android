@@ -532,7 +532,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						tr = new TextureRegion[divx * divy][];
 						for (int i = 0; i < divx; i++) {
 							for (int j = 0; j < divy; j++) {
-								tr[divx * j + i] = new TextureRegion[] { new TextureRegion(tex,
+								tr[divx * j + i] = new TextureRegion[] { SkinTextureFilterPolicy.slice(tex,
 										x + w / divx * i, y + h / divy * j, w / divx, h / divy) };
 							}
 						}
@@ -620,7 +620,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						for (int x = 0; x < divx; x++) {
 							for (int y = 0; y < divy; y++) {
 								if ((y * divx + x) / 6 < gauge.length) {
-									TextureRegion tr = new TextureRegion(
+									TextureRegion tr = SkinTextureFilterPolicy.slice(
 											tex, values[3] + w * x / divx,
 											values[4] + h * y / divy, w / divx, h / divy);
 									final int dx = (y * divx + x) / 6;
@@ -638,7 +638,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						for (int x = 0; x < divx; x++) {
 							for (int y = 0; y < divy; y++) {
 								if ((y * divx + x) / 4 < gauge.length) {
-									TextureRegion tr = new TextureRegion(
+									TextureRegion tr = SkinTextureFilterPolicy.slice(
 											tex, values[3] + w * x / divx,
 											values[4] + h * y / divy, w / divx, h / divy);
 									final int dx = (y * divx + x) / 4;
@@ -694,7 +694,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						for (int x = 0; x < divx; x++) {
 							for (int y = 0; y < divy; y++) {
 								if ((y * divx + x) / 12 < gauge.length) {
-										TextureRegion tr = new TextureRegion(
+										TextureRegion tr = SkinTextureFilterPolicy.slice(
 												tex, values[3] + w * x / divx,
 												values[4] + h * y / divy, w / divx, h / divy);
 
@@ -719,7 +719,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 						for (int x = 0; x < divx; x++) {
 							for (int y = 0; y < divy; y++) {
 								if ((y * divx + x) / 8 < gauge.length) {
-									TextureRegion tr = new TextureRegion(
+									TextureRegion tr = SkinTextureFilterPolicy.slice(
 											tex, values[3] + w * x / divx,
 											values[4] + h * y / divy, w / divx, h / divy);
 
@@ -953,7 +953,7 @@ public abstract class LR2SkinCSVLoader<S extends Skin> extends LR2SkinLoader {
 		TextureRegion[] images = new TextureRegion[divx * divy];
 		for (int i = 0; i < divx; i++) {
 			for (int j = 0; j < divy; j++) {
-				images[divx * j + i] = new TextureRegion(image, x + w / divx * i, y + h / divy * j, w / divx, h / divy);
+				images[divx * j + i] = SkinTextureFilterPolicy.slice(image, x + w / divx * i, y + h / divy * j, w / divx, h / divy);
 			}
 		}
 		return images;
