@@ -1,8 +1,6 @@
 package com.starxh.beatoraja;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 
 import bms.player.beatoraja.Config;
 import bms.player.beatoraja.MainController;
@@ -37,6 +35,12 @@ public final class InGameSpectrumConfig {
     private static final int MAX_POS = 4000;
     private static final int MIN_SIZE = 1;
     private static final int MAX_SIZE = 4000;
+
+    /** spectrumconfig.json 解析结果缓存（仅在渲染线程访问；键 = 路径 + lastModified） */
+    private static boolean cachedValid;
+    private static String cachedPath;
+    private static long cachedModified;
+    private static int[] cachedValues;
 
     private InGameSpectrumConfig() {
     }
@@ -109,28 +113,51 @@ public final class InGameSpectrumConfig {
 
     /**
      * 读取皮肤目录下的 spectrumconfig.json，返回 {x, y, w, h}；不存在或解析失败返回 null。
+     *
+     * <p>本方法在 PLAY 渲染路径上被<b>每帧</b>调用（{@code BeatorajaGame.configureSpectrumRenderer}），
+     * 所以结果按「绝对路径 + lastModified」缓存：文件没变就直接复用同一个 int[]，
+     * 不读盘、不解析、不产生每帧分配（性能准入 R1）。换皮肤或改文件（mtime 变化）自动失效。</p>
      */
     public static int[] readSkinConfig(MainController controller) {
         File file = findSkinConfigFile(controller);
         if (file == null || !file.exists()) {
+            cachedValid = false;
+            cachedPath = null;
+            cachedValues = null;
             return null;
         }
+        String path = file.getAbsolutePath();
+        long modified = file.lastModified();
+        if (cachedValid && cachedModified == modified && path.equals(cachedPath)) {
+            return cachedValues;
+        }
+
+        int[] result = null;
         try {
-            String json = new String(Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+            // 禁用 java.nio.file 与 File.toPath()：两者都是 API 26 才有的东西，而本应用
+            // minSdk 21 —— 真机（Android 5.1.1 / API 22）实测直接 NoSuchMethodError。
+            // 用 libGDX 的 FileHandle 读文本。
+            String json = new com.badlogic.gdx.files.FileHandle(file).readString("UTF-8");
             com.badlogic.gdx.utils.JsonValue v = new com.badlogic.gdx.utils.JsonReader().parse(json);
-            if (v == null) {
-                return null;
+            if (v != null) {
+                result = new int[] {
+                        v.has("x") ? v.getInt("x") : DEFAULT_X,
+                        v.has("y") ? v.getInt("y") : DEFAULT_Y,
+                        v.has("w") ? v.getInt("w") : DEFAULT_W,
+                        v.has("h") ? v.getInt("h") : DEFAULT_H
+                };
             }
-            return new int[] {
-                    v.has("x") ? v.getInt("x") : DEFAULT_X,
-                    v.has("y") ? v.getInt("y") : DEFAULT_Y,
-                    v.has("w") ? v.getInt("w") : DEFAULT_W,
-                    v.has("h") ? v.getInt("h") : DEFAULT_H
-            };
-        } catch (Exception e) {
-            com.badlogic.gdx.Gdx.app.log("Spectrum", "Failed to read spectrumconfig.json: " + e.getMessage());
-            return null;
+        } catch (Throwable t) {
+            // 这里必须兜 Throwable：NoSuchMethodError / NoClassDefFoundError 都是 Error，
+            // 不是 Exception —— 本方法跑在 GLThread 的 render() 里，漏出去就是整个 app FATAL。
+            com.badlogic.gdx.Gdx.app.log("Spectrum", "Failed to read spectrumconfig.json: " + t);
         }
+
+        cachedValid = true;
+        cachedPath = path;
+        cachedModified = modified;
+        cachedValues = result;
+        return result;
     }
 
     /** 定位当前皮肤对应的 spectrumconfig.json（皮肤配置目录优先，其次 skin header 所在目录） */
