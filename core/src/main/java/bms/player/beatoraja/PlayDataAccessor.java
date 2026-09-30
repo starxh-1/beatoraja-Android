@@ -72,29 +72,70 @@ public final class PlayDataAccessor {
 		return scoredb.getPlayerData();
 	}
 
+	/**
+	 * 本日分のプレイヤーデータ（＝本日の累計 − 直近の過去日の累計）を読み込む。
+	 *
+	 * <p>{@code player} テーブルは 1日1行で、その日の 0 時（ローカル時刻、秒）を date に持つ
+	 * （書き込みは {@code AndroidScoreDatabaseAccessor#setPlayerData}）。よって本日分の増分は
+	 * 「本日の行 − 直近の過去日の行」で求まる。</p>
+	 *
+	 * <p><b>元実装のバグ</b>：{@code getPlayerDatas(2)} が 1件しか返さない場合
+	 * （＝本日の行がまだ無い、つまり今日はまだ1曲も遊んでいない）にその1件をそのまま
+	 * 返していたため、<b>前日までの累計が「今日の値」として表示されていた</b>
+	 * （アプリ起動直後の選曲画面で顕著）。本日分に記録が無ければ 0 のデータを返すように修正。</p>
+	 *
+	 * @return 本日分のプレイヤーデータ。記録が1件も無い場合のみ null
+	 */
 	public PlayerData readTodayPlayerData() {
-		PlayerData[] pd = scoredb.getPlayerDatas(2);
-		if (pd.length > 1) {
-			pd[0].setPlaycount(pd[0].getPlaycount() - pd[1].getPlaycount());
-			pd[0].setClear(pd[0].getClear() - pd[1].getClear());
-			pd[0].setEpg(pd[0].getEpg() - pd[1].getEpg());
-			pd[0].setLpg(pd[0].getLpg() - pd[1].getLpg());
-			pd[0].setEgr(pd[0].getEgr() - pd[1].getEgr());
-			pd[0].setLgr(pd[0].getLgr() - pd[1].getLgr());
-			pd[0].setEgd(pd[0].getEgd() - pd[1].getEgd());
-			pd[0].setLgd(pd[0].getLgd() - pd[1].getLgd());
-			pd[0].setEbd(pd[0].getEbd() - pd[1].getEbd());
-			pd[0].setLbd(pd[0].getLbd() - pd[1].getLbd());
-			pd[0].setEpr(pd[0].getEpr() - pd[1].getEpr());
-			pd[0].setLpr(pd[0].getLpr() - pd[1].getLpr());
-			pd[0].setEms(pd[0].getEms() - pd[1].getEms());
-			pd[0].setLms(pd[0].getLms() - pd[1].getLms());
-			pd[0].setPlaytime(pd[0].getPlaytime() - pd[1].getPlaytime());
-			return pd[0];
-		} else if (pd.length == 1) {
-			return pd[0];
+		final PlayerData[] pd = scoredb.getPlayerDatas(2);	// [最新, その前]
+		if (pd.length == 0) {
+			return null;
 		}
-		return null;
+		final long today = today();
+		if (pd[0].getDate() != today) {
+			// 本日の行が無い = 今日はまだ未プレイ。前日までの累計を「今日」として出さない
+			final PlayerData empty = new PlayerData();
+			empty.setDate(today);
+			return empty;
+		}
+		if (pd.length > 1) {
+			subtract(pd[0], pd[1]);
+		}
+		return pd[0];
+	}
+
+	/**
+	 * 本日の 0 時（ローカル時刻、秒）。{@code player} テーブルの date と同じ基準。
+	 * 読み側（{@link #readTodayPlayerData()}）と書き側
+	 * （{@code AndroidScoreDatabaseAccessor#setPlayerData}）で<b>必ず同じ値</b>を使うこと
+	 * ——ずれると「本日の行が無い」と誤判定して今日の値が常に 0 になる。
+	 */
+	public static long today() {
+		final Calendar cal = Calendar.getInstance(TimeZone.getDefault());
+		cal.set(Calendar.HOUR_OF_DAY, 0);
+		cal.set(Calendar.MINUTE, 0);
+		cal.set(Calendar.SECOND, 0);
+		cal.set(Calendar.MILLISECOND, 0);
+		return cal.getTimeInMillis() / 1000L;
+	}
+
+	/** {@code dst} を「dst 時点 − src 時点」の増分に書き換える（date は触らない）。 */
+	private static void subtract(PlayerData dst, PlayerData src) {
+		dst.setPlaycount(dst.getPlaycount() - src.getPlaycount());
+		dst.setClear(dst.getClear() - src.getClear());
+		dst.setEpg(dst.getEpg() - src.getEpg());
+		dst.setLpg(dst.getLpg() - src.getLpg());
+		dst.setEgr(dst.getEgr() - src.getEgr());
+		dst.setLgr(dst.getLgr() - src.getLgr());
+		dst.setEgd(dst.getEgd() - src.getEgd());
+		dst.setLgd(dst.getLgd() - src.getLgd());
+		dst.setEbd(dst.getEbd() - src.getEbd());
+		dst.setLbd(dst.getLbd() - src.getLbd());
+		dst.setEpr(dst.getEpr() - src.getEpr());
+		dst.setLpr(dst.getLpr() - src.getLpr());
+		dst.setEms(dst.getEms() - src.getEms());
+		dst.setLms(dst.getLms() - src.getLms());
+		dst.setPlaytime(dst.getPlaytime() - src.getPlaytime());
 	}
 
 	/**

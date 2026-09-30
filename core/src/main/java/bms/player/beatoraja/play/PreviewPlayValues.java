@@ -37,6 +37,10 @@ public final class PreviewPlayValues implements PlayStateValues {
 	private static final long GAUGE_PERIOD = 20000;
 	/** 量表周期的最低点（占最大值的比例）：别掉到 0，否则再也涨不回来（见下）。 */
 	private static final float GAUGE_MIN_RATE = 0.2f;
+	/** steady 模式（结果类预览）下量表停在周期内的位置：靠后一点，看着像"已经打完了"。 */
+	private static final double STEADY_PHASE = 0.75;
+	/** 合成推移曲线的采样点数（= 光栅化后的横向像素级分辨率）。 */
+	private static final int HISTORY_STEPS = 120;
 	/**
 	 * 判定 / 连击的显示计时器，顺序与 {@code JudgeManager.JUDGE_TIMER} / {@code COMBO_TIMER} 相同。
 	 *
@@ -51,6 +55,13 @@ public final class PreviewPlayValues implements PlayStateValues {
 	private final MainState state;
 	private final GrooveGauge gauge;
 	private final float gaugeMax;
+	/**
+	 * 数值是否钉住不推进。结果 / 课程结果预览用 {@code true} —— 结算画面本该是静止的，
+	 * 量表在那边一路涨会被看成"界面坏了"；play 预览用 {@code false}，让它按周期动。
+	 */
+	private final boolean steady;
+	/** {@link #getGaugeHistory(int)} 的合成曲线，首次取用时生成一次。 */
+	private com.badlogic.gdx.utils.FloatArray gaugeHistory;
 	/** 每个 player 上一次点亮的判定序号：只在序号变化（= 一次新判定）时点亮计时器。 */
 	private final long[] lastJudgeStep = { Long.MIN_VALUE, Long.MIN_VALUE, Long.MIN_VALUE };
 
@@ -60,7 +71,15 @@ public final class PreviewPlayValues implements PlayStateValues {
 	 * @param gaugeType 用户在设置里选的量表类型（{@code PlayerConfig.getGauge()}，0~5）
 	 */
 	public PreviewPlayValues(MainState state, Mode mode, int gaugeType) {
+		this(state, mode, gaugeType, false);
+	}
+
+	/**
+	 * @param steady 数值是否钉住不推进（结果类预览用 {@code true}），见 {@link #steady}
+	 */
+	public PreviewPlayValues(MainState state, Mode mode, int gaugeType, boolean steady) {
 		this.state = state;
+		this.steady = steady;
 		GrooveGauge created = null;
 		float max = 100f;
 		try {
@@ -137,10 +156,38 @@ public final class PreviewPlayValues implements PlayStateValues {
 	@Override
 	public GrooveGauge getGauge() {
 		if (gauge != null) {
-			final double phase = (now() % GAUGE_PERIOD) / (double) GAUGE_PERIOD;
+			// steady（结果 / 课程结果预览）：钉在周期靠后的位置，显示成一个已结算的固定值，
+			// 免得结算画面上量表还在涨；play 预览则按周期推进。
+			final double phase = steady ? STEADY_PHASE : (now() % GAUGE_PERIOD) / (double) GAUGE_PERIOD;
 			gauge.setValue(gaugeMax * (GAUGE_MIN_RATE + (1f - GAUGE_MIN_RATE) * (float) phase));
 		}
 		return gauge;
+	}
+
+	/**
+	 * 结果界面推移图的合成曲线（见 {@link PlayStateValues#getGaugeHistory(int)}）。
+	 *
+	 * <p>形状刻意做得像一局真游玩：先小幅掉到低位，再一路回到高位。只生成一次 ——
+	 * {@code SkinGaugeGraphObject} 会把它光栅化成纹理，曲线变了反而要重建一次。
+	 * 真游玩与真结果界面不走这里（它们用 {@code PlayerResource.getGauge()}）。</p>
+	 */
+	@Override
+	public com.badlogic.gdx.utils.FloatArray getGaugeHistory(int type) {
+		if (gauge == null) {
+			return null;
+		}
+		if (gaugeHistory == null) {
+			final com.badlogic.gdx.utils.FloatArray history = new com.badlogic.gdx.utils.FloatArray();
+			for (int i = 0; i <= HISTORY_STEPS; i++) {
+				final float phase = i / (float) HISTORY_STEPS;
+				final float value = phase < 0.3f
+						? gaugeMax * (0.9f - 0.55f * (phase / 0.3f))
+						: gaugeMax * (0.35f + 0.65f * ((phase - 0.3f) / 0.7f));
+				history.add(Math.max(0f, Math.min(gaugeMax, value)));
+			}
+			gaugeHistory = history;
+		}
+		return gaugeHistory;
 	}
 
 	/** 用预览界面自己的时钟，与音符下落同一个时间源。 */

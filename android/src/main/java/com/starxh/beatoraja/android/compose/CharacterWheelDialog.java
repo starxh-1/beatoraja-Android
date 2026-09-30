@@ -14,6 +14,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.starxh.beatoraja.R;
 
+/**
+ * 手柄用的字符输入轮盘（键盘不可用 / 只用手柄时的文本输入替代品）。
+ * <p>
+ * 键集可以按输入框的内容类型指定：数字框只给数字键，文本框给全键盘。
+ */
 public class CharacterWheelDialog extends Dialog {
 
     public interface OnTextConfirmedListener {
@@ -25,6 +30,18 @@ public class CharacterWheelDialog extends Dialog {
     private TextView displayTextView;
     private boolean isUppercase = true;
     private CharAdapter adapter;
+
+    /** 大写键集 */
+    private final String[] upperChars;
+    /** 小写键集；与 {@link #upperChars} 同一个数组 = 没有大小写之分（数字键盘） */
+    private final String[] lowerChars;
+    private final int numColumns;
+    /**
+     * 数字键盘：按下的第一个键**顶掉**原有数值（数值一般是整段重打，
+     * 不必先按 DELETE 删三次），之后的键正常追加。
+     */
+    private final boolean replaceOnFirstInput;
+    private boolean inputReplaced = false;
 
     private static final String[] UPPER_CHARS = {
         "A", "B", "C", "D", "E", "F", "G", "H", "I",
@@ -44,10 +61,46 @@ public class CharacterWheelDialog extends Dialog {
         "SHIFT", " ", "DEL", "OK"
     };
 
+    /** 数字键盘（{@code inputType=number}）：3 列 → [1 2 3][4 5 6][7 8 9][0 DEL OK] */
+    public static final String[] NUMBER_CHARS = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "DEL", "OK"
+    };
+
+    /** 带符号的数字键盘（{@code number|numberSigned}，如 note timing offset） */
+    public static final String[] SIGNED_NUMBER_CHARS = {
+        "1", "2", "3", "4", "5", "6", "7", "8", "9", "-", "0", "DEL", "OK"
+    };
+
+    /** 数字键集固定 3 列（比全键盘的 9 列更适合十字键：一格一格推，少走很多冤枉路） */
+    public static final int NUMBER_COLUMNS = 3;
+    /** 全键盘 9 列 */
+    public static final int TEXT_COLUMNS = 9;
+
+    /** 全键盘版（文本 / URL 输入框用） */
     public CharacterWheelDialog(Context context, String initialText, OnTextConfirmedListener listener) {
+        this(context, initialText, null, TEXT_COLUMNS, listener);
+    }
+
+    /**
+     * @param fixedChars 固定键集（如 {@link #NUMBER_CHARS}）；传 {@code null} 使用全键盘
+     * @param numColumns 每行几列
+     */
+    public CharacterWheelDialog(Context context, String initialText,
+                                String[] fixedChars, int numColumns,
+                                OnTextConfirmedListener listener) {
         super(context);
         this.currentText = initialText != null ? initialText : "";
         this.listener = listener;
+        this.numColumns = numColumns > 0 ? numColumns : TEXT_COLUMNS;
+        if (fixedChars != null) {
+            this.upperChars = fixedChars;
+            this.lowerChars = fixedChars;
+            this.replaceOnFirstInput = true;
+        } else {
+            this.upperChars = UPPER_CHARS;
+            this.lowerChars = LOWER_CHARS;
+            this.replaceOnFirstInput = false;
+        }
     }
 
     @Override
@@ -69,7 +122,7 @@ public class CharacterWheelDialog extends Dialog {
         layout.addView(displayTextView);
 
         GridView gridView = new GridView(getContext());
-        gridView.setNumColumns(9);
+        gridView.setNumColumns(numColumns);
         gridView.setPadding(0, 32, 0, 0);
         adapter = new CharAdapter();
         gridView.setAdapter(adapter);
@@ -93,8 +146,8 @@ public class CharacterWheelDialog extends Dialog {
     }
 
     private class CharAdapter extends BaseAdapter {
-        @Override public int getCount() { return UPPER_CHARS.length; }
-        @Override public Object getItem(int position) { return isUppercase ? UPPER_CHARS[position] : LOWER_CHARS[position]; }
+        @Override public int getCount() { return upperChars.length; }
+        @Override public Object getItem(int position) { return isUppercase ? upperChars[position] : lowerChars[position]; }
         @Override public long getItemId(int position) { return position; }
         @Override public View getView(int position, View convertView, ViewGroup parent) {
             Button btn;
@@ -106,13 +159,15 @@ public class CharacterWheelDialog extends Dialog {
                 btn.setLayoutParams(new GridView.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 120));
             }
 
-            final String val = isUppercase ? UPPER_CHARS[position] : LOWER_CHARS[position];
+            final String val = isUppercase ? upperChars[position] : lowerChars[position];
             btn.setText(val);
             btn.setOnClickListener(v -> {
                 if (val.equals("OK")) {
                     if (listener != null) listener.onTextConfirmed(currentText);
                     dismiss();
                 } else if (val.equals("DEL")) {
+                    // 已经动过 DEL = 用户是在改原值，之后再按数字键不该再顶掉整串
+                    inputReplaced = true;
                     if (!currentText.isEmpty()) {
                         currentText = currentText.substring(0, currentText.length() - 1);
                         displayTextView.setText(currentText);
@@ -121,7 +176,13 @@ public class CharacterWheelDialog extends Dialog {
                     isUppercase = !isUppercase;
                     notifyDataSetChanged();
                 } else {
-                    currentText += val;
+                    if (replaceOnFirstInput && !inputReplaced) {
+                        // 数字键盘：第一个键顶掉原值（数值一般整段重打）
+                        currentText = val;
+                        inputReplaced = true;
+                    } else {
+                        currentText += val;
+                    }
                     displayTextView.setText(currentText);
                 }
             });

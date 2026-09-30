@@ -29,6 +29,36 @@ public final class BarRenderer {
 
 	private final BarManager manager;
 
+	/**
+	 * 排版用的皮肤覆盖。{@code null} = 用 {@code select} 自己加载的皮肤（正常路径）。
+	 *
+	 * <p>皮肤选择界面的实时预览会借用本渲染器画一遍选曲列表（它持有真实的
+	 * {@code BarManager}，所以能画出真的曲目），但此时 {@code MainController} 已经把
+	 * {@code MusicSelector} 的皮肤清空了 —— 切状态时那句
+	 * {@code current.setSkin(null)} —— 于是 {@code select.getSkin()} 为 null，
+	 * 本渲染器会直接 return、整条列表不画。预览宿主于是把<b>预览皮肤</b>设到这里，
+	 * 让排版参数（centerBar / clickableBar）以预览皮肤为准。</p>
+	 *
+	 * <p>只有预览会写这个字段；写的一方必须在预览结束时清回 {@code null}
+	 * （见 {@code SkinConfiguration#dispose()}），否则回到真实选曲界面后排版会用错皮肤。</p>
+	 */
+	private MusicSelectSkin skinOverride;
+
+	/**
+	 * 设置 / 清除排版皮肤覆盖，见 {@link #skinOverride}。
+	 */
+	public void setSkinOverride(MusicSelectSkin skin) {
+		this.skinOverride = skin;
+	}
+
+	/**
+	 * 本次绘制按哪张皮肤排版：预览时是预览皮肤，其余情况是
+	 * {@code MusicSelector} 自己加载的皮肤。
+	 */
+	private MusicSelectSkin layoutSkin() {
+		return skinOverride != null ? skinOverride : (MusicSelectSkin) select.getSkin();
+	}
+
 	private final String[] TROPHY = { "bronzemedal", "silvermedal", "goldmedal" };
 
 	private final int durationlow;
@@ -108,7 +138,7 @@ public final class BarRenderer {
 	private long time;
 
 	public void prepare(SkinBar baro, long time) {
-		final MusicSelectSkin skin = (MusicSelectSkin) select.getSkin();
+		final MusicSelectSkin skin = layoutSkin();
 		if (skin == null) {
 			return;
 		}
@@ -205,7 +235,7 @@ public final class BarRenderer {
 	}
 
 	public void render(SkinObjectRenderer sprite, SkinBar baro) {
-		final MusicSelectSkin skin = (MusicSelectSkin) select.getSkin();
+		final MusicSelectSkin skin = layoutSkin();
 		if (skin == null) {
 			return;
 		}

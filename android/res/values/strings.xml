@@ -107,8 +107,13 @@
     <string-array name="language_options">
         <item>English</item>
         <item>简体中文</item>
+        <item>繁體中文</item>
         <item>日本語</item>
         <item>한국어</item>
+        <item>Français</item>
+        <item>Deutsch</item>
+        <item>Português</item>
+        <item>Español</item>
     </string-array>
 
     <string-array name="floating_menu_position_options">
@@ -207,8 +212,8 @@
 
     <string name="gauge_auto_shift_help_title">Gauge Auto Shift</string>
     <string name="gauge_auto_shift_help">Automatic gauge switching. \"Best Clear\" is already the default. If you like seeking thrills, you can select \"None\" and enable HAZARD GAUGE to play.</string>
-    <string name="expand">Click to expand/collapse</string>
-    <string name="vibration_on_bad">震动反馈（Bad/Poor/Miss 判定）</string>
+    <string name="expand">Click to expand</string>
+    <string name="vibration_on_bad">Vibration feedback (Bad/Poor/Miss)</string>
 
     <string name="epilepsy_warning_title">Photosensitive Seizure Warning</string>
     <string name="epilepsy_warning_message">This game contains flashing lights, rapid screen patterns, and visual effects that may trigger seizures or loss of consciousness in a small percentage of people, even those with no prior history of epilepsy. If you or a family member has a history of seizures, consult a doctor before playing. If you experience dizziness, altered vision, eye or muscle twitching, or disorientation, stop playing immediately and seek medical advice.</string>

@@ -1,9 +1,11 @@
 package bms.player.beatoraja.config;
 
+import bms.player.beatoraja.BarRenderSource;
 import bms.player.beatoraja.MainController;
 import bms.player.beatoraja.MainState;
 import static bms.player.beatoraja.skin.SkinProperty.*;
 
+import bms.model.BMSModel;
 import bms.model.Mode;
 import bms.player.beatoraja.PlayerConfig;
 import bms.player.beatoraja.PlayStateValues;
@@ -14,6 +16,9 @@ import bms.player.beatoraja.play.PlaySkin;
 import bms.player.beatoraja.play.PreviewNoteLayer;
 import bms.player.beatoraja.play.PreviewPlayValues;
 import bms.player.beatoraja.play.SkinNote;
+import bms.player.beatoraja.select.BarRenderer;
+import bms.player.beatoraja.select.MusicSelectSkin;
+import bms.player.beatoraja.select.MusicSelector;
 import bms.player.beatoraja.skin.*;
 
 import java.util.logging.Logger;
@@ -23,7 +28,7 @@ import java.util.logging.Logger;
  *
  * @author excln
  */
-public class SkinConfiguration extends MainState {
+public class SkinConfiguration extends MainState implements BarRenderSource {
 
 	/** 参数调整后等待多久（ms）才真正重建预览，用于合并连按。 */
 	private static final long PREVIEW_RELOAD_DELAY_MS = 120;
@@ -43,6 +48,12 @@ public class SkinConfiguration extends MainState {
 	 * （见 {@link #getPlayStateValues()} 与 {@link PreviewPlayValues}）。
 	 */
 	private PreviewPlayValues previewPlayValues;
+	/**
+	 * 预览给 {@code BarRenderer} 设过「排版皮肤覆盖」的那个渲染器。
+	 * 换皮肤 / 退出界面时必须还原成 {@code null}，否则真实选曲界面回来时会按一张
+	 * 已被释放的预览皮肤排版（见 {@link #getBarRender()}）。
+	 */
+	private BarRenderer barSkinOverrideApplied;
 
 	/**
 	 * 参数调整（Lane Size、Scratch Side 之类）请求预览重建的时刻，-1 表示无请求。
@@ -82,6 +93,13 @@ public class SkinConfiguration extends MainState {
 				&& System.currentTimeMillis() - previewReloadRequestTime >= PREVIEW_RELOAD_DELAY_MS) {
 			previewReloadRequestTime = -1;
 			loadSelectedSkinPreview();
+		}
+
+		// 选曲条的显示动画挂在 TIMER_SONGBAR_CHANGE 上（真选曲界面每帧点亮它，见
+		// MusicSelector.render()）。预览里没人点，挂这个 timer 的 bar 图片会恒 off、
+		// 于是整条列表仍然不画 —— 所以这里照抄那一句。
+		if (selectedSkin instanceof MusicSelectSkin && timer.getNowTime(TIMER_SONGBAR_CHANGE) < 0) {
+			timer.setTimerOn(TIMER_SONGBAR_CHANGE);
 		}
 
 		if (main.getInputProcessor().isControlKeyPressed(ControlKeys.ESCAPE)) {
@@ -293,10 +311,15 @@ public class SkinConfiguration extends MainState {
 	 * 必须在 {@code preview.prepare()} **之前**调用，否则首次 prepare 时取不到值。</p>
 	 */
 	private void setupPreviewPlayValues(Skin preview) {
-		if (!(preview instanceof PlaySkin)) {
+		final SkinType type = model.getType();
+		final boolean playLike = preview instanceof PlaySkin;
+		// 结果 / 课程结果皮肤同样有量表（SkinGauge 在结算界面照常显示最终量表），
+		// 但这两个 SkinType 本身不带 Mode，要另找一个（见 resolvePreviewMode）。
+		final boolean resultLike = type == SkinType.RESULT || type == SkinType.COURSE_RESULT;
+		if (!playLike && !resultLike) {
 			return;
 		}
-		final Mode mode = model.getType() != null ? model.getType().getMode() : null;
+		final Mode mode = resolvePreviewMode(type);
 		if (mode == null) {
 			return;
 		}
@@ -306,7 +329,38 @@ public class SkinConfiguration extends MainState {
 		} catch (Throwable e) {
 			// 拿不到就用默认值（0 = ASSIST EASY）
 		}
-		previewPlayValues = new PreviewPlayValues(this, mode, gaugeType);
+		// 结果类是静态画面：量表钉住不推进（只有 play 预览才让它动）
+		previewPlayValues = new PreviewPlayValues(this, mode, gaugeType, resultLike);
+	}
+
+	/**
+	 * 预览合成量表要用的 Mode。
+	 *
+	 * <p>play 类皮肤的类型自带 Mode；{@code RESULT} / {@code COURSE_RESULT} 没有
+	 * （{@code SkinType.getMode()} 为 null），而 {@code GrooveGauge.create()} 需要一个模式
+	 * 决定量表规则，所以退回「上一次游玩用的模式」，再不行用 7K。</p>
+	 */
+	private Mode resolvePreviewMode(SkinType type) {
+		if (type != null && type.getMode() != null) {
+			return type.getMode();
+		}
+		try {
+			final Mode origin = resource.getOriginalMode();
+			if (origin != null) {
+				return origin;
+			}
+		} catch (Throwable e) {
+			// 没有游玩记录，继续退化
+		}
+		try {
+			final BMSModel played = resource.getBMSModel();
+			if (played != null && played.getMode() != null) {
+				return played.getMode();
+			}
+		} catch (Throwable e) {
+			// 同上
+		}
+		return Mode.BEAT_7K;
 	}
 
 	/**
@@ -319,6 +373,34 @@ public class SkinConfiguration extends MainState {
 	@Override
 	public PlayStateValues getPlayStateValues() {
 		return previewPlayValues;
+	}
+
+	/**
+	 * 预览里的选曲条渲染器，见 {@link BarRenderSource}。
+	 *
+	 * <p>{@code SkinBar}（选曲列表对象）自己不保存曲目数据，绘制整个委托给
+	 * {@code BarRenderer}。这里借 {@code MainController} 上长驻的那个
+	 * {@code MusicSelector} 的渲染器 —— 它持有真实的 {@code BarManager}（全部曲目 /
+	 * 文件夹 / 成绩灯），所以预览里显示的是<b>真的选曲列表</b>，不是伪造的几行。</p>
+	 *
+	 * <p>唯一要补的是排版皮肤：{@code MusicSelector} 在离开选曲界面时已被
+	 * {@code MainController} 清空皮肤（{@code current.setSkin(null)}），
+	 * {@code BarRenderer} 拿不到 centerBar / clickableBar 就会直接 return、整条列表不画。
+	 * 所以这里把<b>预览皮肤</b>设成排版覆盖；换皮肤或退出界面时由
+	 * {@link #releaseBarSkinOverride()} 还原。</p>
+	 */
+	@Override
+	public BarRenderer getBarRender() {
+		final MusicSelector selector = main != null ? main.getMusicSelector() : null;
+		final BarRenderer bar = selector != null ? selector.getBarRender() : null;
+		if (bar == null) {
+			return null;
+		}
+		if (selectedSkin instanceof MusicSelectSkin) {
+			bar.setSkinOverride((MusicSelectSkin) selectedSkin);
+			barSkinOverrideApplied = bar;
+		}
+		return bar;
 	}
 
 	/**
@@ -338,10 +420,28 @@ public class SkinConfiguration extends MainState {
 		if (selectedSkin == skin) {
 			return;
 		}
+		// 先还原借给 BarRenderer 的「排版皮肤覆盖」—— 它指向的正是即将被释放的这张
+		// 预览皮肤。顺序不能反：先 dispose 的话，覆盖里留的就是一张已释放皮肤的引用。
+		releaseBarSkinOverride();
 		if (selectedSkin != null) {
 			selectedSkin.dispose();
 		}
 		selectedSkin = skin;
+	}
+
+	/**
+	 * 清除预览在 {@code BarRenderer} 上留下的「排版皮肤覆盖」。
+	 *
+	 * <p>{@code MusicSelector} 与皮肤选择界面长期共存（前者由
+	 * {@code MainController.create()} 创建后不再销毁），所以借用的状态必须还原干净，
+	 * 否则回到真实选曲界面后 {@code BarRenderer} 会继续按预览皮肤排版。</p>
+	 */
+	private void releaseBarSkinOverride() {
+		final BarRenderer bar = barSkinOverrideApplied;
+		barSkinOverrideApplied = null;
+		if (bar != null) {
+			bar.setSkinOverride(null);
+		}
 	}
 
 	@Override

@@ -1,5 +1,6 @@
 package bms.player.beatoraja.select;
 
+import bms.player.beatoraja.BarRenderSource;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.skin.*;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
@@ -212,64 +213,91 @@ public final class SkinBar extends SkinObject {
     @Override
     public void prepare(long time, MainState state) {
     	if(render == null) {
-    		render = ((MusicSelector) state).getBarRender();
+    		// 真选曲界面：state 是 MusicSelector；皮肤选择界面的实时预览：state 是
+    		// SkinConfiguration，它同样实现 BarRenderSource（借用 MainController 上长驻的
+    		// MusicSelector 的渲染器，所以预览里画出来的是真曲目）。
+    		// 原来这里写死 ((MusicSelector) state) —— 预览里必然 ClassCastException，
+    		// 异常被 Skin.drawAllObjectsSafely 吞掉后本对象被永久置 draw=false，
+    		// 整条选曲列表（含曲名 / 等级 / 灯 / 奖杯 / 标签 / 分布图）就此消失。
+    		if(!(state instanceof BarRenderSource)) {
+    			draw = false;
+    			return;
+    		}
+    		render = ((BarRenderSource) state).getBarRender();
     		if(render == null) {
     			draw = false;
     			return;
     		}
     	}
-    	super.prepare(time, state);
+    	// 每个子对象单独容错：坏掉一张图不该连坐整条列表（尤其是不能让
+    	// render.prepare() 被异常跳过 —— 那等于整条列表一个字都不画）。
+    	try {
+    		super.prepare(time, state);
+    	} catch (Throwable e) {
+    		// 单张子图失败不向上抛
+    	}
     	for(SkinImage bar : barimageon) {
-    		if(bar != null) {
-    			bar.prepare(time, state);
-    		}
+    		prepareChild(bar, time, state);
     	}
     	for(SkinImage bar : barimageoff) {
-    		if(bar != null) {
-    			bar.prepare(time, state);
-    		}
+    		prepareChild(bar, time, state);
     	}
     	for(SkinImage trophy : trophy) {
-    		if(trophy != null) {
-    			trophy.prepare(time, state);
-    		}
+    		prepareChild(trophy, time, state);
     	}
-    	for(SkinText text : text) {
-    		if(text != null) {
-    			text.prepare(time, state);
-    		}
+    	for(SkinText text : this.text) {
+    		prepareChild(text, time, state);
     	}
-    	for(SkinNumber barlevel : barlevel) {
-    		if(barlevel != null) {
-    			barlevel.prepare(time, state);
-    		}
+    	for(SkinNumber barlevel : this.barlevel) {
+    		prepareChild(barlevel, time, state);
     	}
-    	for(SkinImage label : label) {
-    		if(label != null) {
-    			label.prepare(time, state);
-    		}
+    	for(SkinImage label : this.label) {
+    		prepareChild(label, time, state);
     	}
-    	for(SkinImage lamp : lamp) {
-    		if(lamp != null) {
-    			lamp.prepare(time, state);
-    		}
+    	for(SkinImage lamp : this.lamp) {
+    		prepareChild(lamp, time, state);
     	}
-    	for(SkinImage mylamp : mylamp) {
-    		if(mylamp != null) {
-    			mylamp.prepare(time, state);
-    		}
+    	for(SkinImage mylamp : this.mylamp) {
+    		prepareChild(mylamp, time, state);
     	}
-    	for(SkinImage rivallamp : rivallamp) {
-    		if(rivallamp != null) {
-    			rivallamp.prepare(time, state);
-    		}
+    	for(SkinImage rivallamp : this.rivallamp) {
+    		prepareChild(rivallamp, time, state);
     	}
-    	
-    	if(graph != null) {
-    		graph.prepare(time, state);
+    	// 🔴 分布图（folder lamp 横条）**不能带进预览**：
+    	// SkinDistributionGraph.prepare() 第一行就是 ((MusicSelector) state).getSelectedBar()，
+    	// 而预览的 state 是 SkinConfiguration ⇒ 必然 ClassCastException。异常从本方法抛出后
+    	// 被 Skin.drawAllObjectsSafely 静默吞掉并置 draw=false —— 于是这一行**后面**的
+    	// render.prepare(this, time) 永远不会执行，整条选曲列表（曲名 / 等级 / 灯 / 奖杯 /
+    	// 标签）一起消失。2026-09-28 的「SKIN SELECT 里 musicselect 的 songbar 画不出来」就是这条。
+    	// 该文件按约定保持与上游一致（不在这里改），所以从调用方跳过：预览里没有
+    	// "当前选中的 Bar"，分布图本来也无从计算。
+    	if(state instanceof MusicSelector) {
+    		prepareChild(graph, time, state);
+    	} else if(graph != null) {
+    		graph.draw = false;
     	}
 
-        render.prepare(this, time);
+    	// BarRenderer.prepare() 必须无条件执行到（上面任何一个子对象失败都不能跳过它，
+    	// 否则整条列表一个字都不画），所以单独包一层。
+    	try {
+    		render.prepare(this, time);
+    	} catch (Throwable e) {
+    		// 同上：不向上抛，避免连坐整张皮肤
+    	}
+    }
+
+    /**
+     * 准备一个子对象，失败时只把它的 draw 置 false，不向上抛。
+     */
+    private void prepareChild(SkinObject obj, long time, MainState state) {
+    	if(obj == null) {
+    		return;
+    	}
+    	try {
+    		obj.prepare(time, state);
+    	} catch (Throwable e) {
+    		obj.draw = false;
+    	}
     }
 
     public void draw(SkinObjectRenderer sprite) {
@@ -308,7 +336,13 @@ public final class SkinBar extends SkinObject {
     
     @Override
 	protected boolean mousePressed(MainState state, int button, int x, int y) {
-        return ((MusicSelector) state).getBarRender().mousePressed(this, button, x, y);
+        // 只有真选曲界面会被点到（皮肤预览不接收输入，其对象表也不含本对象）；
+        // 但仍然判一次类型，避免任何路径下的 ClassCastException。
+        if(!(state instanceof MusicSelector)) {
+            return false;
+        }
+        final BarRenderer renderer = ((MusicSelector) state).getBarRender();
+        return renderer != null && renderer.mousePressed(this, button, x, y);
 	}
 
     public SkinImage getLabel(int id) {

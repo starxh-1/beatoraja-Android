@@ -108,6 +108,11 @@ public class MainController {
     private volatile boolean pollingRunning = false;
     /** 正在 dispose 标志，防止 dispose 过程中渲染线程继续访问已释放的资源 */
     private volatile boolean disposing = false;
+    /**
+     * dispose() 是否已执行完毕。见 dispose() 方法头的注释：
+     * 本方法有 UI 线程(exit())与 GL 线程(libGDX ldestroy)两条调用路径，必须幂等。
+     */
+    private volatile boolean disposed = false;
     private MusicDownloadProcessor download;
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
     private boolean selectorInitialized = false;
@@ -676,6 +681,13 @@ public class MainController {
             }
         }, "InputPollingThread");
         inputPollingThread.setDaemon(true); // 守护线程:JVM 退出时强制结束
+        // 1000Hz 轮询被渲染/GC 抢占会让 keyDown 上屏延迟、判定时间戳抖动。
+        // NORM+1：比普通线程略高，但不与判定线程(NORM+2)抢占。
+        try {
+            inputPollingThread.setPriority(Math.min(Thread.MAX_PRIORITY, Thread.NORM_PRIORITY + 1));
+        } catch (Throwable ignored) {
+            // setPriority 可能受 SecurityManager / 部分 ROM 限制，失败不影响功能
+        }
         inputPollingThread.start();
 
         Array<String> targetlist = new Array<String>(player.getTargetlist());
@@ -1207,6 +1219,17 @@ public class MainController {
     }
 
     public void dispose() {
+        // 🔴 幂等守卫（必须）：本方法有两条调用路径，且会先后发生两次 ——
+        //   ① 退出对话框 → MainController.exit() → dispose()（UI 线程，同步释放）
+        //   ② Activity finish() → SurfaceView 销毁 → libGDX AndroidGraphics.onDrawFrame
+        //      的 ldestroy 分支 → BeatorajaGame.dispose() → dispose()（GL 线程）
+        // 第二次会在 GL 线程对**已被释放的 FreeType face** 再调一次 FT_Done_Face：
+        //   signal 11 (SIGSEGV), fault addr 0x78, libgdx-freetype.so (FT_Done_Face+36)
+        // 这正是 /data/tombstones 里从 09-26 起反复出现、且线程总为 GLThread 的崩溃。
+        // 字段 disposed 而非 disposing：后者在 exit() 里已置 true，不能复用。
+        if (disposed) return;
+        disposed = true;
+
         // 关键修复：先停掉 1000Hz 输入轮询线程,再释放 input,避免 input.poll() 在 input 被释放后
         // 继续调用引发 NPE / 死循环。pollingRunning=false 让循环在下一次 check 时退出;
         // interrupt() 是兜底,若线程卡在 parkNanos 则强制唤醒。
@@ -1253,12 +1276,18 @@ public class MainController {
         }
         if (systemfont != null) {
             systemfont.dispose();
+            systemfont = null;
         }
         if (systemfont18 != null) {
             systemfont18.dispose();
+            systemfont18 = null;
         }
         if (systemfontGenerator != null) {
+            // FreeTypeFontGenerator.dispose() → FT_Done_Face(face)。
+            // 释放后必须置 null：本类是 GameLifecycle 的持有者，残留引用一旦被
+            // 第二次 dispose（或 resume()）取用就是野指针（fault addr 0x78）。
             systemfontGenerator.dispose();
+            systemfontGenerator = null;
         }
         if (touchPointerTexture != null) {
             touchPointerTexture.dispose();

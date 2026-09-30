@@ -6,6 +6,7 @@ import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.utils.*;
 
 import bms.player.beatoraja.*;
+import bms.player.beatoraja.play.GrooveGauge;
 import bms.player.beatoraja.play.GrooveGauge.Gauge;
 import bms.player.beatoraja.skin.Skin.SkinObjectRenderer;
 import bms.player.beatoraja.skin.SkinObject;
@@ -131,16 +132,46 @@ public class SkinGaugeGraphObject extends SkinObject {
 		super.prepare(time, state);
 
 		final PlayerResource resource = state.resource;
-		int type = resource.getGrooveGauge().getType();
-		if(state instanceof AbstractResult) {
+		// 量表来源分两条：
+		//  ① 真结果界面：走 resource 上的游玩数据，与改动前逐字一致；
+		//  ② 皮肤预览（state 是 SkinConfiguration）：没有游玩数据，
+		//     resource.getGrooveGauge() 为 null —— 原来这里直接 NPE，异常被
+		//     drawAllObjectsSafely 吞掉后本对象被永久置 draw=false，表现就是
+		//     "result 预览里量表推移图整块不见"。改走「游玩态数值」契约，
+		//     由预览侧给一份合成量表 + 合成推移曲线。
+		final GrooveGauge gaugeSource;
+		int type;
+		FloatArray historyOverride = null;
+		if (state instanceof AbstractResult) {
+			gaugeSource = resource.getGrooveGauge();
 			type = ((AbstractResult) state).gaugeType;
+		} else {
+			final PlayStateValues play = state.getPlayStateValues();
+			final GrooveGauge previewGauge = play != null ? play.getGauge() : null;
+			if (previewGauge != null) {
+				gaugeSource = previewGauge;
+				type = previewGauge.getType();
+				historyOverride = play.getGaugeHistory(type);
+			} else {
+				gaugeSource = resource.getGrooveGauge();
+				type = gaugeSource != null ? gaugeSource.getType() : 0;
+			}
+		}
+		if (gaugeSource == null) {
+			draw = false;
+			return;
 		}
 
 		boolean needRebuild = redraw;
 		if(currentType != type) {
 			redraw = true;
 			currentType = type;
-			gaugehistory = resource.getGauge()[currentType];
+			// 预览给的是合成曲线；其余情况（真结果界面）仍取 resource 上的采样数组。
+			// resource.getGauge() 在预览里是 null，所以要判空 + 判范围。
+			final FloatArray[] resourceGauges = resource.getGauge();
+			gaugehistory = historyOverride != null ? historyOverride
+					: (resourceGauges != null && currentType >= 0 && currentType < resourceGauges.length
+							? resourceGauges[currentType] : null);
 			section = new IntArray();
 			if (state instanceof CourseResult) {
 				gaugehistory = new FloatArray();
@@ -149,7 +180,7 @@ public class SkinGaugeGraphObject extends SkinObject {
 					section.add((section.size > 0 ? section.get(section.size - 1) : 0) + l[currentType].size);
 				}
 			}
-			gg = resource.getGrooveGauge().getGauge(currentType);
+			gg = gaugeSource.getGauge(currentType);
 			needRebuild = true;
 		}
 		// Check if dimensions have changed - need to rebuild in that case too
@@ -164,7 +195,9 @@ public class SkinGaugeGraphObject extends SkinObject {
 		// fillRectangle ループを実行しており、結果画面で初回描画が長時間止まっていた。
 		// Pixmap のラスタライズは CPU バウンドなのでワーカで実行し、
 		// Texture 上伝（GL 呼び出し）のみを Gdx.app.postRunnable で GL Thread に戻す。
-		if(needRebuild && !rebuildPending) {
+		// gaugehistory / gg 为空时不重建：预览路径可能拿不到推移数据，
+		// 硬进 scheduleRebuild 只会在后台线程里抛 NPE（虽被捕获，但白烧一个线程）。
+		if(needRebuild && !rebuildPending && gaugehistory != null && gg != null) {
 			scheduleRebuild();
 		}
 	}

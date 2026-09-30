@@ -39,7 +39,7 @@ import bms.player.beatoraja.song.SongDatabaseAccessor;
  *
  * @author exch
  */
-public final class MusicSelector extends MainState {
+public final class MusicSelector extends MainState implements BarRenderSource {
 
 	// TODO　ミラーランダム段位のスコア表示
 
@@ -181,6 +181,7 @@ public final class MusicSelector extends MainState {
 		play = null;
 		showNoteGraph = false;
 		resource.setPlayerData(main.getPlayDataAccessor().readPlayerData());
+		refreshTodayPlayerData();
 		if (playedsong != null) {
 			scorecache.update(playedsong, config.getLnmode());
 			playedsong = null;
@@ -266,32 +267,14 @@ public final class MusicSelector extends MainState {
 	public void prepare() {
 		preview.start((String)null);
 
-		// 关键修复：返回选曲界面时强制更新分数缓存
-		// 统一调用 scorecache.update() 重新从数据库读取最新状态，确保 EX Score 不为 0
-		if (playedsong != null) {
-			scorecache.clear();
-			ScoreData sd = main.getPlayDataAccessor().readScoreData(playedsong.getSha256(), playedsong.hasUndefinedLongNote(), config.getLnmode());
-			Logger.getGlobal().info("prepare: playedsong=" + playedsong.getTitle() + ", sd=" + (sd != null ? "notNull" : "null") + (sd != null ? ", exscore=" + sd.getExscore() : ""));
-			if (sd != null) {
-				for (Bar b : manager.currentsongs) {
-					if (b instanceof SongBar sb && sb.getSongData() != null
-							&& sb.getSongData().getSha256().equals(playedsong.getSha256())) {
-						sb.setScore(sd);
-						getScoreDataProperty().update(sd);
-						Logger.getGlobal().info("prepare: setScore to SongBar done, exscore=" + sd.getExscore() + ", property exscore=" + getScoreDataProperty().getNowEXScore());
-						break;
-					}
-				}
-			}
-			playedsong = null;
-		}
-		if (playedcourse != null) {
-			scorecache.clear();
-			for (SongData song : playedcourse.getSong()) {
-				main.getPlayDataAccessor().readScoreData(song.getSha256(), song.hasUndefinedLongNote(), config.getLnmode());
-			}
-			playedcourse = null;
-		}
+		// 返回选曲界面时刷新「上一曲」影响到的全部数据（成绩 / 回放 / 玩家数据 / 文件夹灯）。
+		// 上游是在 create() 里做这些的 —— 上游每次进 MUSICSELECT 都会走一遍 create()；
+		// 本 fork 为了避开冷启动的重 IO 把 create() 限成"只首次执行"
+		// （见 MainController.changeState 的 selectorInitialized），
+		// 于是打完一首歌回来，选曲界面的成绩、リプレイ标记、玩家数据面板全都还是旧的。
+		// prepare() 每次进入 MUSICSELECT 都会执行（MainController.changeState 末尾），
+		// 所以刷新放在这里。
+		refreshAfterPlay();
 
 		final BMSPlayerInputProcessor input = main.getInputProcessor();
 		PlayModeConfig pc = (config.getMusicselectinput() == 0 ? config.getMode7()
@@ -299,6 +282,169 @@ public final class MusicSelector extends MainState {
 		input.setKeyboardConfig(pc.getKeyboardConfig());
 		input.setControllerConfig(pc.getController());
 		input.setMidiConfig(pc.getMidiConfig());
+	}
+
+	/**
+	 * 游玩 / 结算结束、回到选曲界面时，把「上一曲」影响到的东西全部重读一遍。
+	 *
+	 * <p>为什么需要：上游 {@code MusicSelector.create()} 里做的三件事 ——
+	 * {@code resource.setPlayerData(readPlayerData())}、{@code scorecache.update(playedsong)}、
+	 * {@code manager.updateBar()} —— 在本 fork 里<b>都不会再执行</b>（create() 被限成只跑一次，
+	 * 而 updateBar() 又被包进 {@code if (manager.getSelected() == null)}）。结果是：</p>
+	 * <ul>
+	 *   <li>皮肤 {@code player_*} 属性（play count / clear / perfect~poor / notes / playtime）
+	 *       整个会话都不再动 —— 它们读 {@code resource.getPlayerData()}，而这个对象只在
+	 *       create() 里被换过一次；</li>
+	 *   <li>选曲界面的リプレイ图标（{@code BooleanPropertyFactory} 的
+	 *       {@code OPTION_REPLAYDATA*}/{@code NO_REPLAYDATA*} 读
+	 *       {@link SelectableBar#existsReplay(int)}）只在 {@code BarManager} 加载文件夹时
+	 *       写过一次，刚存下的回放不会亮；</li>
+	 *   <li>bar 上的灯 / 奖杯 / 分数读数取自 {@code bar.getScore()} 这个<b>引用</b>，
+	 *       光更新缓存不换引用是看不见变化的。</li>
+	 * </ul>
+	 *
+	 * <p>开销控制：GL 线程上只做「一次 player 查询 + 上一曲（或上一组课目）的成绩查询 +
+	 * 4 次回放文件存在检查」，<b>不做</b>文件夹枚举与聚合；文件夹灯的聚合查询丢到后台线程。
+	 * 注意不要在这里 {@code scorecache.clear()} —— 清空后当前列表每个 bar 都得重新查一次
+	 * DB，那才是 ANR 的来源。</p>
+	 */
+	private void refreshAfterPlay() {
+		final PlayDataAccessor pda = main.getPlayDataAccessor();
+
+		// (1) 玩家累计数据（player_*）与本日分（player_today_*）：两者必须同一次读，
+		//     否则面板上的「累计」和「今日」会来自不同时间点
+		try {
+			final PlayerData pd = pda.readPlayerData();
+			if (pd != null) {
+				resource.setPlayerData(pd);
+			}
+			resource.setTodayPlayerData(pda.readTodayPlayerData());
+		} catch (Throwable t) {
+			Logger.getGlobal().warning("選曲画面: プレイヤーデータの更新に失敗 : " + t);
+		}
+
+		final SongData played = playedsong;
+		final CourseData course = playedcourse;
+		playedsong = null;
+		playedcourse = null;
+		if (played == null && course == null) {
+			// 没打过歌（例如从 CONFIG / 皮肤选择返回）：上面的玩家数据刷新就够了
+			return;
+		}
+		Logger.getGlobal().info("選曲画面: プレイ後リフレッシュ (" + (played != null ? played.getTitle() : "COURSE") + ")");
+
+		// (2) 成绩缓存：只更新上一曲 / 上一组课目，不动其它条目
+		if (played != null) {
+			scorecache.update(played, config.getLnmode());
+		}
+		if (course != null) {
+			for (SongData sd : course.getSong()) {
+				scorecache.update(sd, config.getLnmode());
+			}
+		}
+
+		// (3) 推给当前列表里对应的 bar：成绩引用 + 回放存在标志
+		final Bar[] bars = manager.getBarList();
+		if (bars != null) {
+			for (Bar b : bars) {
+				if (b instanceof SongBar sb && sb.getSongData() != null) {
+					final SongData sd = sb.getSongData();
+					if (!isPlayed(sd, played, course)) {
+						continue;
+					}
+					sb.setScore(scorecache.readScoreData(sd, config.getLnmode()));
+					for (int i = 0; i < REPLAY; i++) {
+						sb.setExistsReplay(i, pda.existsReplayData(sd.getSha256(), sd.hasUndefinedLongNote(),
+								config.getLnmode(), i));
+					}
+				} else if (course != null && b instanceof GradeBar gb && gb.existsAllSongs()) {
+					refreshCourseBar(gb, pda);
+				}
+			}
+		}
+
+		// (4) 曲目情报面板（score / exscore / play count / miss count …）跟着选中的 bar 走
+		if (bars != null && bars.length > 0) {
+			final Bar selected = manager.getSelected();
+			if (selected != null) {
+				getScoreDataProperty().update(selected.getScore(), selected.getRivalScore());
+			}
+		}
+
+		// (5) 文件夹灯：聚合查询必须在后台线程（和 BarManager 加载文件夹时同一套做法）
+		if (resource.getConfig().isFolderlamp() && bars != null) {
+			final Array<Bar> folders = new Array<Bar>();
+			for (Bar b : bars) {
+				if (b instanceof DirectoryBar) {
+					folders.add(b);
+				}
+			}
+			if (folders.size > 0) {
+				new Thread(() -> {
+					for (Bar b : folders) {
+						try {
+							((DirectoryBar) b).updateFolderStatus();
+						} catch (Throwable t) {
+							// 单个文件夹失败不影响其它
+						}
+					}
+				}, "folder-lamp-refresh").start();
+			}
+		}
+	}
+
+	/**
+	 * 本日分のプレイヤーデータを読み直して {@code resource} に載せる。
+	 *
+	 * <p>{@link PlayDataAccessor#readTodayPlayerData()} は長らく<b>呼び出し元が無い
+	 * 死んだコード</b>だった（上游本家にも呼び出し元が無い）。ここが唯一の呼び出し元で、
+	 * スキンの {@code player_today_*} 属性（id 334-337 / 344-348）に値を供給する。
+	 * 「今日ノート数」のような当日分の表示はこれで初めて動く。</p>
+	 *
+	 * <p>失敗しても選曲画面は出したいので例外は握る（値は 0 のままになるだけ）。</p>
+	 */
+	private void refreshTodayPlayerData() {
+		try {
+			resource.setTodayPlayerData(main.getPlayDataAccessor().readTodayPlayerData());
+		} catch (Throwable t) {
+			Logger.getGlobal().warning("選曲画面: 本日分プレイヤーデータの更新に失敗 : " + t);
+		}
+	}
+
+	/** {@code sd} 是否就是刚打过的那首歌，或刚打过的那组课目里的曲目。 */
+	private boolean isPlayed(SongData sd, SongData played, CourseData course) {
+		if (sd == null || sd.getSha256() == null) {
+			return false;
+		}
+		if (played != null && sd.getSha256().equals(played.getSha256())) {
+			return true;
+		}
+		if (course != null) {
+			for (SongData c : course.getSong()) {
+				if (sd.getSha256().equals(c.getSha256())) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/** 段位 / 课程 bar：NORMAL / MIRROR / RANDOM 三份成绩与回放标志一起重算。 */
+	private void refreshCourseBar(GradeBar gb, PlayDataAccessor pda) {
+		final SongData[] songs = gb.getSongDatas();
+		final String[] hash = new String[songs.length];
+		boolean ln = false;
+		for (int j = 0; j < songs.length; j++) {
+			hash[j] = songs[j].getSha256();
+			ln |= songs[j].hasUndefinedLongNote();
+		}
+		final CourseData.CourseDataConstraint[] constraint = gb.getCourseData().getConstraint();
+		gb.setScore(pda.readScoreData(hash, ln, config.getLnmode(), 0, constraint));
+		gb.setMirrorScore(pda.readScoreData(hash, ln, config.getLnmode(), 1, constraint));
+		gb.setRandomScore(pda.readScoreData(hash, ln, config.getLnmode(), 2, constraint));
+		for (int i = 0; i < REPLAY; i++) {
+			gb.setExistsReplay(i, pda.existsReplayData(hash, ln, config.getLnmode(), i, constraint));
+		}
 	}
 
 	public void render() {

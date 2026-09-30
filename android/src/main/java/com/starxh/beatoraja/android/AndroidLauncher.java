@@ -131,7 +131,6 @@ public class AndroidLauncher extends AndroidApplication {
     private InputMethodManager inputMethodManager;
     private volatile boolean isTextInputActive = false;
     private OboeAudio oboeAudio;
-    private String mLanguage = "en";
 
     /**
      * Oboe 流的 pause/resume 专用后台线程。
@@ -269,32 +268,20 @@ public class AndroidLauncher extends AndroidApplication {
         };
     }
 
-    private void readConfigForLanguage() {
-        try {
-            File configFile = new File(getExternalFilesDir(null), "config_sys.json");
-            if (configFile.exists()) {
-                StringBuilder content = new StringBuilder();
-                try (BufferedReader reader = new BufferedReader(new FileReader(configFile))) {
-                    String line;
-                    while ((line = reader.readLine()) != null) content.append(line);
-                }
-                JSONObject json = new JSONObject(content.toString());
-                mLanguage = json.optString("language", "en");
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to read language config", e);
-        }
-    }
-
-    private void applyLanguage(String lang) {
-        Locale locale = new Locale(lang);
-        if (lang.equals("zh")) locale = Locale.SIMPLIFIED_CHINESE;
-        Locale.setDefault(locale);
-        Resources resources = getResources();
-        Configuration config = resources.getConfiguration();
-        config.setLocale(locale);
-        resources.updateConfiguration(config, resources.getDisplayMetrics());
-    }
+    /*
+     * 🔴 这里原来有 readConfigForLanguage() / applyLanguage(String) 一对方法：
+     * 从 config_sys.json 读 "language" 当语言，再把 Locale.setDefault 改掉。
+     * 它有两个致命问题，已整体删除，语言判定收敛到 AppLanguage：
+     *
+     *   1. config_sys.json 里的 "language" 是 SettingsActivity 从 Locale.getDefault()
+     *      抄下来的，而 Locale.getDefault() 早被本方法自己改过 ⇒ 语言会被永久钉死在
+     *      「第一次保存时的值」上，之后把手机改成繁体中文/法语都不会变。
+     *   2. 它把 zh 一律当简体（`if (lang.equals("zh")) locale = SIMPLIFIED_CHINESE`），
+     *      繁中设备拿不到繁中资源。
+     *
+     * 现在语言只由 AppLanguage.current(Context) 决定：本 app 自己的 Configuration
+     * （框架已按「应用单独设置的语言 → 系统语言」算好），再过滤到受支持的语言。
+     */
 
     private Object backInvokedCallback;
     private Handler keepAliveHandler;
@@ -322,8 +309,9 @@ public class AndroidLauncher extends AndroidApplication {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        readConfigForLanguage();
-        applyLanguage(mLanguage);
+        // 语言在 super.onCreate() 之前定好：此时本 app 的 Configuration 还是框架给的原值
+        // （应用单独设置的语言，否则系统语言），没被我们自己的 override 污染。
+        AppLanguage.apply(this, AppLanguage.currentResolved(this));
         super.onCreate(savedInstanceState);
         instance = this;
 

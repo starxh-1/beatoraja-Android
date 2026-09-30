@@ -248,13 +248,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="@dimen/button_height"
+            android:baselineAligned="false"
             android:orientation="horizontal"
             android:layout_marginBottom="@dimen/button_spacing">
 
             <Button
                 android:id="@+id/newPlayerBtn"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/button_height"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:text="@string/new_player"
                 android:textSize="@dimen/text_size_tiny"
@@ -264,7 +266,7 @@
             <Button
                 android:id="@+id/deletePlayerBtn"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/button_height"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="@dimen/button_spacing"
                 android:text="@string/delete"
@@ -275,7 +277,7 @@
             <Button
                 android:id="@+id/renamePlayerBtn"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/button_height"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="@dimen/button_spacing"
                 android:text="@string/rename_player"
@@ -288,13 +290,15 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:minHeight="@dimen/button_height"
+            android:baselineAligned="false"
             android:orientation="horizontal"
             android:layout_marginBottom="@dimen/item_padding_bottom_large">
 
             <Button
                 android:id="@+id/exportScoreBtn"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/button_height"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:text="@string/export"
                 android:textSize="@dimen/text_size_tiny"
@@ -304,7 +308,7 @@
             <Button
                 android:id="@+id/importPlayerBtn"
                 android:layout_width="0dp"
-                android:layout_height="@dimen/button_height"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="@dimen/button_spacing"
                 android:text="@string/import_score_db"
@@ -418,19 +422,25 @@
             android:focusable="true">
 
             <TextView
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:text="@string/section_play_options"
                 android:textSize="@dimen/text_size_section"
                 android:textColor="#4FC3F7"/>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end|center_vertical"
                 android:text="@string/expand"
                 android:textColor="#4FC3F7"
-                android:textSize="@dimen/text_size_tiny"/>
+                android:textSize="@dimen/text_size_tiny"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="10sp"
+                android:autoSizeMaxTextSize="@dimen/text_size_tiny"/>
 
             <TextView
                 android:id="@+id/playOptionsArrow"
@@ -1017,9 +1027,8 @@
             android:focusable="true">
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
@@ -1041,11 +1050,18 @@
             </LinearLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:gravity="end|center_vertical"
                 android:text="@string/expand"
                 android:textColor="#4FC3F7"
-                android:textSize="@dimen/text_size_tiny"/>
+                android:textSize="@dimen/text_size_tiny"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="10sp"
+                android:autoSizeMaxTextSize="@dimen/text_size_tiny"/>
 
             <TextView
                 android:id="@+id/inputOptionsArrow"

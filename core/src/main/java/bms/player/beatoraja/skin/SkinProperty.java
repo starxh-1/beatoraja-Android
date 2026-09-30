@@ -299,6 +299,21 @@ public class SkinProperty {
 	public static final int NUMBER_TOTALBAD = 36;
 	public static final int NUMBER_TOTALPOOR = 37;
 	public static final int NUMBER_TOTALPLAYNOTES = 333;
+
+	// 本日分（累計 − 直近の過去日）。NUMBER_TOTAL* の「今日版」。
+	// 値は PlayDataAccessor.readTodayPlayerData() が供給する（他に呼び出し元は無い）。
+	// ※ 334-336 / 344-348 は boolean/option/timer 側にも同じ数値の定数があるが、
+	//    整数(NUMBER_*)とそれらは別名前空間なので衝突しない。
+	public static final int NUMBER_TODAY_PLAYCOUNT = 334;
+	public static final int NUMBER_TODAY_CLEARCOUNT = 335;
+	public static final int NUMBER_TODAY_FAILCOUNT = 336;
+	public static final int NUMBER_TODAY_PLAYNOTES = 337;
+	public static final int NUMBER_TODAY_PERFECT = 344;
+	public static final int NUMBER_TODAY_GREAT = 345;
+	public static final int NUMBER_TODAY_GOOD = 346;
+	public static final int NUMBER_TODAY_BAD = 347;
+	public static final int NUMBER_TODAY_POOR = 348;
+
 	public static final int NUMBER_FOLDER_BEGINNER = 45;
 	public static final int NUMBER_FOLDER_NORMAL = 46;
 	public static final int NUMBER_FOLDER_HYPER = 47;

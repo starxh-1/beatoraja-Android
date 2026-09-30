@@ -8,10 +8,8 @@ import android.util.Log;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 import java.util.logging.Logger;
 
 import bms.player.beatoraja.*;
@@ -338,12 +336,9 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
         SQLiteDatabase db = helper.getWritableDatabase();
         db.beginTransaction();
         try {
-            Calendar cal = Calendar.getInstance(TimeZone.getDefault());
-            cal.set(Calendar.HOUR_OF_DAY, 0);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            pd.setDate(cal.getTimeInMillis() / 1000L);
+            // 日付の丸めは PlayDataAccessor.today() と共有する（読み側 readTodayPlayerData()
+            // が同じ値で「本日の行」を判定するため、ずれると今日の値が常に 0 になる）
+            pd.setDate(PlayDataAccessor.today());
             ContentValues cv = playerDataToContentValues(pd);
             db.insertWithOnConflict("player", null, cv, SQLiteDatabase.CONFLICT_REPLACE);
             db.setTransactionSuccessful();

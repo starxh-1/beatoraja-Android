@@ -33,6 +33,7 @@ import android.os.Looper;
 import android.os.SystemClock;
 
 import com.starxh.beatoraja.android.AndroidLauncher;
+import com.starxh.beatoraja.android.AppLanguage;
 import com.starxh.beatoraja.R;
 
 import java.io.BufferedReader;
@@ -79,6 +80,21 @@ public class SettingsActivity extends Activity {
     private int selectedKeyVolume = 100;
     private int selectedBgmVolume = 100;
     private String selectedPlayerName = "player1";
+
+    /**
+     * 当前 {@code selected*} 字段里那些「按玩家存」的值，究竟是**哪个玩家**的。
+     * <p>
+     * 🔴 必须有这个字段：onResume() 是「先 readAllOptionsFromUI() 再 saveConfigToJson()」，
+     * 而 readAllOptionsFromUI() 里 {@code selectedPlayerName = playerSpinner.getSelectedItem()}
+     * 会**就地改写** selectedPlayerName。如果保存时直接用 selectedPlayerName 当目标目录，
+     * 只要 playerSpinner 停在别的玩家上（例如上次切到 B 后直接退出），
+     * A 的 Play Options 就会被整份写进 B 的 config_player.json ——
+     * 表现就是「不管怎么调，各个玩家的选项都被跟着改成一样」。
+     * <p>
+     * 语义：它记录的是**这批字段的归属**，只有在用户真的切换玩家时才更新。
+     */
+    private String optionsOwnerPlayer = "player1";
+
     private List<String> bmsPaths = new ArrayList<>();
     private boolean showAudioSpectrum = true;
     private int audioVisualizationMode = 1; // 0=off, 1=spectrum, 2=waveform
@@ -262,19 +278,11 @@ public class SettingsActivity extends Activity {
         };
         getWindow().getDecorView().getViewTreeObserver().addOnScrollChangedListener(scrollChangedListener);
 
-        // 手柄模式下触摸屏幕则退出手柄模式
-        android.view.View touchInterceptor = findViewById(android.R.id.content);
-        touchInterceptor.setOnTouchListener((v, event) -> {
-            if (gamepadMode) {
-                gamepadMode = false;
-                stopSeekRepeat();
-                stopNavRepeat();
-                adjustingSeekBar = null;
-                if (focusIndicator != null) focusIndicator.setVisibility(View.GONE);
-                Log.i("SettingsActivity", "Touch detected, exiting gamepad mode");
-            }
-            return false;
-        });
+        // 手柄模式下触摸屏幕则退出手柄模式：见 dispatchTouchEvent() / exitGamepadMode()。
+        // 旧实现把 OnTouchListener 挂在 android.R.id.content 上，但 View 的 OnTouchListener
+        // 只在「没有任何子控件消费这次触摸」时才会被调用 —— 而按钮 / EditText / ScrollView
+        // 都会消费触摸，于是点在它们身上时手柄模式根本退不掉（高光和手柄焦点一直挂着，
+        // 接着按确认键就会弹出手柄键盘）。必须改到 Activity 级的 dispatchTouchEvent。
 
         // API 33+ (targetSdk 36): 使用 OnBackInvokedDispatcher 处理返回手势
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -366,33 +374,32 @@ public class SettingsActivity extends Activity {
         onboardDialog = null;
     }
 
+    /**
+     * 让本页资源跟随「本 app 当前语言」。
+     *
+     * <p>🔴 取语言**不能**用 {@code Locale.getDefault()}。它是<b>进程</b>默认 locale，
+     * 而 {@link AndroidLauncher#onCreate} 一进来就把它设成了本 app 的语言；这里再读，
+     * 读到的永远是「我们自己设过的那个值」，不是系统语言 —— 设置页语言于是被钉死，
+     * 把手机改成繁体中文也不会变（旧版 {@code saveConfigToJson} 把这份被污染的值
+     * 写进 config_sys.json，又把锁定跨了进程延长）。判定统一交给 {@link AppLanguage}。</p>
+     */
     private void updateContextLanguage() {
-        Locale systemLocale = Locale.getDefault();
-        String lang = systemLocale.getLanguage();
-        String country = systemLocale.getCountry();
-        Log.i("SettingsActivity", "System Locale: " + systemLocale.toString() + " (lang: " + lang + ", country: " + country + ")");
+        Locale targetLocale = AppLanguage.currentResolved(this);
+        Log.i("SettingsActivity", "UI language: " + targetLocale + " (tag: "
+                + AppLanguage.tagOf(targetLocale) + ")");
+        try {
+            // 本 Activity 的资源（内部会同步进程默认 locale）
+            AppLanguage.apply(this, targetLocale);
 
-        // 支持 ja, jp, zh, ko
-        if (lang.equalsIgnoreCase("ja") || lang.equalsIgnoreCase("jp") || lang.equalsIgnoreCase("zh") || lang.equalsIgnoreCase("ko")) {
-            Locale targetLocale = lang.equalsIgnoreCase("zh") ? Locale.SIMPLIFIED_CHINESE :
-                                 (lang.equalsIgnoreCase("ko") ? Locale.KOREAN : Locale.JAPANESE);
-
-            Resources res = getResources();
-            Configuration config = new Configuration(res.getConfiguration());
-            config.setLocale(targetLocale);
-
-            // 针对 API 17+ 的更新方式
-            res.updateConfiguration(config, res.getDisplayMetrics());
-
-            // 同时更新 Application 级别的配置
+            // 同时更新 Application 级别的配置，别处 getApplicationContext().getResources() 才一致
             if (getApplicationContext() != null) {
                 Resources appRes = getApplicationContext().getResources();
                 Configuration appConfig = new Configuration(appRes.getConfiguration());
                 appConfig.setLocale(targetLocale);
                 appRes.updateConfiguration(appConfig, appRes.getDisplayMetrics());
             }
-
-            Log.i("SettingsActivity", "Forced UI language to target locale: " + targetLocale.toString());
+        } catch (Throwable t) {
+            Log.w("SettingsActivity", "Failed to apply UI language: " + t);
         }
     }
 
@@ -444,6 +451,9 @@ public class SettingsActivity extends Activity {
     }
 
     private void readPlayOptionsFromPlayerConfig() {
+        // 这批字段的归属者 = 本次读取的对象。保存时必须写回同一个玩家，
+        // 否则 spinner 停在别人身上时会把这份配置整份覆盖过去（见 optionsOwnerPlayer 注释）。
+        optionsOwnerPlayer = selectedPlayerName;
         try {
             File playerConfigFile = new File(getExternalFilesDir(null), "player/" + selectedPlayerName + "/config_player.json");
             if (playerConfigFile.exists()) {
@@ -754,15 +764,27 @@ public class SettingsActivity extends Activity {
         playerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         playerSpinner.setAdapter(playerAdapter);
         int playerIndex = availablePlayers.indexOf(selectedPlayerName);
-        if (playerIndex >= 0) playerSpinner.setSelection(playerIndex);
+        if (playerIndex >= 0) {
+            // 用 setSelection(index, false)：不触发动画；下面的 listener 会在 onItemSelected 里
+            // 自行同步 selectedPlayerName / optionsOwnerPlayer，保持两者一致。
+            playerSpinner.setSelection(playerIndex);
+        }
+        // 🔴 setup 阶段 spinner 的初始 onItemSelected 也会回调，此时 availablePlayers 的首项
+        // 未必是我们要的玩家 —— 加了下面的守卫，只处理「真正发生改变」的那一次。
         playerSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
                 String newPlayerName = availablePlayers.get(position);
-                if (!newPlayerName.equals(selectedPlayerName)) {
-                    selectedPlayerName = newPlayerName;
-                    readPlayOptionsFromPlayerConfig();
-                    updatePlayOptionsUI();
+                if (newPlayerName.equals(selectedPlayerName)) {
+                    return;   // 只是回显当前玩家，不重读也不换归属
                 }
+                // 真的换了玩家：
+                //   1. 先把「上一批字段」落回它的归属者（否则切换动作会丢掉刚才的修改）；
+                //   2. 再把归属切到新玩家，读它的配置并刷新 UI。
+                // 保存和读取都用 optionsOwnerPlayer（旧值），所以顺序不能反。
+                persistPendingEdits();
+                selectedPlayerName = newPlayerName;
+                readPlayOptionsFromPlayerConfig();   // 内部会把 optionsOwnerPlayer 设为新玩家
+                updatePlayOptionsUI();
             }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
         });
@@ -1284,7 +1306,14 @@ public class SettingsActivity extends Activity {
                 }
                 config = new org.json.JSONObject(sb.toString());
             }
-            config.put("playername", selectedPlayerName);
+            // config_sys.json 里的 playername 是「全局当前选中的玩家」。
+            // persistPendingEdits() 走的是「保存上一批字段」路径，此时身份还没切，
+            // 不能把 selectedPlayerName 写回旧值覆盖掉用户刚选的新玩家 —— 故这里用 spinner 的真实选项。
+            String currentPlayerForSys = selectedPlayerName;
+            if (playerSpinner != null && playerSpinner.getSelectedItem() != null) {
+                currentPlayerForSys = (String) playerSpinner.getSelectedItem();
+            }
+            config.put("playername", currentPlayerForSys);
             org.json.JSONObject audio = config.optJSONObject("audio");
             if (audio == null) audio = new org.json.JSONObject();
             audio.put("systemvolume", String.format("%.2f", selectedVolume / 100f));
@@ -1300,13 +1329,13 @@ public class SettingsActivity extends Activity {
             config.put("updatesong", selectedScanSongsOnLaunch);
             config.put("vibrationOnBad", selectedVibrationOnBad);
 
-            // 自动同步当前系统语言给游戏内核
-            String currentLang = Locale.getDefault().getLanguage();
-            if (currentLang.equals("zh") || currentLang.equals("ja") || currentLang.equals("ko")) {
-                config.put("language", currentLang);
-            } else {
-                config.put("language", "en");
-            }
+            // 同步当前 UI 语言。写的是**解析后的受支持标签**（与 values-* 目录一一对应，
+            // 例如繁中写 "zh-TW"）。
+            // 🔴 来源必须是 AppLanguage，不能是 Locale.getDefault()：后者早被
+            // AndroidLauncher 覆盖成「本 app 的语言」，抄它等于把当前值再写一遍，
+            // 语言就永远跟不上系统设置了（繁中环境一直显示日语就是这么来的）。
+            // 游戏内核（core 的 Config）不读这个字段，它只是 Android 侧留档。
+            config.put("language", AppLanguage.currentTag(this));
 
             org.json.JSONArray bmsroot = new org.json.JSONArray();
             for (String p : bmsPaths) bmsroot.put(p);
@@ -1321,8 +1350,12 @@ public class SettingsActivity extends Activity {
     }
 
     private void savePlayOptionsToPlayerConfig() {
+        // 🔴 写入目标必须是「这批字段的归属者」，而不是 playerSpinner 当前选中项。
+        // 用 selectedPlayerName 会在玩家切换后把 A 的配置整份覆盖到 B
+        // （onResume 的 readAllOptionsFromUI → saveConfigToJson 链路，见 optionsOwnerPlayer 注释）。
+        final String target = (optionsOwnerPlayer != null) ? optionsOwnerPlayer : selectedPlayerName;
         try {
-            File configFile = new File(getExternalFilesDir(null), "player/" + selectedPlayerName + "/config_player.json");
+            File configFile = new File(getExternalFilesDir(null), "player/" + target + "/config_player.json");
             org.json.JSONObject config = new org.json.JSONObject();
             if (configFile.exists()) {
                 StringBuilder sb = new StringBuilder();
@@ -1331,7 +1364,7 @@ public class SettingsActivity extends Activity {
                 }
                 config = new org.json.JSONObject(sb.toString());
             }
-            config.put("name", selectedPlayerName);
+            config.put("name", target);
             config.put("gaugeAutoShift", selectedGaugeAutoShift);
             org.json.JSONArray asr = new org.json.JSONArray();
             for (int val : selectedAutoSaveReplay) asr.put(val);
@@ -1352,6 +1385,13 @@ public class SettingsActivity extends Activity {
                 pc.put("duration", selectedGreenNumber);
 
                 // 更新所有控制器的配置
+                // 🔴 只在已存在 controller 数组时更新 —— **不要**新建空的 ControllerConfig。
+                // 空的 {} 经 libGDX Json 反序列化会走 new ControllerConfig() 的无参构造，
+                // 它按 BEAT_7K 只建 9 个键槽；而 KeyConfiguration.validateControllerLength()
+                // 仅在 length <= maxKey 时才扩容，24K 模式会把它填成 52 个 **0**
+                // （0 是真实按键码，不是 -1「未绑定」）→ 会把玩家的按键绑定改坏。
+                // 代价：新建玩家在打过一局（内核写出 controller）之前存不了这几项，
+                // 这一点由「内核首次保存时补全」兜底，属于可接受折衷。
                 org.json.JSONArray controllers = pc.optJSONArray("controller");
                 if (controllers != null) {
                     for (int i = 0; i < controllers.length(); i++) {
@@ -1673,7 +1713,9 @@ public class SettingsActivity extends Activity {
             if (!name.isEmpty() && !availablePlayers.contains(name)) {
                 new File(getExternalFilesDir(null), "player/" + name).mkdirs();
                 availablePlayers.add(name); ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
-                playerSpinner.setSelection(availablePlayers.indexOf(name)); selectedPlayerName = name;
+                // setSelection 会异步触发 onItemSelected，identity/owner 由那里统一维护；
+                // 这里不能再手工赋 selectedPlayerName，否则会和 owner 脱节。
+                playerSpinner.setSelection(availablePlayers.indexOf(name));
                 Toast.makeText(this, getString(R.string.msg_player_created, name), Toast.LENGTH_SHORT).show();
             } else Toast.makeText(this, name.isEmpty() ? getString(R.string.msg_player_empty) : getString(R.string.msg_player_exists), Toast.LENGTH_SHORT).show();
         });
@@ -1712,7 +1754,10 @@ public class SettingsActivity extends Activity {
             }
             int idx = availablePlayers.indexOf(oldName);
             if (idx >= 0) availablePlayers.set(idx, newName);
+            // 目录已经改名，旧名字不再存在 —— 和 selectedPlayerName 一起把归属同步过去，
+            // 否则 optionsOwnerPlayer 会指向一个已被 rename 掉的目录。
             selectedPlayerName = newName;
+            optionsOwnerPlayer = newName;
             ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
             playerSpinner.setSelection(idx >= 0 ? idx : 0);
             readPlayOptionsFromPlayerConfig();
@@ -1729,7 +1774,13 @@ public class SettingsActivity extends Activity {
             .setPositiveButton(getString(R.string.delete), (d, w) -> {
                 deleteRecursive(new File(getExternalFilesDir(null), "player/" + toDel));
                 availablePlayers.remove(toDel); ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
-                int next = idx > 0 ? idx - 1 : 0; playerSpinner.setSelection(next); selectedPlayerName = availablePlayers.get(next);
+                int next = idx > 0 ? idx - 1 : 0;
+                // 删掉的玩家目录已不存在，owner 必须先切到存活玩家再 setSelection，
+                // 否则 onItemSelected 里的 persistPendingEdits() 会写进已删除的目录（重建出一个空壳）。
+                optionsOwnerPlayer = availablePlayers.get(next);
+                playerSpinner.setSelection(next);
+                selectedPlayerName = availablePlayers.get(next);
+                readPlayOptionsFromPlayerConfig();
                 Toast.makeText(this, getString(R.string.msg_delete_success), Toast.LENGTH_SHORT).show();
             }).setNegativeButton(getString(R.string.btn_cancel), null).show();
     }
@@ -1782,12 +1833,27 @@ public class SettingsActivity extends Activity {
         }
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
-            if (isGamepadKeyCode(keyCode)) {
+            // 🔴 必须同时看「设备来源」，不能只看 keycode：物理键盘的方向键 / Enter 与手柄的
+            // 十字键 / 确认键是同一批 keycode。以前不看来源，于是在输入框里按方向键（想移动
+            // 光标）或按回车（想结束输入）都会被当成手柄输入 —— 悄悄打开手柄模式，下一次
+            // 确认键直接弹出「只给手柄用的字符轮盘」，green number 这类只需要敲数字的地方
+            // 表现最明显（没法用屏幕键盘正常输入）。
+            final boolean gamepadDevice = isGamepadDeviceEvent(event);
+            // 用键盘在输入框里打字 = 「编辑文本」场景：方向键要移光标、回车要确认输入，
+            // 不能被手柄导航接管（焦点被移走 / 弹出手柄轮盘）。其余场景（焦点在按钮、
+            // 开关、滑块上）键盘仍可驱动手柄式导航，高光与就近搜索逻辑保持不变。
+            final boolean keyboardTextEditing = !gamepadDevice
+                    && isKeyboardDeviceEvent(event)
+                    && (getCurrentFocus() instanceof EditText);
+            if (isGamepadKeyCode(keyCode) && !keyboardTextEditing) {
                 if (!gamepadMode) {
                     gamepadMode = true;
                     updateTouchModeForGamepad();
                 }
                 lastGamepadInputTime = SystemClock.uptimeMillis();
+            } else if (keyboardTextEditing) {
+                // 退出后下面 super.dispatchKeyEvent() 会把这次按键原样交给输入框。
+                exitGamepadMode("keyboard text editing");
             }
             if (gamepadMode) {
                 final View focused = getCurrentFocus();
@@ -1832,11 +1898,32 @@ public class SettingsActivity extends Activity {
                     readAllOptionsFromUI(); saveConfigToJson(); finish(); return true;
                 }
                 if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_BUTTON_A || keyCode == KeyEvent.KEYCODE_ENTER) {
-                    activateCurrentFocus(); return true;
+                    activateCurrentFocus(gamepadDevice); return true;
                 }
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    /**
+     * 收掉手柄模式的一切残留状态（高光 / 连发 / 滑块调整态）。
+     * <p>
+     * 触摸路径由 Activity 级的 {@code dispatchTouchEvent()} 调用（见文件末尾的覆写）：
+     * {@code View.setOnTouchListener} 只在「没有任何子控件消费这次触摸」时才会被调用，
+     * 而按钮 / EditText / ScrollView 都会消费，挂在容器上等于形同虚设。
+     */
+    private void exitGamepadMode(String reason) {
+        if (!gamepadMode) {
+            return;
+        }
+        gamepadMode = false;
+        stopSeekRepeat();
+        stopNavRepeat();
+        adjustingSeekBar = null;
+        if (focusIndicator != null) {
+            focusIndicator.setVisibility(View.GONE);
+        }
+        Log.i("SettingsActivity", "Exit gamepad mode: " + reason);
     }
 
     /** 左右键用于调值的控件（先让系统处理左右键；上下键仍由我们移动焦点） */
@@ -1989,6 +2076,35 @@ public class SettingsActivity extends Activity {
                keyCode == KeyEvent.KEYCODE_DPAD_UP || keyCode == KeyEvent.KEYCODE_DPAD_DOWN ||
                keyCode == KeyEvent.KEYCODE_DPAD_LEFT || keyCode == KeyEvent.KEYCODE_DPAD_RIGHT ||
                keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER;
+    }
+
+    /**
+     * 事件是否来自手柄 / 摇杆 / 电视遥控器。
+     * <p>
+     * {@code BUTTON_A/B/X/Y} 是手柄专属 keycode（键盘产生不了），作为设备来源位缺失时的兜底；
+     * 方向键 / Enter 则**必须**看来源 —— 键盘与手柄共用这些 keycode。
+     */
+    private boolean isGamepadDeviceEvent(KeyEvent event) {
+        final int source = event.getSource();
+        if ((source & (android.view.InputDevice.SOURCE_GAMEPAD
+                | android.view.InputDevice.SOURCE_JOYSTICK
+                | android.view.InputDevice.SOURCE_DPAD)) != 0) {
+            return true;
+        }
+        final int keyCode = event.getKeyCode();
+        return keyCode == KeyEvent.KEYCODE_BUTTON_A || keyCode == KeyEvent.KEYCODE_BUTTON_B
+                || keyCode == KeyEvent.KEYCODE_BUTTON_X || keyCode == KeyEvent.KEYCODE_BUTTON_Y;
+    }
+
+    /**
+     * 事件是否来自物理 / 屏幕键盘（而不是手柄）。
+     * <p>
+     * 手柄常同时上报 {@code KEYBOARD|GAMEPAD} 两个来源位，所以「带 KEYBOARD 位」不算数 ——
+     * 必须**不是**手柄设备才算键盘。来源位为 0（部分输入法发的键事件）时两边都不认，保持现状。
+     */
+    private boolean isKeyboardDeviceEvent(KeyEvent event) {
+        return (event.getSource() & android.view.InputDevice.SOURCE_KEYBOARD) != 0
+                && !isGamepadDeviceEvent(event);
     }
 
     private void moveFocus(MoveDirection direction) {
@@ -2192,7 +2308,14 @@ public class SettingsActivity extends Activity {
         }
     }
 
-    private void activateCurrentFocus() {
+    /**
+     * 手柄确认键（A / 十字键中键 / Enter）作用于当前焦点控件。
+     *
+     * @param fromGamepad 这次确认键是否来自手柄。字符轮盘是「键盘用不了时」的替身，
+     *                    所以只有手柄按下的确认键才弹它 —— 键盘的 Enter 必须走系统默认
+     *                    （在输入框里就是确认/换行），否则等于键盘输入被手柄轮盘顶掉。
+     */
+    private void activateCurrentFocus(boolean fromGamepad) {
         View focused = getCurrentFocus();
         if (focused == null) {
             return;
@@ -2209,7 +2332,9 @@ public class SettingsActivity extends Activity {
             return;
         }
         focused.performClick();
-        if (focused instanceof EditText && gamepadMode) showCharacterWheelForEditText((EditText) focused);
+        if (focused instanceof EditText && fromGamepad) {
+            showCharacterWheelForEditText((EditText) focused);
+        }
     }
 
     private void updateTouchModeForGamepad() {
@@ -2271,10 +2396,81 @@ public class SettingsActivity extends Activity {
         if (currentCharacterWheel != null && currentCharacterWheel.isShowing()) {
             currentCharacterWheel.dismiss();
         }
-        currentCharacterWheel = new CharacterWheelDialog(this, editText.getText().toString(), text -> {
-            editText.setText(text); editText.setSelection(text.length());
-        });
+        // 轮盘是手柄路径：万一屏幕键盘正开着（用户先用手点过这个框），先收起来，
+        // 免得轮盘叠在键盘上。
+        try {
+            android.view.inputmethod.InputMethodManager imm = (android.view.inputmethod.InputMethodManager)
+                    getSystemService(INPUT_METHOD_SERVICE);
+            if (imm != null) {
+                imm.hideSoftInputFromWindow(editText.getWindowToken(), 0);
+            }
+        } catch (Exception ignored) {
+        }
+        // 🔴 轮盘「OK」只调 setText()；EditText 上挂的 TextWatcher / focus-lost 监听都不跑
+        // （这些 EditText 的 setText 没有触发落盘逻辑，只有触摸路径才会走 onFocusChange）。
+        // 所以必须手动把文本同步进对应的 selected* 字段，否则手柄改的数字永远不落盘。
+        final java.util.function.Consumer<String> applyValue = buildEditTextValueApplier(editText);
+        final String[] keys = buildWheelKeys(editText);
+        currentCharacterWheel = new CharacterWheelDialog(this, editText.getText().toString(),
+                keys,
+                keys != null ? CharacterWheelDialog.NUMBER_COLUMNS : CharacterWheelDialog.TEXT_COLUMNS,
+                text -> {
+                    editText.setText(text); editText.setSelection(text.length());
+                    if (applyValue != null) applyValue.accept(text.trim());
+                });
         currentCharacterWheel.show();
+    }
+
+    /**
+     * 按输入框声明的内容类型挑选轮盘键集，返回 {@code null} 表示用全键盘。
+     * <p>
+     * 数字框（green number / 各阈值 / note timing offset …）只给数字键：全键盘那 26 个字母
+     * 加十来个符号对它们纯属干扰，手柄还得一路推过去才能点到数字。
+     */
+    private String[] buildWheelKeys(EditText editText) {
+        final int inputType = editText.getInputType();
+        if ((inputType & android.text.InputType.TYPE_MASK_CLASS)
+                == android.text.InputType.TYPE_CLASS_NUMBER) {
+            return (inputType & android.text.InputType.TYPE_NUMBER_FLAG_SIGNED) != 0
+                    ? CharacterWheelDialog.SIGNED_NUMBER_CHARS
+                    : CharacterWheelDialog.NUMBER_CHARS;
+        }
+        return null;
+    }
+
+    /**
+     * 把 {@code editText} 的最终文本解析并写入对应的 {@code selected*} 字段。
+     * <p>
+     * 之所以用「按控件 id 分派」而不是给每个 EditText 单独挂监听：这些 EditText 是
+     * XML 里静态定义的，id 稳定；集中一处也好审计。返回 null 表示该控件不绑定字段。
+     */
+    private java.util.function.Consumer<String> buildEditTextValueApplier(final EditText editText) {
+        final int id = editText.getId();
+        return raw -> {
+            try {
+                if (id == R.id.greenNumberInput) {
+                    selectedGreenNumber = Integer.parseInt(raw);
+                } else if (id == R.id.inputDurationInput) {
+                    selectedInputDuration = Integer.parseInt(raw);
+                } else if (id == R.id.analogScratchThresholdInput) {
+                    selectedAnalogScratchThreshold = Integer.parseInt(raw);
+                } else if (id == R.id.mouseScratchThresholdInput) {
+                    selectedMouseScratchThreshold = Integer.parseInt(raw);
+                } else if (id == R.id.mouseScratchDistanceInput) {
+                    selectedMouseScratchDistance = Integer.parseInt(raw);
+                } else if (id == R.id.noteTimingOffsetInput) {
+                    selectedNoteTimingOffset = Integer.parseInt(raw);
+                } else {
+                    // 非数值控件（如 bmsroot / tableURL 行）在 readAllOptionsFromUI() 里
+                    // 是按容器子 View 遍历读取的，不靠字段，这里无需处理。
+                    return;
+                }
+                // 与 readAllOptionsFromUI() 保持一致：改完立刻落盘，避免退出路径漏存。
+                saveConfigToJson();
+            } catch (NumberFormatException ignored) {
+                // 输入非法（空串 / 非数字）时保留原值，不落盘
+            }
+        };
     }
 
     @Override
@@ -2340,11 +2536,43 @@ public class SettingsActivity extends Activity {
         super.onDestroy();
     }
 
+    /**
+     * 把当前 UI 上的值收进字段并落盘到 {@link #optionsOwnerPlayer}，
+     * **但不动 {@link #selectedPlayerName}**。
+     * <p>
+     * 与 {@link #readAllOptionsFromUI()} 的区别：后者会从 spinner 重新认身份
+     * （onResume / 退出路径需要这个语义），而切换玩家的瞬间我们要的是
+     * 「把上一批修改存回上一个玩家」，此时身份还没切。
+     */
+    private void persistPendingEdits() {
+        readAllOptionsFromUIExceptIdentity();
+        saveConfigToJson();
+    }
+
+    /**
+     * {@link #readAllOptionsFromUI()} 的主体，但不重新从 spinner 认玩家身份。
+     * 供 {@link #persistPendingEdits()} 在「切换玩家的临界点」使用。
+     */
+    private void readAllOptionsFromUIExceptIdentity() {
+        final String keep = selectedPlayerName;
+        readAllOptionsFromUI();
+        // readAllOptionsFromUI() 已把身份读成 spinner 当前项；切玩家场景下 spinner 尚未
+        // 真正切过去（onItemSelected 在选中变化后才触发，此刻 parent 已指向新项），
+        // 因此这里强制回滚成调用前的身份，保证保存目标是「上一批字段的归属者」。
+        selectedPlayerName = keep;
+    }
+
     private void readAllOptionsFromUI() {
+        // 🔴 必须最先定「身份」，再读值。
+        // onResume() 的顺序是 readAllOptionsFromUI() → saveConfigToJson()，
+        // 而保存要用 selectedPlayerName 决定写入哪个玩家目录。
+        // 之前这行在方法中段，导致它**前面**读到的全局字段（音量、bmsroot、tableURL…）
+        // 依旧是上一个玩家的，而它**后面**读到的 Play Options 却已经挂到新玩家名下 ——
+        // 两边不一致，且切换玩家后会整份串位。放在最前面即可让整个方法自洽。
+        selectedPlayerName = (String) playerSpinner.getSelectedItem();
         selectedVolume = ((android.widget.SeekBar) findViewById(R.id.systemVolumeSeekBar)).getProgress();
         selectedKeyVolume = ((android.widget.SeekBar) findViewById(R.id.keyVolumeSeekBar)).getProgress();
         selectedBgmVolume = ((android.widget.SeekBar) findViewById(R.id.bgmVolumeSeekBar)).getProgress();
-        selectedPlayerName = (String) playerSpinner.getSelectedItem();
         bmsPaths.clear();
         for (int i = 0; i < bmsPathContainer.getChildCount(); i++) {
             View r = bmsPathContainer.getChildAt(i);
@@ -2397,6 +2625,13 @@ public class SettingsActivity extends Activity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         if (isSimulatingTouch) return true;
+        // 真手指落下 = 用户改用触摸：立刻退出手柄模式（高光 / 连发 / 滑块调整态一起收）。
+        // 🔴 必须在这里做，不能挂在 android.R.id.content 的 OnTouchListener 上：
+        // View 的 OnTouchListener 只在「没有子控件消费这次触摸」时才被调用，
+        // 而按钮 / EditText / ScrollView 都会消费 —— 点它们身上时手柄模式退不掉。
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            exitGamepadMode("touch");
+        }
         return super.dispatchTouchEvent(ev);
     }
 

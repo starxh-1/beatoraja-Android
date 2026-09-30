@@ -40,6 +40,14 @@ public final class PlayerResource {
 
 	private PlayerData playerdata = new PlayerData();
 
+	/**
+	 * 本日分のプレイヤーデータ（＝本日の累計 − 直近の過去日の累計）。
+	 * {@link PlayDataAccessor#readTodayPlayerData()} の結果を保持し、スキンの
+	 * {@code player_today_*} 系プロパティ（id 334-337 / 344-348）がこれを参照する。
+	 * 未取得の間は 0 のままで良い（＝「今日はまだ遊んでいない」のと同じ意味）。
+	 */
+	private PlayerData todayplayerdata = new PlayerData();
+
 	private Config config;
 	private PlayerConfig pconfig;
 	/**
@@ -523,6 +531,20 @@ public final class PlayerResource {
 	public void setPlayerData(PlayerData playerdata) {
 		if (playerdata != null) {
 			this.playerdata = playerdata;
+		}
+	}
+
+	/**
+	 * 本日分のプレイヤーデータ。{@link #setPlayerData(PlayerData)} と一緒に更新すること
+	 * （同じタイミングで読み直さないと、累計と本日分が食い違う）。
+	 */
+	public PlayerData getTodayPlayerData() {
+		return todayplayerdata;
+	}
+
+	public void setTodayPlayerData(PlayerData todayplayerdata) {
+		if (todayplayerdata != null) {
+			this.todayplayerdata = todayplayerdata;
 		}
 	}
 

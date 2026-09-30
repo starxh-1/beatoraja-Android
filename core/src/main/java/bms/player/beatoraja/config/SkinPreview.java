@@ -65,6 +65,30 @@ public class SkinPreview extends SkinObject {
 	 */
 	private static final long PREVIEW_TAIL_MARGIN_MS = 500;
 
+	/**
+	 * 「短场景」判定的上限（ms）：{@code span} 小于它就认为这张皮肤有真正的入场动画，
+	 * 换皮肤时把预览时钟回零、让入场动画重播。
+	 *
+	 * <p>为什么按"场景长度"分流（而不是一律回零）：{@code span} 是
+	 * {@link #resolvePreviewTime} 算出的稳态显示窗口。选曲 / 决定 / 皮肤选择这类皮肤的
+	 * {@code scene} 只有 2~3 秒（m_select 的 decide 是 {@code scene = 2500}），
+	 * 入场动画也在 1 秒内结束；而 play / result 皮肤约定 {@code scene = 3600000}
+	 * （"没有退场动画"），{@code span} 因此接近 360 万毫秒。后者身上挂着
+	 * {@code TIMER_JUDGE_*} / {@code TIMER_COMBO_*} 这类**值可能很大**的计时器，
+	 * 把时钟整体回零会让 {@code time - timer} 变负、对象被判成"还没开始"而整帧不画
+	 * （2026-09-20 实测"判定跟 combo 都不见了"）。所以长场景维持原样（绝对时基 + 钳制）。</p>
+	 */
+	private static final long REPLAY_MAX_SCENE_SPAN_MS = 15000;
+
+	/**
+	 * 本次预览的时间原点（state 时钟的毫秒值）。
+	 *
+	 * <p>换皮肤时置为 {@code -1}，下一帧取当时的状态时钟作为原点 —— 于是预览时钟从 0
+	 * 重新开始，皮肤声明的入场动画（decide 的 shutter 滑入、标题右滑、黑幕淡出等）
+	 * 会重新播一遍。见 {@link #resolvePreviewTime}。</p>
+	 */
+	private long previewEpochMs = -1;
+
 	@Override
 	public void prepare(long time, MainState state) {
 		if (configuration == null && state instanceof SkinConfiguration) {
@@ -86,6 +110,8 @@ public class SkinPreview extends SkinObject {
 		if (previewSkin != lastSkin) {
 			lastSkin = previewSkin;
 			disabled = false;
+			// 换皮肤（含参数调整导致的预览重建）⇒ 预览时钟重新起算，入场动画重播。
+			previewEpochMs = -1;
 		}
 		if (disabled) {
 			return;
@@ -143,6 +169,15 @@ public class SkinPreview extends SkinObject {
 	 * <p>钳制点是"退场动画开始之前"：{@code scene - max(fadeout, 500) - 500}。
 	 * 对 play / result 皮肤没有影响 —— 它们的 {@code scene = 3600000}（1 小时，约定俗成的
 	 * "没有退场动画"），钳制点约 3599000ms，进界面后一小时才会碰到。</p>
+	 *
+	 * <p><b>2026-09-28 补充：短场景皮肤改成"换皮肤即回零重播"。</b>只钳制的副作用是
+	 * 入场动画只播一次：切到 decide 时它播完 1 秒的滑入/黑幕淡出，之后就被钉在
+	 * {@code span} 上，切到别的皮肤再切回来也不会重播（state 时钟不会回退）。现在按
+	 * {@code span} 分流：{@code span <= REPLAY_MAX_SCENE_SPAN_MS}（选曲 / 决定这类
+	 * {@code scene} 只有 2~3 秒的皮肤）以"本次预览开始的时刻"为 0 计时，换皮肤 ⇒ 原点
+	 * 重设 ⇒ 入场动画重播；{@code span} 更大的（play / result）保持绝对时基 + 钳制，
+	 * 因为那些皮肤挂着值可能很大的 {@code TIMER_JUDGE_*} / {@code TIMER_COMBO_*}，
+	 * 回零会让差值变负、整帧不画（就是下面那条 2026-09-20 的教训）。</p>
 	 */
 	private long resolvePreviewTime(Skin previewSkin, long stateTimeMs) {
 		final int scene = previewSkin.getScene();
@@ -152,7 +187,17 @@ public class SkinPreview extends SkinObject {
 		// 退场动画由皮肤自己声明在 scene 末尾（fadeout 就是它声明的时长），再留一段余量
 		final long exitStart = scene - Math.max(previewSkin.getFadeout(), PREVIEW_TAIL_MARGIN_MS);
 		final long span = Math.max(1, exitStart - PREVIEW_TAIL_MARGIN_MS);
-		return Math.min(stateTimeMs, span);
+		if (span > REPLAY_MAX_SCENE_SPAN_MS) {
+			// 长场景（play / result，scene = 3600000）：绝对时基 + 钳制，见字段注释
+			return Math.min(stateTimeMs, span);
+		}
+		// 短场景（选曲 / 决定 / 皮肤选择）：以"进入本次预览的时刻"为 0，让入场动画重播。
+		// 这些皮肤的 state（SkinConfiguration）里计时器都是进界面那一刻点亮的（值≈0），
+		// 时间轴回零不会让 time - timer 变负，所以安全。
+		if (previewEpochMs < 0) {
+			previewEpochMs = stateTimeMs;
+		}
+		return Math.min(Math.max(0, stateTimeMs - previewEpochMs), span);
 	}
 
 	private void renderPreview(Skin previewSkin) {

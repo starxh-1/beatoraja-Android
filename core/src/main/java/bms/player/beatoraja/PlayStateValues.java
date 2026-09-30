@@ -44,4 +44,17 @@ public interface PlayStateValues {
 	 * 量表。{@code null} = 这个界面没有量表可画。
 	 */
 	GrooveGauge getGauge();
+
+	/**
+	 * 量表推移曲线（结果界面的 {@code gaugegraph} / 量表图用）。长度就是"整首歌的采样点数"。
+	 *
+	 * <p>默认 {@code null} = 这个界面没有推移数据，调用方应当退回自己的来源
+	 * （真结果界面走 {@code PlayerResource#getGauge()}）。皮肤预览给一条合成曲线，
+	 * 这样结果皮肤的推移图不再是空白。</p>
+	 *
+	 * @param type 量表类型（与 {@link GrooveGauge#getType()} 同义）
+	 */
+	default com.badlogic.gdx.utils.FloatArray getGaugeHistory(int type) {
+		return null;
+	}
 }

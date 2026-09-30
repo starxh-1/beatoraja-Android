@@ -137,9 +137,11 @@ var ChartListApp={
     h+='<div class="tabs">'
     for(var i=0;i<tc.length;i++)h+='<button class="tab-btn'+(this.activeTab===tc[i].key?' active':'')+'" onclick="ChartListApp.switchTab(\''+tc[i].key+'\')">'+tc[i].label+'</button>'
     h+='</div>'
+    h+='<div id="filter-area"></div>'
     h+='<div id="table-area"></div>'
     h+='<button class="close-btn" onclick="ChartListApp.close()">Close</button></div>'
     document.getElementById('app').innerHTML=h
+    this.renderFilters()
     this.renderTable()
   },
   switchLang:function(l){_lang=l;this.render()},
@@ -202,9 +204,13 @@ var ChartListApp={
     this.pageState[k]=pg
     return{rows:arr.slice(pg*ps,pg*ps+ps),total:arr.length,page:pg,npages:np}
   },
-  renderTable:function(){
-    var area=document.getElementById('table-area')
-    if(!area)return
+  // 筛选行（★ 下拉 + 标题输入框）渲染到 #filter-area —— 它【不在】renderTable 重建的
+  // #table-area 里。原因：输入框若随表格一起被 area.innerHTML 销毁重建，Android WebView
+  // 的 IME 组合会被打断，表现为「只能一个字一个字输入」（无法用输入法组词、丢焦点）。
+  // 所以本方法只在 render()（首次 / 切 tab / 切语言）时调用，输入过程中绝不重建。
+  renderFilters:function(){
+    var fa=document.getElementById('filter-area')
+    if(!fa)return
     var k=this.activeTab,tc=this.TABLES.find(function(t){return t.key===k})
     var f=this.filters[k],sl=this.getStarLevels(k)
     var h=''
@@ -215,6 +221,15 @@ var ChartListApp={
     h+='</select>'
     h+='<label>'+_t('titleFilter')+':</label><input type="text" id="title-input" value="'+this.esc(f.title)+'" oninput="ChartListApp.onTitleFilter(this.value)" placeholder="\u691c\u7d22...">'
     h+='</div></div>'
+    fa.innerHTML=h
+  },
+  // 只重建表格本体 + 分页。调用方：onTitleFilter / onStarFilter / onSort / onPageSize / onPageNav
+  // —— 每次按键都会进来，所以这里【绝不能】包含输入框。
+  renderTable:function(){
+    var area=document.getElementById('table-area')
+    if(!area)return
+    var k=this.activeTab,tc=this.TABLES.find(function(t){return t.key===k})
+    var h=''
     var result=this.getPaged(k)
     if(!result.rows.length){h+='<div class="empty-msg">'+_t('noData')+'</div>';area.innerHTML=h;return}
     h+='<div class="table-wrap"><table><thead><tr>'

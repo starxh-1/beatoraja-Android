@@ -432,7 +432,9 @@ public class SideSpectrumRenderer {
             if (topBarH > 4 && bottomBarH > 4) {
                 int bins = 32;
 
-                // 上黑边 - L 通道（居中于黑边，朝游戏区方向延伸）
+                // 上黑边 - L 通道（居中于黑边，朝【屏幕外侧/上方】延伸）
+                // 🔴 2026-09-26 LIAO 要求：上黑边与下黑边的方向【对调】—— 原来两条都朝游戏区（上黑边 -v、下黑边 +v），
+                //    现在上黑边改 +v、下黑边改 -v。要还原就把这两处的符号换回去（只动本方法竖屏分支）。
                 float baselineTop = h - topBarH / 2f;
                 shapeRenderer.setColor(live);
                 float prevX = 0, prevY = baselineTop;
@@ -440,12 +442,13 @@ public class SideSpectrumRenderer {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = baselineTop - v * (topBarH * 0.85f);
+                    float y = baselineTop + v * (topBarH * 0.85f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }
 
-                // 下黑边 - R 通道（居中于黑边，朝游戏区方向延伸）
+                // 下黑边 - R 通道（居中于黑边，朝【屏幕外侧/下方】延伸）
+                // 🔴 与上黑边对调后 → 本行由 +v 改为 -v（见上黑边处的说明）。
                 float baselineBottom = bottomBarH / 2f;
                 shapeRenderer.setColor(live);
                 prevX = 0; prevY = baselineBottom;
@@ -453,7 +456,7 @@ public class SideSpectrumRenderer {
                     float x = (float) b / (bins - 1) * w;
                     float v = (float) Math.sqrt(spectrum[32 + b]) - 0.5f;
                     if (v < -0.5f) v = -0.5f; else if (v > 0.5f) v = 0.5f;
-                    float y = baselineBottom + v * (bottomBarH * 0.85f);
+                    float y = baselineBottom - v * (bottomBarH * 0.85f);
                     if (b > 0) shapeRenderer.rectLine(prevX, prevY, x, y, 2.5f);
                     prevX = x; prevY = y;
                 }

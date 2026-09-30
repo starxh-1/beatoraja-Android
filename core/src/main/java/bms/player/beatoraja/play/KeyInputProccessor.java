@@ -45,6 +45,16 @@ class KeyInputProccessor {
 
 	public void startJudge(BMSModel model, KeyInputLog[] keylog, long milliMarginTime) {
 		judge = new JudgeThread(model.getAllTimeLines(), keylog, milliMarginTime);
+		judge.setName("beatoraja-judge");
+		// 判定/游玩时钟由本线程以 1000Hz 驱动，被渲染线程抢 CPU 会造成可感知的判定抖动。
+		// 抬高到 NORM+2（ART 经 libartpalette 的 kNiceValues 映射为 Linux nice -4
+		// = THREAD_PRIORITY_DISPLAY）；不越到 MAX 以免饿死音频等系统线程。
+		// 必须 start() 之前设，start() 后再设可能只改 Java 字段、原生线程不动。
+		try {
+			judge.setPriority(Math.min(Thread.MAX_PRIORITY, Thread.NORM_PRIORITY + 2));
+		} catch (Throwable t) {
+			// setPriority 可能受 SecurityManager / 部分 ROM 限制，失败不影响功能
+		}
 		judge.start();
 		isJudgeStarted = true;
 	}
@@ -148,6 +158,16 @@ class KeyInputProccessor {
 		private final KeyInputLog[] keylog;
 		private final long microMarginTime;
 
+		/**
+		 * advancePlayTimer 的整除截断余数（微秒）。
+		 *
+		 * deltaPlay = elapsed * (100 - speed) / 100 走整数除法，每次最多丢掉不到 1us。
+		 * 上游轮询 60Hz（elapsed≈16667us）时这个余数被放大；本 fork 为 1000Hz，
+		 * 若继续丢弃，变速回放（speed != 100）下误差会逐次累积成可见漂移。
+		 * 这里把余数带到下一次，使累计写入恒等于 sum(elapsed) * (100-speed) / 100 的精确值。
+		 */
+		private long playTimerRemainder = 0;
+
 		public JudgeThread(TimeLine[] timelines, KeyInputLog[] keylog, long milliMarginTime) {
 			this.timelines = timelines;
 			this.keylog = keylog;
@@ -225,7 +245,10 @@ class KeyInputProccessor {
 				return;
 			}
 			final int speed = player.getPlaySpeed();
-			final long deltaPlay = elapsedMicrotime * (100L - speed) / 100L;
+			// 保留整除余数，避免 1000Hz 高频轮询下截断误差逐次累积（见 playTimerRemainder 注释）
+			final long scaled = elapsedMicrotime * (100L - speed) + playTimerRemainder;
+			final long deltaPlay = scaled / 100L;
+			playTimerRemainder = scaled - deltaPlay * 100L;
 			if (deltaPlay != 0) {
 				player.timer.addMicroTimer(TIMER_PLAY, deltaPlay);
 			}

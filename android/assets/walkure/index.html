@@ -1078,13 +1078,18 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
       h+='<button class="tab-btn'+(self.chartActiveTab===t.key?' active':'')+'" onclick="RatingApp.switchChartTab(\''+t.key+'\')">'+t.label+'</button>'
     })
     h+='</div></div>'
+    h+='<div id="chart-filter-area"></div>'
     h+='<div id="chart-table-area"></div>'
     tab.innerHTML=h
+    this.renderChartFilters()
     this.renderChartTable()
   },
-  renderChartTable:function(){
-    var self=this
-    var area=document.getElementById('chart-table-area')
+  // 筛选行（★ 下拉 + 标题输入框）渲染到 #chart-filter-area —— 它【不在】renderChartTable
+  // 重建的 #chart-table-area 里。原因：输入框若随表格一起被 area.innerHTML 销毁重建，
+  // Android WebView 的 IME 组合会被打断，表现为「只能一个字一个字输入」（无法用输入法组词、丢焦点）。
+  // 只在 renderChartTab（首次 / 切 tab）时调用，输入过程中绝不重建。
+  renderChartFilters:function(){
+    var area=document.getElementById('chart-filter-area')
     if(!area)return
     var tableKey=this.chartActiveTab
     var tc=this.CHART_TABLES.find(function(t){return t.key===tableKey})
@@ -1101,6 +1106,17 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     h+='</select>'
     h+='<label>\u30bf\u30a4\u30c8\u30eb:</label><input type="text" id="chart-title-'+tableKey+'" value="'+this.esc(f.title)+'" oninput="RatingApp.onChartTitleFilter(\''+tableKey+'\',this.value)" placeholder="\u691c\u7d22...">'
     h+='</div></div>'
+    area.innerHTML=h
+  },
+  // 只重建表格本体 + 分页控件的容器内容。调用方：onChartTitleFilter / onChartStarFilter /
+  // onChartSort / onChartPageSize / onChartPageNav —— 每次按键都会进来，所以【绝不能】含输入框。
+  renderChartTable:function(){
+    var self=this
+    var area=document.getElementById('chart-table-area')
+    if(!area)return
+    var tableKey=this.chartActiveTab
+    var tc=this.CHART_TABLES.find(function(t){return t.key===tableKey})
+    var h=''
     var result=this.getChartPaged(tableKey)
     if(!result.rows.length){h+='<div class="empty-msg">\u30c7\u30fc\u30bf\u304c\u3042\u308a\u307e\u305b\u3093</div>';area.innerHTML=h;return}
     h+='<div class="table-wrap"><table><thead><tr>'

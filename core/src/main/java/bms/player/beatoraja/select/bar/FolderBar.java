@@ -160,16 +160,33 @@ public class FolderBar extends DirectoryBar {
      * <p>注: これは「表示中の folder lamp の色が違う」という症状の<b>原因ではなかった</b>
      * （原因は描画側の話で、当該フォルダのスコアが無い場合はどのみち集計は空になる）。
      * 純粋に<b>集計の網羅性</b>の修正として独立に成立する。</p>
+     *
+     * <p>🔴 <b>CRC は自前で計算せず、このバーが既に持っている {@link #crc} を使うこと。</b>
+     * 上游は {@code crc32(path, new String[0], new File(".").getAbsolutePath())} で再計算するが、
+     * それは <b>「プロセスの cwd = bmsroot の親ディレクトリ」</b>という PC の配置前提に
+     * 依存した式で、PC ではたまたま一致するだけ。Android の cwd は {@code "/"} なので
+     * target がフルパスになり、DB の {@code song.parent} と<b>別の値</b>が出る:
+     * <pre>
+     *   例) …/beatoraja/songs  (26 曲)
+     *     正: crc("songs")            = 79046a80  → 26 曲ヒット
+     *     誤: crc32(path,[],cwd="/")  = 4298843f  → 0 曲ヒット
+     * </pre>
+     * すると {@code getSongDatas} が 0 曲を返し、{@code clear()} 直後で止まるので
+     * {@code lamps[]} が全 0 のまま → <b>皮膚側の曲数/クリアランプ表示が 0 になる</b>。
+     * {@link #crc} は親の {@link #getChildren()} が
+     * {@code SongUtils.crc32(path, bmsroot, matchingRoot)} で計算した値で、
+     * スキャナが {@code song.parent} に入れた値と同源（＝必ず一致する）。</p>
      */
     public void updateFolderStatus() {
-        final SongDatabaseAccessor songdb = selector.getSongDatabase();
-        String path = folder.getPath();
-        if (path.endsWith(String.valueOf(File.separatorChar))) {
-            path = path.substring(0, path.length() - 1);
+        // crc は final フィールドで、コンストラクタで必ず設定される（root は "e2977170"）。
+        // 念のため空だけは弾く。
+        if (crc == null || crc.isEmpty()) {
+            return;
         }
-        final String ccrc = SongUtils.crc32(path, new String[0], new File(".").getAbsolutePath());
-
-        updateFolderStatus(songdb.getSongDatas("parent", ccrc));
+        final SongData[] songs = selector.getSongDatabase().getSongDatas("parent", crc);
+        Gdx.app.log("FolderBar", "updateFolderStatus: " + (folder != null ? folder.getTitle() : "[root]")
+                + ", crc=" + crc + ", songs=" + songs.length);
+        updateFolderStatus(songs);
     }
 
     /**

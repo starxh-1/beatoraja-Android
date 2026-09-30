@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">beatoraja-Android</string>
+    <string name="settings_title">beatoraja 設定</string>
+    <string name="section_display">顯示</string>
+    <string name="stretch_fullscreen">拉伸至全螢幕</string>
+    <string name="stretch_fullscreen_help_title">拉伸至全螢幕</string>
+    <string name="stretch_fullscreen_help">預設情況下遊戲會保持原始 16:9 比例，因此在非 16:9 的螢幕（大多數現代手機）會出現黑邊。開啟此選項後畫面會被拉伸填滿整個螢幕，畫面比例將與遊戲原始設計不同。註：開啟後側邊音訊頻譜會被自動停用（開關變成不可調整）。</string>
+    <string name="section_audio">音訊</string>
+    <string name="system_volume">系統音量</string>
+    <string name="key_volume">按鍵音量</string>
+    <string name="bgm_volume">BGM 音量</string>
+    <string name="section_player">玩家</string>
+    <string name="select_player">選擇玩家</string>
+    <string name="new_player">+ 新建玩家</string>
+    <string name="delete">刪除</string>
+    <string name="export">匯出</string>
+    <string name="import_score_db">匯入 Score.zip</string>
+    <string name="section_bms_path">歌曲路徑</string>
+    <string name="add">+ 新增</string>
+    <string name="tap_to_remove">點擊以移除</string>
+    <string name="scan_songs_on_launch">每次啟動時自動掃描歌曲</string>
+    <string name="onboard_welcome_title">歡迎使用 beatoraja</string>
+    <string name="onboard_welcome_message">你是第一次接觸 BMS，還是已經在其他平台上遊玩過 beatoraja？</string>
+    <string name="onboard_newbie">我是新手</string>
+    <string name="onboard_veteran">我是老手</string>
+    <string name="onboard_newbie_title">歡迎！</string>
+    <string name="onboard_newbie_content">本設定頁控制遊戲的核心選項：顯示、音訊、玩家檔案、歌曲路徑等。部分選項旁邊會有一個小問號「?」，點擊（或用手把聚焦）即可查看該選項的作用或說明。進入遊戲後，可以透過浮動選單快速調整常用選項（如鍵位設定、顯示影格數等）。</string>
+    <string name="onboard_veteran_layer1_title"></string>
+    <string name="onboard_veteran_layer1_message">(^^)</string>
+    <string name="onboard_veteran_layer1_close">關閉</string>
+    <string name="onboard_veteran_layer1_more">你就沒啥要說的嗎？</string>
+    <string name="onboard_veteran_title">歡迎！</string>
+    <string name="onboard_veteran_content">本設定與原版 beatoraja 的大多數選項一致，僅多出一些手機版特有的選項（音訊頻譜、全螢幕拉伸等）。此外，進入遊戲後可以透過新增的浮動選單快速調整常用選項（如鍵位設定、顯示影格數等）。</string>
+    <string name="onboard_got_it">知道了</string>
+    <string name="section_play_options">遊玩選項</string>
+    <string name="show_audio_spectrum">顯示音訊頻譜</string>
+    <string name="audio_visualization_mode">音訊視覺化</string>
+    <string name="bga_display">BGA 顯示</string>
+    <string name="green_number">綠數字</string>
+    <string name="green_number_help_title">綠數字</string>
+    <string name="green_number_help">綠數字用於調整下落速度。數字越低，音符下落越快。</string>
+    <string name="enable_lanecover">啟用擋板 (LANECOVER)</string>
+    <string name="enable_lift">啟用抬高 (LIFT)</string>
+    <string name="floating_menu_position">浮動選單位置</string>
+    <string name="target_score">目標分數</string>
+    <string name="gauge_type">血條類型</string>
+    <string name="note_timing_offset">判定線延遲調整</string>
+    <string name="note_timing_offset_help_title">判定線延遲調整</string>
+    <string name="note_timing_offset_help">調整判定線偏移。當 FAST 偏多時，請往 - 調整；SLOW 偏多時，則往 + 調整。</string>
+    <string name="auto_timing_adjust">自動延遲調整</string>
+    <string name="minimum_input_duration">最小輸入持續時間</string>
+
+    <string-array name="note_modifier_options">
+        <item>OFF</item>
+        <item>MIRROR</item>
+        <item>RANDOM</item>
+        <item>R-RANDOM</item>
+        <item>S-RANDOM</item>
+        <item>SPIRAL</item>
+        <item>H-RANDOM</item>
+        <item>ALL-SCR</item>
+        <item>RANDOM-EX</item>
+        <item>S-RANDOM-EX</item>
+    </string-array>
+
+    <string-array name="gauge_type_options">
+        <item>ASSIST EASY</item>
+        <item>EASY</item>
+        <item>NORMAL</item>
+        <item>HARD</item>
+        <item>EX-HARD</item>
+        <item>HAZARD</item>
+    </string-array>
+    <string name="section_input_options">輸入設定</string>
+    <string name="input_options_help_title">輸入設定</string>
+    <string name="input_options_help">註：這些設定僅針對實體控制器或鍵盤，不適用於觸控遊玩。使用觸控遊玩的玩家可以忽略這些設定。</string>
+    <string name="jkoc_hack">JKOC HACK</string>
+    <string name="analog_scratch">類比轉盤 (Analog Scratch)</string>
+    <string name="analog_scratch_threshold">類比轉盤閾值</string>
+    <string name="analog_scratch_algorithm">類比轉盤演算法</string>
+    <string name="mouse_scratch">滑鼠／觸控轉盤 (Mouse Scratch)</string>
+    <string name="mouse_scratch_threshold">滑鼠轉盤閾值 (ms)</string>
+    <string name="mouse_scratch_distance">滑鼠轉盤距離</string>
+    <string name="mouse_scratch_algorithm">滑鼠轉盤演算法</string>
+
+    <string-array name="analog_scratch_algorithm_options">
+        <item>Ver. 2（最新）</item>
+        <item>Ver. 1</item>
+    </string-array>
+
+    <string name="jkoc_hack_help_title">JKOC HACK</string>
+    <string name="jkoc_hack_help">用於 Joypad/Keypad 轉接器的相容性修正。如果遇到按鍵連點或對應錯誤，請開啟。</string>
+    <string name="analog_scratch_help_title">類比轉盤</string>
+    <string name="analog_scratch_help">如果你的控制器（如 DAO、YuanCon、IIDX 官方手台）使用類比軸作為轉盤，請開啟此項。</string>
+
+    <string name="section_tables">難易度表</string>
+    <string name="update_all">全部更新</string>
+    <string name="start_game">開始遊戲</string>
+
+    <string-array name="language_options">
+        <item>English</item>
+        <item>简体中文</item>
+        <item>繁體中文</item>
+        <item>日本語</item>
+        <item>한국어</item>
+        <item>Français</item>
+        <item>Deutsch</item>
+        <item>Português</item>
+        <item>Español</item>
+    </string-array>
+
+    <string-array name="floating_menu_position_options">
+        <item>頂部置中</item>
+        <item>頂部右側</item>
+        <item>底部置中</item>
+        <item>底部右側</item>
+    </string-array>
+
+    <string-array name="bga_display_options">
+        <item>開啟</item>
+        <item>自動</item>
+        <item>關閉</item>
+    </string-array>
+
+    <string-array name="audio_visualization_mode_options">
+        <item>關閉</item>
+        <item>頻譜</item>
+        <item>線條</item>
+    </string-array>
+    <string-array name="bga_expand_options">
+        <item>全畫面</item>
+        <item>保持比例</item>
+        <item>關閉</item>
+    </string-array>
+    <string-array name="gauge_auto_shift_options">
+        <item>無</item>
+        <item>Continue</item>
+        <item>Survival→Groove</item>
+        <item>Best Clear</item>
+        <item>Select→Under</item>
+    </string-array>
+    <string-array name="auto_save_options">
+        <item>不儲存</item>
+        <item>分數較佳或相同</item>
+        <item>Miss 較少</item>
+        <item>Miss 較少或相同</item>
+        <item>Combo 較高</item>
+        <item>Combo 較高或相同</item>
+        <item>燈號較佳</item>
+        <item>燈號較佳或相同</item>
+        <item>Miss／Combo／燈號較佳</item>
+        <item>一律儲存</item>
+    </string-array>
+    <string-array name="hispeed_fix_options">
+        <item>OFF</item>
+        <item>Start BPM</item>
+        <item>Max BPM</item>
+        <item>Main BPM</item>
+        <item>Min BPM</item>
+    </string-array>
+
+    <string name="dialog_new_player">新建玩家</string>
+
+    <string name="hint_player_name">玩家名稱</string>
+    <string name="rename_player">重新命名</string>
+    <string name="dialog_rename_player">重新命名玩家</string>
+    <string name="msg_player_renamed">玩家已重新命名為 \'%1$s\'</string>
+    <string name="msg_player_rename_exists">已存在名為 \'%1$s\' 的玩家</string>
+    <string name="msg_player_rename_same">名稱未變更</string>
+    <string name="btn_create">建立</string>
+    <string name="btn_cancel">取消</string>
+    <string name="msg_player_created">玩家 \'%1$s\' 已建立</string>
+    <string name="msg_player_empty">玩家名稱不能為空</string>
+    <string name="msg_player_exists">玩家已存在</string>
+    <string name="dialog_delete_player">刪除玩家</string>
+    <string name="msg_delete_confirm">確定要刪除玩家 \'%1$s\' 嗎？這將刪除所有玩家資料，包括分數。</string>
+    <string name="msg_settings_saved">設定已儲存</string>
+    <string name="msg_table_updated">難易度表更新成功</string>
+    <string name="msg_update_failed">更新失敗：%1$s</string>
+    <string name="btn_update">更新</string>
+    <string name="btn_remove">X</string>
+    <string name="msg_invalid_url">請輸入有效的 URL</string>
+    <string name="msg_score_db_not_found">找不到玩家 %1$s 的分數資料庫</string>
+    <string name="msg_score_exported">分數匯出成功</string>
+    <string name="msg_export_failed">匯出失敗：%1$s</string>
+    <string name="msg_import_success">玩家 \'%1$s\' 匯入成功</string>
+    <string name="msg_import_failed">匯入失敗：%1$s</string>
+    <string name="msg_delete_success">玩家已刪除</string>
+    <string name="msg_last_player_error">無法刪除最後一個玩家</string>
+    <string name="msg_updating_tables">正在更新 %1$d 個難易度表...</string>
+    <string name="msg_tables_updated_summary">已更新 %1$d 個表，%2$d 個失敗</string>
+    <string name="msg_no_table_urls">沒有需要更新的難易度表 URL</string>
+
+    <!-- Help texts for ? buttons -->
+    <string name="player_help_title">選擇玩家</string>
+    <string name="player_help">你可以點擊「新建玩家」來建立新的玩家。資料夾 ID 與玩家名稱（儲存在 config 中）會保持同步，修改其中一個會同時更新另一個。\n\n使用「重新命名」可以修改目前玩家的名稱（資料夾與 config 會一併更新）。在只有一個玩家的情況下無法刪除。\n\n匯出與匯入分數均使用 zip 壓縮包（這是因為玩家目錄下不只有 score.db）。如果想備份分數，可以使用匯出功能，並存放到你想存放的資料夾。當你需要重新匯入分數時，只要點擊「匯入 Score.zip」即可。</string>
+
+    <string name="bms_path_help_title">歌曲路徑</string>
+    <string name="bms_path_help">App 本身已經預設建立了一個歌曲路徑（位於 download/beatoraja/songs，不可刪除）。你可以點擊新增按鈕來增加新的歌曲路徑。\n\nApp 支援在目錄下放置 zip，更新歌曲目錄時若偵測到 zip 會自動解壓縮，但仍建議直接放置資料夾（App 內建的 zip 解壓縮效能相對較差）。\n\n目錄結構要求如下：\n\n如果是 Zip：inochi_ogg.zip → 解壓縮 → 得到 inochi_ogg 資料夾 → 開啟 inochi_ogg 資料夾 → inochi_ogg/inochi_Another.bms, audio.wav ..\n\n如果是資料夾：開啟 inochi_ogg 資料夾 → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+
+    <string name="audio_spectrum_help_title">音訊頻譜</string>
+    <string name="audio_spectrum_help">音訊頻譜會跟著音樂跳動，很酷喔！負責移植的 Star* 從小就喜歡看著音訊頻譜聽歌，甚至可以說這是移植者本人對音樂製作與音樂遊戲產生興趣的重要原因。如果不喜歡，關掉即可。</string>
+
+    <string name="gauge_auto_shift_help_title">血條自動轉換</string>
+    <string name="gauge_auto_shift_help">血條自動轉換。預設已經是 Best Clear 選項；如果喜歡尋求刺激，可以選擇 None 然後開啟 HAZARD GAUGE 來遊玩。</string>
+    <string name="expand">點擊展開</string>
+    <string name="vibration_on_bad">震動回饋（Bad/Poor/Miss 判定）</string>
+
+    <string name="epilepsy_warning_title">光敏性癲癇警告</string>
+    <string name="epilepsy_warning_message">本遊戲包含閃爍光線、快速變化的畫面圖案以及視覺效果，可能會引起極少數人（即使無癲癇病史）發生抽搐或意識喪失。若您或家人有癲癇病史，請在遊玩前諮詢醫師。若在遊玩中出現頭暈、視力異常、眼部或肌肉抽搐、失去方向感等症狀，請立即停止遊玩並尋求醫療建議。</string>
+    <string name="epilepsy_warning_close">我已知曉</string>
+</resources>

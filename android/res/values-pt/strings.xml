@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">beatoraja-Android</string>
+    <string name="settings_title">Configurações do beatoraja</string>
+    <string name="section_display">Exibição</string>
+    <string name="stretch_fullscreen">Esticar para tela cheia</string>
+    <string name="stretch_fullscreen_help_title">Esticar para tela cheia</string>
+    <string name="stretch_fullscreen_help">Por padrão, o jogo mantém a proporção original de 16:9, o que gera faixas pretas em telas que não são 16:9 (a maioria dos celulares modernos). Ative esta opção para esticar a imagem do jogo e preencher toda a tela. A proporção deixará de corresponder ao design original. Observação: quando ativada, o espectro de áudio lateral é desativado automaticamente (o botão fica indisponível).</string>
+    <string name="section_audio">Áudio</string>
+    <string name="system_volume">Volume do sistema</string>
+    <string name="key_volume">Volume das teclas</string>
+    <string name="bgm_volume">Volume do BGM</string>
+    <string name="section_player">Jogador</string>
+    <string name="select_player">Selecionar jogador</string>
+    <string name="new_player">+ Novo jogador</string>
+    <string name="delete">Excluir</string>
+    <string name="export">Exportar</string>
+    <string name="import_score_db">Importar Score.zip</string>
+    <string name="section_bms_path">Caminhos das músicas</string>
+    <string name="add">+ Adicionar</string>
+    <string name="tap_to_remove">Toque para remover</string>
+    <string name="scan_songs_on_launch">Verificar músicas a cada inicialização</string>
+    <string name="onboard_welcome_title">Bem-vindo ao beatoraja</string>
+    <string name="onboard_welcome_message">Você é novo no BMS ou já jogou beatoraja em outra plataforma?</string>
+    <string name="onboard_newbie">Sou novo</string>
+    <string name="onboard_veteran">Já joguei antes</string>
+    <string name="onboard_newbie_title">Bem-vindo!</string>
+    <string name="onboard_newbie_content">Esta página de configurações controla as opções principais do jogo: exibição, áudio, perfis de jogador, caminhos das músicas e muito mais. Algumas opções têm um pequeno “?” ao lado do rótulo — toque nele (ou foque) para ver o que a opção faz. Depois de iniciar o jogo, você pode usar o menu flutuante para ajustar rapidamente as opções comuns (configuração de teclas, exibição de FPS etc.).</string>
+    <string name="onboard_veteran_layer1_title"></string>
+    <string name="onboard_veteran_layer1_message">(^^)</string>
+    <string name="onboard_veteran_layer1_close">Fechar</string>
+    <string name="onboard_veteran_layer1_more">Não tem nada a dizer?</string>
+    <string name="onboard_veteran_title">Bem-vindo!</string>
+    <string name="onboard_veteran_content">A maioria destas opções corresponde ao beatoraja original. Algumas opções específicas de celular foram adicionadas (espectro de áudio, esticamento em tela cheia etc.). Além disso, depois de entrar no jogo você pode usar o novo menu flutuante para ajustar rapidamente as opções comuns (configuração de teclas, exibição de FPS etc.).</string>
+    <string name="onboard_got_it">Entendi</string>
+    <string name="section_play_options">Opções de jogo</string>
+    <string name="show_audio_spectrum">Mostrar espectro de áudio</string>
+    <string name="audio_visualization_mode">Visualização de áudio</string>
+    <string name="bga_display">Exibição de BGA</string>
+    <string name="green_number">Green Number</string>
+    <string name="green_number_help_title">Green Number</string>
+    <string name="green_number_help">O Green Number é usado para ajustar a velocidade de rolagem. Quanto menor o número, mais rápido as notas caem.</string>
+    <string name="enable_lanecover">ATIVAR LANECOVER</string>
+    <string name="enable_lift">ATIVAR LIFT</string>
+    <string name="floating_menu_position">Posição do menu flutuante</string>
+    <string name="target_score">PONTUAÇÃO ALVO</string>
+    <string name="gauge_type">Tipo de barra</string>
+    <string name="note_timing_offset">Ajuste da linha de julgamento</string>
+    <string name="note_timing_offset_help_title">Ajuste da linha de julgamento</string>
+    <string name="note_timing_offset_help">Ajusta o deslocamento da linha de julgamento. Se você receber muitos julgamentos FAST, ajuste para -. Se receber muitos julgamentos SLOW, ajuste para +.</string>
+    <string name="auto_timing_adjust">Ajuste automático de timing</string>
+    <string name="minimum_input_duration">Duração mínima de entrada</string>
+
+    <string-array name="note_modifier_options">
+        <item>OFF</item>
+        <item>MIRROR</item>
+        <item>RANDOM</item>
+        <item>R-RANDOM</item>
+        <item>S-RANDOM</item>
+        <item>SPIRAL</item>
+        <item>H-RANDOM</item>
+        <item>ALL-SCR</item>
+        <item>RANDOM-EX</item>
+        <item>S-RANDOM-EX</item>
+    </string-array>
+
+    <string-array name="gauge_type_options">
+        <item>ASSIST EASY</item>
+        <item>EASY</item>
+        <item>NORMAL</item>
+        <item>HARD</item>
+        <item>EX-HARD</item>
+        <item>HAZARD</item>
+    </string-array>
+    <string name="section_input_options">Opções de entrada</string>
+    <string name="input_options_help_title">Opções de entrada</string>
+    <string name="input_options_help">Observação: estas configurações são para controles e teclados físicos e não se aplicam ao jogo por toque. Quem joga no toque pode ignorá-las.</string>
+    <string name="jkoc_hack">JKOC HACK</string>
+    <string name="analog_scratch">Scratch analógico</string>
+    <string name="analog_scratch_threshold">Limite do scratch analógico</string>
+    <string name="analog_scratch_algorithm">Algoritmo do scratch analógico</string>
+    <string name="mouse_scratch">Scratch de mouse/toque</string>
+    <string name="mouse_scratch_threshold">Limite do scratch de mouse (ms)</string>
+    <string name="mouse_scratch_distance">Distância do scratch de mouse</string>
+    <string name="mouse_scratch_algorithm">Algoritmo do scratch de mouse</string>
+
+    <string-array name="analog_scratch_algorithm_options">
+        <item>Ver. 2 (mais recente)</item>
+        <item>Ver. 1</item>
+    </string-array>
+
+    <string name="jkoc_hack_help_title">JKOC HACK</string>
+    <string name="jkoc_hack_help">Correção de compatibilidade para adaptadores Joypad/Keypad. Ative se encontrar entradas duplicadas ou problemas de mapeamento.</string>
+    <string name="analog_scratch_help_title">Scratch analógico</string>
+    <string name="analog_scratch_help">Ative se o seu controle usa um eixo analógico para o prato (por exemplo, DAO, YuanCon ou controles IIDX Premium oficiais).</string>
+
+    <string name="section_tables">Tabelas de dificuldade</string>
+    <string name="update_all">Atualizar tudo</string>
+    <string name="start_game">Iniciar</string>
+
+    <string-array name="language_options">
+        <item>English</item>
+        <item>简体中文</item>
+        <item>繁體中文</item>
+        <item>日本語</item>
+        <item>한국어</item>
+        <item>Français</item>
+        <item>Deutsch</item>
+        <item>Português</item>
+        <item>Español</item>
+    </string-array>
+
+    <string-array name="floating_menu_position_options">
+        <item>Topo central</item>
+        <item>Topo à direita</item>
+        <item>Parte inferior central</item>
+        <item>Parte inferior à direita</item>
+    </string-array>
+
+    <string-array name="bga_display_options">
+        <item>Ligado</item>
+        <item>Auto</item>
+        <item>Desligado</item>
+    </string-array>
+
+    <string-array name="audio_visualization_mode_options">
+        <item>Desligado</item>
+        <item>Espectro</item>
+        <item>Linha</item>
+    </string-array>
+    <string-array name="bga_expand_options">
+        <item>Tela cheia</item>
+        <item>Manter proporção</item>
+        <item>Desligado</item>
+    </string-array>
+    <string-array name="gauge_auto_shift_options">
+        <item>Nenhum</item>
+        <item>Continue</item>
+        <item>Survival→Groove</item>
+        <item>Best Clear</item>
+        <item>Select→Under</item>
+    </string-array>
+    <string-array name="auto_save_options">
+        <item>Nada</item>
+        <item>Pontuação melhor ou igual</item>
+        <item>Menos miss</item>
+        <item>Miss melhor ou igual</item>
+        <item>Combo melhor</item>
+        <item>Combo melhor ou igual</item>
+        <item>Lâmpada melhor</item>
+        <item>Lâmpada melhor ou igual</item>
+        <item>Miss/combo/lâmpada melhores</item>
+        <item>Sempre</item>
+    </string-array>
+    <string-array name="hispeed_fix_options">
+        <item>OFF</item>
+        <item>Start BPM</item>
+        <item>Max BPM</item>
+        <item>Main BPM</item>
+        <item>Min BPM</item>
+    </string-array>
+
+    <string name="dialog_new_player">Novo jogador</string>
+
+    <string name="hint_player_name">Nome do jogador</string>
+    <string name="rename_player">Renomear</string>
+    <string name="dialog_rename_player">Renomear jogador</string>
+    <string name="msg_player_renamed">Jogador renomeado para \'%1$s\'</string>
+    <string name="msg_player_rename_exists">Já existe um jogador chamado \'%1$s\'</string>
+    <string name="msg_player_rename_same">Nome inalterado</string>
+    <string name="btn_create">Criar</string>
+    <string name="btn_cancel">Cancelar</string>
+    <string name="msg_player_created">Jogador \'%1$s\' criado</string>
+    <string name="msg_player_empty">O nome do jogador não pode ficar vazio</string>
+    <string name="msg_player_exists">Jogador já existe</string>
+    <string name="dialog_delete_player">Excluir jogador</string>
+    <string name="msg_delete_confirm">Tem certeza de que deseja excluir o jogador \'%1$s\'? Isso apagará todos os dados do jogador, incluindo as pontuações.</string>
+    <string name="msg_settings_saved">Configurações salvas</string>
+    <string name="msg_table_updated">Tabela atualizada com sucesso</string>
+    <string name="msg_update_failed">Falha na atualização: %1$s</string>
+    <string name="btn_update">Atualizar</string>
+    <string name="btn_remove">X</string>
+    <string name="msg_invalid_url">Insira uma URL válida</string>
+    <string name="msg_score_db_not_found">Banco de pontuações não encontrado para %1$s</string>
+    <string name="msg_score_exported">Pontuações exportadas com sucesso</string>
+    <string name="msg_export_failed">Falha na exportação: %1$s</string>
+    <string name="msg_import_success">Jogador \'%1$s\' importado com sucesso</string>
+    <string name="msg_import_failed">Falha na importação: %1$s</string>
+    <string name="msg_delete_success">Jogador excluído</string>
+    <string name="msg_last_player_error">Não é possível excluir o último jogador</string>
+    <string name="msg_updating_tables">Atualizando %1$d tabela(s)...</string>
+    <string name="msg_tables_updated_summary">%1$d tabela(s) atualizada(s), %2$d com falha</string>
+    <string name="msg_no_table_urls">Nenhuma URL de tabela para atualizar</string>
+
+    <!-- Help texts for ? buttons -->
+    <string name="player_help_title">Selecionar jogador</string>
+    <string name="player_help">Você pode clicar em “Novo jogador” para criar um jogador. O ID da pasta e o nome do jogador (armazenado na config) são mantidos em sincronia — renomear um atualiza o outro.\n\nUse “Renomear” para alterar o nome do jogador atual (a pasta e a config são atualizadas juntas). Não é possível excluir um jogador quando existe apenas um.\n\nA exportação e a importação de pontuações usam pacotes zip (porque a pasta do jogador contém mais do que apenas o score.db). Se quiser fazer backup das suas pontuações, use a exportação e salve o pacote na pasta desejada. Quando precisar importar as pontuações novamente, basta clicar em “Importar Score.zip”.</string>
+
+    <string name="bms_path_help_title">Caminhos das músicas</string>
+    <string name="bms_path_help">O app já cria um caminho de músicas padrão (localizado em download/beatoraja/songs, não pode ser excluído). Você pode clicar no botão de adicionar para incluir novos caminhos.\n\nO app aceita arquivos zip colocados no diretório. Ao atualizar os diretórios de músicas, um zip detectado será extraído; ainda assim, é recomendável colocar as pastas diretamente (o desempenho da extração de zip integrada é relativamente baixo).\n\nA estrutura de diretórios necessária é a seguinte:\n\nSe for zip: inochi_ogg.zip → extrair → pasta inochi_ogg → abrir a pasta inochi_ogg → inochi_ogg/inochi_Another.bms, audio.wav ..\n\nSe for pasta: abrir a pasta inochi_ogg → inochi_ogg/inochi_Another.bms, audio.wav ..</string>
+
+    <string name="audio_spectrum_help_title">Espectro de áudio</string>
+    <string name="audio_spectrum_help">O espectro de áudio pula junto com a música, é bem legal! O responsável pelo porte (Star*) adora observar o espectro de áudio enquanto ouve música desde criança. Pode-se até dizer que esse foi o motivo importante para ele se interessar por produção musical e jogos de música. Se você não gostar, basta desativar.</string>
+
+    <string name="gauge_auto_shift_help_title">Troca automática de barra</string>
+    <string name="gauge_auto_shift_help">Troca automática de barra. “Best Clear” já é o padrão. Se você gosta de emoção, pode selecionar “None” e jogar com a HAZARD GAUGE ativada.</string>
+    <string name="expand">Toque para expandir</string>
+    <string name="vibration_on_bad">Resposta por vibração (julgamentos Bad/Poor/Miss)</string>
+
+    <string name="epilepsy_warning_title">Aviso de epilepsia fotossensível</string>
+    <string name="epilepsy_warning_message">Este jogo contém luzes piscantes, padrões rápidos de tela e efeitos visuais que podem provocar convulsões ou perda de consciência em uma pequena porcentagem de pessoas, mesmo sem histórico de epilepsia. Se você ou alguém da sua família tem histórico de convulsões, consulte um médico antes de jogar. Se sentir tontura, alteração na visão, espasmos nos olhos ou músculos, ou desorientação, pare de jogar imediatamente e procure orientação médica.</string>
+    <string name="epilepsy_warning_close">Entendi</string>
+</resources>

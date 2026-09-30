@@ -887,8 +887,16 @@ public class MusicPlayer extends MainState {
 
 	private void drawSongList(SpriteBatch batch) {
 		if (font == null) return;
-		if (allSongs == null || allSongs.length == 0) return;
-		int half = LIST_VISIBLE / 2;
+		// 本帧取一次快照,后面所有下标都以它为准 —— allSongs 是 loader 线程赋的字段,
+		// 循环里反复读字段等于让长度和下标来自两个时刻。
+		final SongData[] songs = allSongs;
+		if (songs == null || songs.length == 0) return;
+		final int count = songs.length;
+		// 曲库不足一屏时只画 count 行,并把选中行摆在这一段的正中 —— 选曲列表是个
+		// 首尾相接的环,照 LIST_VISIBLE 硬画 10 行会让同一首歌在屏幕上重复出现两三次,
+		// 既难辨认也点不准。
+		final int visible = Math.min(LIST_VISIBLE, count);
+		final int half = visible / 2;
 		Texture blank = getWhiteTexture();
 
 		// 第一行的基线 y(libGDX 坐标,自下而上)
@@ -896,9 +904,14 @@ public class MusicPlayer extends MainState {
 		float topRowBaselineY = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
 
 		batch.begin();
-		for (int row = 0; row < LIST_VISIBLE; row++) {
-			int idx = (selectedIndex + row - half + allSongs.length) % allSongs.length;
-			SongData song = allSongs[idx];
+		for (int row = 0; row < visible; row++) {
+			// 🔴 必须 floorMod,不能写 (selectedIndex + row - half + count) % count:
+			// "+count" 只兜得住 -count < x < 0,而 half 是写死的 5,曲库不足 10 首时
+			// x 会小到 -5;count=4 时 -5+4 = -1,Java 的 % 对负数返回负数
+			// ⇒ allSongs[-1] ⇒ ArrayIndexOutOfBoundsException(length=4; index=-1)。
+			// floorMod 对任意 int 都返回 [0,count),顺带兜住并发下 selectedIndex 越界。
+			int idx = Math.floorMod(selectedIndex + row - half, count);
+			SongData song = songs[idx];
 			String title = song == null ? "" : (song.getFullTitle() == null ? song.getTitle() : song.getFullTitle());
 
 			// 随拖拽偏移整体平移:手指下滑(gdx_y 减小)→ listDragOffset > 0 → 行向下移
@@ -1217,8 +1230,12 @@ public class MusicPlayer extends MainState {
 	}
 
 	private int computeBarIndexAtTouch(int gy) {
-		if (allSongs == null || allSongs.length == 0) return -1;
-		int half = LIST_VISIBLE / 2;
+		final SongData[] songs = allSongs;
+		if (songs == null || songs.length == 0) return -1;
+		final int count = songs.length;
+		// 窗口尺寸必须和 drawSongList() 逐字一致,否则"看到的"和"点到的"会错位。
+		final int visible = Math.min(LIST_VISIBLE, count);
+		final int half = visible / 2;
 		// 绘制公式(drawSongList):row r 中心 y = baseRow0Y - r * LIST_LINE_H - listDragOffset
 		// 反推:row = (baseRow0Y - gy - listDragOffset) / LIST_LINE_H
 		// 注意是减 —— 内容被整体下移(listDragOffset > 0)时,同一个屏幕位置上放的是
@@ -1226,9 +1243,9 @@ public class MusicPlayer extends MainState {
 		// 已被上一轮归零"侥幸不出错,别依赖这个巧合。
 		float baseRow0Y = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
 		int row = Math.round((baseRow0Y - gy - listDragOffset) / LIST_LINE_H);
-		if (row < 0 || row >= LIST_VISIBLE) return -1;
-		int idx = (selectedIndex + row - half + allSongs.length) % allSongs.length;
-		return idx;
+		if (row < 0 || row >= visible) return -1;
+		// floorMod —— 同 drawSongList():(x + count) % count 在 count < half 时是负数。
+		return Math.floorMod(selectedIndex + row - half, count);
 	}
 
 	// synchronized(this) —— 跟 transitionToNextInBackground() 同一把锁,
@@ -1765,7 +1782,10 @@ public class MusicPlayer extends MainState {
 					}
 					case SEQUENCE:
 					default:
-						selectedIndex = (selectedIndex + 1) % allSongs.length;
+						// floorMod:selectedIndex 是跨线程 volatile,一旦它越界(或为负),
+						// (x + 1) % length 照样会给出负下标,下一行 allSongs[selectedIndex]
+						// 就直接崩在 GL 线程上。这里顺手兜住。
+						selectedIndex = Math.floorMod(selectedIndex + 1, allSongs.length);
 						break;
 				}
 

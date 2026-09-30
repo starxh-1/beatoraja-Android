@@ -487,6 +487,24 @@ public class IntegerPropertyFactory {
 			return (int) (pd.getJudgeCount(0) + pd.getJudgeCount(1) + pd.getJudgeCount(2) + pd.getJudgeCount(3));
 		}),
 
+		// 本日分（＝本日の累計 − 直近の過去日の累計）。値の供給元は
+		// PlayDataAccessor.readTodayPlayerData() → PlayerResource.setTodayPlayerData()。
+		// 更新は MusicSelector（create / prepare の refreshAfterPlay）で行う。
+		// id は SkinProperty の NUMBER_TODAY_* と一致させること。
+		player_today_playcount(334, (state) -> ((int) state.resource.getTodayPlayerData().getPlaycount())),
+		player_today_clearcount(335, (state) -> ((int) state.resource.getTodayPlayerData().getClear())),
+		player_today_failcount(336, (state) -> ((int) (state.resource.getTodayPlayerData().getPlaycount()
+				- state.resource.getTodayPlayerData().getClear()))),
+		player_today_notes(337, (state) -> {
+			final PlayerData pd = state.resource.getTodayPlayerData();
+			return (int) (pd.getJudgeCount(0) + pd.getJudgeCount(1) + pd.getJudgeCount(2) + pd.getJudgeCount(3));
+		}),
+		player_today_perfect(344, (state) -> ((int) state.resource.getTodayPlayerData().getJudgeCount(0))),
+		player_today_great(345, (state) -> ((int) state.resource.getTodayPlayerData().getJudgeCount(1))),
+		player_today_good(346, (state) -> ((int) state.resource.getTodayPlayerData().getJudgeCount(2))),
+		player_today_bad(347, (state) -> ((int) state.resource.getTodayPlayerData().getJudgeCount(3))),
+		player_today_poor(348, (state) -> ((int) state.resource.getTodayPlayerData().getJudgeCount(4))),
+
 		volume_system(57, (state) -> ((int)(state.resource.getConfig().getAudioConfig().getSystemvolume() * 100))),
 		volume_key(58, (state) -> ((int)(state.resource.getConfig().getAudioConfig().getKeyvolume() * 100))),
 		volume_background(59, (state) -> ((int)(state.resource.getConfig().getAudioConfig().getBgvolume() * 100))),
