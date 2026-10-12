@@ -79,10 +79,20 @@ public final class PlayDataAccessor {
 	 * （書き込みは {@code AndroidScoreDatabaseAccessor#setPlayerData}）。よって本日分の増分は
 	 * 「本日の行 − 直近の過去日の行」で求まる。</p>
 	 *
-	 * <p><b>元実装のバグ</b>：{@code getPlayerDatas(2)} が 1件しか返さない場合
-	 * （＝本日の行がまだ無い、つまり今日はまだ1曲も遊んでいない）にその1件をそのまま
-	 * 返していたため、<b>前日までの累計が「今日の値」として表示されていた</b>
-	 * （アプリ起動直後の選曲画面で顕著）。本日分に記録が無ければ 0 のデータを返すように修正。</p>
+	 * <p><b>日付判定（2026-10-03 に再導入）</b>：最新行の date が今日でなければ
+	 * 本日分は <b>0</b> を返す。累計は日をまたいで持ち越される（＝行が無い日は
+	 * 前日の行がそのまま最新行として残る）ので、この判定が無いと
+	 * <b>「今日はまだ遊んでいない」ときに前回プレイ日の成果が「今日の値」として出る</b>。</p>
+	 *
+	 * <p>経緯：09-30 にこの判定を入れた → 10-03 に LIAO 指示で一度撤去 →
+	 * 同日、「今日の成果」に負数が出た件を実測で追った結果、<b>負数はこの判定とは
+	 * 無関係</b>（別プロファイルの行が同じ {@code player} テーブルに混ざっていたことによる）
+	 * と判明したため、同日中に LIAO の拍板を得て再導入した。</p>
+	 *
+	 * <p><b>非負ガード</b>：累計値は単調増加が前提なので、引き算の結果に負が出たら、
+	 * その 2 行は同じ累計の系列ではない（＝別プロファイルの行が混ざっている、
+	 * DB を差し替えた、など）。そのまま返すとスキンに {@code -35962} のような負値が
+	 * 出るため 0 のデータを返す。正常な DB では発動しない。</p>
 	 *
 	 * @return 本日分のプレイヤーデータ。記録が1件も無い場合のみ null
 	 */
@@ -100,15 +110,34 @@ public final class PlayDataAccessor {
 		}
 		if (pd.length > 1) {
 			subtract(pd[0], pd[1]);
+			if (hasNegative(pd[0])) {
+				Logger.getGlobal().warning("本日分プレイヤーデータが負になったため 0 として扱います"
+						+ "（player テーブルの累計系列が不整合。最新行と 1 つ前の行が別系列の可能性）");
+				final PlayerData empty = new PlayerData();
+				empty.setDate(today);
+				return empty;
+			}
 		}
+		// 今日の行が 1 件だけ（＝これが最初の行）なら、それがそのまま本日分。
 		return pd[0];
+	}
+
+	/** 減算後の本日分に負値が混ざっていないか（＝累計系列が壊れているか）を判定する。 */
+	private static boolean hasNegative(PlayerData pd) {
+		return pd.getPlaycount() < 0 || pd.getClear() < 0 || pd.getPlaytime() < 0
+				|| pd.getEpg() < 0 || pd.getLpg() < 0
+				|| pd.getEgr() < 0 || pd.getLgr() < 0
+				|| pd.getEgd() < 0 || pd.getLgd() < 0
+				|| pd.getEbd() < 0 || pd.getLbd() < 0
+				|| pd.getEpr() < 0 || pd.getLpr() < 0
+				|| pd.getEms() < 0 || pd.getLms() < 0;
 	}
 
 	/**
 	 * 本日の 0 時（ローカル時刻、秒）。{@code player} テーブルの date と同じ基準。
-	 * 読み側（{@link #readTodayPlayerData()}）と書き側
-	 * （{@code AndroidScoreDatabaseAccessor#setPlayerData}）で<b>必ず同じ値</b>を使うこと
-	 * ——ずれると「本日の行が無い」と誤判定して今日の値が常に 0 になる。
+	 * 書き側（{@code AndroidScoreDatabaseAccessor#setPlayerData}）と
+	 * 読み側（{@link #readTodayPlayerData()} の日付判定）で<b>同じ値を使うこと</b>
+	 * ——ずれると「本日の行が無い」と誤判定して本日分が常に 0 になる。
 	 */
 	public static long today() {
 		final Calendar cal = Calendar.getInstance(TimeZone.getDefault());
@@ -625,6 +654,10 @@ public final class PlayDataAccessor {
 			fw.write(json.prettyPrint(rd));
 			fw.flush();
 			fw.close();
+			// 🔴 必须失效该目录的文件列表缓存：FileCache.exists() 没有过期时间，
+			// MusicResult 构造时已把 replay/ 的旧列表缓存下来（那时这个 .brd 还不存在），
+			// 不失效的话选曲界面永远看不到刚存的回放，要重启游戏才刷新。
+			FileCache.invalidate(Gdx.files.absolute(path));
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -714,6 +747,7 @@ public final class PlayDataAccessor {
 			fw.write(json.prettyPrint(rd));
 			fw.flush();
 			fw.close();
+			FileCache.invalidate(Gdx.files.absolute(path));
 			Logger.getGlobal().info("コースリプレイを保存:" + path);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -722,7 +756,11 @@ public final class PlayDataAccessor {
 
 	public void deleteReplayData(BMSModel model, int lnmode, int index) {
 		if (existsReplayData(model, lnmode, index)) {
-			new File(this.getReplayDataFilePath(model, lnmode, index) + ".brd").delete();
+			String path = this.getReplayDataFilePath(model, lnmode, index) + ".brd";
+			new File(path).delete();
+			// 删完也要失效：否则 existsReplayData() 仍从缓存里读回「存在」，
+			// 结果界面会继续显示这个已被删掉的回放。
+			FileCache.invalidate(Gdx.files.absolute(path));
 		}
 	}
 

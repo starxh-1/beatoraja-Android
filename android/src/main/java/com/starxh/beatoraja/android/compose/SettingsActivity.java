@@ -131,6 +131,10 @@ public class SettingsActivity extends Activity {
 
     private LinearLayout bmsPathContainer;
     private LinearLayout tableUrlContainer;
+    /** 与 {@link #tableUrls} 同下标：每行的「更新」按钮。「全部更新」用它逐个标出当前正在处理的站点。 */
+    private final List<Button> tableUpdateButtons = new ArrayList<>();
+    /** 列表重建计数（增/删/改行都会 +1）。后台的「全部更新」开跑后若列表被重建，就放弃逐行标记，避免标错行。 */
+    private volatile int tableListGeneration = 0;
     private Spinner playerSpinner;
 
     private View focusIndicator;
@@ -306,7 +310,7 @@ public class SettingsActivity extends Activity {
         android.content.SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         if (prefs.getBoolean(KEY_ONBOARDED, false)) return;
 
-        new android.app.AlertDialog.Builder(this)
+        new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme)
                 .setTitle(R.string.onboard_welcome_title)
                 .setMessage(R.string.onboard_welcome_message)
                 .setCancelable(false)
@@ -337,7 +341,7 @@ public class SettingsActivity extends Activity {
      * "关闭" ends onboarding immediately.
      */
     private void showOnboardVeteranLayer1() {
-        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme)
                 .setMessage(R.string.onboard_veteran_layer1_message)
                 .setCancelable(true)
                 .setPositiveButton(R.string.onboard_veteran_layer1_more, (d, w) -> showOnboardVeteranLayer2())
@@ -353,7 +357,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void showOnboardDialog(int titleRes, int messageRes, int positiveButtonRes, boolean dismissMarksOnboarded) {
-        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this)
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme)
                 .setMessage(messageRes)
                 .setCancelable(true)
                 .setPositiveButton(positiveButtonRes, (d, w) -> markOnboarded());
@@ -1078,6 +1082,33 @@ public class SettingsActivity extends Activity {
         setupGamepadFocusable(findViewById(R.id.saveButton));
     }
 
+    /** dp → px。动态创建的控件布局用。尺寸/颜色一律写回 R.dimen / R.color，别再散魔数。 */
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    /** 取 dimen 的像素值（sp 类 dimen 已经按系统字体缩放，可直接喂 setTextSize(PX)）。 */
+    private int dimen(int resId) {
+        return getResources().getDimensionPixelSize(resId);
+    }
+
+    /** 动态行的"行尾按钮"统一外观：固定宽高（各行的输入框右边缘靠它对齐）+ 圆角底色。 */
+    private void applyRowActionButton(Button btn, int bgRes, int textRes) {
+        btn.setText(textRes);
+        btn.setBackgroundResource(bgRes);
+        btn.setTextColor(getResources().getColor(R.color.text_primary));
+        btn.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, dimen(R.dimen.text_size_button));
+        btn.setGravity(android.view.Gravity.CENTER);
+        btn.setMinWidth(0);
+        btn.setMinHeight(0);
+        btn.setPadding(0, 0, 0, 0);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                dimen(R.dimen.row_action_width), dimen(R.dimen.row_action_height));
+        lp.setMarginStart(dimen(R.dimen.row_spacing));
+        lp.gravity = android.view.Gravity.CENTER_VERTICAL;
+        btn.setLayoutParams(lp);
+    }
+
     private void refreshBmsPathList() {
         bmsPathContainer.removeAllViews();
         String defaultPath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath() + "/beatoraja/songs";
@@ -1086,17 +1117,18 @@ public class SettingsActivity extends Activity {
             final String currentPath = bmsPaths.get(i);
             EditText editText = new EditText(this);
             editText.setText(currentPath);
-            editText.setTextColor(0xFFFFFFFF);
-            editText.setBackgroundResource(R.drawable.focus_highlight);
-            editText.setPadding(16, 12, 16, 12);
-            editText.setTextSize(14);
+            editText.setTextColor(getResources().getColor(R.color.text_primary));
+            editText.setBackgroundResource(R.drawable.bg_input_field);
+            editText.setPadding(dimen(R.dimen.edittext_padding), 0, dimen(R.dimen.edittext_padding), 0);
+            editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, dimen(R.dimen.text_size_body));
             editText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
             editText.setFocusable(true);
             editText.setFocusableInTouchMode(true);
             final LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, 4, 0, 4);
-            editText.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding(0, 0, 0, dimen(R.dimen.row_spacing));
+            editText.setLayoutParams(new LinearLayout.LayoutParams(0, dimen(R.dimen.control_height), 1));
             editText.addTextChangedListener(new TextWatcher() {
                 @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                 @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -1105,16 +1137,16 @@ public class SettingsActivity extends Activity {
             row.addView(editText);
             if (!currentPath.equalsIgnoreCase(defaultPath) && !currentPath.equalsIgnoreCase("/storage/emulated/0/Download/beatoraja/songs")) {
                 Button removeBtn = new Button(this);
-                removeBtn.setText(getString(R.string.btn_remove));
-                removeBtn.setBackgroundColor(0xFFAA3333);
-                removeBtn.setTextColor(0xFFFFFFFF);
+                applyRowActionButton(removeBtn, R.drawable.btn_danger, R.string.btn_remove);
                 setupGamepadFocusable(removeBtn);
                 removeBtn.setOnClickListener(v -> { bmsPaths.remove(index); refreshBmsPathList(); saveConfigToJson(); });
                 row.addView(removeBtn);
             } else {
                 editText.setEnabled(false);
                 View spacer = new View(this);
-                spacer.setLayoutParams(new LinearLayout.LayoutParams(128, ViewGroup.LayoutParams.MATCH_PARENT));
+                spacer.setLayoutParams(new LinearLayout.LayoutParams(
+                        dimen(R.dimen.row_action_width) + dimen(R.dimen.row_spacing),
+                        ViewGroup.LayoutParams.MATCH_PARENT));
                 row.addView(spacer);
             }
             bmsPathContainer.addView(row);
@@ -1126,39 +1158,39 @@ public class SettingsActivity extends Activity {
 
     private void refreshTableUrlList() {
         tableUrlContainer.removeAllViews();
+        tableUpdateButtons.clear();
+        tableListGeneration++;
         for (int i = 0; i < tableUrls.size(); i++) {
             final int index = i;
             EditText editText = new EditText(this);
             editText.setText(tableUrls.get(i));
-            editText.setTextColor(0xFFFFFFFF);
-            editText.setBackgroundResource(R.drawable.focus_highlight);
-            editText.setPadding(16, 12, 16, 12);
-            editText.setTextSize(14);
+            editText.setTextColor(getResources().getColor(R.color.text_primary));
+            editText.setBackgroundResource(R.drawable.bg_input_field);
+            editText.setPadding(dimen(R.dimen.edittext_padding), 0, dimen(R.dimen.edittext_padding), 0);
+            editText.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, dimen(R.dimen.text_size_body));
             editText.setInputType(android.text.InputType.TYPE_TEXT_VARIATION_URI);
             editText.setFocusable(true);
             editText.setFocusableInTouchMode(true);
             final LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setPadding(0, 4, 0, 4);
-            editText.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setPadding(0, 0, 0, dimen(R.dimen.row_spacing));
+            editText.setLayoutParams(new LinearLayout.LayoutParams(0, dimen(R.dimen.control_height), 1));
             editText.addTextChangedListener(new TextWatcher() {
                 @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
                 @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
                 @Override public void afterTextChanged(Editable s) { tableUrls.set(index, s.toString().trim()); }
             });
             Button updateBtn = new Button(this);
-            updateBtn.setText(getString(R.string.btn_update));
-            updateBtn.setBackgroundColor(0xFF4CAF50);
-            updateBtn.setTextColor(0xFFFFFFFF);
+            applyRowActionButton(updateBtn, R.drawable.btn_ok, R.string.btn_update);
             setupGamepadFocusable(updateBtn);
             updateBtn.setOnClickListener(v -> updateSingleTable(index, editText, updateBtn));
             Button removeBtn = new Button(this);
-            removeBtn.setText(getString(R.string.btn_remove));
-            removeBtn.setBackgroundColor(0xFFAA3333);
-            removeBtn.setTextColor(0xFFFFFFFF);
+            applyRowActionButton(removeBtn, R.drawable.btn_danger, R.string.btn_remove);
             setupGamepadFocusable(removeBtn);
             removeBtn.setOnClickListener(v -> { tableUrls.remove(index); refreshTableUrlList(); saveConfigToJson(); });
             row.addView(editText); row.addView(updateBtn); row.addView(removeBtn);
+            tableUpdateButtons.add(updateBtn);
             tableUrlContainer.addView(row);
         }
         // 同上：行重建后先等一帧布局
@@ -1175,16 +1207,7 @@ public class SettingsActivity extends Activity {
         updateBtn.setText("..."); updateBtn.setEnabled(false); editText.setEnabled(false);
         Thread updateThread = new Thread(() -> {
             try {
-                File tableDir = new File(getExternalFilesDir(null), "table");
-                if (!tableDir.exists()) tableDir.mkdirs();
-                bms.table.DifficultyTable table = new bms.table.DifficultyTable();
-                if (url.trim().endsWith(".json")) {
-                    table.setHeadURL(url.trim());
-                } else {
-                    table.setSourceURL(url.trim());
-                }
-                new bms.table.DifficultyTableParser().decode(true, table);
-                saveTableCache(table, url);
+                downloadAndCacheTable(url);
                 runOnUiThread(() -> { updateBtn.setText(getString(R.string.btn_update)); updateBtn.setEnabled(true); editText.setEnabled(true); Toast.makeText(this, getString(R.string.msg_table_updated), Toast.LENGTH_SHORT).show(); });
             } catch (Exception e) {
                 runOnUiThread(() -> { updateBtn.setText(getString(R.string.btn_update)); updateBtn.setEnabled(true); editText.setEnabled(true); Toast.makeText(this, getString(R.string.msg_update_failed, e.getMessage()), Toast.LENGTH_LONG).show(); });
@@ -1194,10 +1217,41 @@ public class SettingsActivity extends Activity {
         updateThread.start();
     }
 
+    /**
+     * 下载一个难易度表并写入本地缓存。
+     * <p>
+     * 「单行更新」和「全部更新」共用同一份实现 —— 以前两处各写一遍，全部更新那份漏了
+     * {@code .json} 直链分支（只 {@code setSourceURL}），直链 URL 解析出来是空表。
+     */
+    private void downloadAndCacheTable(String url) throws IOException {
+        File tableDir = new File(getExternalFilesDir(null), "table");
+        if (!tableDir.exists()) tableDir.mkdirs();
+        bms.table.DifficultyTable table = new bms.table.DifficultyTable();
+        if (url.trim().endsWith(".json")) {
+            table.setHeadURL(url.trim());
+        } else {
+            table.setSourceURL(url.trim());
+        }
+        new bms.table.DifficultyTableParser().decode(true, table);
+        saveTableCache(table, url);
+    }
+
+    /**
+     * ダウンロードした難易度表をローカルキャッシュに書く。
+     * <p>
+     * 🔴 ファイル名は必ず {@link bms.player.beatoraja.TableDataAccessor#getCacheFileName(String)}
+     * で決める（core と同じ規則を共有する）。ここで独自に {@code sha256(url)} を計算していたため、
+     * URL の綴りが 1 文字変わっただけで<b>別ファイルが増え</b>、ゲーム側はテーブルディレクトリを
+     * 全部読むので「同じ表が 2 つ」になっていた（実機で {@code http://zris.work/...} と
+     * {@code http:/zris.work/...} の 2 ファイルずつ＝7 表 14 ファイルが生成されていた）。
+     */
     private void saveTableCache(bms.table.DifficultyTable table, String url) throws IOException {
         File tableDir = new File(getExternalFilesDir(null), "table");
         if (!tableDir.exists()) tableDir.mkdirs();
-        File cacheFile = new File(tableDir, sha256(url.trim()) + ".bmt");
+        File cacheFile = new File(tableDir, bms.player.beatoraja.TableDataAccessor.getCacheFileName(url));
+        // 旧規則（正規化なしの sha256(url)）で書かれたファイル。今回からは正規化した名前に
+        // 書くので、両者が食い違うときは古い方を消してディレクトリを収束させる。
+        File legacyFile = new File(tableDir, sha256(url.trim()) + ".bmt");
         try (java.io.OutputStreamWriter writer = new java.io.OutputStreamWriter(
                 new java.util.zip.GZIPOutputStream(new java.io.FileOutputStream(cacheFile)),
                 StandardCharsets.UTF_8)) {
@@ -1207,10 +1261,14 @@ public class SettingsActivity extends Activity {
             json.setElementType(bms.player.beatoraja.TableData.class, "course", java.util.ArrayList.class);
             json.setElementType(bms.player.beatoraja.CourseData.class, "trophy", java.util.ArrayList.class);
             json.setOutputType(com.badlogic.gdx.utils.JsonWriter.OutputType.json);
-            writer.write(json.prettyPrint(convertToTableData(table)));
+            writer.write(json.prettyPrint(convertToTableData(table, url)));
+        }
+        if (!legacyFile.equals(cacheFile) && legacyFile.isFile() && legacyFile.delete()) {
+            Log.i("TableCache", "duplicate cache removed: " + legacyFile.getName());
         }
     }
 
+    /** 旧規則（URL をそのまま丸ごとハッシュ）のファイル名。{@link #saveTableCache} の掃除にだけ使う。 */
     private String sha256(String input) {
         try {
             java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256");
@@ -1221,9 +1279,13 @@ public class SettingsActivity extends Activity {
         } catch (Exception e) { return String.valueOf(input.hashCode()); }
     }
 
-    private bms.player.beatoraja.TableData convertToTableData(bms.table.DifficultyTable dt) {
+    private bms.player.beatoraja.TableData convertToTableData(bms.table.DifficultyTable dt, String url) {
         bms.player.beatoraja.TableData td = new bms.player.beatoraja.TableData();
-        td.setUrl(dt.getSourceURL() != null ? dt.getSourceURL() : dt.getHeadURL());
+        // 🔴 設定の tableURL と突き合わせる値なので、**ユーザーが入力した URL そのもの**を入れる。
+        // 以前は DifficultyTable 側の URL を入れていたが、.json 直リンクではそれが空文字に
+        // なってしまい、キャッシュに URL が残らない（＝ゲーム側で設定と紐付かず、
+        // 表の並び順が設定どおりにならない）状態だった。
+        td.setUrl(url.trim());
         td.setName(dt.getName()); td.setTag(dt.getTag());
         String[] levels = dt.getLevelDescription();
         bms.player.beatoraja.TableData.TableFolder[] folders = new bms.player.beatoraja.TableData.TableFolder[levels.length];
@@ -1266,33 +1328,96 @@ public class SettingsActivity extends Activity {
         return song;
     }
 
+    /**
+     * 「全部更新」相邻两个难易度表之间的交棒间隔。
+     * <p>
+     * 只要「不做并发、逐个站点过」这件事成立就够了，站点之间不需要等 —— 200ms
+     * 已经是肉眼能看出「切到下一个了」的最短时间，整体耗时不比并发差多少。
+     */
+    private static final long TABLE_UPDATE_HANDOFF_MS = 200;
+
+    /**
+     * 「全部更新」：**严格串行**，一个网站一个网站地更新。
+     * <p>
+     * 上游桌面版是 {@code Arrays.stream(urls).parallel()}（所有站点同时打一圈），
+     * 本 fork 改成逐个来：每处理完一个站点，等 {@link #TABLE_UPDATE_HANDOFF_MS}
+     * 再交给下一个；正在更新的那一行会在列表里标出来，所以「切换」是看得见的。
+     */
     private void updateAllTables() {
-        int count = 0;
-        for (String url : tableUrls) if (url != null && !url.trim().isEmpty()) count++;
-        if (count == 0) { Toast.makeText(this, getString(R.string.msg_no_table_urls), Toast.LENGTH_SHORT).show(); return; }
-        final int total = count;
-        Button updateAllBtn = findViewById(R.id.updateAllTablesBtn);
-        updateAllBtn.setText(getString(R.string.btn_update) + "..."); updateAllBtn.setEnabled(false);
+        // 先定格"要更新的行"，并记下列表版本：中途增删行就放弃逐行标记（下标会错位）
+        final List<Integer> targets = new ArrayList<>();
+        for (int i = 0; i < tableUrls.size(); i++) {
+            String url = tableUrls.get(i);
+            if (url != null && !url.trim().isEmpty()) targets.add(i);
+        }
+        final int total = targets.size();
+        if (total == 0) { Toast.makeText(this, getString(R.string.msg_no_table_urls), Toast.LENGTH_SHORT).show(); return; }
+
+        final int generation = tableListGeneration;
+        final Button updateAllBtn = findViewById(R.id.updateAllTablesBtn);
+        updateAllBtn.setEnabled(false);
         Toast.makeText(this, getString(R.string.msg_updating_tables, total), Toast.LENGTH_SHORT).show();
         Thread updateThread = new Thread(() -> {
             int updated = 0, failed = 0;
-            for (String url : tableUrls) {
-                if (url == null || url.trim().isEmpty()) continue;
+            for (int n = 0; n < total; n++) {
+                final int index = targets.get(n);
+                final int seq = n + 1;   // 循环变量不是 effectively final，进 lambda 前先定格
+                final String url = index < tableUrls.size() ? tableUrls.get(index) : null;
+                if (url == null || url.trim().isEmpty()) continue;   // 该行被删/清空了
+                postToUiTable(generation, () -> {
+                    markTableRowUpdating(index, true);
+                    updateAllBtn.setText(getString(R.string.update_all) + " " + seq + "/" + total);
+                });
                 try {
-                    bms.table.DifficultyTable table = new bms.table.DifficultyTable(url.trim());
-                    new bms.table.DifficultyTableParser().decode(true, table);
-                    saveTableCache(table, url);
+                    downloadAndCacheTable(url);
                     updated++;
-                } catch (Exception e) {
+                } catch (Throwable e) {
                     failed++;
                     Log.e("SettingsActivity", "updateAllTables: failed for url=" + url, e);
                 }
+                postToUiTable(generation, () -> markTableRowUpdating(index, false));
+                // 交棒给下一个站点。被 onDestroy 的 interrupt() 打断就直接收工
+                if (n < total - 1 && !sleepQuietly(TABLE_UPDATE_HANDOFF_MS)) break;
             }
             final int s = updated, f = failed;
-            runOnUiThread(() -> { updateAllBtn.setText(getString(R.string.btn_update)); updateAllBtn.setEnabled(true); Toast.makeText(this, getString(R.string.msg_tables_updated_summary, s, f), Toast.LENGTH_LONG).show(); });
+            runOnUiThread(() -> {
+                if (destroyed) return;
+                updateAllBtn.setText(getString(R.string.update_all));
+                updateAllBtn.setEnabled(true);
+                Toast.makeText(this, getString(R.string.msg_tables_updated_summary, s, f), Toast.LENGTH_LONG).show();
+            });
         });
         synchronized (backgroundThreads) { backgroundThreads.add(updateThread); }
         updateThread.start();
+    }
+
+    /** 后台线程 → UI 线程。Activity 已销毁、或表格列表已被重建（版本不一致）就丢弃这次 UI 更新。 */
+    private void postToUiTable(int generation, Runnable r) {
+        if (destroyed || generation != tableListGeneration) return;
+        runOnUiThread(() -> {
+            if (destroyed || generation != tableListGeneration) return;
+            r.run();
+        });
+    }
+
+    /** 把「全部更新」正在处理的那一行标成进行中/恢复。下标越界或列表已重建则跳过。 */
+    private void markTableRowUpdating(int index, boolean updating) {
+        if (index < 0 || index >= tableUpdateButtons.size()) return;
+        Button btn = tableUpdateButtons.get(index);
+        if (btn == null) return;
+        btn.setEnabled(!updating);
+        btn.setText(updating ? "..." : getString(R.string.btn_update));
+    }
+
+    /** 可被 interrupt() 打断的等待。返回 false = 被打断，调用方应当收工。 */
+    private boolean sleepQuietly(long ms) {
+        try {
+            Thread.sleep(ms);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     private void saveConfigToJson() {
@@ -1703,10 +1828,13 @@ public class SettingsActivity extends Activity {
     }
 
     private void showNewPlayerDialog() {
-        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme);
         b.setTitle(getString(R.string.dialog_new_player));
         final EditText input = new EditText(this); input.setHint(getString(R.string.hint_player_name));
-        input.setTextColor(0xFFFFFFFF); input.setBackgroundColor(0xFF333333);
+        input.setTextColor(getResources().getColor(R.color.text_primary));
+        input.setBackgroundResource(R.drawable.bg_input_field);
+        input.setPadding(dimen(R.dimen.edittext_padding), dimen(R.dimen.edittext_padding),
+                dimen(R.dimen.edittext_padding), dimen(R.dimen.edittext_padding));
         LinearLayout c = new LinearLayout(this); c.setPadding(32, 16, 32, 16); c.addView(input); b.setView(c);
         b.setPositiveButton(getString(R.string.btn_create), (d, w) -> {
             String name = input.getText().toString().trim();
@@ -1724,11 +1852,14 @@ public class SettingsActivity extends Activity {
 
     private void showRenamePlayerDialog() {
         final String oldName = selectedPlayerName;
-        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme);
         b.setTitle(getString(R.string.dialog_rename_player));
         final EditText input = new EditText(this); input.setHint(getString(R.string.hint_player_name));
         input.setText(oldName); input.setSelection(oldName.length());
-        input.setTextColor(0xFFFFFFFF); input.setBackgroundColor(0xFF333333);
+        input.setTextColor(getResources().getColor(R.color.text_primary));
+        input.setBackgroundResource(R.drawable.bg_input_field);
+        input.setPadding(dimen(R.dimen.edittext_padding), dimen(R.dimen.edittext_padding),
+                dimen(R.dimen.edittext_padding), dimen(R.dimen.edittext_padding));
         LinearLayout c = new LinearLayout(this); c.setPadding(32, 16, 32, 16); c.addView(input); b.setView(c);
         b.setPositiveButton(getString(R.string.rename_player), (d, w) -> {
             String newName = input.getText().toString().trim();
@@ -1770,7 +1901,7 @@ public class SettingsActivity extends Activity {
     private void deleteCurrentPlayer() {
         if (availablePlayers.size() <= 1) { Toast.makeText(this, getString(R.string.msg_last_player_error), Toast.LENGTH_SHORT).show(); return; }
         String toDel = selectedPlayerName; int idx = playerSpinner.getSelectedItemPosition();
-        new android.app.AlertDialog.Builder(this).setTitle(getString(R.string.dialog_delete_player)).setMessage(getString(R.string.msg_delete_confirm, toDel))
+        new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme).setTitle(getString(R.string.dialog_delete_player)).setMessage(getString(R.string.msg_delete_confirm, toDel))
             .setPositiveButton(getString(R.string.delete), (d, w) -> {
                 deleteRecursive(new File(getExternalFilesDir(null), "player/" + toDel));
                 availablePlayers.remove(toDel); ((ArrayAdapter) playerSpinner.getAdapter()).notifyDataSetChanged();
@@ -2713,7 +2844,7 @@ public class SettingsActivity extends Activity {
         CharSequence message = sysCtx.getText(R.string.epilepsy_warning_message);
         CharSequence closeText = sysCtx.getText(R.string.epilepsy_warning_close);
 
-        new android.app.AlertDialog.Builder(this)
+        new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme)
                 .setTitle(title)
                 .setMessage(message)
                 .setCancelable(false)
@@ -2865,7 +2996,7 @@ public class SettingsActivity extends Activity {
     }
 
     private void showHelpDialog(String title, String message) {
-        new android.app.AlertDialog.Builder(this)
+        new android.app.AlertDialog.Builder(this, R.style.GdxDialogTheme)
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton("OK", null)

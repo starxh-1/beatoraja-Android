@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 按钮底色 · 强调（蓝）。半径/内边距见 layout；按压有涟漪。
+     为什么不继续用 backgroundTint：tint 会把 Material 默认背景（圆角只有 2dp）整块染色，
+     改不了圆角，而且 Java 里动态 new 出来的按钮只能 setBackgroundColor（直角色块）。
+     统一用这几个形状 drawable，XML 与代码两边才能长得一样。 -->
+<ripple xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="#40FFFFFF">
+    <item android:id="@android:id/mask">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFFFF" />
+            <corners android:radius="@dimen/corner_radius" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/accent" />
+            <corners android:radius="@dimen/corner_radius" />
+        </shape>
+    </item>
+</ripple>

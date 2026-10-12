@@ -448,6 +448,22 @@ public final class MusicSelector extends MainState implements BarRenderSource {
 	}
 
 	public void render() {
+		// 曲库扫描完成后，SongUpdateThread 通过 postRunnable 交接过来的「重建列表」请求。
+		// 🔴 必须在取 manager.getSelected() **之前**消费：updateBar() 会替换
+		// currentsongs[] / 重置 selectedindex，之后再取才是刷新后的选中项。
+		// 放在帧循环里（而不是在扫描线程的 postRunnable 里直接跑）的理由见
+		// BarManager.invalidateDirectoryCaches() 的注释：postRunnable 只做纯内存交接，
+		// 真正的同步 DB 重建在这里、且只在选曲界面真的在渲染时才发生。
+		if (manager.consumeRefreshRequest()) {
+			try {
+				manager.updateBar();
+			} catch (Throwable t) {
+				// 这是 GL 线程的一处入口（updateBar 内含 DB IO / 排序 / 递归重建），
+				// 兜住异常，别让它把整帧渲染带走。
+				Logger.getGlobal().warning("選曲画面: 曲庫更新後のリスト再構築に失敗 : " + t);
+			}
+		}
+
 		final Bar current = manager.getSelected();
         if(timer.getNowTime() > getSkin().getInput()){
         	timer.switchTimer(TIMER_STARTINPUT, true);

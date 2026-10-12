@@ -1077,6 +1077,16 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
             if (preScanPathSnapshot != null) {
                 Set<String> candidates = new HashSet<>(preScanPathSnapshot);
                 candidates.removeAll(seenThisScan);
+                // 🔴 只把「本次扫描覆盖的目录树之内」的歌曲当作删除候选。
+                //   preScanPathSnapshot 是**整库**快照，而增量更新单个文件夹时只会扫那一棵子树。
+                //   不设这个边界会有两个后果：
+                //     ① 慢：对全库每首歌都做一次 exists()（数千次 stat）；
+                //     ② 错：只要其中**任何一条** stat 失败（非 UTF-8 文件名、卷临时不可读、
+                //        路径里的非法字符），它就被当成「已删除」→ 误删歌曲 →
+                //        接着触发 rebuildFolderTable() 把 folder 表整个清空重建 →
+                //        期间并发读到的就是空/半张表，文件夹成片消失。
+                //   属于本次扫描范围的歌曲才可能「本次没扫到」= 真的没了。
+                candidates.removeIf(p -> !isUnderAnyScannedPath(p, paths));
                 Log.i(TAG, "Deletion Sync: " + candidates.size() + " candidates (not seen this scan)");
 
                 if (!candidates.isEmpty()) {
@@ -1732,8 +1742,6 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      */
     private void rebuildFolderTable(SQLiteDatabase db) {
         long startTime = System.currentTimeMillis();
-        db.delete("folder", null, null);
-        Log.i(TAG, "rebuildFolderTable: Cleared folder table, rebuilding from filesystem...");
 
         if (bmsroot == null || bmsroot.length == 0) {
             Log.w(TAG, "rebuildFolderTable: No bmsroot configured, skip rebuild");
@@ -1743,23 +1751,56 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
         Set<String> insertedPaths = new HashSet<>();
         int count = 0;
 
-        for (String root : bmsroot) {
-            if (root == null || root.trim().isEmpty()) continue;
-            try {
-                FileHandle rootDir = Gdx.files.absolute(root.trim());
-                if (rootDir.exists() && rootDir.isDirectory()) {
-                    // bmsroot 自身也需要插入 folder 表 —— FolderBar 加载 [root] 时按 parent=ROOT_CRC
-                    // 查子项,只有 bmsroot 这条记录的 parent 才等于 ROOT_CRC (见 SongUtils.crc32)。
-                    // rebuildFolderTree 内部会先递归子目录,再判断自身有无 BMS,跟 scanFolderRecursively 行为一致。
-                    count += rebuildFolderTree(rootDir, db, insertedPaths);
+        // 🔴「清空 + 重建」必须在同一个事务里完成。
+        //   旧实现是「先 db.delete（自动提交）→ 再逐条 insert（自动提交）」，
+        //   中间那段窗口里 folder 表是空表或半张表。而扫描期间选曲界面照常渲染、
+        //   后台 folder lamp 线程也照常在读，一旦有 FolderBar.getChildren() 撞进这个窗口：
+        //     getFolderDatas() 返回 0 行 → childrenLoadState 被钉成 LOADED_EMPTY
+        //     → 该文件夹在本会话内永远返回空子列表 ——「其他文件夹消失，要重启才恢复」。
+        //   收进一个事务后，WAL 下读者只会看到「旧的完整表」或「新的完整表」。
+        db.beginTransactionNonExclusive();
+        try {
+            db.delete("folder", null, null);
+            Log.i(TAG, "rebuildFolderTable: Cleared folder table, rebuilding from filesystem...");
+
+            for (String root : bmsroot) {
+                if (root == null || root.trim().isEmpty()) continue;
+                try {
+                    FileHandle rootDir = Gdx.files.absolute(root.trim());
+                    if (rootDir.exists() && rootDir.isDirectory()) {
+                        // bmsroot 自身也需要插入 folder 表 —— FolderBar 加载 [root] 时按 parent=ROOT_CRC
+                        // 查子项,只有 bmsroot 这条记录的 parent 才等于 ROOT_CRC (见 SongUtils.crc32)。
+                        // rebuildFolderTree 内部会先递归子目录,再判断自身有无 BMS,跟 scanFolderRecursively 行为一致。
+                        count += rebuildFolderTree(rootDir, db, insertedPaths);
+                    }
+                } catch (Throwable t) {
+                    Log.w(TAG, "rebuildFolderTable: Error processing root: " + root, t);
                 }
-            } catch (Throwable t) {
-                Log.w(TAG, "rebuildFolderTable: Error processing root: " + root, t);
             }
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
         }
 
         long elapsed = System.currentTimeMillis() - startTime;
         Log.i(TAG, "rebuildFolderTable: Rebuilt " + count + " folder records in " + elapsed + "ms");
+    }
+
+    /**
+     * {@code songPath} 是否落在本次扫描覆盖的目录树内（含边界：恰为扫描路径本身也算）。
+     * 用于把 Deletion Sync 的删除候选限制在本次扫描范围内，理由见调用点注释。
+     */
+    private static boolean isUnderAnyScannedPath(String songPath, String[] scanPaths) {
+        if (songPath == null || scanPaths == null) return false;
+        final String p = songPath.replace('\\', '/');
+        for (String raw : scanPaths) {
+            if (raw == null) continue;
+            String r = raw.trim().replace('\\', '/');
+            if (r.isEmpty()) continue;
+            if (!r.endsWith("/")) r += "/";
+            if (p.startsWith(r)) return true;
+        }
+        return false;
     }
 
     /**

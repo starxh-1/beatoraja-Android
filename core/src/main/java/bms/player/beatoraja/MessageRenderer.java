@@ -76,7 +76,12 @@ public class MessageRenderer implements Disposable  {
 	public static class Message implements Disposable {
 
 		private BitmapFont font;
-		private long time;
+		/**
+		 * 过期时刻（ms）。<b>必须 volatile</b>：复位/停止由扫描线程调用（{@code stop()}），
+		 * 而判定与移除在 GL 线程的 {@code render()} 里做。非 volatile 的 long 写入
+		 * 没有可见性保证，GL 线程可能一直读到旧值 ⇒「updating folder」文字迟迟不消失。
+		 */
+		private volatile long time;
 		private String text;
 		private final Color color;
 		private final int type;

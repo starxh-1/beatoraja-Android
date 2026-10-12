@@ -1,5 +1,7 @@
 <resources>
-    <color name="background">#FFFFFFFF</color>
+    <!-- 窗口底色（Activity 自身，不含布局内容）。原来是白色，黑底页面出现前会闪一下白。
+         现在与页面底色一致 = 纯黑。 -->
+    <color name="background">#FF000000</color>
     <style name="GdxTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:colorBackground">@color/background</item>
         <item name="android:windowFullscreen">true</item>
@@ -7,6 +9,18 @@
         <!-- 列表当前行高光：Material Light 的默认高光在深色项上几乎看不见（手柄操作时
              看不出选到哪一项），这里换成对比度足够的蓝色。作用于 Spinner 下拉列表、
              字母轮盘 GridView、对话框里的单选列表等所有 AbsListView。 -->
+        <item name="android:listSelector">@drawable/list_selector_highlight</item>
+    </style>
+
+    <!-- 设置页弹出的对话框（首次引导 / 帮助说明 / 改名 / 删除确认…）。
+         页面本身是深色的，用 Light 主题的对话框会出现"白面板 + 里面塞个黑输入框"的
+         割裂感，所以这里统一改成深色对话框；输入框底色见 SettingsActivity（bg_input_field）。 -->
+    <style name="GdxDialogTheme" parent="android:Theme.Material.Dialog.Alert">
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:colorBackground">@color/surface</item>
+        <item name="android:windowBackground">@drawable/bg_dialog</item>
         <item name="android:listSelector">@drawable/list_selector_highlight</item>
     </style>
 </resources>

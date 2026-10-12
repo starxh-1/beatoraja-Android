@@ -263,6 +263,74 @@ public final class BarManager {
 		commands = l.toArray(Bar.class);
 	}
 
+	// ------------------------------------------------------------------
+	// 曲库扫描完成后的「交接」机制
+	//
+	// 🔴 为什么需要: MainController.SongUpdateThread 扫描结束后要刷新选曲界面，
+	// 但它**不能**在 postRunnable 里直接调 updateBar():
+	//   ① updateBar() 是同步 DB IO（folder 表 + song 表 + 每个 SongBar 的 score 表），
+	//      大文件夹下数百 ms ~ 数秒 —— 放在 GL 线程的 runnable 里一样卡帧;
+	//   ② 扫描期间 GL 线程可能已经按需 getChildren() 撞进 folder 表的重建窗口，
+	//      把 FolderBar 钉成 LOADED_EMPTY（永久返回 EMPTY ⇒「文件夹消失」，要重启才好）。
+	// 所以扫描线程只做两件**纯内存**的事，真正的重建交给帧循环:
+	//   invalidateDirectoryCaches() → 解冻被缓存的目录 bar（含被钉死的 LOADED_EMPTY）
+	//   requestRefresh()            → 交接一个「下一帧重建」的请求
+	// MusicSelector.render() 消费该请求（GL 线程、且只在选曲界面真的在渲染时）。
+	// ------------------------------------------------------------------
+
+	/** 交接给选曲界面帧循环的「重建列表」请求。 */
+	private volatile boolean refreshRequested = false;
+
+	/**
+	 * 把当前被缓存过的目录 bar 全部标记为「需重新加载」。
+	 *
+	 * <p>🔴 <b>纯内存操作，不查库</b>，因此可以在 GL 线程（postRunnable 里）安全调用。
+	 * 它只改 bar 自己的 {@code childrenLoadState} / {@code cachedChildren} 字段，
+	 * 不动本类的 {@code dir} / {@code sourcebars} / {@code currentsongs} 结构 ——
+	 * 后者才是「后台线程不能碰」的部分（见 {@link #updateBar(DirectoryBar)} 的说明）。</p>
+	 *
+	 * <p>作用是给 {@code FolderBar} 的 {@code LOADED_EMPTY} 一个<b>逃生舱</b>：
+	 * 扫描期间若撞进 folder 表的重建窗口读到空表，状态会被永久钉成 EMPTY，
+	 * 本会话内再无恢复路径（原实现里 {@code clearChildrenCache()} 全仓库零调用）。
+	 * 代价只是下次进入这些文件夹时重查一次 folder 表。</p>
+	 */
+	public void invalidateDirectoryCaches() {
+		for (DirectoryBar b : dir) {
+			b.clearChildrenCache();
+		}
+		final Bar[] songs = currentsongs;
+		if (songs != null) {
+			for (Bar b : songs) {
+				if (b instanceof DirectoryBar) {
+					((DirectoryBar) b).clearChildrenCache();
+				}
+			}
+		}
+		for (Bar b : sourcebars) {
+			if (b instanceof DirectoryBar) {
+				((DirectoryBar) b).clearChildrenCache();
+			}
+		}
+	}
+
+	/** 请求一次「下一帧重建列表」。纯内存，可在 GL 线程安全调用。 */
+	public void requestRefresh() {
+		refreshRequested = true;
+	}
+
+	/**
+	 * 消费一次重建请求。只应由 GL 线程的帧循环（{@code MusicSelector.render()}）调用。
+	 *
+	 * @return 有未处理请求时返回 true（调用方应执行一次 {@link #updateBar()}）
+	 */
+	public boolean consumeRefreshRequest() {
+		if (!refreshRequested) {
+			return false;
+		}
+		refreshRequested = false;
+		return true;
+	}
+
 	public boolean updateBar() {
 		if (dir.size > 0) {
 			return updateBar(dir.last());

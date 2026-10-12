@@ -25,4 +25,6 @@
     <dimen name="spinner_width">220dp</dimen>
     <dimen name="edittext_width">100dp</dimen>
     <dimen name="percent_label_width">80dp</dimen>
+    <!-- 同 values：音量行标签固定宽（要装得下 "BGM 音量" @18sp），SeekBar 拿走其余全部宽度 -->
+    <dimen name="volume_label_width">130dp</dimen>
 </resources>

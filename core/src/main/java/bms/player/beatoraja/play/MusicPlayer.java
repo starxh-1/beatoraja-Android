@@ -8,9 +8,11 @@ import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
+import com.badlogic.gdx.math.Matrix4;
 import com.badlogic.gdx.utils.Array;
 
 import java.util.ArrayList;
@@ -26,6 +28,7 @@ import bms.player.beatoraja.BMSPlayerMode;
 import bms.player.beatoraja.MainController;
 import bms.player.beatoraja.MainState;
 import bms.player.beatoraja.PixmapResourcePool;
+import bms.player.beatoraja.UiCanvas;
 import bms.player.beatoraja.audio.AudioDriver;
 import bms.player.beatoraja.audio.PCM;
 import bms.player.beatoraja.select.BarManager;
@@ -62,6 +65,12 @@ public class MusicPlayer extends MainState {
 	private volatile long playBaseNanos = 0;
 	private volatile long totalDurationMs;
 	private volatile Texture stagefile;
+
+	/**
+	 * {@link #fitContain} 的复用输出槽 {@code (w,h)}。封面每帧都要算一次 contain,
+	 * 用字段复用可以让这条路径零分配。只在 GL 线程({@code drawStagefile})写。
+	 */
+	private final float[] stagefileFit = new float[2];
 	// dispose 之后 transition 不要再起新线程 —— 防止 dispose 和 transition 竞争导致孤儿线程
 	private volatile boolean disposed = false;
 
@@ -120,8 +129,25 @@ public class MusicPlayer extends MainState {
 	 * 旧的已经被 dispose 了,再 dispose 一次就是 double free。
 	 */
 	private boolean fontOwned = false;
-	private int skinW;
-	private int skinH;
+	/**
+	 * 本界面排版用的**设计画布**尺寸（基准 1280×720）—— 不是游戏逻辑尺寸。
+	 *
+	 * <p>🔴 与 {@code FloatingMenu} 同一套做法：{@link #uiScale} 把 config 分辨率
+	 * 换算成设计画布（1280×720 ⇒ 1.0），{@link #create()} 里算好；
+	 * {@link #render()} 用投影矩阵把这块画布铺满主 GL 视口；{@link #input()} 再把
+	 * 触摸坐标按同一比例换算回来。于是下面那些写死的按钮 / 列表 / 封面尺寸在屏幕上
+	 * 占的比例与逻辑分辨率无关 —— 逻辑改成 1080p 时不会「缩小到 2/3」。</p>
+	 *
+	 * <p>为什么不是逐个常量乘系数：{@link #computeBarIndexAtTouch} 与
+	 * {@link #drawSongList} 的窗口尺寸必须逐字一致（那里的注释强调过），
+	 * 换算成固定画布后两边共用同一批数字，天然同源；字体也跟着投影一起缩放。</p>
+	 */
+	private int designW = 1280;
+	private int designH = 720;
+	/** 设计画布 → 逻辑空间的缩放系数；1280×720 时为 1。 */
+	private float uiScale = 1f;
+	/** 设计画布用的投影矩阵（每帧重设，见 {@link #render()}）。 */
+	private final Matrix4 designProj = new Matrix4();
 
 	// 控制按钮布局(屏幕底部)
 	private static final float BTN_SIZE = 96f;
@@ -234,7 +260,7 @@ public class MusicPlayer extends MainState {
 	 */
 	private volatile String pendingStagefileKey = null;
 
-	/** 舞台图上传前的最大边长。显示区只有 480x320,没必要把 2000px 的原图传进显存。 */
+	/** 舞台图上传前的最大边长。显示框只有 480x360 设计单位,没必要把 2000px 的原图传进显存。 */
 	private static final int MAX_STAGEFILE_PX = 640;
 
 	/**
@@ -258,9 +284,33 @@ public class MusicPlayer extends MainState {
 	private final float[] specTopValues = new float[SPEC_BANDS];
 	private static final float SPEC_FALL_SPEED = 0.02f;
 
-	// 舞台图(放在屏幕正中央,4:3 横向)
+	// 舞台图显示框：4:3 横向，480×360。
+	//
+	// 🔴 这里必须是 4:3，不是 3:2。BMS 的 #STAGEFILE 事实上以 640×480 为主流
+	// （in-world 实测 3/3 全是 640×480），历史上这里写的是 480×320（= 3:2），
+	// 却配了一条「4:3 横向」的注释 —— 于是 640×480 的封面被横向拉宽 12.5%
+	// （1.5 / 1.3333），看原图就知道脸被抻平了。注释与常量对不上，改注释没用，
+	// 得改常量：480 / 360 = 1.3333。
+	//
+	// 而且绘制不能用 batch.draw(tex, x, y, W, H) 直接铺满 —— 那是**无视原图宽高比**
+	// 的硬拉伸。stagefile 尺寸没有强制规范（640×480 / 256×256 / 512×512 都合法），
+	// 任何固定矩形硬铺都必然让一部分封面变形。真正的修法是 contain：
+	// 按原图比例缩放到框内、居中，长边贴满、短边留边（背景纯黑，看不出留边）。
 	private static final float STAGEFILE_W = 480f;
-	private static final float STAGEFILE_H = 320f;
+	private static final float STAGEFILE_H = 360f; // 480/360 = 4:3
+
+	/**
+	 * 封面框的**底边**（设计单位，GL 坐标：0 = 画布底）。
+	 *
+	 * <p>为什么不直接画布居中 {@code (designH-H)/2 = 180}：进度条的顶边在
+	 * {@code BTN_MARGIN_BOTTOM + BTN_SIZE + 32 + 8 = 48+96+32+8 = 184}，
+	 * 180 会正好压住它 4px。取 200 之后：底边离进度条顶边 16px，
+	 * 顶边 560 离频谱下沿（{@code specY = designH*0.80 = 576}）也还有 16px，上下都干净。</p>
+	 *
+	 * <p>顺带：这个值恰好等于改造前 480×320 的居中底边 {@code (720-320)/2 = 200}，
+	 * 所以屏幕**下半部分布局逐位不变**，只是封面向上长高了 40px。</p>
+	 */
+	private static final float STAGEFILE_BOTTOM = 200f;
 
 	public MusicPlayer(MainController main) {
 		super(main);
@@ -268,9 +318,15 @@ public class MusicPlayer extends MainState {
 
 	@Override
 	public void create() {
-		// 使用 Config 的分辨率（4:3 模式下会返回实际屏幕分辨率）
-		this.skinW = resource.getConfig().getResolution().width;
-		this.skinH = resource.getConfig().getResolution().height;
+		// 把 Config 的分辨率（= 游戏逻辑尺寸；无皮肤时也就是 MainController 给的投影尺寸）
+		// 换算成**设计画布**：logic / uiScale（基准 1280×720 ⇒ uiScale = 1、画布 = 1280×720，
+		// 与改造前逐位相同；逻辑 1920×1080 ⇒ uiScale = 1.5、画布仍是 1280×720）。
+		// 基准与公式统一放在 UiCanvas，与 FloatingMenu 共用一份。
+		final int logicW = resource.getConfig().getResolution().width;
+		final int logicH = resource.getConfig().getResolution().height;
+		this.uiScale = UiCanvas.scale(logicW, logicH);
+		this.designW = Math.round(UiCanvas.canvasW(logicW, logicH));
+		this.designH = Math.round(UiCanvas.canvasH(logicW, logicH));
 
 		// 确保 audio 状态干净:闪退后 dispose() 可能未执行,
 		// 残留 note 会导致新 setModel 与旧音频状态竞争。
@@ -313,10 +369,10 @@ public class MusicPlayer extends MainState {
 		}
 
 		// 计算频谱显示区域坐标
-		specW = skinW * SPEC_W_RATIO;
-		specH = skinH * SPEC_H_RATIO;
-		specX = (skinW - specW) / 2;  // X 居中
-		specY = (int)(skinH * SPEC_Y_OFFSET);  // Y 放到上方
+		specW = designW * SPEC_W_RATIO;
+		specH = designH * SPEC_H_RATIO;
+		specX = (designW - specW) / 2;  // X 居中
+		specY = (int)(designH * SPEC_Y_OFFSET);  // Y 放到上方
 
 		// 启动后开启持续渲染(选曲界面默认是关的)
 		Gdx.graphics.setContinuousRendering(true);
@@ -622,6 +678,15 @@ public class MusicPlayer extends MainState {
 		try {
 			// 上传本身放在锁外:它可能耗时(几十毫秒),没必要把 retireStagefile() 挡在门外。
 			fresh = new Texture(pm);
+			// 封面走 Linear。两张理由:
+			//  ① 贴图边长被 downscaleIfNeeded() 封顶在 MAX_STAGEFILE_PX=640,而封面区
+			//     在画布上是 480×320 设计单位,映射到视口还要乘 canvas scale(本机 = 2)
+			//     ⇒ 实际绘制到 ~960×640 物理像素,绝大多数情况下是【放大】。libGDX 的
+			//     Texture 默认 Nearest,放大就是硬边色块 —— 这是封面发糊/颗粒的主因。
+			//  ② 本纹理是 app 自绘 UI,不经过 SkinObjectRenderer,SkinTextureFilterPolicy
+			//     管不到;这张纹理又只归本类所有(每次上传都是全新的),不存在"共享纹理
+			//     按 id 钉 filter"那类问题,所以直接在这里钉死即可。
+			fresh.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 		} catch (Throwable t) {
 			if (Gdx.app != null) Gdx.app.error("MusicPlayer", "Failed to upload stagefile", t);
 		} finally {
@@ -850,6 +915,14 @@ public class MusicPlayer extends MainState {
 		SpriteBatch batch = main.getSpriteBatch();
 		if (batch == null) return;
 
+		// ─── 投影切到「设计画布」───
+		// MainController 给的投影是游戏逻辑尺寸（无皮肤 ⇒ config 分辨率），而本类所有坐标
+		// 都是设计单位（基准 1280×720）。这里把画布铺满同一个 GL 视口：
+		// 逻辑 1280×720 时画布正好等于逻辑尺寸（与改造前完全一致），逻辑更大时画布不变、
+		// 元素在屏幕上占的比例也就不变。MainController 在 current.render() 之后会重设
+		// 自己的投影，所以这里只影响本类的绘制。
+		batch.setProjectionMatrix(designProj.setToOrtho2D(0, 0, designW, designH));
+
 		// 切歌时后台线程把旧封面投递进队列了,GL 线程上统一释放。
 		drainRetiredTextures();
 		// 后台已经解码好的,这里只做上传(很快)。没有待上传的才自己解码 ——
@@ -881,7 +954,7 @@ public class MusicPlayer extends MainState {
 		if (tex == null) return;
 		batch.begin();
 		batch.setColor(0f, 0f, 0f, 1f); // 纯黑背景
-		batch.draw(tex, 0, 0, skinW, skinH);
+		batch.draw(tex, 0, 0, designW, designH);
 		batch.end();
 	}
 
@@ -901,7 +974,7 @@ public class MusicPlayer extends MainState {
 
 		// 第一行的基线 y(libGDX 坐标,自下而上)
 		float baseX = LIST_LEFT_X;
-		float topRowBaselineY = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
+		float topRowBaselineY = designH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
 
 		batch.begin();
 		for (int row = 0; row < visible; row++) {
@@ -955,12 +1028,44 @@ public class MusicPlayer extends MainState {
 		// 本帧 drain 之后才 retire 的,要到下一帧才 dispose。所以拿本地引用画一帧是安全的。
 		Texture tex = stagefile;
 		if (tex == null) return;
-		float x = (skinW - STAGEFILE_W) / 2f;
-		float y = (skinH - STAGEFILE_H) / 2f;
+		// contain:按原图宽高比缩放进 STAGEFILE_W×STAGEFILE_H 的框,框内居中。
+		// 🔴 不能写成 batch.draw(tex, x, y, STAGEFILE_W, STAGEFILE_H) —— 那是硬拉伸,
+		// 原图比例只要不等于框就会变形(正是 640×480 被抻成 3:2 的那个 bug)。
+		if (!fitContain(tex.getWidth(), tex.getHeight(),
+				STAGEFILE_W, STAGEFILE_H, stagefileFit)) {
+			return; // 贴图尺寸异常(0/负):不画,省得抛出退化矩形
+		}
+		final float w = stagefileFit[0];
+		final float h = stagefileFit[1];
+		// 水平:框在画布中居中(X 对称,图在框内也居中,合起来就是 X 居中)。
+		final float x = (designW - w) / 2f;
+		// 垂直:框底固定在 STAGEFILE_BOTTOM,图在框内垂直居中。
+		final float y = STAGEFILE_BOTTOM + (STAGEFILE_H - h) / 2f;
 		batch.begin();
 		batch.setColor(1, 1, 1, 1);
-		batch.draw(tex, x, y, STAGEFILE_W, STAGEFILE_H);
+		batch.draw(tex, x, y, w, h);
 		batch.end();
+	}
+
+	/**
+	 * contain:把 {@code srcW×srcH} 按原图宽高比缩放进 {@code boxW×boxH},长边贴满、
+	 * 短边留边,结果 {@code (w,h)} 写进 {@code out}。
+	 *
+	 * <p>写成 static 且用复用槽 {@code out}(而不是返回新数组)是为了两个目的：
+	 * ① 可单测(纯函数,不碰 GL);② <b>零每帧分配</b> —— 本方法每帧都跑,
+	 * 返回 {@code float[2]} 就是每秒 60 个短命数组,与"削每帧分配"的项目约定相悖。</p>
+	 *
+	 * @return 参数合法(任意一边 &gt; 0)时 true,否则 false(此时不修改 {@code out})
+	 */
+	static boolean fitContain(int srcW, int srcH, float boxW, float boxH, float[] out) {
+		if (srcW <= 0 || srcH <= 0 || boxW <= 0 || boxH <= 0
+				|| out == null || out.length < 2) {
+			return false;
+		}
+		final float k = Math.min(boxW / srcW, boxH / srcH);
+		out[0] = srcW * k;
+		out[1] = srcH * k;
+		return true;
 	}
 
 	/**
@@ -978,8 +1083,9 @@ public class MusicPlayer extends MainState {
 		String text = "Loading...";
 		com.badlogic.gdx.graphics.g2d.GlyphLayout layout =
 				new com.badlogic.gdx.graphics.g2d.GlyphLayout(font, text);
-		float x = (skinW - STAGEFILE_W) / 2f;
-		float y = (skinH - STAGEFILE_H) / 2f;
+		float x = (designW - STAGEFILE_W) / 2f;
+		// 与封面同一个框(底边 STAGEFILE_BOTTOM,高度 STAGEFILE_H),文字落在框中心。
+		float y = STAGEFILE_BOTTOM;
 		batch.begin();
 		font.setColor(0.85f, 0.85f, 0.90f, 1f);
 		font.draw(batch, text,
@@ -1072,7 +1178,7 @@ public class MusicPlayer extends MainState {
 				: 0f;
 		float barX = 48f;
 		float barY = BTN_MARGIN_BOTTOM + BTN_SIZE + 32f;
-		float barW = skinW - 96f;
+		float barW = designW - 96f;
 		float barH = 8f;
 
 		Texture blank = getWhiteTexture();
@@ -1100,7 +1206,7 @@ public class MusicPlayer extends MainState {
 	private void drawControlButtons(SpriteBatch batch) {
 		// 4 个按钮:上一首 / 下一首 / 模式 / 退出
 		float totalW = BTN_SIZE * 4 + BTN_GAP * 3;
-		float startX = (skinW - totalW) / 2f;
+		float startX = (designW - totalW) / 2f;
 		float y = BTN_MARGIN_BOTTOM;
 
 		Texture tex = getWhiteTexture();
@@ -1158,8 +1264,8 @@ public class MusicPlayer extends MainState {
 
 		// 触屏:4 个按钮区域(列表已开始拖拽时不响应按钮,避免和列表冲突)
 		if (!listDragging && Gdx.input.justTouched()) {
-			int gx = main.getInputProcessor().getMouseX();
-			int gy = main.getInputProcessor().getMouseY();
+			int gx = toDesignX(main.getInputProcessor().getMouseX());
+			int gy = toDesignY(main.getInputProcessor().getMouseY());
 			int idx = hitTestControlButton(gx, gy);
 			if (idx >= 0) {
 				switch (idx) {
@@ -1172,6 +1278,20 @@ public class MusicPlayer extends MainState {
 		}
 	}
 
+	/**
+	 * 游戏逻辑坐标 → 设计画布坐标（除以 {@link #uiScale}）。
+	 *
+	 * <p>{@code getMouseX/Y()} 给的是逻辑坐标，本类的绘制与命中判定用的是设计坐标，
+	 * 两者差一个 {@code uiScale}。1280×720 上 uiScale = 1，与改造前完全等价。</p>
+	 */
+	private int toDesignX(int logicX) {
+		return Math.round(logicX / uiScale);
+	}
+
+	private int toDesignY(int logicY) {
+		return Math.round(logicY / uiScale);
+	}
+
 	private void handleListTouch() {
 		// 坐标必须走 InputProcessor 的 mouse 坐标:它经过 screenToGame 变换
 		// (等比缩放 + pillarbox/letterbox 居中偏移),和 render() 画出来的位置是同一套坐标。
@@ -1182,8 +1302,12 @@ public class MusicPlayer extends MainState {
 		//      (行高 56,正好差两行)。上方按钮没这个问题,因为它们本来就用 getMouseX/Y。
 		//   2. 缺居中偏移。20:9 屏幕左右各有黑边,列表右半边换算回来落在判定范围之外,
 		//      表现就是"列表右边点不动、也滑不了"。
-		int gx = main.getInputProcessor().getMouseX();
-		int gy = main.getInputProcessor().getMouseY();
+		//
+		// ⚠️ 拿到的是**游戏逻辑坐标**,而本类排版在**设计画布**上 ⇒ 还要再除一次
+		//    uiScale（见 toDesignX/Y）。漏掉它,逻辑 1080p 下会重现上面第 1 条的同款错位
+		//    （行高 56 的设计单位在 1080p 逻辑里等于 84 逻辑单位,点第 4 首落到第 6 首）。
+		int gx = toDesignX(main.getInputProcessor().getMouseX());
+		int gy = toDesignY(main.getInputProcessor().getMouseY());
 		boolean touched = Gdx.input.isTouched() || Gdx.input.justTouched();
 
 		if (touched) {
@@ -1224,7 +1348,7 @@ public class MusicPlayer extends MainState {
 
 	private boolean isInListArea(int gx, int gy) {
 		if (gx < LIST_LEFT_X - 24f || gx > LIST_RIGHT_X + 24f) return false;
-		float listTopY = skinH - LIST_TOP_Y;
+		float listTopY = designH - LIST_TOP_Y;
 		float listBottomY = listTopY - LIST_VISIBLE * LIST_LINE_H;
 		return gy >= listBottomY && gy <= listTopY;
 	}
@@ -1241,7 +1365,7 @@ public class MusicPlayer extends MainState {
 		// 注意是减 —— 内容被整体下移(listDragOffset > 0)时,同一个屏幕位置上放的是
 		// 更靠上(更小 row)的行。这里原来写成了加,只是靠"按下时 listDragOffset 必然
 		// 已被上一轮归零"侥幸不出错,别依赖这个巧合。
-		float baseRow0Y = skinH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
+		float baseRow0Y = designH - LIST_TOP_Y - LIST_LINE_H * 0.5f;
 		int row = Math.round((baseRow0Y - gy - listDragOffset) / LIST_LINE_H);
 		if (row < 0 || row >= visible) return -1;
 		// floorMod —— 同 drawSongList():(x + count) % count 在 count < half 时是负数。
@@ -1265,7 +1389,7 @@ public class MusicPlayer extends MainState {
 
 	private int hitTestControlButton(int gx, int gy) {
 		float totalW = BTN_SIZE * 4 + BTN_GAP * 3;
-		float startX = (skinW - totalW) / 2f;
+		float startX = (designW - totalW) / 2f;
 		float y = BTN_MARGIN_BOTTOM;
 		for (int i = 0; i < 4; i++) {
 			float x = startX + i * (BTN_SIZE + BTN_GAP);

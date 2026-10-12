@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Switch 滑轨颜色。
+     原来不给 Switch 任何 tint，Theme.Material.Light 的默认轨道是「26% 黑」，
+     画在 #1A1A1A 的深色底上等于看不见 —— 屏幕上只剩一个白圆点在飘，
+     关/开也几乎分不出来。这里显式给一条能看见的轨道。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false" android:color="#FF2A2A30" />
+    <item android:state_checked="true" android:color="@color/accent" />
+    <item android:color="#FF45454F" />
+</selector>

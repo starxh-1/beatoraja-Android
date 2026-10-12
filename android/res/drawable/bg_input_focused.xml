@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 输入类控件的聚焦态（触摸点进 EditText、或手柄选中 Spinner / 输入框）：
+     描边换成强调色，粗细不变（粗细不变才不会让整行跳动）。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="@color/surface" />
+    <stroke
+        android:width="1dp"
+        android:color="@color/accent" />
+    <corners android:radius="@dimen/corner_radius" />
+</shape>

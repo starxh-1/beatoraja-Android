@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 设置页配色（深色）。
+     以前这些色值直接硬编码在 layout / Java 里（#333333 出现 29 次、#1a1a1a、#222222…），
+     同一类控件在不同位置颜色/圆角/高度都不一样，看起来就很"糙"。
+     集中到这里，改一次全局生效。 -->
+<resources>
+    <!-- 底 / 面 -->
+    <!-- 整页底色：必须是纯黑。之前是 #1A1A1A，在 OLED 上看着是一层灰，用户明确要求全黑。 -->
+    <color name="bg_page">#FF000000</color>
+    <color name="surface">#FF26262C</color>
+    <color name="surface_muted">#FF202024</color>
+    <color name="surface_stroke">#FF3C3C46</color>
+    <color name="divider">#FF2E2E35</color>
+    <!-- Spinner 下拉面板底色：见 @drawable/bg_popup（改成了圆角形状，
+         不再是纯色块 —— 纯色块画出来必然是直角，这就是"点开选项还是方框"的原因）。 -->
+
+    <!-- 文字 -->
+    <color name="text_primary">#FFF2F2F5</color>
+    <color name="text_secondary">#FF9AA0A6</color>
+
+    <!-- 强调 / 语义色 -->
+    <color name="accent">#FF4FC3F7</color>
+    <!-- 强调色的半透明填充：手柄高光用（弱 = 普通态，强 = 正在调整该值） -->
+    <color name="accent_fill_weak">#334FC3F7</color>
+    <color name="accent_fill_strong">#994FC3F7</color>
+    <!-- 列表当前行高光（Spinner 下拉、主题 listSelector） -->
+    <color name="list_highlight">#804FC3F7</color>
+    <color name="ripple_light">#40FFFFFF</color>
+    <!-- 强调色按钮上的文字（纯黑太硬，用近黑的深蓝灰） -->
+    <color name="accent_ink">#FF0B1A21</color>
+    <color name="danger">#FFAA3333</color>
+    <color name="warn">#FFFBC02D</color>
+    <color name="ok">#FF4CAF50</color>
+    <color name="info">#FFFF9800</color>
+</resources>

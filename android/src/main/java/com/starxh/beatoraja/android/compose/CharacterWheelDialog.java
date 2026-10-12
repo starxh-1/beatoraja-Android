@@ -111,14 +111,16 @@ public class CharacterWheelDialog extends Dialog {
         LinearLayout layout = new LinearLayout(getContext());
         layout.setOrientation(LinearLayout.VERTICAL);
         layout.setPadding(32, 32, 32, 32);
-        layout.setBackgroundColor(0xFF222222);
+        // 注意：setBackgroundColor 画出来一定是直角色块，和设置页那套圆角控件格格不入。
+        // 改成带圆角的 GradientDrawable，半径取的是与 XML 同一个 @dimen/corner_radius。
+        layout.setBackground(roundedPanel(R.color.surface));
 
         displayTextView = new TextView(getContext());
         displayTextView.setText(currentText);
         displayTextView.setTextSize(20);
         displayTextView.setTextColor(0xFFFFFFFF);
         displayTextView.setPadding(16, 16, 16, 16);
-        displayTextView.setBackgroundColor(0xFF111111);
+        displayTextView.setBackground(roundedPanel(R.color.bg_page));
         layout.addView(displayTextView);
 
         GridView gridView = new GridView(getContext());
@@ -132,8 +134,27 @@ public class CharacterWheelDialog extends Dialog {
 
         setContentView(layout);
         if (getWindow() != null) {
+            // 面板改成圆角后，必须把 Dialog 自带的窗口背景抹成透明：
+            // 否则圆角外侧会露出主题那张浅色底，看起来像在圆角上贴了方块补丁。
+            getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
             getWindow().setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         }
+    }
+
+    /**
+     * 圆角面板背景：填充 {@code fillRes} + 1dp 描边，圆角半径与设置页控件共用一个 dimen。
+     * （动态 new 出来的 View 只能 setBackgroundColor 画直角，所以这里显式构造 drawable。）
+     */
+    private android.graphics.drawable.GradientDrawable roundedPanel(int fillRes) {
+        android.content.res.Resources res = getContext().getResources();
+        int radius = res.getDimensionPixelSize(R.dimen.corner_radius);
+        int strokeW = Math.max(1, (int) res.getDisplayMetrics().density);
+        android.graphics.drawable.GradientDrawable gd = new android.graphics.drawable.GradientDrawable();
+        gd.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        gd.setColor(res.getColor(fillRes));
+        gd.setCornerRadius(radius);
+        gd.setStroke(strokeW, res.getColor(R.color.surface_stroke));
+        return gd;
     }
 
     @Override

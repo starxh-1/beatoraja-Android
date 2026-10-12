@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Spinner 的"收起态"文字（也是下拉项的默认布局，但代码里都调了 setDropDownViewResource，
+     所以这份只作用于收起态那个框）。
+     要点：高度必须 match_parent —— 原来用 wrap_content + padding 12dp + 16sp 文字，
+     实测一行要 46dp，比 control_height(44dp) 还高，会被裁掉一点。
+     改成撑满 + 垂直居中 + 只留左右内边距，文字才会正正在框里。 -->
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:textColor="#FFFFFF"
-    android:textSize="16sp"
-    android:padding="12dp"/>
+    android:layout_height="match_parent"
+    android:gravity="center_vertical"
+    android:singleLine="true"
+    android:ellipsize="end"
+    android:textColor="@color/text_primary"
+    android:textSize="@dimen/text_size_body"
+    android:paddingStart="@dimen/edittext_padding"
+    android:paddingEnd="@dimen/edittext_padding" />

@@ -1,44 +1,74 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 设置页尺寸。全部按 4dp 网格走；同类控件必须用同一个值（height / textSize / spacing），
+     这样整页的"字与框"才会落在一套对齐关系上。
+     注意：数值变了不用加 versionCode（只有 android/assets/ 变了才需要）。 -->
 <resources>
     <!-- Screen & section padding -->
     <dimen name="screen_padding">24dp</dimen>
-    <dimen name="section_padding_bottom">16dp</dimen>
-    <dimen name="item_padding_bottom">16dp</dimen>
-    <dimen name="item_padding_bottom_large">24dp</dimen>
-    <dimen name="item_padding_bottom_small">8dp</dimen>
-    <dimen name="divider_margin_vertical">16dp</dimen>
-    <dimen name="divider_margin_vertical_small">8dp</dimen>
+    <dimen name="section_padding_bottom">14dp</dimen>
+    <dimen name="item_padding_bottom">12dp</dimen>
+    <dimen name="item_padding_bottom_large">20dp</dimen>
+    <dimen name="item_padding_bottom_small">6dp</dimen>
+    <dimen name="title_padding_bottom">24dp</dimen>
+    <dimen name="divider_margin_vertical">14dp</dimen>
+    <dimen name="divider_margin_vertical_small">7dp</dimen>
 
     <!-- Font sizes -->
-    <dimen name="text_size_title">28sp</dimen>
-    <dimen name="text_size_section">20sp</dimen>
+    <dimen name="text_size_title">26sp</dimen>
+    <dimen name="text_size_section">19sp</dimen>
     <dimen name="text_size_body">16sp</dimen>
     <dimen name="text_size_small">14sp</dimen>
-    <dimen name="text_size_tiny">12sp</dimen>
-    <dimen name="text_size_help">18sp</dimen>
-    <dimen name="text_size_section_arrow">16sp</dimen>
+    <dimen name="text_size_tiny">13sp</dimen>
+    <!-- 按钮文字（原来是 12sp，比正文小两档，看着"缩"） -->
+    <dimen name="text_size_button">14sp</dimen>
+    <!-- " ? " 帮助标记：必须 ≤ 正文，原来 18sp 比正文还大，字基线全乱 -->
+    <dimen name="text_size_help">13sp</dimen>
+    <dimen name="text_size_section_arrow">14sp</dimen>
 
-    <!-- Component heights -->
-    <dimen name="button_height">40dp</dimen>
-    <dimen name="button_height_small">36dp</dimen>
-    <dimen name="control_height">48dp</dimen>
-    <dimen name="control_height_small">40dp</dimen>
+    <!-- 圆角：输入框 / 按钮 / 手柄高光共用一套 -->
+    <dimen name="corner_radius">8dp</dimen>
+
+    <!-- Component heights：所有"输入类控件"同一高度，所有"主按钮"同一高度 -->
+    <dimen name="button_height">44dp</dimen>
+    <dimen name="button_height_large">48dp</dimen>
+    <dimen name="button_height_small">38dp</dimen>
+    <dimen name="control_height">44dp</dimen>
+    <!-- 与 control_height 同值：EditText 和 Spinner 原来一个 40 一个 48，
+         在同一列里高度不齐，是"没对齐"最直观的来源 -->
+    <dimen name="control_height_small">44dp</dimen>
     <dimen name="divider_height">1dp</dimen>
     <dimen name="table_container_bottom_padding">200dp</dimen>
 
     <!-- Component widths -->
     <dimen name="spinner_width">160dp</dimen>
     <dimen name="edittext_width">80dp</dimen>
-    <dimen name="percent_label_width">60dp</dimen>
+    <dimen name="percent_label_width">48dp</dimen>
     <dimen name="replay_label_width">40dp</dimen>
-    <dimen name="unit_label_width">40dp</dimen>
+    <!-- 音量行：标签固定宽 + SeekBar weight=1 拉满剩余宽度。
+         历史：SeekBar 曾是固定宽(spinner_width - percent_label_width)，右边缘与上面的
+         Spinner 齐，但在宽屏/平板上只剩 112dp(sw600dp 140dp)，条短、两侧大片空白。
+         现在标签用固定宽占住左侧，SeekBar 吃掉全部剩余空间（手机 ~170dp / 平板 ~500dp）；
+         三行标签等宽 ⇒ 三条 SeekBar 左边缘仍然互相对齐；右边缘由 percent_label_width
+         决定，与其它行的右边界一致。 -->
+    <dimen name="volume_label_width">96dp</dimen>
+    <dimen name="unit_label_width">36dp</dimen>
+    <!-- 单位块总宽 = unit_label_width + unit_padding_start。
+         没有单位的输入行会补一个同宽的 <Space>，让所有输入框的右边缘对齐。 -->
+    <dimen name="unit_block_width">38dp</dimen>
 
     <!-- Inline paddings -->
-    <dimen name="help_padding_start">8dp</dimen>
-    <dimen name="unit_padding_start">4dp</dimen>
-    <dimen name="edittext_padding">8dp</dimen>
+    <dimen name="help_padding_start">6dp</dimen>
+    <dimen name="unit_padding_start">2dp</dimen>
+    <dimen name="edittext_padding">10dp</dimen>
+    <dimen name="button_padding_horizontal">12dp</dimen>
 
     <!-- Inter-button / inter-control spacing -->
-    <dimen name="button_spacing">12dp</dimen>
+    <dimen name="button_spacing">10dp</dimen>
     <dimen name="button_spacing_small">8dp</dimen>
+
+    <!-- 动态行（BMS 路径 / 表格 URL，Java 里创建的）用：行尾按钮固定宽度，
+         这样每行输入框的右边缘才会落在同一条竖线上 -->
+    <dimen name="row_action_width">68dp</dimen>
+    <dimen name="row_action_height">38dp</dimen>
+    <dimen name="row_spacing">8dp</dimen>
 </resources>

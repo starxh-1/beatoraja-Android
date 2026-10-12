@@ -4,5 +4,6 @@
      于是手柄/键盘移动时完全看不到光标落在哪一项（音频可视化等所有下拉都是这个问题）。 -->
 <shape xmlns:android="http://schemas.android.com/apk/res/android"
     android:shape="rectangle">
-    <solid android:color="#804FC3F7" />
+    <solid android:color="@color/list_highlight" />
+    <corners android:radius="@dimen/corner_radius" />
 </shape>

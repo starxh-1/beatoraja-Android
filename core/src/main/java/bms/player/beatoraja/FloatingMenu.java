@@ -32,23 +32,48 @@ import com.starxh.beatoraja.InGameSpectrumConfig;
  */
 public class FloatingMenu implements InputProcessor {
 
-    // ─── 逻辑分辨率（由 MainController 通过 setViewport 同步）───
-    private int logicW = 1920;
-    private int logicH = 1080;
+    // ─── 设计画布：本类所有布局常量的基准分辨率 ───
+    //
+    // 🔴 下面这些 ICON_SIZE / BTN_W / PANEL_PAD / 字体 24px 都是「设计单位」，
+    //    不是游戏逻辑单位。本类**固定**在这块 1280×720 的画布上排版：
+    //      · setViewport() 把 MainController 传来的逻辑尺寸除以
+    //        designScale = min(逻辑宽/1280, 逻辑高/720)，得到画布尺寸 logicW/logicH；
+    //      · render() 的投影矩阵把这块画布铺满当前 GL 视口；
+    //      · 触摸事件按同一比例换算回设计坐标（screenToLogicX/Y）。
+    //    ⇒ 画面元素在屏幕上占的比例与逻辑分辨率**无关**：逻辑 1280×720 时
+    //      designScale = 1（与改造前逐位相同），逻辑 1920×1080 时画布仍是
+    //      1280×720，元素不会「被缩小到 2/3」。
+    //
+    //    为什么不是「每个常量乘一个缩放系数」：绘制与命中判定必须逐字一致
+    //    （见 buildVisibleIndexOrder / spectrumCellRect 的注释），逐个乘系数等于
+    //    把同一份几何抄两遍，迟早抄歪；换算成固定画布后坐标、字号、命中判定共用
+    //    同一批数字，天然同源，字体也跟着投影一起缩放（不需要 setScale）。
+    //
+    //    基准与换算公式在 {@link UiCanvas}（与 play.MusicPlayer 共用一份）。
+
+    /** 本类排版用的画布尺寸（= 逻辑尺寸 / {@link #designScale}，基准 1280×720）。 */
+    private float logicW = UiCanvas.DESIGN_W;
+    private float logicH = UiCanvas.DESIGN_H;
+    /** 设计画布 → 逻辑空间的缩放系数；1280×720 时为 1。 */
+    private float designScale = 1f;
+    /** 上次同步进来的逻辑尺寸，用来判断是否要重排图标位置。 */
+    private int lastLogicW, lastLogicH;
 
     // ─── 视口参数（由 MainController 每帧更新，用于触摸坐标转换）───
     private int vpX, vpY, vpW, vpH;
 
     // ─── 浮动图标 ───
-    private static final float ICON_SIZE = 77;           // 增大 10%
+    private static final float ICON_SIZE = 77;           // 增大 10%（设计单位）
     private static final float ICON_MARGIN = 12;
-    private float iconX, iconY;                          // 左下角坐标（逻辑坐标）
+    private float iconX, iconY;                          // 左下角坐标（设计坐标）
 
-    // ─── 菜单面板 ───
+    // ─── 菜单面板（设计单位，基准 1280×720，见上） ───
     private static final float BTN_W = 209;              // 缩小 30%
     private static final float BTN_H = 80;               // 缩小 30%
     private static final float BTN_GAP = 10;             // 缩小 30%
     private static final float PANEL_PAD = 24;           // 缩小 30%
+    // ⚠️ 皮肤调整窗口内部用 `PANEL_PAD * info.scale`（它自己那套缩放，见 skinPanelScale）——
+    //    那不是本类的 designScale，别把两者混起来。
 
     private boolean expanded = false;
     private boolean visible = true;                     // PLAY 状态时隐藏
@@ -272,6 +297,24 @@ public class FloatingMenu implements InputProcessor {
     // ─── 纹理 ───
     private Texture iconTexture;
     private Texture whitePixel;
+    /** 图标内部绘制用的设计画布边长（设计单位）。渲染时缩到 {@link #ICON_SIZE}。 */
+    private static final float ICON_TEX_DESIGN = 96f;
+    /**
+     * {@link #iconDpi} 的上限。
+     *
+     * <p>真实取值 = 视口高 / 画布高 ≲ 屏幕高 / 设计高（本机 2560×1600 ⇒ 2，4K ⇒ 3），
+     * 本来就被屏幕尺寸压着。加这个钳制只为兜住「传入的游戏高异常小 ⇒ 画布高异常小
+     * ⇒ dpi 无界 ⇒ {@code new Pixmap} 边长爆掉」这类输入（那是一个几十 MB 的分配）。
+     * 8 倍对应贴图 616px，真实设备永远触发不到。</p>
+     */
+    private static final float MAX_ICON_DPI = 8f;
+    /**
+     * {@link #iconTexture} 当前的光栅化倍率（= 逻辑单位占多少物理像素）。
+     * 图标是 app 自绘的**程序化位图**（Pixmap 画出来的），所以可以跟着像素密度重建：
+     * 1 倍时 96px 贴图铺到 77 设计单位 = 154 物理像素 ⇒ 放大 1.6 倍发虚。
+     * 由 {@link #setViewport} 在密度变化时重建。
+     */
+    private float iconDpi = 1f;
     private BitmapFont font; // 用于 hitTestPanel 计算文字宽度
 
     // ─── 按钮定义 ───
@@ -426,19 +469,40 @@ public class FloatingMenu implements InputProcessor {
     }
 
     /**
-     * 每帧由 MainController 调用，同步视口参数。
+     * 每帧由 MainController 调用，同步视口参数与**游戏逻辑尺寸**。
      * 确保触摸坐标转换与游戏实际视口一致。
+     *
+     * <p>🔴 传进来的 {@code inW/inH} 是游戏逻辑尺寸（= 皮肤尺寸 = config 分辨率），
+     * <b>不是</b>本类的排版尺寸：这里把它除以 {@code designScale} 换成
+     * 「设计画布尺寸」存进 {@link #logicW}/{@link #logicH}（见类顶部注释）。
+     * 于是本类内部那批设计常量在屏幕上占的比例与逻辑分辨率无关 ——
+     * 逻辑 1280×720 时 designScale = 1，画布就是 1280×720，与改造前逐位相同；
+     * 逻辑 1920×1080 时画布仍是 1280×720（元素不会被缩小到 2/3）。</p>
+     *
+     * <p>缩放用 {@code min(宽比, 高比)} 而不是只看高度：逻辑宽高比不是 16:9 时
+     * 取小的那个，保证元素在两个方向都不会超出原有占比（例如 4:3 逻辑下
+     * 一排 4 个按钮本来就能占满宽度，按高度放大就会溢出）。</p>
      */
-    public void setViewport(int vpX, int vpY, int vpW, int vpH, int logicW, int logicH) {
+    public void setViewport(int vpX, int vpY, int vpW, int vpH, int inW, int inH) {
         this.vpX = vpX;
         this.vpY = vpY;
         this.vpW = vpW;
         this.vpH = vpH;
-        if (this.logicW != logicW || this.logicH != logicH) {
-            this.logicW = logicW;
-            this.logicH = logicH;
-            updateIconPosition();
-        }
+        if (inW <= 0 || inH <= 0) return;
+
+        // 自绘位图（图标贴图）的像素密度只取决于视口高 / 画布高 ⇒ 逻辑尺寸没变但视口变了
+        // 也要跟上，所以放在下面那个「逻辑尺寸未变」短路**之前**。
+        updateIconDpi(vpW, vpH, inW, inH);
+
+        if (inW == lastLogicW && inH == lastLogicH) return;
+        lastLogicW = inW;
+        lastLogicH = inH;
+
+        // 0.35 下限防极端小画布（按下限缩放时元素会挤在一起，但至少不会退化成 0）
+        designScale = UiCanvas.scale(inW, inH);
+        logicW = UiCanvas.canvasW(inW, inH);
+        logicH = UiCanvas.canvasH(inW, inH);
+        updateIconPosition();
     }
 
     /** 浮动菜单位置配置：0=上中 1=上右 2=下中 3=下右（读取失败时回退 0） */
@@ -675,35 +739,7 @@ public class FloatingMenu implements InputProcessor {
     // ─────────────────── 纹理创建 ───────────────────
 
     private void createTextures() {
-        int s = 96;
-        Pixmap pm = new Pixmap(s, s, Pixmap.Format.RGBA8888);
-        pm.setColor(0, 0, 0, 0);
-        pm.fill();
-        // 半透明深色圆角背景
-        pm.setColor(0.15f, 0.15f, 0.2f, 0.65f);
-        int cr = 14;
-        pm.fillCircle(cr, cr, cr);
-        pm.fillCircle(s - 1 - cr, cr, cr);
-        pm.fillCircle(cr, s - 1 - cr, cr);
-        pm.fillCircle(s - 1 - cr, s - 1 - cr, cr);
-        pm.fillRectangle(cr, 0, s - 2 * cr, s);
-        pm.fillRectangle(0, cr, s, s - 2 * cr);
-        // 三条白色横杠
-        pm.setColor(1, 1, 1, 0.9f);
-        int barH = 7;
-        int barW = s * 55 / 100;
-        int barX = (s - barW) / 2;
-        int gap = 16;
-        int cy = s / 2;
-        pm.fillRectangle(barX, cy - barH / 2, barW, barH);
-        pm.fillRectangle(barX, cy - gap - barH - barH / 2, barW, barH);
-        pm.fillRectangle(barX, cy + gap + barH / 2, barW, barH);
-        iconTexture = new Texture(pm);
-        // 该纹理 96×96，绘制到 ICON_SIZE=77 → 【缩小】绘制。libGDX 的 Texture 默认 Nearest，
-        // 缩小时会丢像素、圆角边缘抖动；显式 Linear（缩小走 minFilter，这里两个都设）。
-        // 注意：本纹理是 app 自绘 UI，不经过 SkinObjectRenderer，SkinTextureFilterPolicy 管不到。
-        iconTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-        pm.dispose();
+        createIconTexture();
 
         // 1×1 白色像素
         Pixmap wp = new Pixmap(1, 1, Pixmap.Format.RGBA8888);
@@ -711,6 +747,99 @@ public class FloatingMenu implements InputProcessor {
         wp.fill();
         whitePixel = new Texture(wp);
         wp.dispose();
+    }
+
+    /**
+     * 重建浮动菜单图标贴图。
+     *
+     * <p>🔴 按 {@link #iconDpi} 提高光栅化分辨率：图标在屏幕上要占
+     * {@code ICON_SIZE × iconDpi} 个物理像素（1600p 屏 / 720 逻辑 ⇒ 77 × 2 = 154px），
+     * 而贴图边长只有 {@code ICON_TEX_DESIGN = 96} ⇒ 老代码是放大 1.6 倍绘制，边缘发虚。
+     * 这里把「内部设计画布」从 96 提到 {@code 96 × iconDpi}，所有绘图坐标按同一系数 k 放大，
+     * 画出来还是同样的图形，但纹素与物理像素 1:1。</p>
+     *
+     * <p>绘制处的 {@code sprite.draw(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE)}
+     * 与命中判定用的 {@code iconX/iconY/ICON_SIZE} 全是**设计单位**，一律不动 ⇒
+     * 看到的和点到的仍然一致。</p>
+     *
+     * <p>🔴 <b>先建好新的再换旧的</b>：本方法现在会被 {@link #setViewport} 每帧调用
+     * （密度变化时），不像以前只在构造时跑一次。若沿用「先 dispose 置 null 再建」，
+     * 中间那一步一旦失败（OOM / GL 错误）就会把 {@code iconTexture} 永久留在 null，
+     * 而 {@code SpriteBatch.draw(null, …)} 不会当场报错 —— 会一路写到
+     * {@code batch.end() → flush() → lastTexture.bind()} 才 NPE，崩溃栈完全看不出跟图标有关。
+     * 换成「成功后才替换」就不会出现这个空窗。</p>
+     */
+    private void createIconTexture() {
+        // 图标在屏幕上占 ICON_SIZE × iconDpi 个物理像素，贴图就该有那么多纹素 ⇒ 1:1。
+        // 内部绘制坐标都按「96 设计画布」的旧比例写的，所以换算成 k = 实际像素 / 96。
+        // dpi = 1 时 k = 77/96 ≈ 0.8 < 1，这里取 1（保持 k=1 ⇒ s=96，与改造前逐位相同）。
+        final float k = Math.max(1f, ICON_SIZE * iconDpi / ICON_TEX_DESIGN);
+        final int s = Math.max(32, Math.round(ICON_TEX_DESIGN * k));
+        // 所有绘图常数按同一系数换算（k=1 时与原 96 设计画布逐位一致）
+        final int cr = Math.max(2, Math.round(14 * k));   // 圆角半径
+        final int barH = Math.max(1, Math.round(7 * k));  // 每条横杠的厚度
+        final int gap = Math.max(1, Math.round(16 * k));  // 横杠间距
+        final int barW = s * 55 / 100;                    // 与原实现同一算式（整数除法）
+        final int barX = (s - barW) / 2;
+        final int cy = s / 2;
+
+        Pixmap pm = new Pixmap(s, s, Pixmap.Format.RGBA8888);
+        final Texture created;
+        try {
+            pm.setColor(0, 0, 0, 0);
+            pm.fill();
+            // 半透明深色圆角背景
+            pm.setColor(0.15f, 0.15f, 0.2f, 0.65f);
+            pm.fillCircle(cr, cr, cr);
+            pm.fillCircle(s - 1 - cr, cr, cr);
+            pm.fillCircle(cr, s - 1 - cr, cr);
+            pm.fillCircle(s - 1 - cr, s - 1 - cr, cr);
+            pm.fillRectangle(cr, 0, s - 2 * cr, s);
+            pm.fillRectangle(0, cr, s, s - 2 * cr);
+            // 三条白色横杠
+            pm.setColor(1, 1, 1, 0.9f);
+            pm.fillRectangle(barX, cy - barH / 2, barW, barH);
+            pm.fillRectangle(barX, cy - gap - barH - barH / 2, barW, barH);
+            pm.fillRectangle(barX, cy + gap + barH / 2, barW, barH);
+            created = new Texture(pm);
+            // 缩小走 minFilter，两个都设 Linear，圆角边缘不抖。
+            // 注意：本纹理是 app 自绘 UI，不经过 SkinObjectRenderer，SkinTextureFilterPolicy 管不到。
+            created.setFilter(TextureFilter.Linear, TextureFilter.Linear);
+        } finally {
+            // 像素已经进显存（或者已经失败了），Pixmap 的 native 内存无论如何都要放掉。
+            pm.dispose();
+        }
+        // 🔴 到这一步才替换：上面任何一步抛异常，iconTexture 都还是上一张可用纹理，
+        // 不会出现 null 空窗 ⇒ 也就不会把 NPE 拖到 batch.end() 才爆。
+        if (iconTexture != null) {
+            iconTexture.dispose();
+        }
+        iconTexture = created;
+    }
+
+    /**
+     * 视口变化时同步图标的像素密度（在 {@code setViewport} 里、早于「逻辑尺寸未变就返回」的
+     * 短路之前调用 —— 逻辑尺寸不变但视口变了的情况也要跟上）。
+     */
+    private void updateIconDpi(int vpW, int vpH, int inW, int inH) {
+        final float dpi = computeIconDpi(vpW, vpH, inW, inH);
+        if (Math.abs(dpi - iconDpi) < 0.01f) return;
+        // 先记 dpi 再重建：万一 createIconTexture() 失败，iconDpi 已经更新，
+        // 下一帧不会反复重试（上一张纹理仍然有效，只是分辨率停在旧的）。
+        iconDpi = dpi;
+        createIconTexture();
+    }
+
+    /**
+     * 图标贴图应有的光栅化倍率 = 视口高 / 画布高（钳制到 [1, {@link #MAX_ICON_DPI}]）。
+     *
+     * <p>抽成 static 是为了可测：{@link #createIconTexture()} 会建 GL 纹理，
+     * 单测环境里跑不了，但这条公式不需要 GL。</p>
+     */
+    static float computeIconDpi(int vpW, int vpH, int inW, int inH) {
+        final float canvasH = UiCanvas.canvasH(inW, inH);
+        if (canvasH <= 0) return 1f;
+        return Math.max(1f, Math.min(MAX_ICON_DPI, vpH / canvasH));
     }
 
     /** GL 上下文恢复后重建纹理 */
@@ -808,7 +937,9 @@ public class FloatingMenu implements InputProcessor {
             reloadCurrentSkin();
         }
 
-        // ─── 设置投影矩阵到逻辑坐标 ───
+        // ─── 设置投影矩阵到设计画布 ───
+        // logicW/logicH 是「设计画布尺寸」（见类顶部注释）：这块画布被铺满整个主 GL 视口，
+        // 所以画布上的设计坐标与字号会随 designScale 一起映射到屏幕上，与逻辑分辨率无关。
         sprite.setProjectionMatrix(menuProj.setToOrtho2D(0, 0, logicW, logicH));
 
         sprite.begin();
@@ -819,7 +950,10 @@ public class FloatingMenu implements InputProcessor {
         // 皮肤调整窗口打开时同样不绘制 —— 视觉上只剩这一个独立浮窗（命中判定见 touchDown）
         boolean showIcon = !(isPlayMode && playIconHidden) && !skinAdjustOpen;
 
-        if (showIcon) {
+        // iconTexture 只在「首次构造就没建出来」时会是 null（见 createIconTexture 的注释）。
+        // 兜一道：宁可这一帧不画图标，也不要 draw(null) —— 那不会当场报错，
+        // 会一路写到 batch.end() → flush() → lastTexture.bind() 才 NPE，栈完全看不出与图标有关。
+        if (showIcon && iconTexture != null) {
             // 绘制浮动图标（Practice / AUTOPLAY 用 30% 不透明度常驻显示）
             sprite.setColor(1, 1, 1, iconResident() ? RESIDENT_ICON_ALPHA : 0.55f);
             sprite.draw(iconTexture, iconX, iconY, ICON_SIZE, ICON_SIZE);
@@ -1841,10 +1975,14 @@ public class FloatingMenu implements InputProcessor {
     }
 
     /**
-     * 窗口的等比缩放系数。
-     * <p>设计尺寸 620×696 是按 1080p 皮肤画布定的，但逻辑坐标是「皮肤自身的宽高」。
-     * 在 1280×720 的画布上，0.80 的高度上限会把窗口压到 ~576 高，上下各留出可拖的余量；
-     * 1080p 及以上封顶为 1（不放大）。</p>
+     * 窗口的等比缩放系数（相对 620×696 的设计尺寸）。
+     *
+     * <p>设计尺寸是按 1080p 画布定的，而本类的画布恒为 1280×720 附近
+     * （见类顶部注释），所以实际系数 ≈0.83 —— 高度上限会把窗口压到 ~576 高，
+     * 上下各留出可拖的余量；{@code min(1, …)} 的上限只在画布异常大时才生效。</p>
+     *
+     * <p>注意这个系数是**绝对**的（不含 {@link #designScale}）：画布本身已经由投影
+     * 统一缩放过，所以窗口在屏幕上占的比例也随逻辑分辨率不变 —— 与菜单其它元素一致。</p>
      */
     private float skinPanelScale() {
         if (logicW <= 0 || logicH <= 0) {
@@ -2037,8 +2175,13 @@ public class FloatingMenu implements InputProcessor {
         SkinAdjustModel model = skinModel();
 
         // 窗口按逻辑画布等比缩过，字体必须跟着缩（720p 画布上不缩的话文字会溢出行框）。
-        // 🔴 末尾必须恢复 1f —— systemfont 是全局共享的，菜单页/频谱页都按 1 倍排版。
-        font.getData().setScale(u);
+        // 🔴 进/出都必须基于「进入时的基准缩放」：systemfont 是全局共享的，而且
+        // MainController 会按屏幕像素密度把它高 DPI 光栅化（1600p 屏上 24pt 光栅化成 48px，
+        // baseScale = 24/48 = 0.5，**不是 1**）。所以既不能直接把基准当 1，
+        // 也不能在末尾硬写 setScale(1f) —— 那会让菜单页字号突然翻倍。
+        final float baseFontScaleX = font.getData().scaleX;
+        final float baseFontScaleY = font.getData().scaleY;
+        font.getData().setScale(baseFontScaleX * u, baseFontScaleY * u);
 
         // 面板背景 + 边框（与频谱页同色系）
         sprite.setColor(0.1f, 0.1f, 0.15f, 0.85f);
@@ -2098,8 +2241,9 @@ public class FloatingMenu implements InputProcessor {
         int itemCount = (model != null) ? model.getItemCount() : 0;
         drawSkinPageBar(sprite, font, info, itemCount, totalPages, glyph);
 
-        // 🔴 还原全局字体缩放：systemfont 由 MainController 持有并共享给菜单页等
-        font.getData().setScale(1f);
+        // 🔴 还原全局字体缩放到「进入时的基准值」——systemfont 由 MainController 持有并共享，
+        // 菜单页/频谱页都按基准排版；高 DPI 光栅化后基准不是 1（见方法开头 baseFontScaleX）。
+        font.getData().setScale(baseFontScaleX, baseFontScaleY);
     }
 
     private void drawSkinRow(SpriteBatch sprite, BitmapFont font, PanelLayout info,

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spinner / EditText 统一背景：常态 = bg_input，聚焦/按下 = bg_input_focused。
+     两个形状的圆角与描边宽度完全一致（只有颜色不同），所以状态切换时不会有尺寸抖动。 -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:drawable="@drawable/bg_input_focused" />
+    <item android:state_pressed="true" android:drawable="@drawable/bg_input_focused" />
+    <item android:drawable="@drawable/bg_input" />
+</selector>

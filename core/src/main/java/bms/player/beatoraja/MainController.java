@@ -82,6 +82,28 @@ public class MainController {
     private FreeTypeFontGenerator systemfontGenerator;
     /** systemfont 对应的字体文件 FileHandle，resume 时重新创建 generator 用 */
     private FileHandle systemfontFileHandle;
+
+    // ── systemfont 的排版字号 & 高 DPI 光栅化 ─────────────────────────────────
+    /**
+     * systemfont / systemfont18 的**设计字号**（pt）。
+     * <p>🔴 这不是「纹理尺寸」，而是**排版基准**：FloatingMenu / MusicPlayer /
+     * LaneRenderer / PracticeConfiguration / FPS / 触摸坐标 全部按这两个字号排的版。
+     * 实际光栅化尺寸 = 该值 × {@link #systemFontDpi}。</p>
+     */
+    private static final int SYSTEM_FONT_SIZE = 24;
+    private static final int SYSTEM_FONT_SIZE_SMALL = 18;
+    /**
+     * 光栅化倍率上限。倍率每 +1，字体图集面积 ×4：当前预生成字符集约 3350 个字形
+     * （VL-Gothic 在 0x4E00-0x5FFF 里只覆盖 2915 个），1 倍 ≈ 3 页 1024² RGBA（≈12MB），
+     * 2 倍 ≈ 8 页（≈32MB）。4K 屏理论上要 3 倍（≈72MB），就停在这里 ——
+     * 宁可轻微放大，也不拿显存冒险。
+     */
+    private static final float MAX_FONT_DPI = 2f;
+    /**
+     * 当前生效的字体光栅化倍率（= 逻辑空间 1 单位占多少物理像素）。
+     * 1 = 老行为（按设计字号光栅化）；屏幕比逻辑尺寸大时 &gt; 1。
+     */
+    private float systemFontDpi = 1f;
     private MessageRenderer messageRenderer;
     private MainState current;
     private TimerManager timer;
@@ -260,6 +282,100 @@ public class MainController {
         // 追加全角符号、数字、英大文字 (FF01-FF5E)
         for (int i = 0xFF01; i <= 0xFF5E; i++) sb.append((char) i);
         return sb.toString();
+    }
+
+    /**
+     * 逻辑空间 1 单位在 GL 视口里占多少物理像素 —— 决定字体该按多少倍光栅化。
+     *
+     * <p>与 {@link UiCanvas#scale(int, int)} 是两件事：那个管「设计画布 ↔ 逻辑空间」，
+     * 这个管「逻辑空间 ↔ 物理像素」。元素尺寸由前者保证占屏比例恒定，
+     * 但字形是固定像素的位图 —— 物理像素变多就必须按同样倍率提高光栅化分辨率。</p>
+     *
+     * <p>{@code create()} 里取 {@code Gdx.graphics.getWidth()/getHeight()} 是安全的：
+     * libGDX Android 后端在 {@code AndroidGraphics.onSurfaceChanged()} 里**先**把真实
+     * surface 尺寸写进 width/height，**再**调 {@code create()} 与 {@code resize()}
+     * （见 AndroidGraphics:307-321）。配合 {@code FillResolutionStrategy}
+     * （AndroidLauncher 显式设置），surface = 屏幕原生分辨率。</p>
+     */
+    private float computeSystemFontDpi() {
+        final Resolution res = config.getResolution();
+        final float ratio = UiCanvas.pixelRatio(res.width, res.height,
+                Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        return Math.max(1f, Math.min(MAX_FONT_DPI, ratio));
+    }
+
+    /**
+     * 生成 systemfont / systemfont18。{@code create()} 与 Android {@code resume()}
+     * （GL 上下文重建后纹理全失效）共用这一处。
+     *
+     * <p>🔴 <b>为什么要有高 DPI 光栅化</b>：这两个字体按 24pt / 18pt 排版，
+     * 而 GL 视口是屏幕原生分辨率。例：2560×1600 屏跑 1280×720 逻辑 ⇒
+     * 1 逻辑单位 = 2 物理像素，24pt 的字实际要占 48px。
+     * 拿 24px 的字形纹理去铺 = 2 倍放大，边缘必然发虚 ——
+     * FloatingMenu / MusicPlayer 的「字体模糊」就是这个，与分辨率无关。</p>
+     *
+     * <p><b>做法</b>：按 {@link #systemFontDpi} 放大光栅化尺寸（24 → 48px），
+     * 再用 {@code getData().setScale(设计字号 / 光栅化字号)} 把「世界单位尺寸」压回 24。
+     * 排版**逐位不变**（setScale 只按比例等比改 lineHeight / ascent / pad 等度量），
+     * 而纹素与物理像素变成 1:1。字形宽高由
+     * {@code BitmapFontCache.addGlyph()} 在绘制时乘 scaleX/scaleY；
+     * incremental 的惰性字形也用 {@code ascent / scaleY} 反算基线
+     * （见 FreeTypeFontGenerator.FreeTypeBitmapFontData.getGlyph）
+     * ⇒ 与增量渲染兼容，也让 {@code FloatingMenu} 里临时的 setScale 能按基准值还原。</p>
+     *
+     * <p>🔴 <b>两个字号必须各用独立的 FreeTypeFontParameter</b>：incremental 模式下
+     * {@code data.parameter = parameter} 存的是**引用**，之后再改 {@code parameter.size}
+     * 会连带改掉前一个字体的惰性字形尺寸。（老代码共用一个 parameter，
+     * 于是 24pt 的 systemfont 遇到缺字回退时实际按 18px 生成。）</p>
+     */
+    private void generateSystemFonts() {
+        // resolveFontFileHandle() 在 fontpath 为 null/空 时返回 null，而
+        // FreeTypeFontGenerator(null) 会先在 fontFile.nameWithoutExtension() 抛 NPE ——
+        // NPE 不是 GdxRuntimeException，会直接穿过 create() 的 catch 把启动打崩。
+        // 显式换成 GdxRuntimeException：create() 记一条 severe 后继续（字体为 null 的降级
+        // 各绘制点都有 null 守卫），且 systemfontFileHandle 保持 null ⇒ resume() 不会重试。
+        if (systemfontFileHandle == null) {
+            throw new GdxRuntimeException("systemfont path 未设置/解析失败，跳过字体生成");
+        }
+
+        systemFontDpi = computeSystemFontDpi();
+
+        // 🔴 用局部变量承接，全部成功后再一次性写回字段：
+        // 中途失败（OOM 等）时字段保持原值，不会留下「systemfont 有了、systemfont18 还是 null」
+        // 这种半初始化状态；新建的 generator 也在 catch 里回收，不泄漏 FreeType face。
+        final FreeTypeFontGenerator gen = new FreeTypeFontGenerator(systemfontFileHandle);
+        try {
+            // 字符集只构建一次；generateData() 内部会 toCharArray() 复制，两个 parameter 共享安全。
+            final String chars = buildJapaneseCharacters();
+
+            final FreeTypeFontParameter p24 = new FreeTypeFontParameter();
+            p24.incremental = true; // 启用增量渲染，支持全量 CJK 字符
+            p24.characters = chars;
+            p24.size = Math.max(1, Math.round(SYSTEM_FONT_SIZE * systemFontDpi));
+            final BitmapFont f24 = gen.generateFont(p24);
+            f24.getData().setScale(SYSTEM_FONT_SIZE / (float) p24.size);
+
+            // Pre-generate 18pt version for LaneRenderer and PracticeConfiguration
+            final FreeTypeFontParameter p18 = new FreeTypeFontParameter();
+            p18.incremental = true;
+            p18.characters = chars;
+            p18.size = Math.max(1, Math.round(SYSTEM_FONT_SIZE_SMALL * systemFontDpi));
+            final BitmapFont f18 = gen.generateFont(p18);
+            f18.getData().setScale(SYSTEM_FONT_SIZE_SMALL / (float) p18.size);
+
+            // ── 两个都生成成功，才替换引用 ──
+            systemfontGenerator = gen;
+            systemfont = f24;
+            systemfont18 = f18;
+
+            Gdx.app.log("MainController", "systemfont dpi=" + systemFontDpi
+                    + " raster=" + p24.size + "pt/" + p18.size + "pt"
+                    + " baseScale=" + f24.getData().scaleX + "/" + f18.getData().scaleX
+                    + " screen=" + Gdx.graphics.getWidth() + "x" + Gdx.graphics.getHeight());
+        } catch (RuntimeException | Error e) {
+            try { gen.dispose(); } catch (Throwable ignore) {}
+            throw e;
+        }
     }
 
     /**
@@ -587,18 +703,10 @@ public class MainController {
         try {
             FileHandle fontFile = resolveFontFileHandle(config.getSystemfontpath());
 
-            // 保留 generator 和 fontFile 引用，供 Android resume() 时重建字体纹理使用。
-            // 不在此处调用 generator.dispose()，等 MainController.dispose() 时统一释放。
+            // 保留 fontFile 引用，供 Android resume() 时重建字体纹理使用。
+            // generator 的创建与释放都在 generateSystemFonts() / dispose() 里，不在此处 dispose。
             systemfontFileHandle = fontFile;
-            systemfontGenerator = new FreeTypeFontGenerator(fontFile);
-            FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-            parameter.size = 24;
-            parameter.incremental = true; // 启用增量渲染，支持全量 CJK 字符
-            parameter.characters = buildJapaneseCharacters();
-            systemfont = systemfontGenerator.generateFont(parameter);
-            // Pre-generate 18pt version for LaneRenderer and PracticeConfiguration
-            parameter.size = 18;
-            systemfont18 = systemfontGenerator.generateFont(parameter);
+            generateSystemFonts();
         } catch (GdxRuntimeException e) {
             Logger.getGlobal().severe("System Font読み込み失敗: " + e.getMessage());
         }
@@ -1116,7 +1224,10 @@ public class MainController {
                 download.setDownloadpath(null);
             }
             if (updateSong != null && !updateSong.isAlive()) {
-                selector.getBarManager().updateBar();
+                // 扫描 / 難易度表更新线程已结束：**交接**刷新，不在 GL 线程直接 updateBar()。
+                // （原先这里 + SongUpdateThread 自己的 postRunnable 会各跑一次全量重建 ⇒ 重复查库；
+                //   交接后两者都只置同一个请求位，最终只重建一次。）
+                handOffBarRefresh();
                 updateSong = null;
             }
         }
@@ -1333,15 +1444,8 @@ public class MainController {
                         try { systemfont18.dispose(); } catch (Throwable ignore) {}
                         systemfont18 = null;
                     }
-                    // 重新创建
-                    systemfontGenerator = new FreeTypeFontGenerator(systemfontFileHandle);
-                    FreeTypeFontParameter parameter = new FreeTypeFontParameter();
-                    parameter.size = 24;
-                    parameter.incremental = true; // 启用增量渲染
-                    parameter.characters = buildJapaneseCharacters();
-                    systemfont = systemfontGenerator.generateFont(parameter);
-                    parameter.size = 18;
-                    systemfont18 = systemfontGenerator.generateFont(parameter);
+                    // 重新创建（与 create() 共用同一处，含高 DPI 光栅化与 base scale）
+                    generateSystemFonts();
                     Gdx.app.log("MainController", "resume(): systemfont rebuilt successfully");
                 } catch (Throwable e) {
                     Gdx.app.error("MainController", "resume(): failed to rebuild systemfont", e);
@@ -1437,6 +1541,32 @@ public class MainController {
         }
     }
 
+    /**
+     * 把「曲库扫描 / 難易度表更新线程已结束」这件事交接给选曲界面。
+     *
+     * <p>🔴 这里只做两件<b>纯内存</b>的事，<b>不</b>直接调 {@code BarManager.updateBar()}：
+     * 后者是同步 DB IO（folder 表 + song 表 + 每个 SongBar 的 score 表），大文件夹下
+     * 数百 ms ~ 数秒，放在 GL 线程 = 掉帧 / ANR。真正的重建由
+     * {@code MusicSelector.render()} 在下一帧消费 {@code consumeRefreshRequest()} 时执行，
+     * 且**只在选曲界面真的在渲染时**才发生（用户不在选曲界面 ⇒ 请求挂着，下次进来再刷）。</p>
+     *
+     * <p>① {@code invalidateDirectoryCaches()} 是<b>必须</b>的：扫描期间 GL 线程可能按需
+     * {@code getChildren()} 撞进 folder 表的重建窗口，把 {@code FolderBar} 钉成
+     * {@code LOADED_EMPTY}（永久返回空 ⇒「文件夹消失」，此前只能重启恢复）。
+     * 它只改 bar 自己的状态字段、不查库，所以放在 GL 线程安全。</p>
+     *
+     * <p>② 用字段 {@link #selector} 而不是 {@code current}：即使此刻不在选曲界面
+     * （例如扫描是在 PLAY / 设置页期间跑完的），也要把请求挂上，等回到选曲界面再重建。</p>
+     */
+    private void handOffBarRefresh() {
+        final MusicSelector sel = selector;
+        if (sel == null || sel.getBarManager() == null) {
+            return;
+        }
+        sel.getBarManager().invalidateDirectoryCaches();
+        sel.getBarManager().requestRefresh();
+    }
+
     public void updateTable(TableBar reader) {
         if (updateSong == null || !updateSong.isAlive()) {
             updateSong = new TableUpdateThread(reader);
@@ -1507,19 +1637,21 @@ public class MainController {
                 Logger.getGlobal().info("[SongUpdateThread] Now triggering UI refresh...");
                 Logger.getGlobal().info("================================================================================");
 
-                // 扫描完成后，在 GL 线程中刷新 UI
+                // 扫描完成后：GL 线程只做「交接」，不在这里同步重建列表。
+                //
+                // 🔴 这里**不能**直接调 BarManager.updateBar()：
+                //   ① 它是同步 DB IO（folder 表 + song 表 + 每个 SongBar 的 score 表），
+                //      大文件夹下数百 ms ~ 数秒 —— 放在 GL 线程的 runnable 里一样卡帧/触发 ANR；
+                //   ② 扫描期间 GL 线程可能已经按需 getChildren() 撞进 folder 表的重建窗口，
+                //      把 FolderBar 钉成 LOADED_EMPTY（永久返回 EMPTY）⇒「文件夹消失」，
+                //      而且本会话内没有恢复路径（clearChildrenCache() 此前全仓库零调用）。
+                // 所以 postRunnable 里只做两件**纯内存**的事：
+                //   ① invalidateDirectoryCaches() —— 解冻被缓存的目录 bar，让被钉死的能自愈；
+                //   ② requestRefresh()            —— 交接「下一帧重建」，由 MusicSelector.render() 消费。
+                // 顺带的好处：用户若已不在选曲界面（或列表无需刷新），这次重建根本不会发生。
                 Gdx.app.postRunnable(() -> {
-                    Logger.getGlobal().info("[SongUpdateThread] Executing UI refresh on GL thread");
-                    if (getSongDatabase() != null) {
-                        // 通知选曲界面更新 - 使用 current 而不是 main
-                        if (current instanceof MusicSelector) {
-                            MusicSelector selector = (MusicSelector) current;
-                            if (selector.getBarManager() != null) {
-                                selector.getBarManager().updateBar();
-                                Logger.getGlobal().info("[SongUpdateThread] BarManager.updateBar() called");
-                            }
-                        }
-                    }
+                    Logger.getGlobal().info("[SongUpdateThread] Handing bar refresh off to MusicSelector (GL thread)");
+                    handOffBarRefresh();
                 });
             } catch (Exception e) {
                 Logger.getGlobal().severe("[SongUpdateThread] FATAL ERROR during scan: " + e.getMessage());

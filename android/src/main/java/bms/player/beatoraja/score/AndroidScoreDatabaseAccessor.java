@@ -336,8 +336,8 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
         SQLiteDatabase db = helper.getWritableDatabase();
         db.beginTransaction();
         try {
-            // 日付の丸めは PlayDataAccessor.today() と共有する（読み側 readTodayPlayerData()
-            // が同じ値で「本日の行」を判定するため、ずれると今日の値が常に 0 になる）
+            // 日付の丸め（その日の 0 時・ローカル・秒）は PlayDataAccessor.today() に一本化。
+            // player テーブルは date が主キー＝1日1行なので、この値がブレると行が分裂する。
             pd.setDate(PlayDataAccessor.today());
             ContentValues cv = playerDataToContentValues(pd);
             db.insertWithOnConflict("player", null, cv, SQLiteDatabase.CONFLICT_REPLACE);

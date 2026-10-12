@@ -1617,10 +1617,30 @@ public class AndroidLauncher extends AndroidApplication {
     private static android.app.AlertDialog ratingDialog = null;
     private static double prevStarRating = 0.0;
 
+    /**
+     * 待注入页面的评级 JSON。
+     *
+     * 🔴 为什么不直接拼进 evaluateJavascript 的脚本里：computeRating 会输出
+     * chartEntries(模型条目 3814 条) + recommendation + reverseRecommendation，
+     * 实测合计约 1.8MB。这么大一段脚本文本要经 WebView → renderer 的 IPC 送过去，
+     * 再让 V8 把一个巨型对象字面量编译出来；在内存紧的手机上会失败/把渲染进程
+     * 拖死，表现为页面全黑 = 「看不到 webview」（平板内存宽裕所以看不出问题）。
+     * 改成把数据挂在 JS bridge 上、由页面主动来取，evaluateJavascript 只跑
+     * 几十字节的脚本。JS 侧 showRating() 本来就有 typeof d==='string' 的
+     * JSON.parse 分支，页面不用改。
+     */
+    private static volatile String ratingPayload = null;
+
     /** Called via reflection from core module to show the player rating WebView */
     public static void showRatingWebView(final String jsonData) {
-        if (instance == null) return;
+        ratingPayload = jsonData;
+        Log.i(TAG, "showRatingWebView: json=" + (jsonData == null ? "null" : jsonData.length() + " chars"));
+        if (instance == null) {
+            Log.e(TAG, "showRatingWebView: instance is null -> abort (no dialog will appear)");
+            return;
+        }
         instance.runOnUiThread(() -> {
+          try {
             if (ratingDialog != null && ratingDialog.isShowing()) {
                 ratingDialog.dismiss();
             }
@@ -1668,22 +1688,54 @@ public class AndroidLauncher extends AndroidApplication {
                             android.content.Context.MODE_PRIVATE).edit()
                             .putString("walkure_settings", json == null ? "{}" : json).apply();
                 }
+                /**
+                 * 页面主动来取评级数据（原因见 ratingPayload 的注释）。
+                 * ⚠️ 本方法跑在 WebView 的 JavaBridge 线程，不是 UI 线程。
+                 */
+                @android.webkit.JavascriptInterface
+                @android.annotation.SuppressLint("unused")
+                public String getRatingData() {
+                    return ratingPayload == null ? "null" : ratingPayload;
+                }
             }, "RatingBridge");
 
+            // 页面里的 JS 报错 / 加载失败原本完全静默，看不出任何线索 —— 全部转进 logcat
+            webView.setWebChromeClient(new android.webkit.WebChromeClient() {
+                @Override
+                public boolean onConsoleMessage(android.webkit.ConsoleMessage cm) {
+                    Log.i(TAG, "WebView console[" + cm.messageLevel() + "] " + cm.message()
+                            + " @" + cm.sourceId() + ":" + cm.lineNumber());
+                    return true;
+                }
+            });
             webView.setWebViewClient(new android.webkit.WebViewClient() {
                 @Override
                 public void onPageFinished(android.webkit.WebView view, String url) {
+                    Log.i(TAG, "WebView onPageFinished: " + url);
+                    // ⚠️ 只跑这一行短脚本：数据由页面通过 RatingBridge 自己去拿。
+                    // 旧写法直接内联 1.8MB 的 JSON 文本，手机上会把渲染进程拖死。
+                    String boot = "RatingApp.showRating(RatingBridge.getRatingData())";
                     if (android.os.Build.VERSION.SDK_INT >= 19) {
-                        view.evaluateJavascript(
-                            "RatingApp.showRating(" + jsonData + ")", null);
+                        view.evaluateJavascript(boot,
+                            value -> Log.i(TAG, "showRating() returned: " + value));
                     } else {
-                        view.loadUrl(
-                            "javascript:RatingApp.showRating(" + jsonData + ")");
+                        view.loadUrl("javascript:" + boot);
                     }
+                }
+
+                @Override
+                public void onReceivedError(android.webkit.WebView view, int errorCode,
+                                            String description, String failingUrl) {
+                    Log.e(TAG, "WebView onReceivedError code=" + errorCode
+                            + " desc=" + description + " url=" + failingUrl);
                 }
             });
 
-            webView.loadDataWithBaseURL("https://walkure.local/", loadRatingHtml(), "text/html", "UTF-8", null);
+            String ratingHtml = loadRatingHtml();
+            Log.i(TAG, "showRatingWebView: html=" + ratingHtml.length() + " chars, PACKAGE_NAME="
+                    + instance.getPackageName()
+                    + (ratingHtml.isEmpty() ? "  <-- EMPTY! assets/walkure/index.html unreadable" : ""));
+            webView.loadDataWithBaseURL("https://walkure.local/", ratingHtml, "text/html", "UTF-8", null);
 
             android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(instance);
             builder.setView(webView);
@@ -1706,6 +1758,16 @@ public class AndroidLauncher extends AndroidApplication {
                 android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                 android.view.View.SYSTEM_UI_FLAG_FULLSCREEN |
                 android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
+
+            Log.i(TAG, "showRatingWebView: dialog.isShowing=" + ratingDialog.isShowing()
+                    + " decorView=" + ratingDialog.getWindow().getDecorView().getWidth()
+                    + "x" + ratingDialog.getWindow().getDecorView().getHeight());
+          } catch (Throwable t) {
+            // 必须是 Throwable：WebView 组件不可用/被 ROM 禁用时会抛
+            // NoClassDefFoundError、MissingWebViewPackageException 这类 Error，
+            // catch(Exception) 兜不住，异常会直接冒到 UI 线程把进程带走。
+            Log.e(TAG, "showRatingWebView FAILED", t);
+          }
         });
     }
 

@@ -27,7 +27,7 @@ android {
     applicationId 'com.starxh.beatoraja'
     minSdkVersion 21
     targetSdkVersion 36
-    versionCode 19
+    versionCode 21
     versionName projectVersion
 
     resConfigs "en", "zh", "ja"

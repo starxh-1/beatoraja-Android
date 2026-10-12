@@ -42,15 +42,29 @@ body{
 }
 .low-confidence strong{color:var(--gold)}
 
-.tabs{display:inline-flex;margin-bottom:12px;border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+/* tab 栏：原为 inline-flex + 固定 padding:8px 43px，按钮既不换行也不收缩，
+   难度推定表那排 6 个 tab 的总宽远超手机屏宽，被 overflow:hidden 直接裁掉
+   （截图里右侧「段位認定」只剩半截）。改为可换行的弹性栅格：
+   flex:1 1 auto ⇒ 先按内容宽顺序排列，放不下的自动折行，每行再按
+   flex-grow 拉满可用宽度；没有任何固定宽度 ⇒ 手机/平板自适应同一套。
+   每个按钮独立圆角（原先是靠 :first-child/:last-child 拼连续分段控件），
+   折行后行与行不会糊成一块。 */
+.tabs{display:flex;flex-wrap:wrap;gap:4px;width:100%;margin-bottom:12px}
 .tab-btn{
-  flex:0 0 auto;padding:8px 43px;text-align:center;font-size:14px;font-weight:600;
-  background:var(--panel);color:var(--muted);border:none;cursor:pointer;
-  transition:all .2s
+  flex:1 1 auto;padding:8px 12px;text-align:center;font-size:14px;font-weight:600;
+  background:var(--panel);color:var(--muted);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;transition:all .2s;white-space:nowrap
 }
 .tab-btn.active{background:var(--border);color:var(--accent)}
-.tab-btn:first-child{border-radius:10px 0 0 10px}
-.tab-btn:last-child{border-radius:0 10px 10px 0}
+/* 难度推定表的内层 tab（Insane/Insane2nd/Satellite/Stella/Overjoy/段位認定）：
+   比外层多一倍，字号与内边距各收紧一档，尽量少折行。 */
+.subtabs{display:flex;flex-wrap:wrap;gap:4px}
+.subtab-btn{
+  flex:1 1 auto;padding:6px 10px;text-align:center;font-size:12.5px;font-weight:600;
+  background:var(--panel);color:var(--muted);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;transition:all .2s;white-space:nowrap
+}
+.subtab-btn.active{background:var(--border);color:var(--accent)}
 .tab-content{display:none}
 .tab-content.active{display:block}
 .filters{
@@ -110,7 +124,15 @@ th:hover{background:var(--border)}
 th .sort-arrow{font-size:10px;margin-left:3px;color:var(--gold)}
 td{padding:8px 6px;border-bottom:1px solid var(--row-border);white-space:nowrap}
 tr:nth-child(even) td{background:var(--row-alt)}
-.prob-bar{display:inline-block;height:6px;border-radius:3px;min-width:4px}
+/* 推荐度：条形 + 数字必须同时可见。
+   表格是 table-layout:fixed，本列宽由 th 的 width 决定（150px）。
+   若条形直接写 width:p% ，100% 时它就吃掉整列宽，后面的数字被挤出列外，
+   被 .table-wrap 的 overflow-x 裁掉 ⇒ 必须横向滚动才看得到。
+   改成 flex：数字 flex:0 0 auto 先占住自己的宽度，条形在剩余轨道里按比例伸缩。 */
+.prob-wrap{display:flex;align-items:center;width:100%}
+.prob-track{flex:1 1 auto;min-width:0}
+.prob-bar{display:block;height:6px;border-radius:3px;min-width:4px}
+.prob-text{flex:0 0 auto;margin-left:6px}
 .chart-name{max-width:180px;overflow-wrap:break-word;white-space:normal}
 .chart-table select,.chart-table input[type=text]{
   background:var(--panel2);border:1px solid var(--border);border-radius:6px;
@@ -342,7 +364,10 @@ var RatingApp={
     this.loadSettings()
     this.applySettings()
     this.recPage=0;this.revPage=0
-    if(d.chartEntries)this.chartData=d.chartEntries
+    // 必须读 this.data 而不是入参 d：d 可能是【字符串】（RatingBridge.getRatingData()
+    // 返回的就是 String，走上面的 JSON.parse 分支），此时 this.data 才是对象，
+    // 而 d.chartEntries 恒为 undefined ⇒ chartData 永不赋值 ⇒ 难度推定表永远空。
+    if(this.data&&this.data.chartEntries)this.chartData=this.data.chartEntries
     this.render()
   },
   render:function(){
@@ -361,7 +386,7 @@ var RatingApp={
     h+='</div>'
     h+='</div>'
     h+='<div class="star-rating" id="star-rating"></div>'
-    h+='<div class="tabs">'
+    h+='<div class="tabs" id="main-tabs">'
     h+='<button class="tab-btn active" onclick="RatingApp.switchTab(0)">'+_t('recommend')+'</button>'
     h+='<button class="tab-btn" onclick="RatingApp.switchTab(1)">'+_t('revRecommend')+'</button>'
     h+='<button class="tab-btn" onclick="RatingApp.switchTab(2)">\u96e3\u5ea6\u63a8\u5b9a\u8868</button>'
@@ -382,9 +407,16 @@ var RatingApp={
     this.render()
   },
   switchTab:function(idx){
-    var btns=document.querySelectorAll('.tab-btn')
-    var cts=document.querySelectorAll('.tab-content')
-    for(var i=0;i<btns.length;i++){
+    // 🔴 必须限定作用域。难度推定表内部另有一排 tab（Insane/Insane2nd/…），
+    // 原先它们也叫 .tab-btn ⇒ 全局 querySelectorAll('.tab-btn') 会把两排都选中
+    // （3 外层 + 6 内层 = 9），而 .tab-content 只有 3 个 ⇒ i=3 时 cts[3] 是
+    // undefined ⇒ 抛 "Cannot set properties of undefined (setting 'className')"，
+    // 循环中断使下面的 renderChartTab() 永不执行（难度表 tab 因此打不开）。
+    // #main-tabs 的兄弟节点恰好就是 #tab0/#tab1/#tab2，用通用兄弟选择器精确命中。
+    // 内层 tab 已改名 .subtab-btn（见 renderChartTab）。i<cts.length 为兜底。
+    var btns=document.querySelectorAll('#main-tabs .tab-btn')
+    var cts=document.querySelectorAll('#main-tabs ~ .tab-content')
+    for(var i=0;i<btns.length&&i<cts.length;i++){
       btns[i].className='tab-btn'+(i===idx?' active':'')
       cts[i].className='tab-content'+(i===idx?' active':'')
     }
@@ -933,7 +965,7 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var pc=(p*100).toFixed(1)
     var hue=Math.round(120*p)
     var bg='hsl('+hue+',70%,35%)'
-    return'<div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div> '+pc+'%'
+    return'<div class="prob-wrap"><div class="prob-track"><div class="prob-bar" style="width:'+(p*100)+'%;background:'+bg+'"></div></div><span class="prob-text">'+pc+'%</span></div>'
   },
   // ── Star rating display (static text, walkure-offline style) ──
   // Formats a star rating as "★X.XX"; null/undefined becomes "★?".
@@ -1073,9 +1105,11 @@ var h='<div class="table-wrap"><table id="rev-table"><thead><tr>'
     var self=this
     var tc=this.CHART_TABLES
     var h='<div style="margin-bottom:8px">'
-    h+='<div class="tabs" style="margin-bottom:8px">'
+    // 🔴 内层 tab 用 .subtabs/.subtab-btn，【不能】复用 .tab-btn ——
+    // 否则与主 tab 栏同类名，主 switchTab 的查询会串到它们身上（见 switchTab 注释）。
+    h+='<div class="subtabs">'
     tc.forEach(function(t){
-      h+='<button class="tab-btn'+(self.chartActiveTab===t.key?' active':'')+'" onclick="RatingApp.switchChartTab(\''+t.key+'\')">'+t.label+'</button>'
+      h+='<button class="subtab-btn'+(self.chartActiveTab===t.key?' active':'')+'" onclick="RatingApp.switchChartTab(\''+t.key+'\')">'+t.label+'</button>'
     })
     h+='</div></div>'
     h+='<div id="chart-filter-area"></div>'
