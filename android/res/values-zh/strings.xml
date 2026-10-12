@@ -163,6 +163,8 @@
     <string name="msg_delete_confirm">确定要删除玩家 \'%1$s\' 吗？这将删除所有玩家数据，包括分数。</string>
     <string name="msg_settings_saved">设置已保存</string>
     <string name="msg_table_updated">难度表更新成功</string>
+    <string name="msg_table_cache_removed">已删除 %1$d 个缓存文件</string>
+    <string name="msg_table_cache_none">该表没有本地缓存</string>
     <string name="msg_update_failed">更新失败: %1$s</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>

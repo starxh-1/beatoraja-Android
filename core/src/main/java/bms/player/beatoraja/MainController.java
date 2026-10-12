@@ -201,6 +201,36 @@ public class MainController {
         this.player = player;
         this.bmsfile = f;
 
+        // ── 「按玩家」的音频可视化 / 悬浮菜单位置：磁盘归属 = PlayerConfig，运行期读 effective ──
+        // 这两个值在「游玩选项」里可调，和判定偏移/随机那些一样应当跟着玩家走；真正消费它的
+        // 是 BeatorajaGame.render() / MusicPlayer / FloatingMenu，它们统一读 Config 的
+        // effective 取值（setEffectiveXxx / getEffectiveXxx）。
+        // 玩家在一局游戏里无法切换（SettingsActivity 在进游戏前就 finish 了），构造时灌一次即可。
+        // 🔴 只能灌 effective（transient 字段），**不能**灌磁盘字段 audioVisualizationMode /
+        // floatingMenuPosition：那两个是 config_sys.json 的「全局兜底值」，而 Config.write()
+        // 在 MainController 和 FloatingMenu 有两处调用点，回写就会把「当前玩家的设置」污染成
+        // 全局兜底值 —— 于是改一个玩家会连带改掉所有「还没落过盘」的玩家第一次读到的值。
+        // -1 表示玩家配置里没有这个键（老存档，本字段过去只存在于 config_sys.json 全局）：
+        // 回退到磁盘全局值，并回填进玩家配置（迁移，由退出时的 PlayerConfig.write 落盘）。
+        if (player.getAudioVisualizationMode() >= 0) {
+            config.setEffectiveAudioVisualizationMode(player.getAudioVisualizationMode());
+        } else {
+            // Config.validate() 早该把 -1 哨兵迁移成 MODE_SPECTRUM/OFF；这里只是防「未经
+            // validate 就传进来的 Config」把 -1 写进玩家配置（消费者拿 -1 会误判成"非 OFF"）。
+            int viz = config.getAudioVisualizationMode();
+            viz = viz >= 0 ? viz : Config.MODE_SPECTRUM;
+            player.setAudioVisualizationMode(viz);
+            config.setEffectiveAudioVisualizationMode(viz);
+        }
+        if (player.getFloatingMenuPosition() >= 0) {
+            config.setEffectiveFloatingMenuPosition(player.getFloatingMenuPosition());
+        } else {
+            int pos = config.getFloatingMenuPosition();
+            pos = pos >= 0 ? pos : 0;
+            player.setFloatingMenuPosition(pos);
+            config.setEffectiveFloatingMenuPosition(pos);
+        }
+
         if (config.isEnableIpfs()) {
             File ipfspath = new File("ipfs").getAbsoluteFile();
             if (!ipfspath.exists()) ipfspath.mkdirs();

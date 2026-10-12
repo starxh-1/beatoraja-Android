@@ -781,8 +781,27 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
      *
      * 注意：该方法在 Gdx 初始化之前的 AndroidLauncher.onCreate 中调用，因此
      * 使用 java.io.File 构造 FileHandle，不依赖 Gdx.files，避免 NPE 闪退。
+     *
+     * <p>🔴 <b>本身只增不减</b>：它只对<b>当前</b> bmsroot 逐条 {@link #insertFolder}，
+     * 从不删已从设置页移除的旧 root。而选曲界面的 [root] 是按 folder 表渲染的
+     * （{@code BarManager:359} 用 {@code ROOT_CRC} 构造根 FolderBar），不是按 config 的
+     * bmsroot 现算 ⇒ 在设置页删掉路径后，游戏内 [root] 永远不跟着变。
+     * 因此需要一个对账删除，只有当 bmsroot <b>可信</b> 时才允许执行
+     * （见 {@link #registerBmsRootFolders(boolean)}）。</p>
      */
     public void registerBmsRootFolders() {
+        registerBmsRootFolders(false);
+    }
+
+    /**
+     * @param bmsRootTrusted 本次 bmsroot 是否可信 —— 即「config_sys.json 确实存在、确实被读出来、
+     *                       且从中成功解析出 ≥1 条路径」。为 {@code false} 时<b>只做补齐、绝不删除</b>。
+     *
+     *   <p>🔴 这道闸门不能省：AndroidLauncher 在解析失败时会回落成默认的一条
+     *   {@code Download/beatoraja/songs}，如果这时候做对账，等于把用户真实的曲库整片判为
+     *   「不在任何 bmsroot 之下」而删掉。</p>
+     */
+    public void registerBmsRootFolders(boolean bmsRootTrusted) {
         if (bmsroot == null || bmsroot.length == 0) return;
         SQLiteDatabase db = null;
         try {
@@ -803,9 +822,100 @@ public class AndroidSQLiteSongDatabaseAccessor implements SongDatabaseAccessor {
                     Log.w(TAG, "registerBmsRootFolders failed for: " + root, t);
                 }
             }
+            if (bmsRootTrusted) {
+                pruneRecordsOutsideRoots(db);
+            }
         } catch (Throwable t) {
             Log.w(TAG, "registerBmsRootFolders failed", t);
         }
+    }
+
+    /**
+     * 对账：删除 folder / song 表里「不属于任何当前 bmsroot」的记录。
+     *
+     * <p>为什么必须有这一步（两条独立的链，缺一不可）：</p>
+     * <ol>
+     *   <li><b>folder 表</b>：{@code registerBmsRootFolders()} 只增不减，旧 root 永久挂在
+     *       [root] 下面；而 [root] 是照 folder 表画的，不按 config 过筛。</li>
+     *   <li><b>song 表</b>：它的 orphan 清理只挂在完整扫描的 Deletion Sync 里
+     *       （{@code updateSongDatas} Step 2），而那里把候选限制在<b>本次扫描的目录树之内</b>
+     *       —— 已经从 bmsroot 移除的旧 root 根本不在扫描范围内，于是永远删不掉。</li>
+     * </ol>
+     *
+     * <p>🔴 只能在前缀匹配安全的 bmsroot 上做，见 {@link #normalizedRootsForPrune()}。</p>
+     */
+    private void pruneRecordsOutsideRoots(SQLiteDatabase db) {
+        final String[] roots = normalizedRootsForPrune();
+        if (roots == null) {
+            Log.w(TAG, "pruneRecordsOutsideRoots: bmsroot 不可用于对账, 跳过（不删除任何记录）");
+            return;
+        }
+        long start = System.currentTimeMillis();
+
+        // 1. folder 表：不在任何 root 之下的目录（含旧 root 自身及其整棵子树）。
+        List<String> badFolders = new ArrayList<>();
+        try (Cursor c = db.rawQuery("SELECT path FROM folder", null)) {
+            while (c.moveToNext()) {
+                String p = c.getString(0);
+                if (p == null || p.isEmpty()) continue;
+                if (!isUnderAnyScannedPath(p, roots)) badFolders.add(p);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "pruneRecordsOutsideRoots: folder scan failed", t);
+            return;
+        }
+
+        // 2. song 表：不在任何 root 之下的歌曲。
+        List<String> badSongs = new ArrayList<>();
+        try (Cursor c = db.rawQuery("SELECT path FROM song", null)) {
+            while (c.moveToNext()) {
+                String p = c.getString(0);
+                if (p == null || p.isEmpty()) continue;
+                if (!isUnderAnyScannedPath(p, roots)) badSongs.add(p);
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "pruneRecordsOutsideRoots: song scan failed", t);
+            return;
+        }
+
+        if (badFolders.isEmpty() && badSongs.isEmpty()) {
+            return; // 稳态：无越界记录，一次删除都不做
+        }
+
+        db.beginTransactionNonExclusive();
+        try {
+            for (String p : badFolders) db.delete("folder", "path = ?", new String[]{p});
+            for (String p : badSongs) db.delete("song", "path = ?", new String[]{p});
+            db.setTransactionSuccessful();
+        } catch (Throwable t) {
+            Log.e(TAG, "pruneRecordsOutsideRoots: delete failed", t);
+        } finally {
+            db.endTransaction();
+        }
+        Log.i(TAG, "pruneRecordsOutsideRoots: removed " + badFolders.size() + " folder(s) and "
+                + badSongs.size() + " song(s) outside current bmsroot in "
+                + (System.currentTimeMillis() - start) + "ms");
+    }
+
+    /**
+     * 把 bmsroot 规范化成「可用于前缀对账」的数组；任何不安全的情况返回 {@code null}（调用方跳过对账）。
+     *
+     * <p>不安全 = 存在非绝对文件系统路径（{@code content://}、{@code file://} 之类）。
+     * 这类值既匹配不上任何 {@code song.path}，又会让「不在任何 root 之下」恒为真
+     * ⇒ 一次启动删光整个曲库。宁可不对账，也不能误删。</p>
+     */
+    private String[] normalizedRootsForPrune() {
+        if (bmsroot == null || bmsroot.length == 0) return null;
+        List<String> out = new ArrayList<>();
+        for (String raw : bmsroot) {
+            if (raw == null) continue;
+            String r = raw.trim().replace('\\', '/');
+            if (r.isEmpty()) continue;
+            if (!r.startsWith("/") || r.contains("://")) return null;
+            if (!r.endsWith("/")) r += "/";
+            out.add(r);
+        }
+        return out.isEmpty() ? null : out.toArray(new String[0]);
     }
 
     @Override

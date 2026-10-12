@@ -509,6 +509,19 @@ public class SettingsActivity extends Activity {
                 selectedNoteTimingOffset = findJsonIntValue(json, "judgetiming", 0);
                 selectedAutoTimingAdjust = findJsonBooleanValue(json, "notesDisplayTimingAutoAdjust", false);
                 selectedNoteModifier = findJsonIntValue(json, "random", 0);
+                // 音频可视化 / 悬浮菜单位置：磁盘归属 = 本玩家的 config_player.json（与游玩选项同一批）。
+                // 老存档里这两个键只存在于 config_sys.json（全局）⇒ 缺键时保留
+                // readConfigDirectly() 读到的全局值当兜底，下次保存自然落到本玩家名下（一次性迁移）。
+                // 用 -1 当「缺键」哨兵：合法的位置是 0..3 / 模式是 0..2，0 不能当缺省。
+                int viz = findJsonIntValue(json, "audioVisualizationMode", -1);
+                if (viz >= 0) {
+                    audioVisualizationMode = viz;
+                    showAudioSpectrum = viz != 0;
+                }
+                int fmp = findJsonIntValue(json, "floatingMenuPosition", -1);
+                if (fmp >= 0) {
+                    selectedFloatingMenuPosition = fmp;
+                }
             }
         } catch (Exception e) { Log.e("SettingsActivity", "Read player config fail", e); }
     }
@@ -534,8 +547,12 @@ public class SettingsActivity extends Activity {
             int keyStart = json.indexOf("\"" + key + "\"");
             if (keyStart < 0) return result;
             int bracketStart = json.indexOf("[", keyStart);
-            int bracketEnd = json.indexOf("]", bracketStart);
-            if (bracketStart < 0 || bracketEnd < 0) return result;
+            if (bracketStart < 0) return result;
+            // 🔴 不能取「第一个 ]」当数组结尾：目录名里含 ]（例如 "[BMS] songs"）会在那里被截断，
+            //   后面的路径全丢；而保存是「读 UI → 写盘」，会把截断后的短列表原样写回，
+            //   于是「这次读错」变成永久丢失。必须跳过字符串字面量里的 ]。
+            int bracketEnd = findJsonArrayEnd(json, bracketStart);
+            if (bracketEnd < 0) return result;
             String arrayContent = json.substring(bracketStart + 1, bracketEnd);
             int pos = 0;
             while (pos < arrayContent.length()) {
@@ -550,11 +567,39 @@ public class SettingsActivity extends Activity {
                         result.add(val); pos++;
                     }
                 } else {
+                    int before = pos;
                     while (pos < arrayContent.length() && arrayContent.charAt(pos) != ',' && arrayContent.charAt(pos) != ']') pos++;
+                    // 🔴 指针没动 ⇒ 撞上了不在字符串里的 ']'（畸形 JSON）。不 break 就是死循环。
+                    if (pos == before) break;
                 }
             }
         } catch (Exception ignored) {}
         return result;
+    }
+
+    /**
+     * 从 {@code '['} 的下标出发，返回与之配对的 {@code ']'} 下标；找不到返回 {@code -1}。
+     * 扫描时跳过字符串字面量内部的括号与 {@code \"} 转义。
+     *
+     * <p>不能用 {@code indexOf("]")} 取「第一个 ]」：目录名里含 {@code ]}（如 {@code "[BMS] songs"}）
+     * 会在那里被截断，后面的路径全丢。</p>
+     *
+     * <p>⚠️ {@code AndroidLauncher} 里有一份<b>等价实现</b>（读 config 时用）。两边都要改。
+     * 根治办法是删掉这两份手写解析、统一走 {@code org.json}（本类写盘时本来就用的它），暂未做。</p>
+     */
+    private static int findJsonArrayEnd(String json, int bracketStart) {
+        boolean inString = false;
+        for (int i = bracketStart + 1; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (inString) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inString = false;
+            } else {
+                if (c == '"') inString = true;
+                else if (c == ']') return i;
+            }
+        }
+        return -1;
     }
 
     private String findJsonStringValue(String json, String key, String defaultValue) {
@@ -933,7 +978,14 @@ public class SettingsActivity extends Activity {
         ArrayAdapter<String> fmpAdapter = new ArrayAdapter<>(this, R.layout.spinner_item, floatingMenuPositionOptions);
         fmpAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item);
         floatingMenuPositionSpinner.setAdapter(fmpAdapter);
-        floatingMenuPositionSpinner.setSelection(Math.min(selectedFloatingMenuPosition, floatingMenuPositionOptions.length - 1));
+        floatingMenuPositionSpinner.setSelection(Math.min(Math.max(selectedFloatingMenuPosition, 0), floatingMenuPositionOptions.length - 1));
+        floatingMenuPositionSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                selectedFloatingMenuPosition = position;
+            }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+        });
         setupGamepadFocusable(floatingMenuPositionSpinner);
 
         // BGA
@@ -1188,7 +1240,15 @@ public class SettingsActivity extends Activity {
             Button removeBtn = new Button(this);
             applyRowActionButton(removeBtn, R.drawable.btn_danger, R.string.btn_remove);
             setupGamepadFocusable(removeBtn);
-            removeBtn.setOnClickListener(v -> { tableUrls.remove(index); refreshTableUrlList(); saveConfigToJson(); });
+            removeBtn.setOnClickListener(v -> {
+                final String removedUrl = index < tableUrls.size() ? tableUrls.get(index) : null;
+                tableUrls.remove(index);
+                refreshTableUrlList();
+                saveConfigToJson();
+                // 🔴 設定から消すだけではゲーム内の表は消えない（ゲームは table/ を丸ごと読む）。
+                // キャッシュの実体も消して初めて同期する。
+                deleteTableCacheAsync(removedUrl);
+            });
             row.addView(editText); row.addView(updateBtn); row.addView(removeBtn);
             tableUpdateButtons.add(updateBtn);
             tableUrlContainer.addView(row);
@@ -1196,6 +1256,42 @@ public class SettingsActivity extends Activity {
         // 同上：行重建后先等一帧布局
         navNeedsLayout = true;
         buildFocusableControlsList();
+    }
+
+    /**
+     * 「移除」で消した URL の難易度表キャッシュ（{@code table/*.bmt}）を実体ごと消す。
+     *
+     * <p>設定（{@code config_sys.json} の {@code tableURL}）から URL を落とすだけでは、
+     * ゲーム内の選曲画面からその表は消えない —— ゲーム側は {@code table/} を丸ごと読んで
+     * いたため、キャッシュが残っている限り表示され続けていた（しかも設定側には行が無いので
+     * 二度と消せない）。ここで実体を消して設定とゲームを同期させる。</p>
+     *
+     * <p>ファイル名の規則が過去に変わっているので、名前だけでなく<b>中身の URL</b> も見て消す。
+     * その判定は core 側（{@link bms.player.beatoraja.TableDataAccessor#deleteCache(String)}）に
+     * 一本化してある。gzip 展開を伴うのでバックグラウンドで実行する。</p>
+     */
+    private void deleteTableCacheAsync(String url) {
+        if (url == null || url.trim().isEmpty()) {
+            return;
+        }
+        final String target = url.trim();
+        final int generation = tableListGeneration;
+        Thread thread = new Thread(() -> {
+            int deleted = 0;
+            try {
+                File tableDir = new File(getExternalFilesDir(null), "table");
+                deleted = new bms.player.beatoraja.TableDataAccessor(tableDir.getAbsolutePath()).deleteCache(target);
+            } catch (Throwable e) {
+                Log.e("SettingsActivity", "deleteTableCacheAsync: failed for url=" + target, e);
+            }
+            final int count = deleted;
+            postToUiTable(generation, () -> Toast.makeText(this,
+                    count > 0 ? getString(R.string.msg_table_cache_removed, count)
+                              : getString(R.string.msg_table_cache_none),
+                    Toast.LENGTH_SHORT).show());
+        });
+        synchronized (backgroundThreads) { backgroundThreads.add(thread); }
+        thread.start();
     }
 
     private void updateSingleTable(int index, EditText editText, Button updateBtn) {
@@ -1445,9 +1541,12 @@ public class SettingsActivity extends Activity {
             audio.put("keyvolume", String.format("%.2f", selectedKeyVolume / 100f));
             audio.put("bgvolume", String.format("%.2f", selectedBgmVolume / 100f));
             config.put("audio", audio);
-            config.put("audioVisualizationMode", audioVisualizationMode);
-            config.put("showAudioSpectrum", audioVisualizationMode != 0);
-            config.put("floatingMenuPosition", selectedFloatingMenuPosition);
+            // 🔴 这里**不要**写 audioVisualizationMode / showAudioSpectrum / floatingMenuPosition。
+            // config_sys.json 里的这三个键是「全局兜底值」——只在玩家配置里缺该键时被读到。
+            // 而本方法能拿到的只有「当前玩家」的值，写进去就把全局兜底污染了：改一个玩家
+            // 会连带改掉所有「还没落过盘的玩家」第一次读到的值。玩家那一份由
+            // savePlayOptionsToPlayerConfig() 写进 player/<target>/config_player.json。
+            // 这三个键保持原样不动（老存档的全局值留给迁移兜底）。
             config.put("bga", selectedBga);
             config.put("bgaExpand", selectedBgaExpand);
             config.put("stretchFullscreen", selectedStretchFullscreen);
@@ -1499,6 +1598,13 @@ public class SettingsActivity extends Activity {
             config.put("judgetiming", selectedNoteTimingOffset);
             config.put("notesDisplayTimingAutoAdjust", selectedAutoTimingAdjust);
             config.put("random", selectedNoteModifier);
+            // 音频可视化 / 悬浮菜单位置：按玩家存（和上面这批一样属于「游玩选项」）。
+            // 与 config_sys.json 里的同名全局键是「同一份值的两处留档」：全局那份只作为
+            // 老存档/新玩家的一次性迁移兜底，读取时永远以本玩家这份为准（见
+            // readPlayOptionsFromPlayerConfig）。写两份不改任何既有语义。
+            config.put("audioVisualizationMode", audioVisualizationMode);
+            config.put("showAudioSpectrum", audioVisualizationMode != 0);
+            config.put("floatingMenuPosition", selectedFloatingMenuPosition);
             // 写入 hispeedFix 到根目录（兼容模式），同时也写入 mode*.playconfig
             config.put("hispeedFix", selectedHispeedFix);
             String[] modes = {"mode5", "mode7", "mode9", "mode10", "mode14", "mode24", "mode24double"};
@@ -2807,6 +2913,15 @@ public class SettingsActivity extends Activity {
             ((Switch) findViewById(R.id.enableLanecoverSwitch)).setChecked(selectedEnableLanecover);
             ((Switch) findViewById(R.id.enableLiftSwitch)).setChecked(selectedEnableLift);
             ((Switch) findViewById(R.id.vibrationOnBadSwitch)).setChecked(selectedVibrationOnBad);
+            // 音频可视化 / 悬浮菜单位置同样属于「游玩选项」⇒ 切玩家时也要跟着换。
+            // 这两个过去是全局值（写在 config_sys.json），所以切玩家时它们纹丝不动。
+            ((Spinner) findViewById(R.id.audioVisualizationModeSpinner))
+                    .setSelection(Math.min(Math.max(audioVisualizationMode, 0), 2));
+            ((Spinner) findViewById(R.id.floatingMenuPositionSpinner))
+                    .setSelection(Math.min(Math.max(selectedFloatingMenuPosition, 0), 3));
+            // 🔴 必须排在音频可视化之后：拉伸至全屏开启时它要把这个 Spinner 强制按回 0 并禁用，
+            // 上面那行 setSelection 会把它顶回来（顺序反了锁定就失效）。
+            applyStretchFullscreenLockState();
         } catch (Exception ignored) {}
     }
 

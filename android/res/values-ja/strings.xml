@@ -145,6 +145,8 @@
     <string name="dialog_delete_player">プレイヤー削除</string>
     <string name="msg_delete_confirm">プレイヤー \'%1$s\' を削除してもよろしいですか？スコアを含む全てのデータが削除されます。</string>
     <string name="msg_table_updated">難易度表を更新しました</string>
+    <string name="msg_table_cache_removed">キャッシュを %1$d 件削除しました</string>
+    <string name="msg_table_cache_none">この表のローカルキャッシュはありません</string>
 
     <!-- Help texts for ? buttons -->
     <string name="player_help_title">プレイヤー選択</string>

@@ -504,6 +504,10 @@ public class AndroidLauncher extends AndroidApplication {
 
         String playerName = "player1";
         String[] bmsrootFromConfig = new String[0];
+        // 🔴 「可信」= config_sys.json 确实存在、确实读出了内容、且确实解析出 ≥1 条路径。
+        //   只有可信时才允许 SongDatabaseAccessor 做「越界记录对账删除」—— 否则解析失败回落成
+        //   默认的一条 Download/beatoraja/songs 时，对账会把用户真实曲库判成「不在任何 bmsroot 下」而删光。
+        boolean bmsRootTrusted = false;
         try {
             File configFile = new File(filesDir, "config_sys.json");
             if (configFile.exists()) {
@@ -529,7 +533,10 @@ public class AndroidLauncher extends AndroidApplication {
                 int bmsrootIndex = content.indexOf("\"bmsroot\"");
                 if (bmsrootIndex >= 0) {
                     int bracketStart = content.indexOf("[", bmsrootIndex);
-                    int bracketEnd = content.indexOf("]", bracketStart);
+                    // 🔴 不能取「第一个 ]」当数组结尾：目录名里含 ]（例如 "[BMS] songs"）会在那里被截断，
+                    //   后面的路径全丢；而设置页保存是「读 UI → 写盘」，会把截断后的短列表原样写回，
+                    //   于是「这次读错」变成永久丢失。必须跳过字符串字面量里的 ] 才找得到真正配对的括号。
+                    int bracketEnd = (bracketStart >= 0) ? findJsonArrayEnd(content, bracketStart) : -1;
                     if (bracketStart >= 0 && bracketEnd >= 0) {
                         String arrayContent = content.substring(bracketStart + 1, bracketEnd);
                         java.util.List<String> paths = new java.util.ArrayList<>();
@@ -547,10 +554,17 @@ public class AndroidLauncher extends AndroidApplication {
                                     pos++;
                                 }
                             } else {
+                                int before = pos;
                                 while (pos < arrayContent.length() && arrayContent.charAt(pos) != ',' && arrayContent.charAt(pos) != ']') pos++;
+                                // 🔴 指针没动 ⇒ 撞上了不在字符串里的 ']'（畸形 JSON）。不 break 就是死循环,
+                                //   而这段代码在 onCreate 里 —— 死循环等于 ANR。放弃剩余部分即可。
+                                if (pos == before) break;
                             }
                         }
-                        if (!paths.isEmpty()) bmsrootFromConfig = paths.toArray(new String[0]);
+                        if (!paths.isEmpty()) {
+                            bmsrootFromConfig = paths.toArray(new String[0]);
+                            bmsRootTrusted = true;
+                        }
                     }
                 }
             }
@@ -567,8 +581,10 @@ public class AndroidLauncher extends AndroidApplication {
             bms.player.beatoraja.MainLoader.setSongDatabaseAccessor(androidAccessor);
             // 将设置页配置的 bmsroot 目录注册进 folder 表，使新增目录在进游戏后即可作为
             // [root] 的子项显示（如 "songs 0"），再由游戏内手动刷新扫描歌曲。
+            // bmsroot 可信时顺带做一次对账：删掉已经从设置页移除的旧 root 及其歌曲 ——
+            // 选曲界面的 [root] 是按 folder 表渲染的，不做这一步「设置页删路径」永远传不到游戏内。
             // 必须在 Gdx.initialize() 之前调用，故 accessor 内部用 java.io.File 而非 Gdx.files。
-            androidAccessor.registerBmsRootFolders();
+            androidAccessor.registerBmsRootFolders(bmsRootTrusted);
         } catch (Throwable t) { Log.e(TAG, "DB init fail", t); return; }
 
         setupHighRefreshRate();
@@ -638,6 +654,32 @@ public class AndroidLauncher extends AndroidApplication {
     private static final String SKINS_FOLDER = "skins";
     private static final String BGM_FOLDER = "bgm";
     private static final String SOUND_FOLDER = "sound";
+
+    /**
+     * 从 {@code '['} 的下标出发，返回与之配对的 {@code ']'} 下标；找不到返回 {@code -1}。
+     * 扫描时会跳过字符串字面量内部的括号与 {@code \"} 转义。
+     *
+     * <p>不能用 {@code indexOf("]")} 取「第一个 ]」：目录名里含 {@code ]}（如 {@code "[BMS] songs"}）
+     * 会在那里被截断，后面的路径全丢。</p>
+     *
+     * <p>⚠️ 注意：设置页 {@code SettingsActivity.findJsonArrayStrings()} 里有一份<b>等价实现</b>。
+     * 两边都要改。根治办法是删掉 Android 侧这份手写解析、统一走 {@code org.json}
+     * （设置页保存本来就用的它），暂未做。</p>
+     */
+    private static int findJsonArrayEnd(String json, int bracketStart) {
+        boolean inString = false;
+        for (int i = bracketStart + 1; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (inString) {
+                if (c == '\\') { i++; continue; }
+                if (c == '"') inString = false;
+            } else {
+                if (c == '"') inString = true;
+                else if (c == ']') return i;
+            }
+        }
+        return -1;
+    }
 
     /**
      * 首次启动时创建必要的目录。

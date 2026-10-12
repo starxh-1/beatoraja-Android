@@ -91,24 +91,67 @@ public final class BarManager {
 		this.select = select;
 	}
 
-	void init() {
-		TableDataAccessor tdaccessor = new TableDataAccessor(select.resource.getConfig().getTablepath());
-
-		TableData[] unsortedtables = tdaccessor.readAll();
-		final List<TableData> sortedtables = new ArrayList<TableData>(unsortedtables.length);
-
-		for(String url : select.resource.getConfig().getTableURL()) {
-			for(int i = 0;i < unsortedtables.length;i++) {
-				final TableData td = unsortedtables[i];
-				if(td != null && url.equals(td.getUrl())) {
-					sortedtables.add(td);
-					unsortedtables[i] = null;
-					break;
+	/**
+	 * 選曲画面に出す難易度表を決める（＝設定とキャッシュの突き合わせ）。
+	 *
+	 * <p>規則は「<b>設定（{@code tableURL}）に載っている表だけを、設定の順番で表示する</b>」。
+	 * キャッシュ（{@code table/} の中身）はデータ置き場であって表示対象の一覧ではない。</p>
+	 *
+	 * <p>上流は「設定に一致しなかった残りのキャッシュを後ろに全部並べる」実装だった。そのため
+	 * 設定画面で URL を「移除」しても表はゲーム内に残り続け、しかも設定側にはもう行が無いので
+	 * <b>二度と消せなかった</b>（実機で、設定に無い {@code NEW GENERATION 発狂難易度表} や
+	 * URL が空のままの古いキャッシュが選曲画面に並んでいた）。</p>
+	 *
+	 * <p>例外は URL を持たない組み込みの {@code BMS Search} だけで、これは設定に URL が無いのが
+	 * 正常なので一致しなかったものを拾って最後に並べる。</p>
+	 *
+	 * <p>URL の比較は {@link TableDataAccessor#isSameTable(String, String)}（綴りの揺れを吸収）
+	 * を使う。生の文字列比較だと {@code http://} と {@code http:/} の差で<b>設定にあるのに
+	 * 出ない</b>表ができる。</p>
+	 *
+	 * <p>IO をしない純関数（回帰テストから呼べるように {@code static}）。</p>
+	 *
+	 * @param urls 設定の難易度表 URL（順序がそのまま表示順）
+	 * @param cached キャッシュとして読めた表（{@code TableDataAccessor.readAll()} の結果）
+	 * @return 表示する表（設定の順 → 一致しなかった BMS Search）
+	 */
+	static List<TableData> selectTables(String[] urls, TableData[] cached) {
+		final TableData[] unsorted = cached != null ? cached.clone() : new TableData[0];
+		final List<TableData> sorted = new ArrayList<>(unsorted.length);
+		if (urls != null) {
+			for (String url : urls) {
+				for (int i = 0; i < unsorted.length; i++) {
+					final TableData td = unsorted[i];
+					if (td != null && TableDataAccessor.isSameTable(url, td.getUrl())) {
+						sorted.add(td);
+						unsorted[i] = null;
+						break;
+					}
 				}
 			}
 		}
+		int ignored = 0;
+		for (TableData td : unsorted) {
+			if (td == null) continue;
+			if ("BMS Search".equals(td.getName())) {
+				sorted.add(td);
+				continue;
+			}
+			ignored++;
+			Logger.getGlobal().info("難易度表: 設定に無いキャッシュを無視 : " + td.getName() + " / " + td.getUrl());
+		}
+		if (ignored > 0) {
+			Logger.getGlobal().info("難易度表: " + ignored + " 件のキャッシュが設定の tableURL に無いため未表示"
+					+ "（設定画面で URL を戻すか、キャッシュを削除すれば消える）");
+		}
+		return sorted;
+	}
 
-		Arrays.stream(unsortedtables).filter(Objects::nonNull).forEach(td -> sortedtables.add(td));
+	void init() {
+		TableDataAccessor tdaccessor = new TableDataAccessor(select.resource.getConfig().getTablepath());
+
+		final List<TableData> sortedtables = selectTables(select.resource.getConfig().getTableURL(),
+				tdaccessor.readAll());
 
 		BMSSearchAccessor bmssearcha = new BMSSearchAccessor(select.resource.getConfig().getTablepath());
 

@@ -731,6 +731,22 @@ public final class PlayerConfig {
 	private int touchKeyOffsetW = 0;
 	private int touchKeyOffsetH = 0;
 
+	/**
+	 * 音频可视化模式（按玩家）。0=OFF 1=SPECTRUM 2=WAVEFORM。
+	 *
+	 * <p>🔴 {@code -1} = 「未设置」哨兵值：老存档里本字段只存在于 {@code config_sys.json}
+	 * （全局），所以启动时读到 -1 就回退到 Config 的值（一次性迁移），并把结果回填进本对象。
+	 * 运行时消费者（BeatorajaGame / MusicPlayer）仍然读 {@code Config}，由
+	 * {@code MainController} 在构造时把「当前玩家」的值灌进去。</p>
+	 */
+	private int audioVisualizationMode = -1;
+
+	/**
+	 * 悬浮菜单位置（按玩家）。0=上中 1=上右 2=下中 3=下右。
+	 * {@code -1} = 未设置 ⇒ 回退 Config（一次性迁移），语义同上。
+	 */
+	private int floatingMenuPosition = -1;
+
 	public void validate() {
 		if(skin == null) {
 			skin = new SkinConfig[SkinType.getMaxSkinTypeID() + 1];
@@ -818,6 +834,11 @@ public final class PlayerConfig {
 		longnoteRate = MathUtils.clamp(longnoteRate, 0.0, 1.0);
 		mineMode = MathUtils.clamp(mineMode, 0, MineNoteModifier.Mode.values().length);
 		extranoteDepth = MathUtils.clamp(extranoteDepth, 0, 100);
+
+		// 音频可视化 / 悬浮菜单位置（按玩家）。下界 -1 = 「未设置」，由 MainController 回退到
+		// Config 的全局值后回填；上界与 Config 的合法区间一致（SPECTRUM/WAVEFORM、四个角）。
+		audioVisualizationMode = MathUtils.clamp(audioVisualizationMode, -1, 2);
+		floatingMenuPosition = MathUtils.clamp(floatingMenuPosition, -1, 3);
 
 		if(irconfig == null || irconfig.length == 0) {
 			String[] irnames = IRConnectionManager.getAllAvailableIRConnectionName();
@@ -1148,6 +1169,14 @@ public final class PlayerConfig {
 	public void setTouchKeyOffsetW(int v) { this.touchKeyOffsetW = v; }
 	public int getTouchKeyOffsetH() { return touchKeyOffsetH; }
 	public void setTouchKeyOffsetH(int v) { this.touchKeyOffsetH = v; }
+
+	/** 音频可视化模式（按玩家）。-1 = 未设置（老存档），见字段注释。 */
+	public int getAudioVisualizationMode() { return audioVisualizationMode; }
+	public void setAudioVisualizationMode(int v) { this.audioVisualizationMode = v; }
+
+	/** 悬浮菜单位置（按玩家）。-1 = 未设置（老存档），见字段注释。 */
+	public int getFloatingMenuPosition() { return floatingMenuPosition; }
+	public void setFloatingMenuPosition(int v) { this.floatingMenuPosition = v; }
 
 	/**
 	 * Helper method to copy files using java.io APIs (API 21 compatible)

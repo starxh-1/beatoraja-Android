@@ -183,12 +183,38 @@ public class Config implements Validatable, Serializable {
 	 */
 	private int audioVisualizationMode = -1;
 
+	/**
+	 * 运行期「有效值」＝当前玩家的设置，由 MainController 启动时从 PlayerConfig 灌入。
+	 *
+	 * <p>🔴 必须是 transient：libGDX 的 {@code Json} 会跳过 transient 字段（读写都不碰，
+	 * 已实测），所以它不会被写进 config_sys.json。这是因为磁盘上的
+	 * {@link #audioVisualizationMode} 是「全局兜底值」（玩家配置里没有该键时用它），
+	 * 一旦被运行期覆盖值回写，改一个玩家就会连带改掉所有「还没落过盘」的玩家第一次
+	 * 读到的兜底值（且 {@code Config.write()} 有 MainController / FloatingMenu 两处调用，
+	 * 分散堵漏不可靠）。</p>
+	 *
+	 * <p>-1 = 无覆盖 ⇒ 回退磁盘全局值。消费者一律读
+	 * {@link #getEffectiveAudioVisualizationMode()}，不要读 {@link #getAudioVisualizationMode()}。</p>
+	 */
+	private transient int effectiveAudioVisualizationMode = -1;
+
+	/** 磁盘上的全局值（老存档兜底）。不要用它当运行期取值 —— 见 {@link #effectiveAudioVisualizationMode}。 */
 	public int getAudioVisualizationMode() {
 		return audioVisualizationMode;
 	}
 
+	/** 只写磁盘全局值；运行期覆盖请用 {@link #setEffectiveAudioVisualizationMode(int)}。 */
 	public void setAudioVisualizationMode(int audioVisualizationMode) {
 		this.audioVisualizationMode = audioVisualizationMode;
+	}
+
+	/** 运行期实际生效的音频可视化模式（玩家覆盖 → 全局兜底）。 */
+	public int getEffectiveAudioVisualizationMode() {
+		return effectiveAudioVisualizationMode >= 0 ? effectiveAudioVisualizationMode : audioVisualizationMode;
+	}
+
+	public void setEffectiveAudioVisualizationMode(int mode) {
+		this.effectiveAudioVisualizationMode = mode;
 	}
 
 	public boolean isSpectrumInGameArea() {
@@ -215,6 +241,23 @@ public class Config implements Validatable, Serializable {
 
 	public int getFloatingMenuPosition() { return floatingMenuPosition; }
 	public void setFloatingMenuPosition(int floatingMenuPosition) { this.floatingMenuPosition = floatingMenuPosition; }
+
+	/**
+	 * 悬浮菜单位置的运行期有效值（当前玩家的设置）。理由与约束完全同
+	 * {@link #effectiveAudioVisualizationMode}：transient ⇒ 不落盘，
+	 * 磁盘字段 {@link #floatingMenuPosition} 只作全局兜底。
+	 * -1 = 无覆盖 ⇒ 回退磁盘全局值。
+	 */
+	private transient int effectiveFloatingMenuPosition = -1;
+
+	/** 运行期实际生效的悬浮菜单位置（玩家覆盖 → 全局兜底）。 */
+	public int getEffectiveFloatingMenuPosition() {
+		return effectiveFloatingMenuPosition >= 0 ? effectiveFloatingMenuPosition : floatingMenuPosition;
+	}
+
+	public void setEffectiveFloatingMenuPosition(int position) {
+		this.effectiveFloatingMenuPosition = position;
+	}
 
 	private int prepareFramePerSecond = 0;
 	/**
@@ -865,6 +908,9 @@ public class Config implements Validatable, Serializable {
         // c.inputPollingRate = this.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = this.keySoundTailMs;
         c.audioVisualizationMode = this.audioVisualizationMode;
+        c.floatingMenuPosition = this.floatingMenuPosition;
+        // 注意：effectiveAudioVisualizationMode / effectiveFloatingMenuPosition 是 transient 的「运行时
+        // 有效值」，不落盘、每次启动由 MainController 重新灌入 ⇒ 刻意不参与 copy。
         return c;
     }
 
@@ -919,6 +965,7 @@ public class Config implements Validatable, Serializable {
         // c.inputPollingRate = changes.inputPollingRate; // hardcoded to 1000Hz
         c.keySoundTailMs = changes.keySoundTailMs;
         c.audioVisualizationMode = changes.audioVisualizationMode;
+        c.floatingMenuPosition = changes.floatingMenuPosition;
         return c;
     }
 }

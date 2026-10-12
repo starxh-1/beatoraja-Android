@@ -173,6 +173,65 @@ public class TableDataAccessor {
 	}
 
 	/**
+	 * 指定 URL の難易度表キャッシュを削除する（＝設定画面の「移除」から呼ぶ）。
+	 *
+	 * <p>設定（{@code tableURL}）から URL を消すだけではゲーム内の表は消えない。ゲーム側は
+	 * このディレクトリを丸ごと読むので、<b>キャッシュが残っていれば表示され続ける</b>
+	 * （＝設定とゲームが同期しない）。ここで実体を消して初めて同期する。</p>
+	 *
+	 * <p>消し方は二段構え：</p>
+	 * <ol>
+	 *   <li><b>ファイル名</b>が現行規則（{@link #getCacheFileName(String)}）または旧規則
+	 *       （正規化なしの {@code sha256(url)}）に一致するもの。中身に URL が残っていない
+	 *       古いキャッシュは、これでしか消せない。</li>
+	 *   <li><b>中身の URL</b> が一致するもの。命名規則が過去に変わっているので、名前だけでは
+	 *       取りこぼす（実機で「設定から消したのに選曲画面に残る」を起こしていた）。</li>
+	 * </ol>
+	 *
+	 * <p>中身を読むため gzip 展開を伴う。UI スレッドからは呼ばないこと。</p>
+	 *
+	 * @param url 削除する難易度表 URL
+	 * @return 実際に削除できたファイル数
+	 */
+	public int deleteCache(String url) {
+		if (url == null || url.trim().isEmpty()) {
+			return 0;
+		}
+		final File dir = new File(tabledir);
+		final File[] files = dir.listFiles();
+		if (files == null) {
+			return 0;
+		}
+		final String currentName = getCacheFileName(url);
+		final String legacyName = getFileNameRaw(url) + ".bmt";
+		int deleted = 0;
+		// (1) ファイル名で決まるものを先に消す（中身の URL が空の古いキャッシュの唯一の手掛かり）
+		for (File f : files) {
+			if (!f.isFile()) continue;
+			final String name = f.getName();
+			if (!name.toLowerCase().endsWith(".bmt")) continue;
+			if (name.equals(currentName) || name.equals(legacyName)) {
+				if (f.delete()) {
+					deleted++;
+					Logger.getGlobal().info("難易度表キャッシュ削除(名前) : " + name + " / " + url);
+				}
+			}
+		}
+		// (2) 中身の URL が一致するものを消す（名前の規則が食い違う過去のキャッシュを拾う）
+		for (File f : files) {
+			if (!f.isFile() || !f.getName().toLowerCase().endsWith(".bmt")) continue;
+			final TableData td = TableData.read(f);
+			if (td != null && isSameTable(url, td.getUrl())) {
+				if (f.delete()) {
+					deleted++;
+					Logger.getGlobal().info("難易度表キャッシュ削除(URL) : " + f.getName() + " / " + url);
+				}
+			}
+		}
+		return deleted;
+	}
+
+	/**
 	 * 難易度表キャッシュのファイル名（{@code sha256(URL) + ".bmt"}）。
 	 *
 	 * <p>🔴 キャッシュのファイル名は<b>この 1 箇所だけで決める</b>（Android 設定画面も
@@ -186,11 +245,41 @@ public class TableDataAccessor {
 		return getFileName(url) + ".bmt";
 	}
 
+	/**
+	 * 二つの難易度表 URL が同じ表を指すかどうか。
+	 *
+	 * <p>設定の {@code tableURL} と、キャッシュ（{@code .bmt}）に記録されている URL を
+	 * 突き合わせるのに使う。判定は {@link #canonicalizeUrl(String)} と同じ正規化を通すので、
+	 * {@code http://host/} と {@code http:/host/} のような<b>綴りの揺れでも一致する</b>
+	 * （キャッシュのファイル名を決める規則と揃えておく必要がある。片方だけ生の文字列で
+	 * 比較すると、揺れた URL の表がゲームに出なくなったり、逆に消しても残ったりする）。</p>
+	 *
+	 * <p>どちらかが null / 空なら<b>一致しない</b>扱い。URL を持たないキャッシュ（組み込みの
+	 * {@code BMS Search} など）を、空の設定行と同一視しないため。</p>
+	 */
+	public static boolean isSameTable(String a, String b) {
+		if (a == null || b == null) {
+			return false;
+		}
+		final String ca = canonicalizeUrl(a);
+		final String cb = canonicalizeUrl(b);
+		return ca.length() > 0 && ca.equals(cb);
+	}
+
 	private static String getFileName(String name) {
+		return sha256Hex(canonicalizeUrl(name));
+	}
+
+	/** 旧規則（正規化なしの生 URL）のファイル名を作るためだけに残す。 */
+	private static String getFileNameRaw(String url) {
+		return url == null ? "" : sha256Hex(url.trim());
+	}
+
+	private static String sha256Hex(String input) {
 		try {
 			MessageDigest digest = MessageDigest.getInstance("SHA-256");
 			// UTF-8 を明示（プラットフォーム既定の文字コードに依存させない）
-			digest.update(canonicalizeUrl(name).getBytes(StandardCharsets.UTF_8));
+			digest.update(input.getBytes(StandardCharsets.UTF_8));
 			return BMSDecoder.convertHexString(digest.digest());
 		} catch (NoSuchAlgorithmException e) {
 			e.printStackTrace();

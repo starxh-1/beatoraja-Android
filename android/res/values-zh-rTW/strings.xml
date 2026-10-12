@@ -177,6 +177,8 @@
     <string name="msg_delete_confirm">確定要刪除玩家 \'%1$s\' 嗎？這將刪除所有玩家資料，包括分數。</string>
     <string name="msg_settings_saved">設定已儲存</string>
     <string name="msg_table_updated">難易度表更新成功</string>
+    <string name="msg_table_cache_removed">已刪除 %1$d 個快取檔案</string>
+    <string name="msg_table_cache_none">該表沒有本地快取</string>
     <string name="msg_update_failed">更新失敗：%1$s</string>
     <string name="btn_update">更新</string>
     <string name="btn_remove">X</string>

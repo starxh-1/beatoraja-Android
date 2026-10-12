@@ -183,6 +183,8 @@
     <string name="msg_delete_confirm">Are you sure you want to delete player \'%1$s\'? This will delete all player data including scores.</string>
     <string name="msg_settings_saved">Settings saved</string>
     <string name="msg_table_updated">Table updated successfully</string>
+    <string name="msg_table_cache_removed">Removed %1$d cache file(s)</string>
+    <string name="msg_table_cache_none">This table has no local cache</string>
     <string name="msg_update_failed">Update failed: %1$s</string>
     <string name="btn_update">Update</string>
     <string name="btn_remove">X</string>

@@ -177,6 +177,8 @@
     <string name="msg_delete_confirm">Möchten Sie den Spieler „%1$s“ wirklich löschen? Alle Spielerdaten einschließlich der Scores werden gelöscht.</string>
     <string name="msg_settings_saved">Einstellungen gespeichert</string>
     <string name="msg_table_updated">Tabelle erfolgreich aktualisiert</string>
+    <string name="msg_table_cache_removed">%1$d Cache-Datei(en) gelöscht</string>
+    <string name="msg_table_cache_none">Für diese Tabelle gibt es keinen lokalen Cache</string>
     <string name="msg_update_failed">Aktualisierung fehlgeschlagen: %1$s</string>
     <string name="btn_update">Aktualisieren</string>
     <string name="btn_remove">X</string>

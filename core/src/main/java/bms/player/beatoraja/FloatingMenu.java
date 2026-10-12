@@ -511,7 +511,9 @@ public class FloatingMenu implements InputProcessor {
         if (kbInput != null && kbInput.getMainController() instanceof MainController) {
             config = ((MainController) kbInput.getMainController()).getConfig();
         }
-        return (config != null) ? config.getFloatingMenuPosition() : 0;
+        // 读 effective（当前玩家覆盖 → 全局兜底）。getFloatingMenuPosition() 是磁盘全局值，
+        // 运行期用它会让「按玩家」失效。
+        return (config != null) ? config.getEffectiveFloatingMenuPosition() : 0;
     }
 
     private void updateIconPosition() {

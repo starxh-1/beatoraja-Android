@@ -177,6 +177,8 @@
     <string name="msg_delete_confirm">Tem certeza de que deseja excluir o jogador \'%1$s\'? Isso apagará todos os dados do jogador, incluindo as pontuações.</string>
     <string name="msg_settings_saved">Configurações salvas</string>
     <string name="msg_table_updated">Tabela atualizada com sucesso</string>
+    <string name="msg_table_cache_removed">%1$d arquivo(s) de cache removido(s)</string>
+    <string name="msg_table_cache_none">Esta tabela não tem cache local</string>
     <string name="msg_update_failed">Falha na atualização: %1$s</string>
     <string name="btn_update">Atualizar</string>
     <string name="btn_remove">X</string>

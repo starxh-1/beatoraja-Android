@@ -61,7 +61,7 @@ public class BeatorajaGame extends ApplicationAdapter {
             MainState state = controller.getCurrentState();
             if (state instanceof BMSPlayer) {
                 Config cfg = controller.getConfig();
-                if (cfg != null && cfg.getAudioVisualizationMode() != Config.MODE_OFF) {
+                if (cfg != null && cfg.getEffectiveAudioVisualizationMode() != Config.MODE_OFF) {
                     configureSpectrumRenderer(cfg, controller.isSpectrumAdjustOpen());
                     spectrumRenderer.render();
                 }
@@ -70,7 +70,8 @@ public class BeatorajaGame extends ApplicationAdapter {
     }
 
     private void configureSpectrumRenderer(Config cfg, boolean adjusting) {
-        spectrumRenderer.setMode(cfg.getAudioVisualizationMode());
+        // 读 effective：磁盘字段是「全局兜底值」，运行期用它会无视当前玩家的设置。
+        spectrumRenderer.setMode(cfg.getEffectiveAudioVisualizationMode());
 
         // 频谱坐标所处的空间 = 皮肤 header 的 w/h，加上主渲染当前的真实视口矩形。
         // 两者必须每帧同步：皮肤可能是 1280x720 / 1920x1080，且开启"拉伸全屏"时

@@ -177,6 +177,8 @@
     <string name="msg_delete_confirm">Voulez-vous vraiment supprimer le joueur \'%1$s\' ? Toutes ses données, y compris les scores, seront supprimées.</string>
     <string name="msg_settings_saved">Paramètres enregistrés</string>
     <string name="msg_table_updated">Table mise à jour avec succès</string>
+    <string name="msg_table_cache_removed">%1$d fichier(s) de cache supprimé(s)</string>
+    <string name="msg_table_cache_none">Aucun cache local pour cette table</string>
     <string name="msg_update_failed">Échec de la mise à jour : %1$s</string>
     <string name="btn_update">Mettre à jour</string>
     <string name="btn_remove">X</string>
