@@ -307,6 +307,107 @@ public class AndroidLauncher extends AndroidApplication {
         }
     };
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 退出游戏后「真正结束进程」
+    //
+    // libGDX 自身**没有**杀进程的能力：Gdx.app.exit() 只是把渲染循环的标志置 false
+    // 并回调 ApplicationListener.dispose()，进程的生死完全交回平台。Android 上
+    // Activity.finish() 之后进程会作为「缓存进程」留在后台 —— 下一次「开始游戏」
+    // 复用的还是同一个进程，静态缓存 / GL 上下文 / native 状态都带着上一次的残留
+    // （这正是「必须重启游戏才恢复正常」这一类症状的根源之一）。
+    //
+    // 所以这里主动结束进程，让每次启动都是干净的一次。启动耗时已经被
+    // .fnt 异步化（见 docs/skin-bitmapfont-load-anr.md）压下来了，这个代价很小。
+    //
+    // 🔴 杀之前必须确认两件事，否则会丢数据：
+    //   ① 配置已落盘 —— MainController.dispose() 里 saveConfig() 排在所有重释放**之前**，
+    //      而退出对话框是先 exit()（= dispose()，同步）再 finish()，所以到 onDestroy
+    //      时配置已经写完了。
+    //   ② 成绩 / 回放的写入线程是 fire-and-forget 的，写完才会落盘 ——
+    //      必须等它们收尾再杀（否则「打完一局立刻退出」会丢这一局）。
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** 等待后台写线程收尾的上限。到点就杀，不让用户对着黑屏干等。 */
+    private static final long EXIT_KILL_GRACE_MS = 3000L;
+
+    /** 需要等它们写完再杀进程的后台线程名（见 MusicResult）。 */
+    private static final String[] PENDING_WRITE_THREAD_NAMES = {
+            "ScoreWriteThread", "ReplayWriteThread", "OldScoreLoadThread"
+    };
+
+    /** 防止 onDestroy 被走两次时重复排程。 */
+    private boolean processKillScheduled = false;
+
+    /** 是否还有「成绩 / 回放写入」类的后台线程活着。 */
+    private static boolean hasAliveWriteThread() {
+        for (Thread t : Thread.getAllStackTraces().keySet()) {
+            if (!t.isAlive()) {
+                continue;
+            }
+            final String name = t.getName();
+            for (String pending : PENDING_WRITE_THREAD_NAMES) {
+                if (pending.equals(name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 排程「等写线程收尾 → 结束本进程」。
+     *
+     * <p>故意**不**等 {@code AssetSeeder}：首次启动的内蔵曲拷贝自己有完成标记 + 差分补齐
+     * （见 {@code android-startup-anr-inochi-seed.md}），中途退出下次会接着补；
+     * 而它可能要跑几十秒，等它会让退出卡住。
+     */
+    private void scheduleProcessKill() {
+        if (processKillScheduled) {
+            return;
+        }
+        processKillScheduled = true;
+
+        // 退出时 Activity 已经在 finish，任务可以从最近任务里摘掉
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            try {
+                finishAndRemoveTask();
+            } catch (Throwable ignore) {
+            }
+        }
+
+        // 兜底再存一次配置：非对话框路径（例如直接 finish）未必走过 MainController.exit()。
+        // saveConfig() 是幂等的写文件操作，多写一次无害。
+        try {
+            com.badlogic.gdx.ApplicationListener al = Gdx.app != null ? Gdx.app.getApplicationListener() : null;
+            if (al instanceof BeatorajaGame) {
+                bms.player.beatoraja.MainController mc = ((BeatorajaGame) al).getMainController();
+                if (mc != null) {
+                    mc.saveConfig();
+                }
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "saveConfig before process kill failed", t);
+        }
+
+        final Handler handler = new Handler(Looper.getMainLooper());
+        final long deadline = System.currentTimeMillis() + EXIT_KILL_GRACE_MS;
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                final boolean stillWriting = hasAliveWriteThread();
+                if (stillWriting && System.currentTimeMillis() < deadline) {
+                    handler.postDelayed(this, 100);
+                    return;
+                }
+                Log.i(TAG, "Exit: killing process " + android.os.Process.myPid()
+                        + " (write threads still alive: " + stillWriting + ")");
+                // killProcess 不做 shutdown hook / finally —— 上面的 saveConfig() 已经同步落盘，
+                // 写线程也已收尾（或到点放弃），所以这里是安全的。
+                android.os.Process.killProcess(android.os.Process.myPid());
+            }
+        });
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // 语言在 super.onCreate() 之前定好：此时本 app 的 Configuration 还是框架给的原值
@@ -1922,5 +2023,14 @@ public class AndroidLauncher extends AndroidApplication {
         stopKeepAlive();
         instance = null;
         super.onDestroy();
+
+        // 🔴 只有「用户真的要退出游戏」时才杀进程：
+        //   - isFinishing()               : Activity 是被 finish 掉的（退出对话框 / 直接 finish），
+        //                                   而不是系统为回收内存销毁后台 Activity
+        //   - !isChangingConfigurations() : 排除 recreate()（权限重入、配置变更）——
+        //                                   那条路径销毁后还要重建，杀了进程就等于自杀
+        if (isFinishing() && !isChangingConfigurations()) {
+            scheduleProcessKill();
+        }
     }
 }
