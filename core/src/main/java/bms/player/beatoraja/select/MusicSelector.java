@@ -372,25 +372,133 @@ public final class MusicSelector extends MainState implements BarRenderSource {
 		}
 
 		// (5) 文件夹灯：聚合查询必须在后台线程（和 BarManager 加载文件夹时同一套做法）
-		if (resource.getConfig().isFolderlamp() && bars != null) {
-			final Array<Bar> folders = new Array<Bar>();
-			for (Bar b : bars) {
-				if (b instanceof DirectoryBar) {
-					folders.add(b);
-				}
-			}
-			if (folders.size > 0) {
-				new Thread(() -> {
-					for (Bar b : folders) {
-						try {
-							((DirectoryBar) b).updateFolderStatus();
-						} catch (Throwable t) {
-							// 单个文件夹失败不影响其它
-						}
-					}
-				}, "folder-lamp-refresh").start();
+		updateFolderLampsAsync();
+	}
+
+	/**
+	 * 重算当前列表里所有文件夹 bar 的灯。
+	 *
+	 * <p>聚合查询（每个文件夹一条 GROUP BY）必须离开 GL 线程 —— 与 BarManager 加载文件夹时
+	 * 同一套做法。这里只负责起线程，失败按文件夹隔离。</p>
+	 *
+	 * <p>灯反映的是「文件夹内曲目的成绩情况」，而成绩由后台写线程落库 ⇒ 与
+	 * {@link #applyPendingScoreRefresh()} 是同一个竞态，所以两处都会调它。</p>
+	 */
+	private void updateFolderLampsAsync() {
+		if (!resource.getConfig().isFolderlamp()) {
+			return;
+		}
+		final Bar[] bars = manager.getBarList();
+		if (bars == null) {
+			return;
+		}
+		final Array<Bar> folders = new Array<Bar>();
+		for (Bar b : bars) {
+			if (b instanceof DirectoryBar) {
+				folders.add(b);
 			}
 		}
+		if (folders.size == 0) {
+			return;
+		}
+		new Thread(() -> {
+			for (Bar b : folders) {
+				try {
+					((DirectoryBar) b).updateFolderStatus();
+				} catch (Throwable t) {
+					// 单个文件夹失败不影响其它
+				}
+			}
+		}, "folder-lamp-refresh").start();
+	}
+
+	/**
+	 * 成绩 / 回放的写入线程完成后的补刷。
+	 *
+	 * <p><b>为什么需要：</b>成绩（{@code MusicResult.ScoreWriteThread}）与回放
+	 * （{@code ReplayWriteThread}）都由结算画面 fire-and-forget 地丢到后台线程去写，而
+	 * {@link #refreshAfterPlay()} 只在「回到选曲界面那一刻」读一次 DB。写入慢于这一次读时，
+	 * 读到的就是旧值；之后本会话再没有任何重试入口（{@code scorecache} 与 selector 实例
+	 * 全程复用、{@code create()} 也不会再跑）⇒ 表现为「打完歌分数 / 回放图标不更新，
+	 * 必须重启游戏」。</p>
+	 *
+	 * <p><b>现在：</b>写入线程完成后会把 sha256 投递到 {@code MainController} 的队列
+	 * （{@code requestScoreRefresh}），这里在 GL 线程取走并重读。走 sha256 而不是「上一曲」
+	 * 的好处是：即使通知到达时用户已经翻到别的文件夹、或那次 {@code refreshAfterPlay()}
+	 * 整个没轮到（例如用户先去了设置页），只要那个 bar 当前在列表里就会被更新。</p>
+	 *
+	 * <p><b>开销：</b>一次 player 查询 + 每个变脏 sha 一次 score 查询 + 4 次回放存在检查
+	 * （回放存在检查走 {@code FileCache}，写入侧写完已经 invalidate 过）。
+	 * 没有通知时该方法直接返回，不产生任何查询。</p>
+	 */
+	private void applyPendingScoreRefresh() {
+		final String[] dirty = main.consumeScoreRefresh();
+		if (dirty == null) {
+			return;
+		}
+		try {
+			final PlayDataAccessor pda = main.getPlayDataAccessor();
+
+			// (1) 先让这些 sha 的缓存失效，逼下一次 readScoreData 真的走 DB。
+			//     必须在读之前做，且只能在 GL 线程做（内部 ObjectMap 无同步）。
+			for (String sha : dirty) {
+				scorecache.invalidate(sha);
+			}
+
+			// (2) player_* 面板（play count / clear / notes / playtime…）与成绩走的是
+			//     同一条写线程链路，同样可能晚到；一起重读才能让「累计」与列表同源。
+			final PlayerData pd = pda.readPlayerData();
+			if (pd != null) {
+				resource.setPlayerData(pd);
+			}
+			resource.setTodayPlayerData(pda.readTodayPlayerData());
+
+			// (3) 把变脏的曲目在当前列表里对应的 bar 换成新引用。
+			//     bar 的灯 / 奖杯 / 分数读数取的是 bar.getScore() 这个**引用**，
+			//     光更新缓存而不换引用是看不见变化的（同 refreshAfterPlay 的注释）。
+			final Bar[] bars = manager.getBarList();
+			if (bars != null) {
+				for (Bar b : bars) {
+					if (!(b instanceof SongBar sb) || sb.getSongData() == null) {
+						continue;
+					}
+					final SongData sd = sb.getSongData();
+					if (!containsSha(dirty, sd.getSha256())) {
+						continue;
+					}
+					sb.setScore(scorecache.readScoreData(sd, config.getLnmode()));
+					for (int i = 0; i < REPLAY; i++) {
+						sb.setExistsReplay(i, pda.existsReplayData(sd.getSha256(), sd.hasUndefinedLongNote(),
+								config.getLnmode(), i));
+					}
+				}
+			}
+
+			// (4)「曲目情报」面板跟着选中的 bar 走
+			final Bar selected = manager.getSelected();
+			if (selected != null) {
+				getScoreDataProperty().update(selected.getScore(), selected.getRivalScore());
+			}
+
+			// (5) 文件夹灯：里面的成绩聚合同样依赖刚写完的成绩，也要补刷（后台线程）
+			updateFolderLampsAsync();
+		} catch (Throwable t) {
+			// 这是 GL 线程的一处入口（含同步 DB IO），兜住异常别把整帧渲染带走。
+			Logger.getGlobal().warning("選曲画面: 成績キャッシュの再取得に失敗 : " + t);
+		}
+	}
+
+	/** {@code sha} 是否在待刷新集合里（{@code dirty} 通常只有 1～2 个元素，线性扫足够）。 */
+	private static boolean containsSha(String[] dirty, String sha) {
+		if (sha == null) {
+			return false;
+		}
+		for (String d : dirty) {
+			if (sha.equals(d)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -463,6 +571,10 @@ public final class MusicSelector extends MainState implements BarRenderSource {
 				Logger.getGlobal().warning("選曲画面: 曲庫更新後のリスト再構築に失敗 : " + t);
 			}
 		}
+
+		// 成绩 / 回放的写入线程完成后的补刷（写入是后台线程，prepare() 里那一次读可能输给它）。
+		// 与上面的列表重建分开：它只换个别 bar 的引用，不重建列表。
+		applyPendingScoreRefresh();
 
 		final Bar current = manager.getSelected();
         if(timer.getNowTime() > getSkin().getInput()){

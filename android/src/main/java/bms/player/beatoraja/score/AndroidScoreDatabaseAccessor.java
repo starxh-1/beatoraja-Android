@@ -8,6 +8,7 @@ import android.util.Log;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -182,9 +183,19 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
         getScoreDatasInternal(collector, songs, 0, false);
     }
 
+    /**
+     * SQLite 的 {@code SQLITE_MAX_VARIABLE_NUMBER} 在老 Android 上是 <b>999</b>，
+     * 而 IN 子句的每个 {@code ?} 都占一个变量（再加 mode 参数）。一个上千首的
+     * 文件夹/root 列表直接拼一条语句会抛 {@code too many SQL variables}；
+     * 而本方法是 {@code catch (Exception) → 记 severe}，一旦抛出 scores 就为空 ⇒
+     * collector 给每首歌回 null ⇒ <b>整个列表成绩全空</b>（比卡顿严重得多）。
+     * 所以按 500 一条分块（远低于 999，也顺带压低了单次查询的峰值内存）。
+     */
+    private static final int MAX_SQL_VARIABLES = 500;
+
     private void getScoreDatasInternal(ScoreDataCollector collector, SongData[] songs, int mode, boolean hasln) {
-        SQLiteDatabase db = helper.getReadableDatabase();
-        List<String> matchingHashes = new ArrayList<>();
+        final SQLiteDatabase db = helper.getReadableDatabase();
+        final List<String> matchingHashes = new ArrayList<>();
         for (SongData song : songs) {
             if ((hasln && song.hasUndefinedLongNote()) || (!hasln && !song.hasUndefinedLongNote())) {
                 matchingHashes.add(song.getSha256());
@@ -192,41 +203,42 @@ public class AndroidScoreDatabaseAccessor extends ScoreDatabaseAccessor {
         }
         if (matchingHashes.isEmpty()) return;
 
-        // Build parameterized IN clause
-        StringBuilder placeholders = new StringBuilder();
-        String[] args = new String[matchingHashes.size() + 1];
-        for (int i = 0; i < matchingHashes.size(); i++) {
-            if (i > 0) placeholders.append(',');
-            placeholders.append('?');
-            args[i] = matchingHashes.get(i);
-        }
-        args[matchingHashes.size()] = String.valueOf(mode);
+        // sha256 → 该 mode 下的成绩。同一 sha256 若有多行，取游标中最先遇到的一条
+        // （与原实现「按 songs 顺序逐个匹配、命中即 break」的结果一致）。
+        final Map<String, ScoreData> found = new HashMap<>();
+        for (int from = 0; from < matchingHashes.size(); from += MAX_SQL_VARIABLES) {
+            final int to = Math.min(from + MAX_SQL_VARIABLES, matchingHashes.size());
+            final List<String> chunk = matchingHashes.subList(from, to);
 
-        List<ScoreData> scores = new ArrayList<>();
-        try (Cursor c = db.rawQuery(
-                "SELECT * FROM score WHERE sha256 IN (" + placeholders + ") AND mode = ?",
-                args)) {
-            while (c.moveToNext()) {
-                ScoreData s = cursorToScoreData(c);
-                if (s.validate()) scores.add(s);
+            // Build parameterized IN clause
+            StringBuilder placeholders = new StringBuilder();
+            String[] args = new String[chunk.size() + 1];
+            for (int i = 0; i < chunk.size(); i++) {
+                if (i > 0) placeholders.append(',');
+                placeholders.append('?');
+                args[i] = chunk.get(i);
             }
-        } catch (Exception e) {
-            Logger.getGlobal().severe("getScoreDatas error: " + e.getMessage());
+            args[chunk.size()] = String.valueOf(mode);
+
+            try (Cursor c = db.rawQuery(
+                    "SELECT * FROM score WHERE sha256 IN (" + placeholders + ") AND mode = ?",
+                    args)) {
+                while (c.moveToNext()) {
+                    ScoreData s = cursorToScoreData(c);
+                    // 注意：不用 Map.putIfAbsent —— 它是 Java 8 新增的接口默认方法，
+                    // 真机 API 22 上 java.util.Map 没有它，desugar 也补不了既有平台类的新方法。
+                    if (s.validate() && !found.containsKey(s.getSha256())) {
+                        found.put(s.getSha256(), s);
+                    }
+                }
+            } catch (Exception e) {
+                Logger.getGlobal().severe("getScoreDatas error: " + e.getMessage());
+            }
         }
 
         for (SongData song : songs) {
             if ((hasln && song.hasUndefinedLongNote()) || (!hasln && !song.hasUndefinedLongNote())) {
-                boolean found = false;
-                for (ScoreData score : scores) {
-                    if (song.getSha256().equals(score.getSha256())) {
-                        collector.collect(song, score);
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found) {
-                    collector.collect(song, null);
-                }
+                collector.collect(song, found.get(song.getSha256()));
             }
         }
     }

@@ -361,6 +361,11 @@ public class MusicResult extends AbstractResult {
 					} catch (Exception e) {
 						Logger.getGlobal().severe("Failed to save replay data: " + e.getMessage());
 						e.printStackTrace();
+					} finally {
+						// 回放文件写完 ⇒ 让选曲界面重新查一次「リプレイ」图标的存在性。
+						// FileCache 已在 wrireReplayData() 内部失效，这里只是触发重读
+						// （否则 prepare() 那次读若跑在前面，图标要重启才亮）。
+						main.requestScoreRefresh(model.getSHA256());
 					}
 				}, "ReplayWriteThread").start();
 			}
@@ -533,6 +538,12 @@ public class MusicResult extends AbstractResult {
 				} catch (Exception e) {
 					Logger.getGlobal().severe("Failed to save score: " + e.getMessage());
 					e.printStackTrace();
+				} finally {
+					// 🔴 写完（或写失败）都要通知选曲界面重读这一曲。
+					// MusicSelector.prepare() → refreshAfterPlay() 的那一次读很可能跑在
+					// 本线程前面（写入较慢），不补这一次就会一直显示旧成绩，
+					// 且本会话再无重试入口（scorecache / selector 全程复用）⇒ 要重启游戏。
+					main.requestScoreRefresh(modelToSave.getSHA256());
 				}
 			}, "ScoreWriteThread").start();
 		} else {

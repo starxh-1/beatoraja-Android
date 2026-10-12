@@ -453,11 +453,30 @@ public final class BarManager {
 			}
 
 			Bar[] newcurrentsongs = l.toArray(Bar.class);
+			// 🔴 批量取分（2026-10-12）：原先是逐首 readScoreData() ⇒ 缓存未命中时
+			// **每首一次** `SELECT * FROM score WHERE sha256=? AND mode=?`。首次进入一个
+			// 数百首的文件夹就是数百次串行 SQLite 查询，全部压在 GL 线程上 —— 这正是
+			// 「按方向键进目录卡一下」的真身，也是 updateBar() 里最贵的一步。
+			// 换成一次 readScoreDatas()：命中缓存的直接取，未命中的由 DB 侧用
+			// `sha256 IN (...)` 批量查回（见 AndroidScoreDatabaseAccessor.getScoreDatasInternal，
+			// 内部按 500 分块以防 SQLite 变量数上限）。
+			// 行为等价：collector 对每首都会回调（无成绩的回调 null），且 null 不写缓存。
+			final Array<SongData> scoreTargets = new Array<SongData>();
 			for (Bar b : newcurrentsongs) {
-				if (b instanceof SongBar sb) {
-					SongData sd = sb.getSongData();
-					if (sd != null) {
-						b.setScore(select.getScoreDataCache().readScoreData(sd, config.getLnmode()));
+				if (b instanceof SongBar sb && sb.getSongData() != null && sb.getSongData().getSha256() != null) {
+					scoreTargets.add(sb.getSongData());
+				}
+			}
+			if (scoreTargets.size > 0) {
+				final ObjectMap<String, ScoreData> fetched = new ObjectMap<String, ScoreData>();
+				select.getScoreDataCache().readScoreDatas((song, score) -> {
+					if (score != null) {
+						fetched.put(song.getSha256(), score);
+					}
+				}, scoreTargets.toArray(SongData.class), config.getLnmode());
+				for (Bar b : newcurrentsongs) {
+					if (b instanceof SongBar sb && sb.getSongData() != null) {
+						b.setScore(fetched.get(sb.getSongData().getSha256()));
 					}
 				}
 			}

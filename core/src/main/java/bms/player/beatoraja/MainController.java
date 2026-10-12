@@ -2,6 +2,7 @@ package bms.player.beatoraja;
 
 import java.io.File;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Logger;
 
@@ -138,6 +139,23 @@ public class MainController {
     private MusicDownloadProcessor download;
     /** MusicSelector是否已初始化过（避免每次切回都重新create导致歌曲扫描） */
     private boolean selectorInitialized = false;
+
+    /**
+     * 「成绩 / 回放已经写入完成，选曲界面需要重读这几个 sha256」的跨线程信箱。
+     *
+     * <p>成绩（{@code MusicResult.ScoreWriteThread}）与回放（{@code ReplayWriteThread}）的写入都是
+     * fire-and-forget 的后台线程，而 {@code MusicSelector.prepare()} 里的 {@code refreshAfterPlay()}
+     * 只在「刚回到选曲界面那一瞬间」读一次。写入慢于那次读 ⇒ 界面永远显示旧成绩，
+     * 且 {@code selector} 实例与它的 {@code ScoreDataCache} 全程复用 ⇒ 只能重启恢复。</p>
+     *
+     * <p>写入线程完成后往这里投递 sha256（{@link #requestScoreRefresh(String)}，任意线程可调）；
+     * GL 线程在 {@code MusicSelector.render()} 里取走并重读
+     * （{@link #consumeScoreRefresh()}）。</p>
+     *
+     * <p>用队列而不是集合：投递方是后台线程、消费方是 GL 线程，队列的 poll 循环天然不会
+     * 「消费期间新投递的被 clear 掉」。重复项无害（重读一次而已），在消费侧去重。</p>
+     */
+    private final ConcurrentLinkedQueue<String> pendingScoreRefresh = new ConcurrentLinkedQueue<>();
 
     /** BeatorajaGame实例引用，用于FloatingMenu回调更新频谱配置 */
     private Object beatorajaGame;
@@ -1565,6 +1583,49 @@ public class MainController {
         }
         sel.getBarManager().invalidateDirectoryCaches();
         sel.getBarManager().requestRefresh();
+    }
+
+    /**
+     * 成绩 / 回放的写入线程完成后，投递「这曲的数据变了」通知。
+     *
+     * <p>🔴 这是<b>任意线程</b>都能调的（实际调用者就是
+     * {@code MusicResult.ScoreWriteThread} 与 {@code ReplayWriteThread}）。
+     * 这里只碰线程安全的队列，<b>绝不碰</b> {@code ScoreDataCache} —— 后者内部的
+     * {@code ObjectMap} 没有同步，只能在 GL 线程访问。</p>
+     *
+     * <p>用户可能此刻不在选曲界面（还在看结算画面 / 已退回设置页）：通知会一直挂在队列里，
+     * 等下次 {@code MusicSelector.render()} 跑起来才被消费。因为存的是 sha256 而不是
+     * 「一次性事件」，重复投递也只会导致一次多余的重读，是幂等的。</p>
+     *
+     * @param sha256 刚写完成绩 / 回放的楽曲 sha256。null 会被忽略
+     */
+    public void requestScoreRefresh(String sha256) {
+        // 空串也要挡掉：BMSModel.getSHA256() 未设置时返回 ""，进队列只会白刷一次
+        if (sha256 != null && !sha256.isEmpty()) {
+            pendingScoreRefresh.add(sha256);
+        }
+    }
+
+    /**
+     * 取走并清空待刷新的 sha256 列表（<b>只能在 GL 线程调用</b>）。
+     *
+     * @return 去重后的 sha256 数组；没有待处理项时返回 {@code null}
+     *         （这是每帧都会走的正常路径，所以先 {@code isEmpty()} 挡一下，
+     *         避免热路径上白白 new 一堆对象）
+     */
+    public String[] consumeScoreRefresh() {
+        if (pendingScoreRefresh.isEmpty()) {
+            return null;
+        }
+        final Array<String> out = new Array<>();
+        String sha;
+        while ((sha = pendingScoreRefresh.poll()) != null) {
+            // 队列允许重复（同一曲写成绩 + 写回放各投一次），这里按 equals 去重
+            if (!out.contains(sha, false)) {
+                out.add(sha);
+            }
+        }
+        return out.size == 0 ? null : out.toArray(String.class);
     }
 
     public void updateTable(TableBar reader) {

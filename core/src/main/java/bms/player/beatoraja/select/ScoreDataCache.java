@@ -97,6 +97,35 @@ public abstract class ScoreDataCache {
         }
     }
 
+    /**
+     * 指定した sha256 のスコアデータをキャッシュから破棄する（次の取得は DB を読み直す）。
+     *
+     * <p><b>なぜ必要か：</b>{@link #update(SongData, int)} は「DB から読めた値」を put するだけで、
+     * 読めなかった場合は<b>既にある古い値をそのまま残す</b>。成績の書き込みは
+     * {@code MusicResult.ScoreWriteThread} という <b>fire-and-forget のバックグラウンドスレッド</b>
+     * で行われるため、選曲画面へ戻った瞬間に走る 1 回の {@code update()} が書き込みに負けることがある。
+     * その場合キャッシュには古い値が残り、{@code MusicSelector} インスタンスも本キャッシュも
+     * セッション中ずっと再利用されるため、<b>再起動するまで更新されない</b>。</p>
+     *
+     * <p>そこで書き込みスレッドが完了した時点でこのメソッドでキャッシュを捨て、
+     * GL スレッド側で読み直す
+     * （{@code MainController.requestScoreRefresh} → {@code MusicSelector.applyPendingScoreRefresh}）。</p>
+     *
+     * <p>🔴 <b>GL スレッドからのみ呼ぶこと。</b>内部の {@code ObjectMap} は同期化されておらず、
+     * 取得系（{@link #readScoreData}/{@link #readScoreDatas}）と同じスレッドでしか触れない。
+     * 書き込みスレッド側は {@code MainController} のキューに積むだけにしてある。</p>
+     *
+     * @param sha256 楽曲の sha256。null は無視する
+     */
+    public void invalidate(String sha256) {
+        if (sha256 == null) {
+            return;
+        }
+        for (ObjectMap<String, ScoreData> cache : scorecache) {
+            cache.remove(sha256);
+        }
+    }
+
     public void update(SongData song, int lnmode) {
         final int cacheindex = song.hasUndefinedLongNote() ? lnmode : 3;
         ScoreData score = readScoreDatasFromSource(song, lnmode);
