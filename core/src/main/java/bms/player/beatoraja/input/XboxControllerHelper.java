@@ -28,19 +28,27 @@ public class XboxControllerHelper {
     public static final int XBOX_BUTTON_L3 = 8;
     public static final int XBOX_BUTTON_R3 = 9;
 
-    // Android libGDX 后端 remap 后的实测 button id（与 KeyEvent.KEYCODE_BUTTON_* 对应）
-    public static final int ANDROID_BUTTON_A = 97;
-    public static final int ANDROID_BUTTON_B = 98;
-    public static final int ANDROID_BUTTON_X = 100;
-    public static final int ANDROID_BUTTON_Y = 101;
-    public static final int ANDROID_BUTTON_L3 = 107;
-    public static final int ANDROID_BUTTON_R3 = 108;
+    // Android のボタン id は、libGDX が「Android の KeyEvent keycode をそのまま」使う。
+    // 根拠（gdx-controllers-android 2.2.4 ソース）:
+    //   AndroidControllers#onKey() が `event.code = keyCode`（KeyEvent の keycode をそのまま）で積み、
+    //   AndroidController#getButton(i) は `buttons.containsKey(i)` を返すだけ = 独自 remap なし。
+    //   getMaxButtonIndex() のコメントも "see Android's KeyEvent class"。
+    // ⇒ 値は KeyEvent.KEYCODE_* と**完全一致**させること。
+    //    ⚠️ 旧値は全て +1 ずれていた（A=97/B=98/X=100/Y=101）。97 は KEYCODE_BUTTON_B なので、
+    //       実機では A を押しても無反応・**B が Enter** になっていた（2026-10-13 修正）。
+    public static final int ANDROID_BUTTON_A = 96;   // KeyEvent.KEYCODE_BUTTON_A
+    public static final int ANDROID_BUTTON_B = 97;   // KeyEvent.KEYCODE_BUTTON_B
+    public static final int ANDROID_BUTTON_X = 99;   // KeyEvent.KEYCODE_BUTTON_X
+    public static final int ANDROID_BUTTON_Y = 100;  // KeyEvent.KEYCODE_BUTTON_Y
+    public static final int ANDROID_BUTTON_L3 = 106; // KeyEvent.KEYCODE_BUTTON_THUMBL
+    public static final int ANDROID_BUTTON_R3 = 107; // KeyEvent.KEYCODE_BUTTON_THUMBR
 
-    // Android D-pad libGDX remap id (用户实测: 上下=20/21, 左右=22/23)
-    public static final int ANDROID_DPAD_UP = 20;
-    public static final int ANDROID_DPAD_DOWN = 21;
-    public static final int ANDROID_DPAD_LEFT = 22;
-    public static final int ANDROID_DPAD_RIGHT = 23;
+    // Android の D-pad も同じく KeyEvent keycode（HAT 軸から合成される経路も同じ値を使う）。
+    // ⚠️ 旧値 20/21/22/23 は 1 つずれていた（D-pad 上=無反応、下押しが「上」扱い…の回転）。
+    public static final int ANDROID_DPAD_UP = 19;    // KeyEvent.KEYCODE_DPAD_UP
+    public static final int ANDROID_DPAD_DOWN = 20;  // KeyEvent.KEYCODE_DPAD_DOWN
+    public static final int ANDROID_DPAD_LEFT = 21;  // KeyEvent.KEYCODE_DPAD_LEFT
+    public static final int ANDROID_DPAD_RIGHT = 22; // KeyEvent.KEYCODE_DPAD_RIGHT
 
     // XBOX手柄轴代码
     public static final int XBOX_AXIS_LEFT_X = 0;

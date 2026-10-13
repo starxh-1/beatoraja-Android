@@ -354,13 +354,25 @@ public class BMControllerInputProcessor extends BMSPlayerInputDevice {
 		public static final int MAXID = 256;
 
 		/**
-		 * 専コンのキーコードに対応したテキスト
+		 * 専コンのキーコードに対応したテキスト。
+		 *
+		 * <p><b>軸（AXIS）の表示名は「物理的な向き」を書くこと。</b>ラベル中の軸番号は
+		 * このクラスの定数と同じ 1 始まり（{@code AXIS1_*} ＝ {@code getAxis(0)}）。実機での対応は</p>
+		 * <ul>
+		 *   <li>id 32/33（{@code AXIS1} ＝ axis index 0 ＝ X 軸／左スティック左右）: + → <b>RIGHT</b>, − → <b>LEFT</b></li>
+		 *   <li>id 34/35（{@code AXIS2} ＝ axis index 1 ＝ Y 軸／左スティック上下）: + → <b>DOWN</b>, − → <b>UP</b>
+		 *       （Android/libGDX の生値は下向きが正のため）</li>
+		 * </ul>
+		 * <p>⚠️ この向きは {@code KeyConfiguration#pollControllerNavShortcuts} の変換と
+		 * <b>必ず一致</b>させること（あちらは 8bdaf079「swap axis mapping」/ f3322880
+		 * 「invert Y axis」で実機調整済み）。片方だけ直すと、上に倒したのに
+		 * {@code LEFT (AXIS 2 -)} と表示される、のような食い違いが戻る。</p>
 		 */
         private static final String[] BMCODE = { "BUTTON 1", "BUTTON 2", "BUTTON 3", "BUTTON 4", "BUTTON 5", "BUTTON 6",
                 "BUTTON 7", "BUTTON 8", "BUTTON 9", "BUTTON 10", "BUTTON 11", "BUTTON 12", "BUTTON 13", "BUTTON 14",
                 "BUTTON 15", "BUTTON 16", "BUTTON 17", "BUTTON 18", "BUTTON 19", "BUTTON 20", "BUTTON 21", "BUTTON 22",
                 "BUTTON 23", "BUTTON 24", "BUTTON 25", "BUTTON 26", "BUTTON 27", "BUTTON 28", "BUTTON 29", "BUTTON 30",
-                "BUTTON 31", "BUTTON 32", "UP (AXIS 1 +)", "DOWN (AXIS 1 -)", "RIGHT (AXIS 2 +)", "LEFT (AXIS 2 -)",
+                "BUTTON 31", "BUTTON 32", "RIGHT (AXIS 1 +)", "LEFT (AXIS 1 -)", "DOWN (AXIS 2 +)", "UP (AXIS 2 -)",
                 "AXIS 3 +", "AXIS 3 -", "AXIS 4 +", "AXIS 4 -", "AXIS 5 +", "AXIS 5 -", "AXIS 6 +", "AXIS 6 -", "AXIS 7 +", "AXIS 7 -", "AXIS 8 +", "AXIS 8 -" };
 
 		public static final String toString(int keycode) {
